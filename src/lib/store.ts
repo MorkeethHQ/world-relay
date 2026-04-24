@@ -1,4 +1,4 @@
-import type { Task, TaskStatus, TaskCategory } from "./types";
+import type { Task, TaskStatus, TaskCategory, AiFollowUp } from "./types";
 import { getRedis } from "./redis";
 import { getAgent } from "./agents";
 export type { Task, TaskStatus, TaskCategory };
@@ -42,6 +42,7 @@ async function hydrateCache(): Promise<void> {
     if (!raw) continue;
     const task: Task = typeof raw === "string" ? JSON.parse(raw) : (raw as Task);
     if (task.agent === undefined) task.agent = null;
+    if ((task as any).aiFollowUp === undefined) task.aiFollowUp = null;
     cache.set(task.id, task);
   }
   cacheHydrated = true;
@@ -77,6 +78,7 @@ export function createTask(input: {
     verificationResult: null,
     attestationTxHash: null,
     agent,
+    aiFollowUp: null,
     createdAt: new Date().toISOString(),
   };
   cache.set(id, task);
@@ -170,6 +172,35 @@ export async function posterConfirm(id: string, approved: boolean): Promise<Task
     task.proofImageUrl = null;
     task.proofNote = null;
     task.verificationResult = null;
+  }
+  task.aiFollowUp = null;
+  persistTask(task).catch(console.error);
+  return task;
+}
+
+export async function setFollowUp(id: string, question: string, confidence: number): Promise<Task | null> {
+  const task = await getTask(id);
+  if (!task) return null;
+  task.aiFollowUp = { question, status: "pending", initialConfidence: confidence };
+  persistTask(task).catch(console.error);
+  return task;
+}
+
+export async function resolveFollowUp(
+  id: string,
+  result: { verdict: "pass" | "flag" | "fail"; reasoning: string; confidence: number }
+): Promise<Task | null> {
+  const task = await getTask(id);
+  if (!task) return null;
+  task.aiFollowUp = task.aiFollowUp ? { ...task.aiFollowUp, status: "resolved" } : null;
+  task.verificationResult = result;
+  if (result.verdict === "pass") {
+    task.status = "completed";
+  } else if (result.verdict === "fail") {
+    task.status = "open";
+    task.claimant = null;
+    task.proofImageUrl = null;
+    task.proofNote = null;
   }
   persistTask(task).catch(console.error);
   return task;

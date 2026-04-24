@@ -15,6 +15,12 @@ export type AgentInfo = {
   color: string;
 };
 
+export type AiFollowUp = {
+  question: string;
+  status: "pending" | "resolved";
+  initialConfidence: number;
+};
+
 export type Task = {
   id: string;
   poster: string;
@@ -32,5 +38,6 @@ export type Task = {
   verificationResult: VerificationResult | null;
   attestationTxHash: string | null;
   agent: AgentInfo | null;
+  aiFollowUp: AiFollowUp | null;
   createdAt: string;
 };

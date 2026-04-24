@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getTask, submitProof, completeTask, setAttestationHash } from "@/lib/store";
+import { getTask, submitProof, completeTask, setAttestationHash, setFollowUp } from "@/lib/store";
 import { verifyProof, verifyProofStub } from "@/lib/verify-proof";
-import { postProofSubmitted, postVerificationResult } from "@/lib/xmtp";
+import { postProofSubmitted, postVerificationResult, postFollowUpQuestion } from "@/lib/xmtp";
+import { generateFollowUpQuestion } from "@/lib/ai-chat";
 import { notifyProofSubmitted, notifyVerified, notifyFlagged } from "@/lib/notifications";
 import { postAttestation } from "@/lib/attestation";
 import { recordCompletion, recordFailure } from "@/lib/reputation";
@@ -68,17 +69,36 @@ export async function POST(req: NextRequest) {
     result = verifyProofStub(task.description, proofImageBase64);
   }
 
-  await completeTask(taskId, result);
-  await postVerificationResult(taskId, result.verdict, result.reasoning, task.bountyUsdc, result.confidence);
+  const isFollowUpCandidate = result.verdict === "flag" && result.confidence >= 0.6 && result.confidence <= 0.85;
 
-  notifyProofSubmitted(task.poster, task.description).catch(console.error);
-  if (result.verdict === "pass" && task.claimant) {
-    notifyVerified(task.claimant, task.bountyUsdc).catch(console.error);
-  } else if (result.verdict === "flag") {
-    notifyFlagged(task.poster, task.description).catch(console.error);
+  if (isFollowUpCandidate && useRealVerification) {
+    await completeTask(taskId, result);
+
+    const followUpQ = await generateFollowUpQuestion(task, proofImageBase64, {
+      reasoning: result.reasoning,
+      confidence: result.confidence,
+    }).catch(() => null);
+
+    if (followUpQ) {
+      await setFollowUp(taskId, followUpQ, result.confidence);
+      await postFollowUpQuestion(taskId, followUpQ, result.confidence);
+    } else {
+      await postVerificationResult(taskId, result.verdict, result.reasoning, task.bountyUsdc, result.confidence);
+      notifyFlagged(task.poster, task.description).catch(console.error);
+    }
+  } else {
+    await completeTask(taskId, result);
+    await postVerificationResult(taskId, result.verdict, result.reasoning, task.bountyUsdc, result.confidence);
+
+    if (result.verdict === "pass" && task.claimant) {
+      notifyVerified(task.claimant, task.bountyUsdc).catch(console.error);
+    } else if (result.verdict === "flag") {
+      notifyFlagged(task.poster, task.description).catch(console.error);
+    }
   }
 
-  // Track reputation
+  notifyProofSubmitted(task.poster, task.description).catch(console.error);
+
   if (task.claimant) {
     if (result.verdict === "pass") {
       recordCompletion(task.claimant, task.bountyUsdc, result.confidence).catch(console.error);

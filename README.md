@@ -58,6 +58,9 @@ This isn't an errand app — it's infrastructure. Uniswap V3 settlement means po
 | **Agent showcase** | `/agents` page with enterprise + everyday use cases and live "Post via API" button |
 | **Earnings + profile** | Identity card with verification badge, USDC earned, trust tier explanation |
 | **Completion gallery** | Proof photos, AI verdicts, confidence scores, location verification, attestation links |
+| **AI Claim Briefing** | Claude Haiku generates task-specific tips in the XMTP thread on claim |
+| **Multi-turn Verification** | Medium-confidence proofs trigger AI follow-up questions; claimant responds; AI re-evaluates |
+| **AI Dispute Resolution** | Poster can trigger AI mediation on flagged proofs — Claude reads full thread and decides |
 | **Chat** | Real-time XMTP messaging between poster and claimant within task detail |
 | **Proof verification** | Camera capture → Claude Vision analysis → structured verdict with location check |
 | **On-chain lifecycle** | Create (Permit2 approve + escrow deposit) → Claim → Release — all via MiniKit |
@@ -83,15 +86,28 @@ This is the missing piece between digital AI and the physical world.
 
 ## XMTP Integration Depth (World Chat Prize)
 
-RELAY uses XMTP as the **primary coordination layer** for every task. This isn't notifications bolted onto a UI — the XMTP thread IS the task record.
+RELAY uses XMTP as the **primary coordination layer** for every task. This isn't notifications bolted onto a UI — the XMTP thread IS the task record. **Claude AI is an active participant in every thread.**
 
 **What happens in each XMTP thread:**
 
 1. **Task Claimed** — Structured message with task description, location, bounty, claimant address
-2. **Proof Submitted** — Notification with claimant's note, "AI verification in progress"
-3. **AI Verdict** — Full structured result: VERIFIED/FLAGGED/REJECTED, reasoning, confidence score
-4. **Settlement Confirmation** — USDC amount, World Chain transaction, "both parties verified human"
-5. **User Chat** — Poster and claimant can exchange messages before, during, and after the task
+2. **AI Briefing** — Claude Haiku generates task-specific tips in the thread ("capture price labels clearly", "include store signage in frame")
+3. **Proof Submitted** — Notification with claimant's note, "AI verification in progress"
+4. **AI Verdict** — Full structured result: VERIFIED/FLAGGED/REJECTED, reasoning, confidence score
+5. **AI Follow-Up** (if confidence 60-85%) — Claude asks a specific follow-up question in the thread. Claimant replies. Claude re-evaluates with full context.
+6. **AI Dispute Resolution** (if flagged) — Poster can trigger AI mediation. Claude reads the full XMTP thread, analyzes all evidence, and renders a binding verdict.
+7. **Settlement Confirmation** — USDC amount, World Chain transaction, "both parties verified human"
+8. **User Chat** — Poster and claimant can exchange messages throughout the lifecycle
+
+**AI × XMTP — Claude as a thread participant:**
+
+| Feature | What happens | Model |
+|---|---|---|
+| **Claim Briefing** | On claim, Claude generates task-specific photography tips posted to the XMTP thread | Haiku |
+| **Multi-turn Verification** | When confidence is medium (60-85%), instead of just flagging, Claude asks a follow-up question in the thread. Claimant responds. Claude re-evaluates with the conversation context. | Haiku (vision) |
+| **AI Dispute Resolution** | When flagged, poster can trigger AI mediation. Claude reads the full XMTP thread history, the proof photo, and the initial verdict — then renders a binding verdict with reasoning. | Haiku (vision) |
+
+The XMTP thread isn't just notifications — it's a **multi-turn AI conversation**. Claude coaches runners, asks follow-ups, and mediates disputes, all within the encrypted XMTP group.
 
 **Technical implementation:**
 - Production XMTP network (not dev/local)
@@ -99,8 +115,10 @@ RELAY uses XMTP as the **primary coordination layer** for every task. This isn't
 - One encrypted group per task, created on claim
 - Messages stored in Redis for offline access + delivered via XMTP protocol
 - Singleton client pattern for serverless (survives cold starts with Redis)
+- Claude Haiku for conversational messages (briefings, follow-ups, disputes) — cost-efficient
+- Claude Sonnet for primary proof verification (vision) — high accuracy
 
-A judge can read any XMTP thread and understand the complete story of a task without ever opening the app UI.
+A judge can read any XMTP thread and follow the complete story: claim → AI briefing → proof → AI analysis → follow-up question → claimant response → re-evaluation → settlement. All in one encrypted conversation.
 
 ---
 
@@ -150,8 +168,10 @@ A judge can read any XMTP thread and understand the complete story of a task wit
 | Route | Method | Description |
 |---|---|---|
 | `/api/tasks` | GET/POST | List and create tasks |
-| `/api/tasks/[id]/claim` | POST | Claim task — enforces World ID trust tier (Orb/$20, Device/$10) |
+| `/api/tasks/[id]/claim` | POST | Claim task — enforces World ID trust tier + triggers AI briefing in XMTP |
 | `/api/tasks/[id]/confirm` | POST | Poster approves/rejects flagged proof |
+| `/api/tasks/[id]/followup` | POST | Re-evaluate proof after claimant responds to AI follow-up question |
+| `/api/tasks/[id]/dispute` | POST | AI dispute resolution — Claude reads full thread and renders binding verdict |
 | `/api/tasks/[id]/messages` | GET/POST | Read/send chat messages in task thread |
 | `/api/verify-proof` | POST | Submit proof → AI verification → location check → reputation update → attestation |
 | `/api/verify-identity` | GET/POST | World ID verification (IDKit v4 + walletAuth) |
@@ -177,7 +197,8 @@ USDC held in escrow on creation via Permit2. Released to claimant on verified co
 | Mini App SDK | @worldcoin/minikit-js |
 | Auth | World ID (IDKit v4 + RP signing) |
 | Messaging | XMTP Node SDK (production network) |
-| AI Verification | Claude Vision (claude-sonnet-4-6) |
+| AI Verification | Claude Sonnet (vision) — proof verification |
+| AI Conversation | Claude Haiku — XMTP briefings, follow-ups, dispute resolution |
 | Escrow | Solidity + OpenZeppelin on World Chain |
 | DEX | Uniswap V3 SwapRouter02 |
 | Persistence | Upstash Redis |

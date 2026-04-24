@@ -224,6 +224,78 @@ export async function postSettlementConfirmation(
   ].join("\n"));
 }
 
+export async function postClaimBriefing(taskId: string, briefing: string): Promise<void> {
+  await postToThread(taskId, [
+    `🤖 AI BRIEFING`,
+    `━━━━━━━━━━━━━━━━━━`,
+    briefing,
+    ``,
+    `Submit your proof photo when ready. Good luck!`,
+  ].join("\n"));
+}
+
+export async function postFollowUpQuestion(taskId: string, question: string, confidence: number): Promise<void> {
+  await postToThread(taskId, [
+    `🔍 AI FOLLOW-UP`,
+    `━━━━━━━━━━━━━━━━━━`,
+    `Confidence: ${Math.round(confidence * 100)}% — not enough to auto-verify.`,
+    ``,
+    question,
+    ``,
+    `Reply in this thread, then tap "Re-evaluate" for a new verdict.`,
+  ].join("\n"));
+}
+
+export async function postReEvaluationResult(
+  taskId: string,
+  verdict: "pass" | "flag" | "fail",
+  reasoning: string,
+  bountyUsdc: number,
+  confidence?: number
+): Promise<void> {
+  const icon = verdict === "pass" ? "✅" : verdict === "flag" ? "⚠️" : "❌";
+  const label = verdict === "pass" ? "VERIFIED (after follow-up)" : verdict === "flag" ? "STILL FLAGGED" : "REJECTED (after follow-up)";
+  await postToThread(taskId, [
+    `${icon} RE-EVALUATION: ${label}`,
+    `━━━━━━━━━━━━━━━━━━`,
+    `Reasoning: ${reasoning}`,
+    ...(confidence ? [`Confidence: ${Math.round(confidence * 100)}%`] : []),
+    ``,
+    ...(verdict === "pass" ? [
+      `💸 SETTLEMENT`,
+      `$${bountyUsdc} USDC → claimant`,
+      `Escrow release on World Chain.`,
+    ] : verdict === "flag" ? [
+      `Poster: approve or reject this proof manually.`,
+    ] : [
+      `Task reopened for new claims.`,
+    ]),
+  ].join("\n"));
+}
+
+export async function postDisputeVerdict(
+  taskId: string,
+  approved: boolean,
+  reasoning: string,
+  bountyUsdc: number,
+  confidence: number
+): Promise<void> {
+  await postToThread(taskId, [
+    `⚖️ AI DISPUTE RESOLUTION`,
+    `━━━━━━━━━━━━━━━━━━`,
+    `After reviewing all evidence and conversation:`,
+    ``,
+    `Reasoning: ${reasoning}`,
+    `Confidence: ${Math.round(confidence * 100)}%`,
+    ``,
+    approved
+      ? `✅ VERDICT: APPROVED\n$${bountyUsdc} USDC → claimant. Escrow released.`
+      : `❌ VERDICT: REJECTED\nTask reopened. $${bountyUsdc} USDC returned to escrow.`,
+    ``,
+    `This verdict was rendered by AI after analyzing the proof photo, initial verification, and the full XMTP thread.`,
+  ].join("\n"));
+}
+
 export async function getXmtpStatus(): Promise<{
   connected: boolean;
   inboxId: string | null;

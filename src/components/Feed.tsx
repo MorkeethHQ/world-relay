@@ -1127,10 +1127,13 @@ function TaskDetail({
   const [showProofImage, setShowProofImage] = useState(false);
   const [swapToken, setSwapToken] = useState<SwapToken>("USDC");
   const [swapping, setSwapping] = useState(false);
+  const [reEvaluating, setReEvaluating] = useState(false);
+  const [disputing, setDisputing] = useState(false);
   const isClaimant = currentTask.claimant === userId;
   const isPoster = currentTask.poster === userId;
   const isParticipant = isClaimant || isPoster;
   const isFlagged = currentTask.verificationResult?.verdict === "flag" && currentTask.status === "claimed";
+  const hasFollowUp = currentTask.aiFollowUp?.status === "pending";
   const messagesEndRef = useCallback((node: HTMLDivElement | null) => {
     node?.scrollIntoView({ behavior: "smooth" });
   }, []);
@@ -1391,7 +1394,7 @@ function TaskDetail({
         )}
 
         {/* Action buttons */}
-        {currentTask.status === "claimed" && isClaimant && !isFlagged && (
+        {currentTask.status === "claimed" && isClaimant && !isFlagged && !hasFollowUp && (
           <button
             onClick={onSubmitProof}
             className="bg-purple-600 hover:bg-purple-500 text-white px-4 py-3 rounded-2xl text-sm font-semibold active:scale-[0.98] transition-all"
@@ -1400,9 +1403,52 @@ function TaskDetail({
           </button>
         )}
 
+        {/* AI Follow-up: claimant can respond and request re-evaluation */}
+        {hasFollowUp && isClaimant && (
+          <div className="bg-purple-500/8 border border-purple-500/20 rounded-2xl p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a855f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /><line x1="12" y1="17" x2="12.01" y2="17" />
+              </svg>
+              <span className="text-sm font-semibold text-purple-400">AI needs more info</span>
+            </div>
+            <p className="text-xs text-gray-400 mb-3">Reply to the AI&apos;s question in the thread below, then tap re-evaluate.</p>
+            <button
+              onClick={async () => {
+                setReEvaluating(true);
+                const res = await fetch(`/api/tasks/${currentTask.id}/followup`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({}),
+                });
+                const data = await res.json();
+                if (data.task) setCurrentTask(data.task);
+                fetchMessages();
+                setReEvaluating(false);
+              }}
+              disabled={reEvaluating}
+              className="w-full bg-purple-600 hover:bg-purple-500 text-white py-2.5 rounded-xl text-sm font-semibold active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {reEvaluating ? (
+                <>
+                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  AI re-evaluating...
+                </>
+              ) : (
+                <>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="23 4 23 10 17 10" /><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+                  </svg>
+                  Re-evaluate Proof
+                </>
+              )}
+            </button>
+          </div>
+        )}
+
         {isFlagged && isPoster && (
           <div className="flex flex-col gap-2">
-            <p className="text-xs text-yellow-400/70 text-center">AI flagged this proof. Your call.</p>
+            <p className="text-xs text-yellow-400/70 text-center">AI flagged this proof. Your call — or let AI mediate.</p>
             <div className="flex gap-2">
               <button
                 onClick={async () => {
@@ -1417,7 +1463,7 @@ function TaskDetail({
                 }}
                 className="flex-1 bg-green-600 hover:bg-green-500 text-white px-4 py-3 rounded-2xl text-sm font-semibold active:scale-[0.98] transition-all"
               >
-                Approve & Pay
+                Approve
               </button>
               <button
                 onClick={async () => {
@@ -1435,6 +1481,36 @@ function TaskDetail({
                 Reject
               </button>
             </div>
+            <button
+              onClick={async () => {
+                setDisputing(true);
+                const res = await fetch(`/api/tasks/${currentTask.id}/dispute`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ poster: userId }),
+                });
+                const data = await res.json();
+                if (data.task) setCurrentTask(data.task);
+                fetchMessages();
+                setDisputing(false);
+              }}
+              disabled={disputing}
+              className="w-full bg-indigo-600/80 hover:bg-indigo-600 text-white py-3 rounded-2xl text-sm font-semibold active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {disputing ? (
+                <>
+                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  AI analyzing thread...
+                </>
+              ) : (
+                <>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10" /><path d="M12 16v-4" /><path d="M12 8h.01" />
+                  </svg>
+                  AI Mediate — Let AI decide
+                </>
+              )}
+            </button>
           </div>
         )}
 
@@ -1454,31 +1530,47 @@ function TaskDetail({
               <p className="text-xs text-gray-600">No messages yet</p>
             </div>
           ) : (
-            messages.map((msg) => (
-              <div
-                key={msg.id}
-                className={`rounded-xl p-3 ${
-                  msg.sender === "relay-bot"
-                    ? "bg-[#111] border border-white/[0.06]"
-                    : msg.sender === userId
-                    ? "bg-blue-600/10 border border-blue-500/15 ml-6"
-                    : "bg-[#111] border border-white/[0.06] mr-6"
-                }`}
-              >
-                <div className="flex items-center justify-between mb-1">
-                  <span className={`text-[10px] font-semibold ${
-                    msg.sender === "relay-bot" ? "text-purple-400" :
-                    msg.sender === userId ? "text-blue-400" : "text-gray-400"
-                  }`}>
-                    {msg.sender === "relay-bot" ? "RELAY" : msg.sender === userId ? "You" : shortId(msg.sender)}
-                  </span>
-                  <span className="text-[10px] text-gray-700">
-                    {new Date(msg.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                  </span>
+            messages.map((msg) => {
+              const isAiBriefing = msg.sender === "relay-bot" && msg.text.includes("AI BRIEFING");
+              const isAiFollowUp = msg.sender === "relay-bot" && msg.text.includes("AI FOLLOW-UP");
+              const isAiDispute = msg.sender === "relay-bot" && msg.text.includes("DISPUTE RESOLUTION");
+              const isAiReEval = msg.sender === "relay-bot" && msg.text.includes("RE-EVALUATION");
+              const isAiMessage = isAiBriefing || isAiFollowUp || isAiDispute || isAiReEval;
+
+              return (
+                <div
+                  key={msg.id}
+                  className={`rounded-xl p-3 ${
+                    isAiMessage
+                      ? "bg-gradient-to-br from-purple-500/8 to-indigo-500/8 border border-purple-500/20"
+                      : msg.sender === "relay-bot"
+                      ? "bg-[#111] border border-white/[0.06]"
+                      : msg.sender === userId
+                      ? "bg-blue-600/10 border border-blue-500/15 ml-6"
+                      : "bg-[#111] border border-white/[0.06] mr-6"
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className={`text-[10px] font-semibold flex items-center gap-1 ${
+                      isAiMessage ? "text-purple-400" :
+                      msg.sender === "relay-bot" ? "text-purple-400" :
+                      msg.sender === userId ? "text-blue-400" : "text-gray-400"
+                    }`}>
+                      {isAiMessage && (
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M12 2a4 4 0 0 0-4 4v2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10a2 2 0 0 0-2-2h-2V6a4 4 0 0 0-4-4z" />
+                        </svg>
+                      )}
+                      {msg.sender === "relay-bot" ? (isAiMessage ? "RELAY AI" : "RELAY") : msg.sender === userId ? "You" : shortId(msg.sender)}
+                    </span>
+                    <span className="text-[10px] text-gray-700">
+                      {new Date(msg.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-300 whitespace-pre-line leading-relaxed">{msg.text}</p>
                 </div>
-                <p className="text-xs text-gray-300 whitespace-pre-line leading-relaxed">{msg.text}</p>
-              </div>
-            ))
+              );
+            })
           )}
           <div ref={messagesEndRef} />
         </div>
@@ -1490,11 +1582,13 @@ function TaskDetail({
           <div className="flex gap-2">
             <input
               type="text"
-              placeholder="Message..."
+              placeholder={hasFollowUp && isClaimant ? "Reply to AI's question..." : "Message..."}
               value={chatInput}
               onChange={(e) => setChatInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-              className="flex-1 bg-[#111] border border-white/[0.06] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-white/20 transition-colors placeholder:text-gray-600"
+              className={`flex-1 bg-[#111] border rounded-xl px-4 py-2.5 text-sm focus:outline-none transition-colors placeholder:text-gray-600 ${
+                hasFollowUp && isClaimant ? "border-purple-500/30 focus:border-purple-500/50" : "border-white/[0.06] focus:border-white/20"
+              }`}
             />
             <button
               onClick={sendMessage}

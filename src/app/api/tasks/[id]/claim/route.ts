@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { claimTask, getTask } from "@/lib/store";
-import { postClaimNotification } from "@/lib/xmtp";
+import { postClaimNotification, postClaimBriefing } from "@/lib/xmtp";
+import { generateClaimBriefing } from "@/lib/ai-chat";
 import { notifyTaskClaimed } from "@/lib/notifications";
 import { getRedis } from "@/lib/redis";
 
@@ -65,6 +66,10 @@ export async function POST(
 
   await postClaimNotification(updated, claimant);
   notifyTaskClaimed(updated.poster, updated.description).catch(console.error);
+
+  generateClaimBriefing(updated).then(async (briefing) => {
+    if (briefing) await postClaimBriefing(updated.id, briefing);
+  }).catch(console.error);
 
   return NextResponse.json({ task: updated });
 }
