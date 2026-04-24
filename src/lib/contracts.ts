@@ -4,7 +4,7 @@ export const WORLD_CHAIN_ID = 480;
 
 // These get set after contract deployment
 export const RELAY_ESCROW_ADDRESS = process.env.NEXT_PUBLIC_ESCROW_ADDRESS as `0x${string}` | undefined;
-export const USDC_ADDRESS = "0x79A02482A880bCE3B13e43E0095E7a95D44b78d2" as const; // USDC on World Chain
+export const USDC_ADDRESS = "0x79A02482A880bCE3F13e09Da970dC34db4CD24d1" as const;
 export const PERMIT2_ADDRESS = "0x000000000022D473030F116dDEE9F6B43aC78BA3" as const;
 
 const ESCROW_ABI = [
