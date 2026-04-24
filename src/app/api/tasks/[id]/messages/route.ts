@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getMessages } from "@/lib/messages";
+import { addMessage, getMessages } from "@/lib/messages";
 import { getTask } from "@/lib/store";
 import { postUserMessage } from "@/lib/xmtp";
+import { processIncomingMessage } from "@/lib/xmtp-commands";
 
 export async function GET(
   _req: NextRequest,
@@ -39,5 +40,12 @@ export async function POST(
   }
 
   await postUserMessage(id, sender, text);
+
+  // Check if the message is a command and respond inline
+  const botResponse = await processIncomingMessage(id, sender, text);
+  if (botResponse) {
+    await addMessage(id, "relay-bot", botResponse);
+  }
+
   return NextResponse.json({ messages: await getMessages(id) });
 }

@@ -44,6 +44,7 @@ async function hydrateCache(): Promise<void> {
     if (task.agent === undefined) task.agent = null;
     if ((task as any).aiFollowUp === undefined) task.aiFollowUp = null;
     if ((task as any).recurring === undefined) task.recurring = null;
+    if ((task as any).callbackUrl === undefined) task.callbackUrl = null;
     cache.set(task.id, task);
   }
   cacheHydrated = true;
@@ -60,6 +61,7 @@ export function createTask(input: {
   deadlineHours: number;
   agentId?: string | null;
   recurring?: { intervalHours: number; totalRuns: number; parentTaskId?: string } | null;
+  callbackUrl?: string | null;
 }): Task {
   const id = crypto.randomUUID();
   const agent = input.agentId ? getAgent(input.agentId) : null;
@@ -90,6 +92,7 @@ export function createTask(input: {
     agent,
     aiFollowUp: null,
     recurring,
+    callbackUrl: input.callbackUrl ?? null,
     createdAt: new Date().toISOString(),
   };
   cache.set(id, task);

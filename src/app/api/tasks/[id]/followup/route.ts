@@ -6,6 +6,7 @@ import { postReEvaluationResult } from "@/lib/xmtp";
 import { notifyVerified, notifyFlagged } from "@/lib/notifications";
 import { postAttestation } from "@/lib/attestation";
 import { recordCompletion, recordFailure } from "@/lib/reputation";
+import { fireWebhook } from "@/lib/webhooks";
 
 export async function POST(
   req: NextRequest,
@@ -66,9 +67,15 @@ export async function POST(
     recordFailure(task.claimant).catch(console.error);
   }
 
+  // Fire webhook callback if registered
+  const finalTask = await getTask(id);
+  if (finalTask) {
+    fireWebhook(finalTask).catch(console.error);
+  }
+
   return NextResponse.json({
     taskId: id,
     verification: result,
-    task: await getTask(id),
+    task: finalTask,
   });
 }

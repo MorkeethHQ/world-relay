@@ -63,6 +63,7 @@ export async function POST(req: NextRequest) {
     deadlineHours: Number(deadline_hours) || 24,
     agentId,
     recurring: recurring_hours ? { intervalHours: Number(recurring_hours), totalRuns: Number(recurring_count) || 7 } : null,
+    callbackUrl: callback_url || null,
   });
 
   return NextResponse.json({

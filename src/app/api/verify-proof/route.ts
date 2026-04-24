@@ -7,6 +7,7 @@ import { notifyProofSubmitted, notifyVerified, notifyFlagged } from "@/lib/notif
 import { postAttestation } from "@/lib/attestation";
 import { recordCompletion, recordFailure } from "@/lib/reputation";
 import { getRedis } from "@/lib/redis";
+import { fireWebhook } from "@/lib/webhooks";
 
 const RATE_LIMIT_KEY = "ratelimit:verify";
 const MAX_VERIFICATIONS_PER_HOUR = 100;
@@ -132,6 +133,12 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // Fire webhook callback if registered
+  const finalTask = await getTask(taskId);
+  if (finalTask) {
+    fireWebhook(finalTask).catch(console.error);
+  }
+
   return NextResponse.json({
     taskId,
     verification: result,
@@ -139,6 +146,6 @@ export async function POST(req: NextRequest) {
     locationVerified,
     distanceKm: distanceKm !== null ? Math.round(distanceKm * 100) / 100 : null,
     nextRecurringTaskId,
-    task: await getTask(taskId),
+    task: finalTask,
   });
 }

@@ -47,5 +47,6 @@ export type Task = {
   agent: AgentInfo | null;
   aiFollowUp: AiFollowUp | null;
   recurring: RecurringConfig | null;
+  callbackUrl: string | null;
   createdAt: string;
 };

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTask, posterConfirm } from "@/lib/store";
 import { postVerificationResult } from "@/lib/xmtp";
+import { fireWebhook } from "@/lib/webhooks";
 
 export async function POST(
   req: NextRequest,
@@ -29,5 +30,11 @@ export async function POST(
     await postVerificationResult(id, "fail", "Poster rejected proof", task.bountyUsdc);
   }
 
-  return NextResponse.json({ task: await getTask(id) });
+  // Fire webhook callback if registered
+  const finalTask = await getTask(id);
+  if (finalTask) {
+    fireWebhook(finalTask).catch(console.error);
+  }
+
+  return NextResponse.json({ task: finalTask });
 }
