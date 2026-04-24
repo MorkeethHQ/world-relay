@@ -9,7 +9,7 @@ import { recordCompletion, recordFailure } from "@/lib/reputation";
 import { getRedis } from "@/lib/redis";
 
 const RATE_LIMIT_KEY = "ratelimit:verify";
-const MAX_VERIFICATIONS_PER_HOUR = 20;
+const MAX_VERIFICATIONS_PER_HOUR = 100;
 
 async function checkRateLimit(): Promise<boolean> {
   const redis = getRedis();

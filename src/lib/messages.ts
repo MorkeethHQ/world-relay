@@ -33,10 +33,8 @@ export async function addMessage(taskId: string, sender: string, text: string): 
 }
 
 export async function getMessages(taskId: string): Promise<Message[]> {
-  if (localCache.has(taskId)) return localCache.get(taskId)!;
-
   const redis = getRedis();
-  if (!redis) return [];
+  if (!redis) return localCache.get(taskId) || [];
 
   const raw = await redis.lrange(`${MSG_PREFIX}${taskId}`, 0, -1);
   const messages: Message[] = raw.map((r) =>

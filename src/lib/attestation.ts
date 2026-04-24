@@ -13,13 +13,12 @@ export type AttestationData = {
   timestamp: number;
 };
 
-function sha256Hex(input: string): string {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(input);
-  return Array.from(new Uint8Array(data))
+async function sha256Hex(input: string): Promise<string> {
+  const data = new TextEncoder().encode(input);
+  const hash = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(hash))
     .map((b) => b.toString(16).padStart(2, "0"))
-    .join("")
-    .slice(0, 64);
+    .join("");
 }
 
 export async function postAttestation(
@@ -40,8 +39,8 @@ export async function postAttestation(
 
     const attestation: AttestationData = {
       taskId,
-      taskDescriptionHash: sha256Hex(taskDescription),
-      proofImageHash: sha256Hex(proofImageHash.slice(0, 100)),
+      taskDescriptionHash: await sha256Hex(taskDescription),
+      proofImageHash: await sha256Hex(proofImageHash.slice(0, 100)),
       verdict,
       confidence,
       timestamp: Math.floor(Date.now() / 1000),

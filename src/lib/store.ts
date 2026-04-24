@@ -99,7 +99,12 @@ export function createTask(input: {
 
 export function spawnRecurringTask(completedTask: Task): Task | null {
   if (!completedTask.recurring) return null;
-  if (completedTask.recurring.completedRuns + 1 >= completedTask.recurring.totalRuns) return null;
+  const newCompletedRuns = completedTask.recurring.completedRuns + 1;
+
+  completedTask.recurring.completedRuns = newCompletedRuns;
+  persistTask(completedTask).catch(console.error);
+
+  if (newCompletedRuns >= completedTask.recurring.totalRuns) return null;
 
   const next = createTask({
     poster: completedTask.poster,
@@ -118,7 +123,7 @@ export function spawnRecurringTask(completedTask: Task): Task | null {
     },
   });
 
-  next.recurring!.completedRuns = completedTask.recurring.completedRuns + 1;
+  next.recurring!.completedRuns = newCompletedRuns;
   persistTask(next).catch(console.error);
   return next;
 }

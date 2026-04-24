@@ -9,6 +9,12 @@ function getClient(): Anthropic | null {
   return new Anthropic();
 }
 
+function extractJson(text: string): string {
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (fenced) return fenced[1].trim();
+  return text.trim();
+}
+
 function detectMediaType(base64: string): "image/jpeg" | "image/png" | "image/gif" | "image/webp" {
   if (base64.startsWith("/9j/")) return "image/jpeg";
   if (base64.startsWith("iVBOR")) return "image/png";
@@ -130,7 +136,7 @@ Be fair — if the follow-up response resolves your concern, pass it. If it does
     });
 
     const text = response.content[0].type === "text" ? response.content[0].text : "";
-    const parsed = JSON.parse(text);
+    const parsed = JSON.parse(extractJson(text));
     return { verdict: parsed.verdict, reasoning: parsed.reasoning, confidence: parsed.confidence };
   } catch (err) {
     console.error("[AI-Chat] Re-evaluation error:", err);
@@ -183,7 +189,7 @@ Be thorough but fair. If the proof fundamentally shows the task was done, approv
     });
 
     const text = response.content[0].type === "text" ? response.content[0].text : "";
-    const parsed = JSON.parse(text);
+    const parsed = JSON.parse(extractJson(text));
     return { approved: parsed.approved, reasoning: parsed.reasoning, confidence: parsed.confidence };
   } catch (err) {
     console.error("[AI-Chat] Dispute mediation error:", err);

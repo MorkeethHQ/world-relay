@@ -129,10 +129,10 @@ export async function postUserMessage(
   sender: string,
   message: string
 ): Promise<boolean> {
+  await addMessage(taskId, sender, message);
+
   const thread = threadMap.get(taskId);
   if (!thread) return false;
-
-  await addMessage(taskId, sender, message);
 
   const prefixed = `[${sender.startsWith("0x") ? `${sender.slice(0, 6)}...${sender.slice(-4)}` : sender}]: ${message}`;
   await sendXmtpMessage(thread, prefixed);

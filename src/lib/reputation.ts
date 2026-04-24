@@ -100,7 +100,7 @@ export function getTrustScore(rep: UserReputation): number {
 
 export async function getLeaderboard(limit = 10): Promise<UserReputation[]> {
   const redis = getRedis();
-  if (!redis) return Array.from(localCache.values()).sort((a, b) => b.tasksCompleted - a.tasksCompleted).slice(0, limit);
+  if (!redis) return Array.from(localCache.values()).sort((a, b) => getTrustScore(b) - getTrustScore(a)).slice(0, limit);
 
   const keys = await redis.keys(`${REP_PREFIX}*`);
   if (keys.length === 0) return [];
@@ -119,5 +119,5 @@ export async function getLeaderboard(limit = 10): Promise<UserReputation[]> {
     localCache.set(rep.address, rep);
   }
 
-  return reps.sort((a, b) => b.tasksCompleted - a.tasksCompleted).slice(0, limit);
+  return reps.sort((a, b) => getTrustScore(b) - getTrustScore(a)).slice(0, limit);
 }
