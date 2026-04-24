@@ -30,6 +30,29 @@ const CATEGORY_TIPS: Record<string, string> = {
   custom: "Follow the task description precisely. When in doubt, more context in the photo is better.",
 };
 
+export async function generateLocationBriefing(task: Task): Promise<string | null> {
+  const client = getClient();
+  if (!client) return null;
+
+  try {
+    const response = await client.messages.create({
+      model: HAIKU,
+      max_tokens: 200,
+      system: `You are RELAY's AI scout. A new task was just posted. Generate a SHORT location-specific briefing for potential claimants. Include: best approach angle for photos, time-of-day tips, and one local context tip. Be specific to the EXACT location — reference street names, landmarks, nearby metro stops. Under 80 words. No greeting.`,
+      messages: [{
+        role: "user",
+        content: `Task: "${task.description}"\nLocation: ${task.location}\nCategory: ${task.category}\nBounty: $${task.bountyUsdc} USDC`,
+      }],
+    });
+
+    const text = response.content[0].type === "text" ? response.content[0].text : null;
+    return text;
+  } catch (err) {
+    console.error("[AI-Chat] Location briefing error:", err);
+    return null;
+  }
+}
+
 export async function generateClaimBriefing(task: Task): Promise<string | null> {
   const client = getClient();
   if (!client) return null;

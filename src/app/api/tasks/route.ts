@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createTask, listTasks } from "@/lib/store";
+import { generateLocationBriefing } from "@/lib/ai-chat";
+import { addMessage } from "@/lib/messages";
 
 export async function GET() {
   return NextResponse.json({ tasks: await listTasks() });
@@ -25,6 +27,11 @@ export async function POST(req: NextRequest) {
     onChainId: onChainId != null ? Number(onChainId) : null,
     escrowTxHash: escrowTxHash || null,
   });
+
+  // Fire-and-forget AI scout briefing
+  generateLocationBriefing(task).then(briefing => {
+    if (briefing) addMessage(task.id, "relay-bot", "🗺️ AI SCOUT BRIEFING\n━━━━━━━━━━━━━━━━━━\n" + briefing + "\n\nThis briefing was auto-generated for potential claimants.");
+  }).catch(console.error);
 
   return NextResponse.json({ task }, { status: 201 });
 }

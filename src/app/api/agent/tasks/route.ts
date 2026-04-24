@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createTask, listTasks } from "@/lib/store";
+import { generateLocationBriefing } from "@/lib/ai-chat";
+import { addMessage } from "@/lib/messages";
 
 const AGENT_API_KEY = process.env.AGENT_API_KEY;
 
@@ -65,6 +67,11 @@ export async function POST(req: NextRequest) {
     recurring: recurring_hours ? { intervalHours: Number(recurring_hours), totalRuns: Number(recurring_count) || 7 } : null,
     callbackUrl: callback_url || null,
   });
+
+  // Fire-and-forget AI scout briefing
+  generateLocationBriefing(task).then(briefing => {
+    if (briefing) addMessage(task.id, "relay-bot", "🗺️ AI SCOUT BRIEFING\n━━━━━━━━━━━━━━━━━━\n" + briefing + "\n\nThis briefing was auto-generated for potential claimants.");
+  }).catch(console.error);
 
   return NextResponse.json({
     task: {
