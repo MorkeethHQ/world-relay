@@ -1,5 +1,6 @@
 import type { Task, TaskStatus, TaskCategory } from "./types";
 import { getRedis } from "./redis";
+import { getAgent } from "./agents";
 export type { Task, TaskStatus, TaskCategory };
 
 const TASK_PREFIX = "task:";
@@ -40,6 +41,7 @@ async function hydrateCache(): Promise<void> {
   for (const raw of results) {
     if (!raw) continue;
     const task: Task = typeof raw === "string" ? JSON.parse(raw) : (raw as Task);
+    if (task.agent === undefined) task.agent = null;
     cache.set(task.id, task);
   }
   cacheHydrated = true;
@@ -54,8 +56,10 @@ export function createTask(input: {
   lng?: number | null;
   bountyUsdc: number;
   deadlineHours: number;
+  agentId?: string | null;
 }): Task {
   const id = crypto.randomUUID();
+  const agent = input.agentId ? getAgent(input.agentId) : null;
   const task: Task = {
     id,
     poster: input.poster,
@@ -72,11 +76,17 @@ export function createTask(input: {
     proofNote: null,
     verificationResult: null,
     attestationTxHash: null,
+    agent,
     createdAt: new Date().toISOString(),
   };
   cache.set(id, task);
   persistTask(task).catch(console.error);
   return task;
+}
+
+export async function hasAgentTasks(): Promise<boolean> {
+  await hydrateCache();
+  return Array.from(cache.values()).some(t => t.agent !== null && t.agent !== undefined);
 }
 
 export async function getTask(id: string): Promise<Task | undefined> {

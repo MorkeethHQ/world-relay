@@ -3,8 +3,9 @@
 import { useState, useEffect, useCallback } from "react";
 import dynamic from "next/dynamic";
 import { MiniKit } from "@worldcoin/minikit-js";
-import type { Task } from "@/lib/types";
+import type { Task, AgentInfo } from "@/lib/types";
 import { encodeCreateTask, encodeClaimTask, encodeReleasePayment, encodeUniswapSwap, RELAY_ESCROW_ADDRESS, type SwapToken } from "@/lib/contracts";
+import { TASK_TEMPLATES } from "@/lib/agents";
 
 const TaskMap = dynamic(() => import("./TaskMap").then((m) => m.TaskMap), { ssr: false });
 
@@ -214,25 +215,67 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
 
       {/* Content */}
       <div className="flex-1 px-4 py-3">
-        {/* Earnings dashboard for "Yours" tab */}
+        {/* Profile + Reputation for "Yours" tab */}
         {tab === "mine" && (
-          <div className="mb-4 bg-gradient-to-r from-green-500/5 to-blue-500/5 border border-white/[0.06] rounded-2xl p-4">
-            <div className="grid grid-cols-3 gap-3 text-center">
-              <div>
-                <p className="text-xl font-bold text-green-400">${totalEarned.toFixed(2)}</p>
-                <p className="text-[10px] text-gray-500 mt-0.5">USDC Earned</p>
+          <div className="mb-4 flex flex-col gap-3">
+            {/* Identity card */}
+            <div className="bg-gradient-to-r from-white/[0.03] to-white/[0.06] border border-white/[0.08] rounded-2xl p-4">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-white/10 flex items-center justify-center">
+                    <span className="text-sm font-bold text-white">{userId?.slice(-2).toUpperCase()}</span>
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold">{userId ? shortId(userId) : ""}</p>
+                    <VerificationBadge level={verificationLevel} size="md" />
+                  </div>
+                </div>
               </div>
-              <div>
-                <p className="text-xl font-bold text-white">{completedByClaiming.length}</p>
-                <p className="text-[10px] text-gray-500 mt-0.5">Completed</p>
-              </div>
-              <div>
-                <p className="text-xl font-bold text-blue-400">{totalPosted}</p>
-                <p className="text-[10px] text-gray-500 mt-0.5">Posted</p>
+
+              <div className="grid grid-cols-3 gap-3 text-center">
+                <div>
+                  <p className="text-xl font-bold text-green-400">${totalEarned.toFixed(2)}</p>
+                  <p className="text-[10px] text-gray-500 mt-0.5">USDC Earned</p>
+                </div>
+                <div>
+                  <p className="text-xl font-bold text-white">{completedByClaiming.length}</p>
+                  <p className="text-[10px] text-gray-500 mt-0.5">Completed</p>
+                </div>
+                <div>
+                  <p className="text-xl font-bold text-blue-400">{totalPosted}</p>
+                  <p className="text-[10px] text-gray-500 mt-0.5">Posted</p>
+                </div>
               </div>
             </div>
+
+            {/* Trust tiers explanation */}
+            <div className="bg-[#111] border border-white/[0.06] rounded-2xl p-4">
+              <p className="text-[10px] text-gray-500 uppercase tracking-wider font-medium mb-2.5">World ID Trust Tiers</p>
+              <div className="flex flex-col gap-2">
+                {[
+                  { level: "orb", label: "Orb Verified", access: "All tasks", limit: "No limit", color: "text-cyan-400", icon: "◉" },
+                  { level: "device", label: "Device Verified", access: "Tasks up to $20", limit: "$20 max", color: "text-blue-400", icon: "✓" },
+                  { level: "wallet", label: "Wallet Verified", access: "Tasks up to $10", limit: "$10 max", color: "text-green-400", icon: "✓" },
+                ].map((tier) => {
+                  const isCurrentTier = verificationLevel === tier.level;
+                  return (
+                    <div key={tier.level} className={`flex items-center justify-between rounded-xl px-3 py-2 ${isCurrentTier ? "bg-white/5 border border-white/10" : ""}`}>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-sm ${tier.color}`}>{tier.icon}</span>
+                        <div>
+                          <span className={`text-xs font-medium ${isCurrentTier ? "text-white" : "text-gray-400"}`}>{tier.label}</span>
+                          {isCurrentTier && <span className="text-[9px] text-gray-500 ml-1.5">← You</span>}
+                        </div>
+                      </div>
+                      <span className="text-[10px] text-gray-600">{tier.limit}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
             {completedByClaiming.length > 0 && (
-              <div className="mt-3 pt-3 border-t border-white/[0.04]">
+              <div className="bg-[#111] border border-white/[0.06] rounded-2xl px-4 py-3">
                 <p className="text-[10px] text-gray-600 text-center">
                   {totalClaimed} tasks claimed · {completedByClaiming.length} verified by AI · settled on World Chain
                 </p>
@@ -277,12 +320,23 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
                "No completed tasks yet"}
             </p>
             {tab === "available" && (
-              <button
-                onClick={() => setView("post")}
-                className="text-xs text-white/60 underline underline-offset-2 hover:text-white/80 transition-colors"
-              >
-                Post the first one
-              </button>
+              <div className="flex flex-col items-center gap-2">
+                <button
+                  onClick={async () => {
+                    await fetch("/api/seed", { method: "POST" });
+                    fetchTasks();
+                  }}
+                  className="text-xs bg-[#111] border border-white/10 text-gray-300 px-4 py-2 rounded-xl hover:border-white/20 transition-all active:scale-95"
+                >
+                  Load demo tasks
+                </button>
+                <button
+                  onClick={() => setView("post")}
+                  className="text-xs text-white/60 underline underline-offset-2 hover:text-white/80 transition-colors"
+                >
+                  Or post your own
+                </button>
+              </div>
             )}
           </div>
         ) : tab === "completed" ? (
@@ -320,7 +374,8 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
                 )}
                 <div className="p-4">
                   <p className="font-medium text-[15px] leading-snug">{task.description}</p>
-                  <div className="flex items-center gap-1.5 mt-2">
+                  <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                    {task.agent && <AgentBadge agent={task.agent} />}
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
                       <circle cx="12" cy="10" r="3" />
@@ -374,6 +429,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
                   task={task}
                   userId={userId}
                   userLocation={userLocation}
+                  verificationLevel={verificationLevel}
                   onTap={() => {
                     setSelectedTask(task);
                     setView("detail");
@@ -385,11 +441,18 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
                         try { await MiniKit.sendTransaction(txPayload); } catch {}
                       }
                     }
-                    await fetch(`/api/tasks/${task.id}/claim`, {
+                    const res = await fetch(`/api/tasks/${task.id}/claim`, {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
                       body: JSON.stringify({ claimant: userId }),
                     });
+                    if (!res.ok) {
+                      const err = await res.json();
+                      if (err.required) {
+                        alert(`This task requires ${err.required} verification. Your level: ${err.current}. Upgrade your World ID to claim higher-bounty tasks.`);
+                        return;
+                      }
+                    }
                     fetchTasks();
                   }}
                   onSubmitProof={() => {
@@ -430,6 +493,7 @@ function TaskCard({
   task,
   userId,
   userLocation,
+  verificationLevel,
   onTap,
   onClaim,
   onSubmitProof,
@@ -437,6 +501,7 @@ function TaskCard({
   task: Task;
   userId: string | null;
   userLocation?: { lat: number; lng: number } | null;
+  verificationLevel?: string | null;
   onTap: () => void;
   onClaim: () => void;
   onSubmitProof: () => void;
@@ -474,21 +539,30 @@ function TaskCard({
             <span className="text-xs text-gray-600">{timeLeft(task.deadline)}</span>
           </div>
         </div>
-        <div className="text-right shrink-0 bg-green-500/10 border border-green-500/20 rounded-xl px-3 py-1.5">
-          <p className="font-bold text-green-400 text-sm leading-none">${task.bountyUsdc}</p>
-          <p className="text-[9px] text-green-500/60 mt-0.5">USDC</p>
+        <div className="text-right shrink-0 flex flex-col items-end gap-1">
+          <div className="bg-green-500/10 border border-green-500/20 rounded-xl px-3 py-1.5">
+            <p className="font-bold text-green-400 text-sm leading-none">${task.bountyUsdc}</p>
+            <p className="text-[9px] text-green-500/60 mt-0.5">USDC</p>
+          </div>
+          <TrustTier bounty={task.bountyUsdc} verificationLevel={verificationLevel} />
         </div>
       </div>
 
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <StatusBadge status={task.status} />
-          {isOwnTask && <span className="text-[10px] text-gray-600">You posted</span>}
-          {isClaimant && task.status === "claimed" && <span className="text-[10px] text-gray-600">You claimed</span>}
-          <span className="flex items-center gap-0.5 text-[9px] text-cyan-500/60">
-            <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
-            World ID
-          </span>
+          {task.agent ? (
+            <AgentBadge agent={task.agent} />
+          ) : (
+            <>
+              {isOwnTask && <span className="text-[10px] text-gray-600">You posted</span>}
+              {isClaimant && task.status === "claimed" && <span className="text-[10px] text-gray-600">You claimed</span>}
+              <span className="flex items-center gap-0.5 text-[9px] text-cyan-500/60">
+                <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
+                World ID
+              </span>
+            </>
+          )}
         </div>
         <span className="text-[10px] text-gray-700">{timeAgo(task.createdAt)}</span>
       </div>
@@ -545,22 +619,80 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-function VerificationBadge({ level }: { level?: string | null }) {
+function AgentBadge({ agent }: { agent: AgentInfo }) {
+  return (
+    <div
+      className="flex items-center gap-1.5 rounded-lg px-2 py-1 border"
+      style={{
+        backgroundColor: `${agent.color}10`,
+        borderColor: `${agent.color}30`,
+      }}
+    >
+      <span className="text-xs">{agent.icon}</span>
+      <span className="text-[10px] font-bold tracking-wide" style={{ color: agent.color }}>
+        {agent.name}
+      </span>
+      <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke={agent.color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+      </svg>
+    </div>
+  );
+}
+
+function VerificationBadge({ level, size = "sm" }: { level?: string | null; size?: "sm" | "md" }) {
   if (!level) return null;
-  const config: Record<string, { color: string; label: string }> = {
-    orb: { color: "text-cyan-400", label: "Orb" },
-    device: { color: "text-blue-400", label: "Device" },
-    wallet: { color: "text-green-400", label: "Verified" },
-    dev: { color: "text-gray-500", label: "Dev" },
+  const config: Record<string, { color: string; bg: string; label: string; tier: string }> = {
+    orb: { color: "text-cyan-400", bg: "bg-cyan-500/10 border-cyan-500/20", label: "Orb Verified", tier: "Tier 1" },
+    device: { color: "text-blue-400", bg: "bg-blue-500/10 border-blue-500/20", label: "Device Verified", tier: "Tier 2" },
+    wallet: { color: "text-green-400", bg: "bg-green-500/10 border-green-500/20", label: "Verified", tier: "Tier 3" },
+    dev: { color: "text-gray-500", bg: "bg-gray-500/10 border-gray-500/20", label: "Dev", tier: "" },
   };
   const c = config[level] || config.dev;
+
+  if (size === "md") {
+    return (
+      <div className={`flex items-center gap-1.5 rounded-lg px-2 py-1 border ${c.bg}`}>
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className={c.color}>
+          {level === "orb" ? (
+            <><circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="4" /></>
+          ) : (
+            <><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></>
+          )}
+        </svg>
+        <span className={`text-[10px] font-bold ${c.color}`}>{c.label}</span>
+      </div>
+    );
+  }
+
   return (
     <span className={`text-[9px] font-semibold ${c.color} flex items-center gap-0.5`}>
       <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
+        {level === "orb" ? (
+          <><circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="4" /></>
+        ) : (
+          <><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></>
+        )}
       </svg>
       {c.label}
     </span>
+  );
+}
+
+function TrustTier({ bounty, verificationLevel }: { bounty: number; verificationLevel?: string | null }) {
+  if (bounty < 10) return null;
+  const requiredLevel = bounty >= 20 ? "orb" : "device";
+  const levelRank: Record<string, number> = { orb: 3, device: 2, wallet: 1, dev: 0 };
+  const userRank = levelRank[verificationLevel || "dev"] || 0;
+  const requiredRank = levelRank[requiredLevel];
+  const canClaim = userRank >= requiredRank;
+
+  return (
+    <div className={`flex items-center gap-1 text-[9px] font-medium ${canClaim ? "text-cyan-400" : "text-gray-600"}`}>
+      <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+      </svg>
+      {bounty >= 20 ? "Orb required" : "Device+ required"}
+    </div>
   );
 }
 
@@ -633,6 +765,27 @@ function PostTask({
       </div>
 
       <div className="flex-1 px-4 py-5 flex flex-col gap-5">
+        {/* Quick templates */}
+        <div>
+          <label className="text-[11px] text-gray-500 uppercase tracking-wider font-medium block mb-2">Quick Start</label>
+          <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
+            {TASK_TEMPLATES.map((t) => (
+              <button
+                key={t.label}
+                onClick={() => {
+                  setCategory(t.category);
+                  setDescription(t.description);
+                  setBounty(String(t.bounty));
+                }}
+                className="shrink-0 flex items-center gap-1.5 bg-[#111] border border-white/[0.06] rounded-xl px-3 py-2 text-xs text-gray-400 hover:text-white hover:border-white/15 transition-all active:scale-95"
+              >
+                <span>{t.icon}</span>
+                {t.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Category picker */}
         <div>
           <label className="text-[11px] text-gray-500 uppercase tracking-wider font-medium block mb-2">Category</label>
@@ -735,7 +888,17 @@ function SubmitProof({
   const [imageData, setImageData] = useState<string | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [result, setResult] = useState<{ verdict: string; reasoning: string } | null>(null);
+  const [result, setResult] = useState<{ verdict: string; reasoning: string; locationVerified?: boolean; distanceKm?: number } | null>(null);
+  const [proofCoords, setProofCoords] = useState<{ lat: number; lng: number } | null>(null);
+
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => setProofCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => {},
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  }, []);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -760,11 +923,17 @@ function SubmitProof({
         taskId: task.id,
         proofImageBase64: imageData,
         proofNote: proofNote || null,
+        lat: proofCoords?.lat || null,
+        lng: proofCoords?.lng || null,
       }),
     });
 
     const data = await res.json();
-    setResult(data.verification);
+    setResult({
+      ...data.verification,
+      locationVerified: data.locationVerified,
+      distanceKm: data.distanceKm,
+    });
     setSubmitting(false);
 
     if (data.verification.verdict === "pass") {
@@ -887,6 +1056,20 @@ function SubmitProof({
               </span>
             </div>
             <p className="text-xs text-gray-400 leading-relaxed">{result.reasoning}</p>
+            {result.locationVerified !== undefined && result.locationVerified !== null && (
+              <div className="flex items-center gap-1.5 mt-2">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={result.locationVerified ? "#4ade80" : "#f59e0b"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                  <circle cx="12" cy="10" r="3" />
+                </svg>
+                <span className={`text-[11px] font-medium ${result.locationVerified ? "text-green-400" : "text-yellow-400"}`}>
+                  {result.locationVerified ? "Location verified" : "Location not confirmed"}
+                  {result.distanceKm !== undefined && result.distanceKm !== null && (
+                    <span className="text-gray-500 font-normal"> · {result.distanceKm < 1 ? `${Math.round(result.distanceKm * 1000)}m` : `${result.distanceKm.toFixed(1)}km`} from task</span>
+                  )}
+                </span>
+              </div>
+            )}
             {result.verdict === "pass" && (
               <div className="mt-3 pt-3 border-t border-green-500/15">
                 <p className="font-semibold text-sm text-green-400">${task.bountyUsdc} USDC released</p>
@@ -1015,19 +1198,44 @@ function TaskDetail({
           </div>
         </div>
 
-        {/* People */}
-        <div className="flex gap-3">
-          <div className="flex-1 bg-[#111] rounded-xl p-3 border border-white/[0.06]">
-            <p className="text-[10px] text-gray-500 uppercase tracking-wider font-medium mb-1">Poster</p>
-            <p className="text-xs font-medium">{shortId(currentTask.poster)}</p>
-          </div>
-          {currentTask.claimant && (
-            <div className="flex-1 bg-[#111] rounded-xl p-3 border border-white/[0.06]">
-              <p className="text-[10px] text-gray-500 uppercase tracking-wider font-medium mb-1">Claimant</p>
-              <p className="text-xs font-medium">{shortId(currentTask.claimant)}</p>
+        {/* Agent info or People */}
+        {currentTask.agent ? (
+          <div className="rounded-xl p-4 border" style={{ backgroundColor: `${currentTask.agent.color}08`, borderColor: `${currentTask.agent.color}20` }}>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl" style={{ backgroundColor: `${currentTask.agent.color}15` }}>
+                {currentTask.agent.icon}
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-bold" style={{ color: currentTask.agent.color }}>{currentTask.agent.name}</span>
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={currentTask.agent.color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                  </svg>
+                </div>
+                <p className="text-[11px] text-gray-500 mt-0.5">AI Agent · Needs verified human</p>
+              </div>
             </div>
-          )}
-        </div>
+            {currentTask.claimant && (
+              <div className="mt-3 pt-3 border-t" style={{ borderColor: `${currentTask.agent.color}15` }}>
+                <p className="text-[10px] text-gray-500 uppercase tracking-wider font-medium mb-1">Claimed by</p>
+                <p className="text-xs font-medium">{shortId(currentTask.claimant)}</p>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="flex gap-3">
+            <div className="flex-1 bg-[#111] rounded-xl p-3 border border-white/[0.06]">
+              <p className="text-[10px] text-gray-500 uppercase tracking-wider font-medium mb-1">Poster</p>
+              <p className="text-xs font-medium">{shortId(currentTask.poster)}</p>
+            </div>
+            {currentTask.claimant && (
+              <div className="flex-1 bg-[#111] rounded-xl p-3 border border-white/[0.06]">
+                <p className="text-[10px] text-gray-500 uppercase tracking-wider font-medium mb-1">Claimant</p>
+                <p className="text-xs font-medium">{shortId(currentTask.claimant)}</p>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Proof image */}
         {currentTask.proofImageUrl && (

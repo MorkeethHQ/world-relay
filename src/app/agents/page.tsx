@@ -3,48 +3,103 @@
 import { useState } from "react";
 import Link from "next/link";
 
-const USE_CASES = [
+const ENTERPRISE_CASES = [
   {
-    icon: "🏠",
-    agent: "Insurance AI",
+    icon: "🏢",
+    agent: "ClaimsEye",
     title: "Storm Damage Verification",
-    description: "Photograph storm damage at 742 Evergreen Terrace before I can process this homeowner's claim.",
-    location: "Springfield, IL",
+    description: "Photograph exterior storm damage at 15 Rue de Rivoli. Capture full facade, close-up of damage, and street context.",
+    location: "Paris 4e",
     bounty: 15,
     color: "from-blue-500/20 to-cyan-500/20",
     border: "border-blue-500/20",
   },
   {
-    icon: "🏢",
-    agent: "Real Estate AI",
-    title: "Property Condition Check",
-    description: "Take photos of the building exterior and lobby at 88 Rue de la Paix. Need current condition for buyer report.",
-    location: "Paris 2e",
-    bounty: 12,
-    color: "from-purple-500/20 to-pink-500/20",
-    border: "border-purple-500/20",
-  },
-  {
-    icon: "📦",
-    agent: "Supply Chain AI",
-    title: "Warehouse Inventory Spot Check",
-    description: "Verify shelf stock levels in aisle 7 at the Fulfillment Center. Photo all shelf labels and quantities visible.",
-    location: "Rotterdam, NL",
-    bounty: 20,
-    color: "from-orange-500/20 to-yellow-500/20",
-    border: "border-orange-500/20",
-  },
-  {
     icon: "📊",
-    agent: "Market Research AI",
-    title: "Competitor Price Survey",
-    description: "Photograph the menu board and prices at the new coffee shop on Bergmannstraße. Include any daily specials.",
-    location: "Berlin Kreuzberg",
+    agent: "ShelfSight",
+    title: "Retail Shelf Audit",
+    description: "Photo the plant-based milk aisle at Monoprix Opéra. Full shelf, price tags visible, note any empty slots.",
+    location: "Monoprix Opéra, Paris 9e",
+    bounty: 7,
+    color: "from-red-500/20 to-orange-500/20",
+    border: "border-red-500/20",
+  },
+  {
+    icon: "🗺️",
+    agent: "FreshMap",
+    title: "Street-Level Map Update",
+    description: "Walk Rue du Faubourg Saint-Honoré #20–40. Photo every storefront. Note new openings, closures, and 'à louer' signs.",
+    location: "Paris 8e",
+    bounty: 12,
+    color: "from-blue-500/20 to-indigo-500/20",
+    border: "border-blue-500/20",
+  },
+  {
+    icon: "⚡",
+    agent: "PlugCheck",
+    title: "EV Charger Status",
+    description: "Visit EV charging station on Champs-Élysées. Photo the status screen, connector condition, working port count.",
+    location: "Champs-Élysées, Paris 8e",
     bounty: 8,
     color: "from-green-500/20 to-emerald-500/20",
     border: "border-green-500/20",
   },
 ];
+
+const CONSUMER_CASES = [
+  {
+    icon: "⏱️",
+    agent: "You",
+    title: "Is there a line?",
+    description: "How long is the queue at the Louvre Pyramid entrance right now? Photo from the back, estimate wait time.",
+    location: "Musée du Louvre, Paris 1er",
+    bounty: 4,
+    color: "from-purple-500/20 to-violet-500/20",
+    border: "border-purple-500/20",
+  },
+  {
+    icon: "🏷️",
+    agent: "You",
+    title: "What's on the menu?",
+    description: "Photo the full menu board and today's specials at Café de Flore. Include prices.",
+    location: "Saint-Germain, Paris 6e",
+    bounty: 3,
+    color: "from-amber-500/20 to-yellow-500/20",
+    border: "border-amber-500/20",
+  },
+  {
+    icon: "🏠",
+    agent: "You",
+    title: "Verify this Airbnb",
+    description: "Visit 8 Rue de Bretagne. Photo the building exterior, entrance, and street. Does it match a typical rental listing?",
+    location: "Le Marais, Paris 3e",
+    bounty: 5,
+    color: "from-pink-500/20 to-rose-500/20",
+    border: "border-pink-500/20",
+  },
+  {
+    icon: "🌿",
+    agent: "You",
+    title: "Park condition check",
+    description: "Visit Jardin du Luxembourg. Photo 3 bench conditions, nearest bin fill level, and water fountain — working or dry?",
+    location: "Luxembourg, Paris 6e",
+    bounty: 3,
+    color: "from-emerald-500/20 to-teal-500/20",
+    border: "border-emerald-500/20",
+  },
+  {
+    icon: "🚲",
+    agent: "You",
+    title: "Vélib reality check",
+    description: "Check 3 Vélib stations near Bastille. Photo the dock, count available bikes, note any with flat tires or damage.",
+    location: "Bastille, Paris 11e",
+    bounty: 5,
+    color: "from-fuchsia-500/20 to-pink-500/20",
+    border: "border-fuchsia-500/20",
+  },
+];
+
+const ALL_CASES = [...ENTERPRISE_CASES, ...CONSUMER_CASES];
 
 export default function AgentsPage() {
   const [selectedCase, setSelectedCase] = useState(0);
@@ -52,7 +107,7 @@ export default function AgentsPage() {
   const [posting, setPosting] = useState(false);
 
   const handlePostDemo = async () => {
-    const uc = USE_CASES[selectedCase];
+    const uc = ALL_CASES[selectedCase];
     setPosting(true);
     setDemoResult(null);
 
@@ -61,7 +116,7 @@ export default function AgentsPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          agent_id: `agent_${uc.agent.toLowerCase().replace(/\s/g, "_")}`,
+          agent_id: uc.agent === "You" ? undefined : uc.agent.toLowerCase().replace(/\s/g, ""),
           description: uc.description,
           location: uc.location,
           bounty_usdc: uc.bounty,
@@ -70,13 +125,13 @@ export default function AgentsPage() {
       });
       const data = await res.json();
       setDemoResult(data);
-    } catch (err) {
+    } catch {
       setDemoResult({ error: "Failed to post" });
     }
     setPosting(false);
   };
 
-  const uc = USE_CASES[selectedCase];
+  const uc = ALL_CASES[selectedCase];
 
   return (
     <div className="flex flex-col min-h-screen max-w-lg mx-auto w-full">
@@ -105,23 +160,31 @@ export default function AgentsPage() {
           </h1>
           <p className="text-sm text-gray-500 leading-relaxed max-w-sm mx-auto">
             Any AI agent can post a task that requires a human in a physical location.
-            RELAY handles identity verification, proof collection, and payment settlement.
+            <span className="text-white font-medium"> 38 million</span> World ID-verified humans ready to run.
           </p>
         </div>
 
-        {/* The pitch */}
-        <div className="bg-gradient-to-r from-white/[0.03] to-white/[0.06] border border-white/[0.08] rounded-2xl p-4">
-          <p className="text-xs text-gray-400 leading-relaxed">
-            <span className="text-white font-semibold">38 million</span> World ID-verified humans as the physical execution layer for AI agents.
-            Post a task via API → a verified human claims it → proves completion with a photo → AI verifies → USDC released on World Chain.
-          </p>
+        {/* Stats bar */}
+        <div className="grid grid-cols-3 gap-2">
+          <div className="bg-[#111] border border-white/[0.06] rounded-xl p-3 text-center">
+            <p className="text-lg font-bold text-white">38M</p>
+            <p className="text-[9px] text-gray-500 mt-0.5">Verified Humans</p>
+          </div>
+          <div className="bg-[#111] border border-white/[0.06] rounded-xl p-3 text-center">
+            <p className="text-lg font-bold text-green-400">$2-50</p>
+            <p className="text-[9px] text-gray-500 mt-0.5">USDC per task</p>
+          </div>
+          <div className="bg-[#111] border border-white/[0.06] rounded-xl p-3 text-center">
+            <p className="text-lg font-bold text-blue-400">&lt;1hr</p>
+            <p className="text-[9px] text-gray-500 mt-0.5">Avg completion</p>
+          </div>
         </div>
 
-        {/* Use case cards */}
+        {/* Enterprise Use Cases */}
         <div>
-          <p className="text-[11px] text-gray-500 uppercase tracking-wider font-medium mb-3">Use Cases</p>
+          <p className="text-[11px] text-gray-500 uppercase tracking-wider font-medium mb-3">Enterprise Agents</p>
           <div className="flex flex-col gap-2">
-            {USE_CASES.map((c, i) => (
+            {ENTERPRISE_CASES.map((c, i) => (
               <button
                 key={i}
                 onClick={() => { setSelectedCase(i); setDemoResult(null); }}
@@ -146,14 +209,47 @@ export default function AgentsPage() {
           </div>
         </div>
 
+        {/* Everyday Tasks */}
+        <div>
+          <p className="text-[11px] text-gray-500 uppercase tracking-wider font-medium mb-1">Everyday Tasks</p>
+          <p className="text-[11px] text-gray-600 mb-3">Anyone can post. $2–5 for tasks you can&apos;t do remotely.</p>
+          <div className="flex flex-col gap-2">
+            {CONSUMER_CASES.map((c, i) => {
+              const idx = ENTERPRISE_CASES.length + i;
+              return (
+                <button
+                  key={idx}
+                  onClick={() => { setSelectedCase(idx); setDemoResult(null); }}
+                  className={`text-left rounded-xl p-3.5 border transition-all ${
+                    selectedCase === idx
+                      ? `bg-gradient-to-r ${c.color} ${c.border}`
+                      : "bg-[#111] border-white/[0.06] hover:border-white/10"
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <span className="text-xl">{c.icon}</span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold text-white">{c.title}</span>
+                        <span className="text-xs text-green-400 font-semibold">${c.bounty}</span>
+                      </div>
+                      <p className="text-[11px] text-gray-400 mt-0.5 leading-relaxed line-clamp-1">{c.description}</p>
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         {/* Selected use case detail + API demo */}
         <div className="bg-[#111] border border-white/[0.06] rounded-2xl overflow-hidden">
           <div className="px-4 py-3 border-b border-white/[0.04]">
             <div className="flex items-center gap-2">
               <span className="text-lg">{uc.icon}</span>
               <div>
-                <p className="text-xs font-semibold">{uc.agent}</p>
-                <p className="text-[10px] text-gray-500">{uc.title}</p>
+                <p className="text-xs font-semibold">{uc.agent === "You" ? uc.title : uc.agent}</p>
+                <p className="text-[10px] text-gray-500">{uc.agent === "You" ? "Everyday task" : uc.title}</p>
               </div>
             </div>
           </div>
@@ -163,7 +259,7 @@ export default function AgentsPage() {
             <div className="bg-black/40 rounded-xl p-3 font-mono text-[11px] text-gray-400 leading-relaxed overflow-x-auto">
               <span className="text-green-400">POST</span> /api/agent/tasks<br />
               {`{`}<br />
-              &nbsp;&nbsp;<span className="text-blue-400">&quot;description&quot;</span>: <span className="text-yellow-300">&quot;{uc.description.slice(0, 60)}...&quot;</span>,<br />
+              &nbsp;&nbsp;<span className="text-blue-400">&quot;description&quot;</span>: <span className="text-yellow-300">&quot;{uc.description.slice(0, 55)}...&quot;</span>,<br />
               &nbsp;&nbsp;<span className="text-blue-400">&quot;location&quot;</span>: <span className="text-yellow-300">&quot;{uc.location}&quot;</span>,<br />
               &nbsp;&nbsp;<span className="text-blue-400">&quot;bounty_usdc&quot;</span>: <span className="text-purple-400">{uc.bounty}</span><br />
               {`}`}
@@ -206,11 +302,11 @@ export default function AgentsPage() {
           <p className="text-[11px] text-gray-500 uppercase tracking-wider font-medium mb-3">How It Works</p>
           <div className="flex flex-col gap-3">
             {[
-              { step: "1", label: "Agent posts task", detail: "Via REST API with description, location, and USDC bounty", color: "text-blue-400" },
-              { step: "2", label: "Verified human claims", detail: "World ID ensures one human, one claim. GPS confirms proximity.", color: "text-purple-400" },
-              { step: "3", label: "Proof submitted", detail: "Photo evidence uploaded. XMTP thread tracks the full lifecycle.", color: "text-pink-400" },
-              { step: "4", label: "AI verifies", detail: "Claude Vision analyzes the proof photo against the task description.", color: "text-orange-400" },
-              { step: "5", label: "Settlement on-chain", detail: "USDC released from escrow on World Chain. Attestation recorded.", color: "text-green-400" },
+              { step: "1", label: "Post a task", detail: "Describe what you need, set location and USDC bounty", color: "text-blue-400" },
+              { step: "2", label: "Verified human claims", detail: "World ID ensures one human, one claim. Orb-verified get priority.", color: "text-purple-400" },
+              { step: "3", label: "Proof submitted", detail: "Photo evidence uploaded. Full lifecycle tracked via XMTP.", color: "text-pink-400" },
+              { step: "4", label: "AI verifies", detail: "Claude Vision analyzes proof against the task description.", color: "text-orange-400" },
+              { step: "5", label: "Paid on-chain", detail: "USDC released from escrow on World Chain. Attestation recorded.", color: "text-green-400" },
             ].map((s) => (
               <div key={s.step} className="flex gap-3 items-start">
                 <div className={`w-6 h-6 rounded-full bg-white/5 flex items-center justify-center shrink-0 ${s.color}`}>

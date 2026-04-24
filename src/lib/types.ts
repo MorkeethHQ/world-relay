@@ -8,6 +8,13 @@ export type VerificationResult = {
   confidence: number;
 };
 
+export type AgentInfo = {
+  id: string;
+  name: string;
+  icon: string;
+  color: string;
+};
+
 export type Task = {
   id: string;
   poster: string;
@@ -24,5 +31,6 @@ export type Task = {
   proofNote: string | null;
   verificationResult: VerificationResult | null;
   attestationTxHash: string | null;
+  agent: AgentInfo | null;
   createdAt: string;
 };

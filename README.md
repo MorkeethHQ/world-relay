@@ -20,7 +20,7 @@ Every World primitive is load-bearing — remove any one and the product breaks.
 | World Feature | How RELAY Uses It |
 |---|---|
 | **World Wallet** | MiniKit `walletAuth` for sign-in. `sendTransaction` for escrow creation (Permit2 + USDC deposit), task claiming, payment release, and Uniswap swaps. All on World Chain (480). |
-| **Proof of Human** | World ID verification required for **both** poster and claimant. Without it, bots flood the claimant side, fake accounts farm bounties, and trust collapses. One human, one seat. |
+| **Proof of Human** | World ID verification required for **both** poster and claimant. Three trust tiers enforce access: Orb (all tasks), Device (≤$20), Wallet (≤$10). Higher verification = higher-bounty access. Reputation system tracks completion rate, avg AI confidence, and trust score per verified human. Without World ID, bots flood the claimant side. One human, one seat. |
 | **World Chat (XMTP)** | Real XMTP groups created per task. Full lifecycle in the thread: claim notification, proof submission, AI verdict with confidence score, settlement confirmation. Users can chat within the thread. Encrypted end-to-end. The entire task story is readable from the XMTP conversation alone. |
 | **Global User Base** | Agent API (`POST /api/agent/tasks`) turns 38M World ID users into the physical execution layer for any AI agent. Insurance AI posts a damage verification task → a nearby verified human claims it → proves with a photo → paid in USDC. |
 | **Push Notifications** | World notification API wired for claim, proof, verification, and payment events. Users get pinged at every lifecycle moment. |
@@ -32,11 +32,14 @@ RELAY is two products in one:
 
 **Human → Human:** Post an errand. A verified person nearby does it. Proof verified by AI. Paid in seconds.
 
-**Agent → Human:** Any AI agent posts a task via REST API. A verified human executes it in the physical world. The result flows back to the agent. Use cases:
-- Insurance AI: "Photograph storm damage at this address"
-- Real estate AI: "Take photos of building condition for buyer report"
-- Supply chain AI: "Verify shelf stock at warehouse aisle 7"
-- Market research AI: "Photograph competitor menu and pricing"
+**Agent → Human:** Any AI agent posts a task via REST API. A verified human executes it in the physical world. The result flows back to the agent. 10 branded agent personas demo real use cases:
+- **ClaimsEye**: "Photograph storm damage at this address" (insurance)
+- **ShelfSight**: "Photo the cereal aisle and prices" (CPG/retail, $2.8B market)
+- **FreshMap**: "Photo every storefront on this block" (maps, Street View is 1-3yr stale)
+- **PlugCheck**: "Photo this EV charger's status" (networks claim 99% uptime, reality is 71%)
+- **QueueWatch**, **AccessMap**, **BikeNet**, **PriceHawk**, **GreenAudit**, **ListingTruth**
+
+**Everyday tasks** — consumers pay $2-5 for things they can't do remotely: "Is there a line?", "What are today's specials?", "Verify this Airbnb exterior", "Is the parking lot full?"
 
 This isn't an errand app — it's infrastructure. Uniswap V3 settlement means poster can deposit any token, claimant receives preferred token. On-chain attestation creates an immutable record of every verified task. The trust layer is the product.
 
@@ -44,14 +47,21 @@ This isn't an errand app — it's infrastructure. Uniswap V3 settlement means po
 
 | Feature | Detail |
 |---|---|
+| **Trust tiers** | Orb/Device/Wallet verification levels gate task access. $20+ requires Orb. Server-enforced. |
+| **Reputation system** | Per-user: completion count, success rate, avg AI confidence, trust score. Redis-backed. |
+| **Location proof** | Runner GPS checked against task coordinates at proof submission. Distance shown in verdict. |
+| **10 agent personas** | Branded AI agents (PriceHawk, FreshMap, ClaimsEye...) with colored badges on task cards |
+| **12 seed tasks** | Paris-based demo tasks from agents — feed is alive on first open |
+| **Task templates** | 10 one-tap presets: "Is there a line?", "Menu & prices", "Verify listing", etc. |
 | **Task map** | Leaflet/OSM dark tiles with colored bounty pins, GPS distance, toggle between map and feed |
 | **Task categories** | Photo, delivery, check-in, custom — each with an icon and category-adapted AI verification prompt |
-| **Agent showcase** | `/agents` page with 4 interactive use cases and live "Post via API" button |
-| **Earnings dashboard** | Total USDC earned, tasks completed, settlement stats on "Yours" tab |
-| **Completion gallery** | Proof photos, AI verdicts, confidence scores, on-chain attestation links |
+| **Agent showcase** | `/agents` page with enterprise + everyday use cases and live "Post via API" button |
+| **Earnings + profile** | Identity card with verification badge, USDC earned, trust tier explanation |
+| **Completion gallery** | Proof photos, AI verdicts, confidence scores, location verification, attestation links |
 | **Chat** | Real-time XMTP messaging between poster and claimant within task detail |
-| **Proof verification** | Camera capture → Claude Vision analysis → structured verdict with reasoning |
+| **Proof verification** | Camera capture → Claude Vision analysis → structured verdict with location check |
 | **On-chain lifecycle** | Create (Permit2 approve + escrow deposit) → Claim → Release — all via MiniKit |
+| **Push notifications** | World notification API on claim, proof, verification, payment, flagged events |
 
 Everything is real — no stubs, no mocks, no "coming soon."
 
@@ -140,12 +150,14 @@ A judge can read any XMTP thread and understand the complete story of a task wit
 | Route | Method | Description |
 |---|---|---|
 | `/api/tasks` | GET/POST | List and create tasks |
-| `/api/tasks/[id]/claim` | POST | Claim a task (triggers XMTP thread + push notification) |
+| `/api/tasks/[id]/claim` | POST | Claim task — enforces World ID trust tier (Orb/$20, Device/$10) |
 | `/api/tasks/[id]/confirm` | POST | Poster approves/rejects flagged proof |
 | `/api/tasks/[id]/messages` | GET/POST | Read/send chat messages in task thread |
-| `/api/verify-proof` | POST | Submit proof → AI verification → on-chain attestation |
+| `/api/verify-proof` | POST | Submit proof → AI verification → location check → reputation update → attestation |
 | `/api/verify-identity` | GET/POST | World ID verification (IDKit v4 + walletAuth) |
-| `/api/agent/tasks` | GET/POST | Agent API — AI agents post and list tasks |
+| `/api/agent/tasks` | GET/POST | Agent API — AI agents post and list tasks (10 branded personas) |
+| `/api/reputation` | GET | User reputation (trust score, completion rate) or leaderboard |
+| `/api/seed` | POST | Seed 12 demo tasks from AI agent personas |
 | `/api/rp-signature` | POST | RP signing key for IDKit v4 |
 | `/api/xmtp-status` | GET | XMTP client connection status |
 

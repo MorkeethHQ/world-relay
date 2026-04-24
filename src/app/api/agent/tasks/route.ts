@@ -50,7 +50,8 @@ export async function POST(req: NextRequest) {
     }, { status: 400 });
   }
 
-  const poster = agent_id || `agent_${crypto.randomUUID().slice(0, 8)}`;
+  const agentId = agent_id || null;
+  const poster = agentId ? `agent_${agentId}` : `agent_${crypto.randomUUID().slice(0, 8)}`;
 
   const task = createTask({
     poster,
@@ -60,6 +61,7 @@ export async function POST(req: NextRequest) {
     lng: lng ? Number(lng) : null,
     bountyUsdc: Number(bounty_usdc),
     deadlineHours: Number(deadline_hours) || 24,
+    agentId,
   });
 
   return NextResponse.json({
