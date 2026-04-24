@@ -56,7 +56,7 @@ async function getXmtpClient() {
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error("[XMTP] Failed to initialize client:", msg);
-      lastInitError = `${msg} (key length: ${walletKey.length}, cleaned: ${walletKey.replace(/[^0-9a-fA-Fx]/g, "").length})`;
+      lastInitError = msg;
       clientInitPromise = null;
       return null;
     }
