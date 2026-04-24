@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getTask, submitProof, completeTask } from "@/lib/store";
 import { verifyProof, verifyProofStub } from "@/lib/verify-proof";
 import { postProofSubmitted, postVerificationResult } from "@/lib/xmtp";
+import { notifyProofSubmitted, notifyVerified, notifyFlagged } from "@/lib/notifications";
 import { getRedis } from "@/lib/redis";
 
 const RATE_LIMIT_KEY = "ratelimit:verify";
@@ -35,7 +36,7 @@ export async function POST(req: NextRequest) {
   }
 
   await submitProof(taskId, `data:image/jpeg;base64,${proofImageBase64}`, proofNote || null);
-  await postProofSubmitted(taskId);
+  await postProofSubmitted(taskId, proofNote);
 
   const withinLimit = await checkRateLimit();
   const useRealVerification = !!process.env.ANTHROPIC_API_KEY && withinLimit;
@@ -51,7 +52,14 @@ export async function POST(req: NextRequest) {
   }
 
   await completeTask(taskId, result);
-  await postVerificationResult(taskId, result.verdict, result.reasoning, task.bountyUsdc);
+  await postVerificationResult(taskId, result.verdict, result.reasoning, task.bountyUsdc, result.confidence);
+
+  notifyProofSubmitted(task.poster, task.description).catch(console.error);
+  if (result.verdict === "pass" && task.claimant) {
+    notifyVerified(task.claimant, task.bountyUsdc).catch(console.error);
+  } else if (result.verdict === "flag") {
+    notifyFlagged(task.poster, task.description).catch(console.error);
+  }
 
   return NextResponse.json({
     taskId,

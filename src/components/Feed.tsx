@@ -199,7 +199,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
             <p className="text-sm text-gray-500">
               {tab === "available" ? "No requests nearby yet" :
                tab === "mine" ? "You haven't posted or claimed anything" :
-               "No completed requests"}
+               "No completed tasks yet"}
             </p>
             {tab === "available" && (
               <button
@@ -209,6 +209,79 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
                 Post the first one
               </button>
             )}
+          </div>
+        ) : tab === "completed" ? (
+          <div className="flex flex-col gap-4">
+            {/* Gallery stats bar */}
+            <div className="flex items-center justify-between px-1">
+              <span className="text-xs text-gray-500">{filtered.length} completed</span>
+              <span className="text-xs text-green-400 font-semibold">
+                ${filtered.reduce((sum, t) => sum + t.bountyUsdc, 0).toFixed(2)} USDC settled
+              </span>
+            </div>
+            {filtered.map((task, i) => (
+              <div
+                key={task.id}
+                style={{ animationDelay: `${i * 60}ms` }}
+                className="animate-[slideUp_0.3s_ease-out_both] rounded-2xl overflow-hidden bg-[#111] border border-white/[0.06] cursor-pointer active:scale-[0.98] transition-all"
+                onClick={() => { setSelectedTask(task); setView("detail"); }}
+              >
+                {task.proofImageUrl && (
+                  <div className="relative">
+                    <img src={task.proofImageUrl} alt="Proof" className="w-full h-48 object-cover" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#111] via-transparent to-transparent" />
+                    <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between">
+                      <div className="bg-green-500/20 backdrop-blur-sm border border-green-500/30 rounded-lg px-2.5 py-1 flex items-center gap-1.5">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
+                        </svg>
+                        <span className="text-[11px] font-bold text-green-400">AI VERIFIED</span>
+                      </div>
+                      <span className="text-[11px] font-bold text-green-400 bg-black/40 backdrop-blur-sm rounded-lg px-2 py-1">
+                        ${task.bountyUsdc} USDC
+                      </span>
+                    </div>
+                  </div>
+                )}
+                <div className="p-4">
+                  <p className="font-medium text-[15px] leading-snug">{task.description}</p>
+                  <div className="flex items-center gap-1.5 mt-2">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                      <circle cx="12" cy="10" r="3" />
+                    </svg>
+                    <span className="text-xs text-gray-500">{task.location}</span>
+                    <span className="text-[10px] text-gray-700 mx-0.5">·</span>
+                    <span className="text-xs text-gray-500">{timeAgo(task.createdAt)}</span>
+                  </div>
+                  {task.verificationResult && (
+                    <div className="mt-3 pt-3 border-t border-white/[0.04]">
+                      <p className="text-xs text-gray-400 leading-relaxed italic">&ldquo;{task.verificationResult.reasoning}&rdquo;</p>
+                      <div className="flex items-center gap-3 mt-2">
+                        <span className="text-[10px] text-gray-600">
+                          {shortId(task.poster)} → {task.claimant ? shortId(task.claimant) : "?"}
+                        </span>
+                        <span className="text-[10px] text-gray-700">·</span>
+                        <span className="text-[10px] text-green-500/70 font-medium">
+                          {Math.round((task.verificationResult.confidence || 0) * 100)}% confidence
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                  {!task.proofImageUrl && (
+                    <div className="mt-3 flex items-center gap-2">
+                      <div className="bg-green-500/10 border border-green-500/20 rounded-lg px-2.5 py-1 flex items-center gap-1.5">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
+                        </svg>
+                        <span className="text-[11px] font-bold text-green-400">VERIFIED</span>
+                      </div>
+                      <span className="text-xs font-semibold text-green-400">${task.bountyUsdc} USDC</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
         ) : (
           <div className="flex flex-col gap-2.5">
@@ -245,6 +318,26 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
             ))}
           </div>
         )}
+      </div>
+
+      {/* Powered by footer */}
+      <div className="px-4 py-4 border-t border-white/[0.04]">
+        <div className="flex items-center justify-center gap-4">
+          <div className="flex items-center gap-1.5">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
+            <span className="text-[10px] text-gray-600">World ID</span>
+          </div>
+          <span className="text-gray-800">·</span>
+          <div className="flex items-center gap-1.5">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#818cf8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>
+            <span className="text-[10px] text-gray-600">XMTP</span>
+          </div>
+          <span className="text-gray-800">·</span>
+          <div className="flex items-center gap-1.5">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2" /><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" /></svg>
+            <span className="text-[10px] text-gray-600">World Chain</span>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -306,6 +399,10 @@ function TaskCard({
           <StatusBadge status={task.status} />
           {isOwnTask && <span className="text-[10px] text-gray-600">You posted</span>}
           {isClaimant && task.status === "claimed" && <span className="text-[10px] text-gray-600">You claimed</span>}
+          <span className="flex items-center gap-0.5 text-[9px] text-cyan-500/60">
+            <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
+            World ID
+          </span>
         </div>
         <span className="text-[10px] text-gray-700">{timeAgo(task.createdAt)}</span>
       </div>
@@ -897,7 +994,8 @@ function TaskDetail({
               <line x1="12" y1="1" x2="12" y2="23" />
               <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
             </svg>
-            Release ${currentTask.bountyUsdc} USDC On-Chain
+            Release ${currentTask.bountyUsdc} USDC
+            <span className="text-[10px] opacity-70 font-normal">via World Chain</span>
           </button>
         )}
 
@@ -955,8 +1053,9 @@ function TaskDetail({
             <span className="text-[10px] text-gray-500 uppercase tracking-wider font-medium">Thread</span>
             <span className="flex-1 h-px bg-white/5" />
             <div className="flex items-center gap-1">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#818cf8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
+              <span className="text-[10px] text-indigo-400/70">XMTP Encrypted</span>
               <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-[pulse-dot_2s_ease-in-out_infinite]" />
-              <span className="text-[10px] text-gray-600">XMTP</span>
             </div>
           </div>
           {messages.length === 0 ? (

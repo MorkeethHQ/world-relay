@@ -146,43 +146,82 @@ export function getThread(taskId: string): XmtpThreadInfo | undefined {
 export async function postClaimNotification(task: Task, claimantAddress: string): Promise<void> {
   await createTaskThread(task, claimantAddress);
   await postToThread(task.id, [
-    `Task claimed: "${task.description}"`,
-    `Location: ${task.location}`,
-    `Bounty: $${task.bountyUsdc} USDC`,
-    `Claimant: ${claimantAddress}`,
-    `Submit your proof photo to complete this task.`,
+    `📋 TASK CLAIMED`,
+    `━━━━━━━━━━━━━━━━━━`,
+    `"${task.description}"`,
+    `📍 ${task.location}`,
+    `💰 $${task.bountyUsdc} USDC bounty`,
+    `👤 Claimed by ${claimantAddress.startsWith("0x") ? `${claimantAddress.slice(0, 6)}...${claimantAddress.slice(-4)}` : claimantAddress}`,
+    ``,
+    `Next step: Submit a proof photo showing task completion.`,
+    `Both sides verified human via World ID.`,
   ].join("\n"));
 }
 
-export async function postProofSubmitted(taskId: string): Promise<void> {
-  await postToThread(taskId, "Proof submitted. AI verification in progress...");
+export async function postProofSubmitted(taskId: string, proofNote?: string | null): Promise<void> {
+  await postToThread(taskId, [
+    `📸 PROOF SUBMITTED`,
+    `━━━━━━━━━━━━━━━━━━`,
+    ...(proofNote ? [`Note: "${proofNote}"`] : []),
+    `AI verification in progress...`,
+    `Powered by Claude Vision on World Chain.`,
+  ].join("\n"));
 }
 
 export async function postVerificationResult(
   taskId: string,
   verdict: "pass" | "flag" | "fail",
   reasoning: string,
-  bountyUsdc: number
+  bountyUsdc: number,
+  confidence?: number
 ): Promise<void> {
   if (verdict === "pass") {
     await postToThread(taskId, [
-      "VERIFIED — Proof accepted by AI.",
+      `✅ VERIFIED — AI APPROVED`,
+      `━━━━━━━━━━━━━━━━━━`,
       `Reasoning: ${reasoning}`,
-      `$${bountyUsdc} USDC released to claimant.`,
+      ...(confidence ? [`Confidence: ${Math.round(confidence * 100)}%`] : []),
+      ``,
+      `💸 SETTLEMENT`,
+      `$${bountyUsdc} USDC → claimant`,
+      `Escrow release on World Chain.`,
     ].join("\n"));
   } else if (verdict === "flag") {
     await postToThread(taskId, [
-      "FLAGGED — AI is uncertain, needs human review.",
+      `⚠️ FLAGGED — NEEDS HUMAN REVIEW`,
+      `━━━━━━━━━━━━━━━━━━`,
       `Reasoning: ${reasoning}`,
-      "Poster: approve or reject this proof.",
+      ...(confidence ? [`Confidence: ${Math.round(confidence * 100)}%`] : []),
+      ``,
+      `Poster: approve or reject this proof.`,
+      `$${bountyUsdc} USDC held in escrow.`,
     ].join("\n"));
   } else {
     await postToThread(taskId, [
-      "REJECTED — Proof does not match the task.",
+      `❌ REJECTED — PROOF INSUFFICIENT`,
+      `━━━━━━━━━━━━━━━━━━`,
       `Reasoning: ${reasoning}`,
-      "Task reopened for new claims.",
+      ``,
+      `Task reopened for new claims.`,
+      `$${bountyUsdc} USDC returned to escrow.`,
     ].join("\n"));
   }
+}
+
+export async function postSettlementConfirmation(
+  taskId: string,
+  bountyUsdc: number,
+  txHash?: string
+): Promise<void> {
+  await postToThread(taskId, [
+    `🔗 ON-CHAIN SETTLEMENT CONFIRMED`,
+    `━━━━━━━━━━━━━━━━━━`,
+    `$${bountyUsdc} USDC released on World Chain`,
+    ...(txHash ? [`Tx: ${txHash}`] : []),
+    ``,
+    `Task complete. Both parties verified human via World ID.`,
+    `Proof verified by AI. Settlement on-chain. Chat via XMTP.`,
+  ].join("\n"));
 }
 
 export async function getXmtpStatus(): Promise<{

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { claimTask } from "@/lib/store";
 import { postClaimNotification } from "@/lib/xmtp";
+import { notifyTaskClaimed } from "@/lib/notifications";
 
 export async function POST(
   req: NextRequest,
@@ -20,6 +21,7 @@ export async function POST(
   }
 
   await postClaimNotification(task, claimant);
+  notifyTaskClaimed(task.poster, task.description).catch(console.error);
 
   return NextResponse.json({ task });
 }
