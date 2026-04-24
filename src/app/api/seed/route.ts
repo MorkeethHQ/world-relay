@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createTask, hasAgentTasks } from "@/lib/store";
 import { SEED_TASKS } from "@/lib/agents";
-import { getEscrowState } from "@/lib/escrow";
+import { getEscrowState, createEscrowTask } from "@/lib/escrow";
 
 const LIVE_ESCROW_TASKS = [
   {
@@ -125,11 +125,38 @@ export async function POST(req: NextRequest) {
     });
   }
 
+  // Auto-create one on-chain escrow task so judges see a real contract TX on World Chain explorer
+  let newEscrowTask: { id: string; onChainId: number; txHash: string } | null = null;
+  try {
+    const onChainResult = await createEscrowTask(
+      "Photograph any street art or mural in your city. Include the full piece and surrounding context.",
+      0.25,
+      168 // 1 week deadline
+    );
+    if (onChainResult) {
+      const task = createTask({
+        poster: "agent_claimseye",
+        category: "photo",
+        description: "Photograph any street art or mural in your city. Include the full piece and surrounding context.",
+        location: "Any city — NYC, Seoul, Paris, or anywhere",
+        bountyUsdc: 0.25,
+        deadlineHours: 168,
+        agentId: "claimseye",
+        onChainId: onChainResult.onChainId,
+        escrowTxHash: onChainResult.txHash,
+      });
+      newEscrowTask = { id: task.id, onChainId: onChainResult.onChainId, txHash: onChainResult.txHash };
+    }
+  } catch (err) {
+    console.error("[Seed] On-chain escrow task failed:", err);
+  }
+
   const escrowState = await getEscrowState().catch(() => null);
 
   return NextResponse.json({
     seeded: results.length,
     escrowTasks: escrowResults,
+    newEscrowTask,
     escrow: escrowState,
     message: `Seeded ${results.length} agent tasks + ${escrowResults.length} live escrow tasks with real USDC on World Chain`,
   });

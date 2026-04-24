@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { VerificationBadge } from "@/components/VerificationBadge";
 
 type LeaderboardEntry = {
   address: string;
@@ -32,11 +33,7 @@ function timeAgo(dateStr: string): string {
   return `${Math.floor(hours / 24)}d ago`;
 }
 
-const TIER_CONFIG: Record<string, { color: string; label: string; icon: string }> = {
-  orb: { color: "text-cyan-400", label: "Orb", icon: "◉" },
-  device: { color: "text-blue-400", label: "Device", icon: "✓" },
-  wallet: { color: "text-green-400", label: "Wallet", icon: "✓" },
-};
+// Verification badges are handled by the VerificationBadge component
 
 export default function LeaderboardPage() {
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
@@ -123,7 +120,6 @@ export default function LeaderboardPage() {
         ) : (
           <div className="flex flex-col gap-2.5">
             {entries.map((entry, i) => {
-              const tier = TIER_CONFIG[entry.verificationLevel] || TIER_CONFIG.wallet;
               const isTop3 = i < 3;
               const rankColors = ["text-yellow-400", "text-gray-300", "text-amber-600"];
 
@@ -149,11 +145,9 @@ export default function LeaderboardPage() {
 
                     {/* Info */}
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-semibold">{shortAddress(entry.address)}</span>
-                        <span className={`text-[9px] font-semibold flex items-center gap-0.5 ${tier.color}`}>
-                          {tier.icon} {tier.label}
-                        </span>
+                      <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                        <span className="text-xs sm:text-sm font-semibold">{shortAddress(entry.address)}</span>
+                        <VerificationBadge level={entry.verificationLevel} size="sm" />
                         {entry.currentStreak >= 3 && (
                           <span className="text-[9px] font-bold text-orange-400 bg-orange-500/10 border border-orange-500/20 rounded px-1.5 py-0.5 flex items-center gap-0.5">
                             <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
@@ -163,18 +157,18 @@ export default function LeaderboardPage() {
                           </span>
                         )}
                       </div>
-                      <div className="flex items-center gap-3 mt-1">
-                        <span className="text-[11px] text-gray-500">
-                          {entry.tasksCompleted} completed
+                      <div className="flex items-center gap-2 sm:gap-3 mt-1 flex-wrap">
+                        <span className="text-[10px] sm:text-[11px] text-gray-500">
+                          {entry.tasksCompleted} done
                         </span>
                         <span className="text-[10px] text-gray-700">·</span>
-                        <span className="text-[11px] text-gray-500">
-                          {Math.round(entry.successRate * 100)}% success
+                        <span className="text-[10px] sm:text-[11px] text-gray-500">
+                          {Math.round(entry.successRate * 100)}%
                         </span>
                         {entry.lastActiveAt && (
                           <>
                             <span className="text-[10px] text-gray-700">·</span>
-                            <span className="text-[11px] text-gray-600">{timeAgo(entry.lastActiveAt)}</span>
+                            <span className="text-[10px] sm:text-[11px] text-gray-600">{timeAgo(entry.lastActiveAt)}</span>
                           </>
                         )}
                       </div>

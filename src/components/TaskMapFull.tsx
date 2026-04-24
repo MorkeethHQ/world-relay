@@ -146,12 +146,12 @@ export default function TaskMapFull() {
   return (
     <div className="relative w-full h-full">
       {/* Filter bar */}
-      <div className="absolute top-3 left-3 z-[1000] flex gap-1.5">
+      <div className="absolute top-3 left-3 right-14 z-[1000] flex gap-1 sm:gap-1.5 overflow-x-auto">
         {filters.map((f) => (
           <button
             key={f.value}
             onClick={() => setFilter(f.value)}
-            className="px-3 py-1.5 rounded-full text-[11px] font-semibold transition-all border"
+            className="px-2.5 sm:px-3 py-1.5 rounded-full text-[10px] sm:text-[11px] font-semibold transition-all border shrink-0 min-h-[36px]"
             style={{
               background:
                 filter === f.value ? f.color + "22" : "rgba(0,0,0,0.6)",
@@ -168,7 +168,7 @@ export default function TaskMapFull() {
 
       {/* Stats overlay */}
       <div
-        className="absolute bottom-4 left-3 z-[1000] rounded-xl px-4 py-3 text-[11px] border border-white/10"
+        className="absolute bottom-4 left-3 z-[1000] rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 text-[10px] sm:text-[11px] border border-white/10"
         style={{
           background: "rgba(0,0,0,0.7)",
           backdropFilter: "blur(8px)",

@@ -102,8 +102,21 @@ export default function LivePage() {
   const [events, setEvents] = useState<LiveEvent[]>([]);
   const [connected, setConnected] = useState(false);
   const [stats, setStats] = useState<Stats>({ total: 0, active: 0, verified: 0, totalUsdc: 0 });
+  const [syncState, setSyncState] = useState<"idle" | "syncing" | "success" | "error">("idle");
   const eventSourceRef = useRef<EventSource | null>(null);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleSyncXmtp = useCallback(async () => {
+    setSyncState("syncing");
+    try {
+      const res = await fetch("/api/xmtp-sync", { method: "POST" });
+      if (!res.ok) throw new Error(`Sync failed: ${res.status}`);
+      setSyncState("success");
+    } catch {
+      setSyncState("error");
+    }
+    setTimeout(() => setSyncState("idle"), 2000);
+  }, []);
 
   // Fetch initial stats
   useEffect(() => {
@@ -202,11 +215,11 @@ export default function LivePage() {
     <div className="min-h-screen bg-[#050505] text-white font-[family-name:var(--font-geist-sans)]">
       {/* Header */}
       <header className="sticky top-0 z-50 bg-[#050505]/90 backdrop-blur-xl border-b border-white/5">
-        <div className="max-w-3xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <a href="/" className="text-white/40 hover:text-white/60 transition-colors text-sm">&larr;</a>
-            <h1 className="text-lg font-bold tracking-tight">RELAY LIVE</h1>
-            <div className="flex items-center gap-1.5 ml-2">
+        <div className="max-w-3xl mx-auto px-3 sm:px-4 py-3 sm:py-4 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0 shrink-0">
+            <a href="/" className="text-white/40 hover:text-white/60 transition-colors text-sm shrink-0">&larr;</a>
+            <h1 className="text-base sm:text-lg font-bold tracking-tight shrink-0">RELAY LIVE</h1>
+            <div className="flex items-center gap-1.5 ml-1 sm:ml-2 shrink-0">
               <div
                 className={`w-2 h-2 rounded-full ${
                   connected
@@ -219,27 +232,59 @@ export default function LivePage() {
               </span>
             </div>
           </div>
-          <a
-            href="/"
-            className="text-xs text-white/30 hover:text-white/50 transition-colors"
-          >
-            relay.world
-          </a>
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            <button
+              onClick={handleSyncXmtp}
+              disabled={syncState === "syncing"}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-mono uppercase tracking-wide border transition-all ${
+                syncState === "syncing"
+                  ? "border-white/10 bg-white/5 text-white/30 cursor-wait"
+                  : syncState === "success"
+                  ? "border-green-500/30 bg-green-500/10 text-green-400"
+                  : syncState === "error"
+                  ? "border-red-500/30 bg-red-500/10 text-red-400"
+                  : "border-white/10 bg-white/5 text-white/50 hover:border-white/20 hover:text-white/70"
+              }`}
+            >
+              <svg
+                className={`w-3 h-3 ${syncState === "syncing" ? "animate-spin" : ""}`}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              {syncState === "syncing"
+                ? "Syncing..."
+                : syncState === "success"
+                ? "Synced"
+                : syncState === "error"
+                ? "Failed"
+                : "Sync XMTP"}
+            </button>
+            <a
+              href="/"
+              className="text-xs text-white/30 hover:text-white/50 transition-colors"
+            >
+              relay.world
+            </a>
+          </div>
         </div>
       </header>
 
       {/* Stats Bar */}
       <div className="border-b border-white/5 bg-white/[0.02]">
-        <div className="max-w-3xl mx-auto px-4 py-3 grid grid-cols-4 gap-3">
-          <StatCard label="Total Tasks" value={stats.total} />
+        <div className="max-w-3xl mx-auto px-3 sm:px-4 py-3 grid grid-cols-4 gap-1.5 sm:gap-3">
+          <StatCard label="Total" value={stats.total} />
           <StatCard label="Active" value={stats.active} color="text-yellow-400" />
           <StatCard label="Verified" value={stats.verified} color="text-green-400" />
-          <StatCard label="USDC Pool" value={`$${stats.totalUsdc}`} color="text-emerald-400" />
+          <StatCard label="USDC" value={`$${stats.totalUsdc}`} color="text-emerald-400" />
         </div>
       </div>
 
       {/* Event Feed */}
-      <main className="max-w-3xl mx-auto px-4 py-4">
+      <main className="max-w-3xl mx-auto px-3 sm:px-4 py-4">
         {events.length === 0 ? (
           <div className="text-center py-20">
             <div className="text-4xl mb-4">{"\u{1F4E1}"}</div>
@@ -278,16 +323,16 @@ export default function LivePage() {
                       )}
                     </div>
 
-                    <p className="text-sm text-white/80 truncate">{event.description}</p>
+                    <p className="text-xs sm:text-sm text-white/80 truncate">{event.description}</p>
 
-                    <div className="flex items-center gap-3 mt-1.5 text-[11px] text-white/30">
-                      <span className="flex items-center gap-1">
+                    <div className="flex items-center gap-2 sm:gap-3 mt-1.5 text-[10px] sm:text-[11px] text-white/30 flex-wrap">
+                      <span className="flex items-center gap-1 truncate max-w-[45%]">
                         {"\u{1F4CD}"} {event.location}
                       </span>
-                      <span className="font-mono text-emerald-400/60">
+                      <span className="font-mono text-emerald-400/60 shrink-0">
                         ${event.bountyUsdc}
                       </span>
-                      <span className="ml-auto font-mono">
+                      <span className="ml-auto font-mono shrink-0">
                         {relativeTime(event.timestamp)}
                       </span>
                     </div>
@@ -326,9 +371,9 @@ function StatCard({
   color?: string;
 }) {
   return (
-    <div className="text-center">
-      <div className={`text-lg font-bold font-mono ${color || "text-white"}`}>{value}</div>
-      <div className="text-[10px] text-white/30 uppercase tracking-wider">{label}</div>
+    <div className="text-center min-w-0">
+      <div className={`text-sm sm:text-lg font-bold font-mono truncate ${color || "text-white"}`}>{value}</div>
+      <div className="text-[9px] sm:text-[10px] text-white/30 uppercase tracking-wider truncate">{label}</div>
     </div>
   );
 }

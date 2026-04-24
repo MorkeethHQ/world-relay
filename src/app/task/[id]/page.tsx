@@ -425,7 +425,7 @@ export default function TaskDetailPage() {
         </div>
       </div>
 
-      <div className="px-4 py-4 flex flex-col gap-4">
+      <div className="px-3 sm:px-4 py-4 flex flex-col gap-4">
         {/* Restricted badge */}
         {task.claimCode !== null && (
           <div className="bg-purple-500/10 border border-purple-500/20 rounded-xl px-3 py-2 flex items-center gap-2">
@@ -443,9 +443,9 @@ export default function TaskDetailPage() {
             <span className="text-xs text-gray-600 font-mono">{task.id.slice(0, 8)}</span>
           </div>
 
-          <p className="text-sm text-gray-100 leading-relaxed mb-3">{task.description}</p>
+          <p className="text-sm text-gray-100 leading-relaxed mb-3 break-words">{task.description}</p>
 
-          <div className="grid grid-cols-2 gap-y-2.5 gap-x-4">
+          <div className="grid grid-cols-2 gap-y-2.5 gap-x-3 sm:gap-x-4">
             <div>
               <p className="text-[10px] text-gray-500 uppercase tracking-wider">Location</p>
               <p className="text-xs text-gray-300 mt-0.5">{task.location}</p>
@@ -520,7 +520,7 @@ export default function TaskDetailPage() {
 
         {/* Proof Images */}
         {(task.proofImages || task.proofImageUrl) && (
-          <div className="bg-[#111] border border-white/[0.06] rounded-2xl p-4">
+          <div className="bg-[#111] border border-white/[0.06] rounded-2xl p-3 sm:p-4">
             <p className="text-[10px] text-gray-500 uppercase tracking-wider font-medium mb-3">
               Proof {(task.proofImages && task.proofImages.length > 1) ? "Images" : "Image"}
             </p>
@@ -578,16 +578,16 @@ export default function TaskDetailPage() {
             </div>
           </div>
           <div className="flex flex-col gap-2">
-            <div className="flex items-center justify-between bg-[#0a0a0a] border border-white/[0.06] rounded-xl px-3 py-2.5">
-              <div>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between bg-[#0a0a0a] border border-white/[0.06] rounded-xl px-3 py-2.5 gap-2">
+              <div className="min-w-0">
                 <p className="text-[10px] text-gray-500">Inbox ID</p>
-                <p className="text-[11px] text-gray-300 font-mono mt-0.5">071050d7...0819456</p>
+                <p className="text-[11px] text-gray-300 font-mono mt-0.5 truncate">071050d7...0819456</p>
               </div>
               <a
                 href="https://xmtp.chat/dm/071050d7aa373c7bac8063c5b37addbebfe71c06357e28515d056a50a0819456"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-1.5 bg-indigo-500/10 border border-indigo-500/20 rounded-lg px-2.5 py-1.5 hover:border-indigo-500/40 transition-colors"
+                className="flex items-center gap-1.5 bg-indigo-500/10 border border-indigo-500/20 rounded-lg px-2.5 py-2 sm:py-1.5 hover:border-indigo-500/40 transition-colors shrink-0 min-h-[44px] sm:min-h-0 justify-center sm:justify-start"
               >
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#818cf8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />

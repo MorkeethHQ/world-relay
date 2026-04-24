@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTask, submitProof, completeTask, setAttestationHash, setFollowUp, spawnRecurringTask } from "@/lib/store";
 import { verifyProof, verifyProofStub } from "@/lib/verify-proof";
-import { postProofSubmitted, postVerificationResult, postFollowUpQuestion } from "@/lib/xmtp";
+import { postProofSubmitted, postVerificationResult, postFollowUpQuestion, syncAndProcessMessages } from "@/lib/xmtp";
 import { generateFollowUpQuestion } from "@/lib/ai-chat";
 import { notifyProofSubmitted, notifyVerified, notifyFlagged } from "@/lib/notifications";
 import { postAttestation } from "@/lib/attestation";
@@ -192,6 +192,8 @@ export async function POST(req: NextRequest) {
     confidence: result.confidence,
     timestamp: new Date().toISOString(),
   });
+
+  syncAndProcessMessages().catch(console.error);
 
   return NextResponse.json({
     taskId,

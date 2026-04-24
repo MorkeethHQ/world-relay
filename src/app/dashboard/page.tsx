@@ -94,22 +94,22 @@ export default function DashboardPage() {
       <div className="px-4 py-4">
         <div className="bg-gradient-to-r from-blue-500/8 to-purple-500/8 border border-white/[0.06] rounded-2xl p-4">
           <p className="text-[10px] text-gray-500 uppercase tracking-wider font-medium mb-3">Agent Network Overview</p>
-          <div className="grid grid-cols-4 gap-3 text-center">
+          <div className="grid grid-cols-4 gap-1.5 sm:gap-3 text-center">
             <div>
-              <p className="text-xl font-bold text-white">{agentStats.length}</p>
-              <p className="text-[9px] text-gray-500 mt-0.5">Agents</p>
+              <p className="text-lg sm:text-xl font-bold text-white">{agentStats.length}</p>
+              <p className="text-[8px] sm:text-[9px] text-gray-500 mt-0.5">Agents</p>
             </div>
             <div>
-              <p className="text-xl font-bold text-blue-400">{agentTasks.length}</p>
-              <p className="text-[9px] text-gray-500 mt-0.5">Tasks</p>
+              <p className="text-lg sm:text-xl font-bold text-blue-400">{agentTasks.length}</p>
+              <p className="text-[8px] sm:text-[9px] text-gray-500 mt-0.5">Tasks</p>
             </div>
             <div>
-              <p className="text-xl font-bold text-green-400">{totalCompleted}</p>
-              <p className="text-[9px] text-gray-500 mt-0.5">Verified</p>
+              <p className="text-lg sm:text-xl font-bold text-green-400">{totalCompleted}</p>
+              <p className="text-[8px] sm:text-[9px] text-gray-500 mt-0.5">Verified</p>
             </div>
             <div>
-              <p className="text-xl font-bold text-orange-400">{recurringCount}</p>
-              <p className="text-[9px] text-gray-500 mt-0.5">Recurring</p>
+              <p className="text-lg sm:text-xl font-bold text-orange-400">{recurringCount}</p>
+              <p className="text-[8px] sm:text-[9px] text-gray-500 mt-0.5">Recurring</p>
             </div>
           </div>
           <div className="mt-3 pt-3 border-t border-white/[0.06] text-center">
@@ -137,16 +137,16 @@ export default function DashboardPage() {
               className="animate-[slideUp_0.3s_ease-out_both] rounded-2xl p-4 border"
             >
               {/* Agent header */}
-              <div className="flex items-center gap-3 mb-3">
+              <div className="flex items-center gap-2.5 sm:gap-3 mb-3">
                 <div
-                  className="w-10 h-10 rounded-xl flex items-center justify-center text-xl"
+                  className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center text-lg sm:text-xl shrink-0"
                   style={{ backgroundColor: `${agent.color}15` }}
                 >
                   {agent.icon}
                 </div>
-                <div className="flex-1">
+                <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-bold" style={{ color: agent.color }}>{agent.name}</span>
+                    <span className="text-xs sm:text-sm font-bold truncate" style={{ color: agent.color }}>{agent.name}</span>
                     <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={agent.color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
                     </svg>
@@ -160,22 +160,22 @@ export default function DashboardPage() {
               </div>
 
               {/* Stats grid */}
-              <div className="grid grid-cols-4 gap-2 mb-3">
-                <div className="bg-black/20 rounded-lg p-2 text-center">
-                  <p className="text-sm font-bold text-blue-400">{agent.open}</p>
-                  <p className="text-[8px] text-gray-600">Open</p>
+              <div className="grid grid-cols-4 gap-1.5 sm:gap-2 mb-3">
+                <div className="bg-black/20 rounded-lg p-1.5 sm:p-2 text-center">
+                  <p className="text-xs sm:text-sm font-bold text-blue-400">{agent.open}</p>
+                  <p className="text-[7px] sm:text-[8px] text-gray-600">Open</p>
                 </div>
-                <div className="bg-black/20 rounded-lg p-2 text-center">
-                  <p className="text-sm font-bold text-yellow-400">{agent.claimed}</p>
-                  <p className="text-[8px] text-gray-600">Claimed</p>
+                <div className="bg-black/20 rounded-lg p-1.5 sm:p-2 text-center">
+                  <p className="text-xs sm:text-sm font-bold text-yellow-400">{agent.claimed}</p>
+                  <p className="text-[7px] sm:text-[8px] text-gray-600">Claimed</p>
                 </div>
-                <div className="bg-black/20 rounded-lg p-2 text-center">
-                  <p className="text-sm font-bold text-green-400">{agent.completed}</p>
-                  <p className="text-[8px] text-gray-600">Done</p>
+                <div className="bg-black/20 rounded-lg p-1.5 sm:p-2 text-center">
+                  <p className="text-xs sm:text-sm font-bold text-green-400">{agent.completed}</p>
+                  <p className="text-[7px] sm:text-[8px] text-gray-600">Done</p>
                 </div>
-                <div className="bg-black/20 rounded-lg p-2 text-center">
-                  <p className="text-sm font-bold text-white">{Math.round(agent.completionRate * 100)}%</p>
-                  <p className="text-[8px] text-gray-600">Rate</p>
+                <div className="bg-black/20 rounded-lg p-1.5 sm:p-2 text-center">
+                  <p className="text-xs sm:text-sm font-bold text-white">{Math.round(agent.completionRate * 100)}%</p>
+                  <p className="text-[7px] sm:text-[8px] text-gray-600">Rate</p>
                 </div>
               </div>
 

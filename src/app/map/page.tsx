@@ -25,7 +25,7 @@ export default function MapPage() {
         </Link>
         <Link
           href="/"
-          className="h-8 px-3 rounded-full text-[11px] font-semibold border border-white/10 text-gray-400 hover:text-white hover:border-white/20 transition-all flex items-center gap-1.5"
+          className="h-10 sm:h-8 px-3 rounded-full text-[11px] font-semibold border border-white/10 text-gray-400 hover:text-white hover:border-white/20 transition-all flex items-center gap-1.5"
         >
           <svg
             width="12"

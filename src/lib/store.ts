@@ -215,6 +215,7 @@ export async function completeTask(
   } else if (result.verdict === "fail") {
     task.status = "open";
     task.claimant = null;
+    task.claimantVerification = null;
     task.proofImageUrl = null;
     task.proofImages = null;
     task.proofNote = null;
@@ -248,6 +249,7 @@ export async function posterConfirm(id: string, approved: boolean): Promise<Task
   } else {
     task.status = "open";
     task.claimant = null;
+    task.claimantVerification = null;
     task.proofImageUrl = null;
     task.proofImages = null;
     task.proofNote = null;
@@ -279,6 +281,7 @@ export async function resolveFollowUp(
   } else if (result.verdict === "fail") {
     task.status = "open";
     task.claimant = null;
+    task.claimantVerification = null;
     task.proofImageUrl = null;
     task.proofImages = null;
     task.proofNote = null;

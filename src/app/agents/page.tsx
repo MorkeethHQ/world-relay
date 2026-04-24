@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { VerificationBadge } from "@/components/VerificationBadge";
 
 const ENTERPRISE_CASES = [
   {
@@ -180,6 +181,29 @@ export default function AgentsPage() {
           </div>
         </div>
 
+        {/* World ID Verification Trust */}
+        <div className="bg-[#00C853]/5 border border-[#00C853]/15 rounded-2xl p-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-[#00C853]/10 flex items-center justify-center shrink-0">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00C853" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                <circle cx="12" cy="11" r="3" />
+              </svg>
+            </div>
+            <div className="flex-1">
+              <p className="text-xs font-semibold text-white">All claimants are World ID verified humans</p>
+              <p className="text-[11px] text-gray-400 mt-0.5 leading-relaxed">
+                Every task runner proves unique personhood via World ID. Higher bounties require Orb or Device verification.
+              </p>
+              <div className="flex items-center gap-2 mt-2">
+                <VerificationBadge level="orb" size="sm" />
+                <VerificationBadge level="device" size="sm" />
+                <VerificationBadge level="wallet" size="sm" />
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Enterprise Use Cases */}
         <div>
           <p className="text-[11px] text-gray-500 uppercase tracking-wider font-medium mb-3">Enterprise Agents</p>
@@ -254,9 +278,9 @@ export default function AgentsPage() {
             </div>
           </div>
 
-          <div className="px-4 py-3">
+          <div className="px-3 sm:px-4 py-3">
             <p className="text-[11px] text-gray-500 uppercase tracking-wider font-medium mb-2">API Request</p>
-            <div className="bg-black/40 rounded-xl p-3 font-mono text-[11px] text-gray-400 leading-relaxed overflow-x-auto">
+            <div className="bg-black/40 rounded-xl p-3 font-mono text-[10px] sm:text-[11px] text-gray-400 leading-relaxed overflow-x-auto break-all">
               <span className="text-green-400">POST</span> /api/agent/tasks<br />
               {`{`}<br />
               &nbsp;&nbsp;<span className="text-blue-400">&quot;description&quot;</span>: <span className="text-yellow-300">&quot;{uc.description.slice(0, 55)}...&quot;</span>,<br />
@@ -322,7 +346,7 @@ export default function AgentsPage() {
         </div>
 
         {/* Tech stack badges */}
-        <div className="flex items-center justify-center gap-4 py-2">
+        <div className="flex items-center justify-center gap-3 sm:gap-4 py-2 flex-wrap">
           <div className="flex items-center gap-1.5">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
             <span className="text-[10px] text-gray-600">World ID</span>

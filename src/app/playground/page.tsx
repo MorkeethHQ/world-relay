@@ -235,7 +235,7 @@ export default function PlaygroundPage() {
         </div>
       </div>
 
-      <div className="px-4 py-4 flex flex-col gap-4">
+      <div className="px-3 sm:px-4 py-4 flex flex-col gap-4">
         {/* Agent Picker */}
         <div>
           <p className="text-[11px] text-gray-500 uppercase tracking-wider font-medium mb-2">
@@ -246,7 +246,7 @@ export default function PlaygroundPage() {
               <button
                 key={agent.id}
                 onClick={() => selectAgent(agent)}
-                className="text-left rounded-xl p-3 border transition-all"
+                className="text-left rounded-xl p-2.5 sm:p-3 border transition-all min-h-[48px]"
                 style={{
                   backgroundColor:
                     selectedAgent.id === agent.id ? `${agent.color}12` : "#111",
@@ -449,7 +449,7 @@ export default function PlaygroundPage() {
         <button
           onClick={handlePost}
           disabled={posting || !description || !location || !bounty}
-          className="w-full py-3 rounded-xl text-sm font-semibold active:scale-[0.98] transition-all disabled:opacity-40"
+          className="w-full py-3 min-h-[48px] rounded-xl text-sm font-semibold active:scale-[0.98] transition-all disabled:opacity-40"
           style={{
             backgroundColor: selectedAgent.color,
             color: "#000",
@@ -494,7 +494,7 @@ export default function PlaygroundPage() {
               <span className="text-xs font-bold text-green-400">TASK POSTED</span>
             </div>
             <div className="px-4 py-3">
-              <div className="bg-black/40 rounded-xl p-3 font-mono text-[11px] text-gray-400 leading-relaxed overflow-x-auto whitespace-pre-wrap break-all">
+              <div className="bg-black/40 rounded-xl p-2.5 sm:p-3 font-mono text-[10px] sm:text-[11px] text-gray-400 leading-relaxed overflow-x-auto whitespace-pre-wrap break-all">
                 {JSON.stringify(response, null, 2)}
               </div>
             </div>
@@ -606,7 +606,7 @@ export default function PlaygroundPage() {
           <p className="text-[11px] text-gray-500 uppercase tracking-wider font-medium mb-2">
             API Reference
           </p>
-          <div className="bg-black/40 rounded-xl p-3 font-mono text-[11px] text-gray-400 leading-relaxed overflow-x-auto">
+          <div className="bg-black/40 rounded-xl p-2.5 sm:p-3 font-mono text-[10px] sm:text-[11px] text-gray-400 leading-relaxed overflow-x-auto break-all">
             <span className="text-green-400">POST</span> /api/agent/tasks
             <br />
             {"{"}

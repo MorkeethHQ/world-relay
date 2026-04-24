@@ -83,7 +83,7 @@ export default function GalleryPage() {
           <button
             key={f}
             onClick={() => setFilter(f)}
-            className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${
+            className={`px-3 py-2 min-h-[44px] rounded-xl text-xs font-medium transition-all ${
               filter === f ? "bg-white text-black" : "bg-[#111] text-gray-500 border border-white/[0.06]"
             }`}
           >
@@ -156,8 +156,8 @@ export default function GalleryPage() {
                   </div>
                 )}
 
-                <div className="p-4">
-                  <p className="text-sm font-medium leading-snug">{task.description}</p>
+                <div className="p-3 sm:p-4">
+                  <p className="text-sm font-medium leading-snug break-words">{task.description}</p>
 
                   {task.verificationResult && (
                     <p className="text-xs text-gray-500 mt-2 italic leading-relaxed">
@@ -165,14 +165,14 @@ export default function GalleryPage() {
                     </p>
                   )}
 
-                  <div className="flex items-center justify-between mt-3 pt-3 border-t border-white/[0.04]">
-                    <div className="flex items-center gap-2 text-[10px] text-gray-600">
-                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <div className="flex items-center justify-between mt-3 pt-3 border-t border-white/[0.04] gap-2">
+                    <div className="flex items-center gap-2 text-[10px] text-gray-600 truncate min-w-0">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
                         <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" />
                       </svg>
-                      {task.location}
+                      <span className="truncate">{task.location}</span>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 shrink-0">
                       <span className="text-[10px] text-gray-700">{timeAgo(task.createdAt)}</span>
                       {task.attestationTxHash && (
                         <a

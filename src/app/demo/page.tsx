@@ -299,10 +299,10 @@ export default function DemoPage() {
         </div>
 
         {/* Step indicator */}
-        <div className="flex items-center gap-1 px-4 pb-3">
+        <div className="flex items-center gap-0.5 sm:gap-1 px-3 sm:px-4 pb-3">
           {STEPS.map((s, i) => (
-            <div key={s} className="flex items-center flex-1">
-              <div className="flex flex-col items-center flex-1">
+            <div key={s} className="flex items-center flex-1 min-w-0">
+              <div className="flex flex-col items-center flex-1 min-w-0">
                 <div
                   className="w-full h-1 rounded-full transition-all duration-500"
                   style={{
@@ -315,7 +315,7 @@ export default function DemoPage() {
                   }}
                 />
                 <span
-                  className="text-[8px] mt-1 uppercase tracking-wider font-medium transition-colors"
+                  className="text-[7px] sm:text-[8px] mt-1 uppercase tracking-wider font-medium transition-colors truncate max-w-full text-center"
                   style={{
                     color:
                       i <= currentStepIndex
@@ -334,13 +334,13 @@ export default function DemoPage() {
       </div>
 
       {/* Chat area */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-3">
+      <div className="flex-1 overflow-y-auto px-3 sm:px-4 py-4 flex flex-col gap-3">
         {messages.map(renderMessage)}
         <div ref={chatEndRef} />
       </div>
 
       {/* Bottom action panel */}
-      <div className="sticky bottom-0 bg-[#0a0a0a] border-t border-white/5 px-4 py-4">
+      <div className="sticky bottom-0 bg-[#0a0a0a] border-t border-white/5 px-3 sm:px-4 py-3 sm:py-4">
         {error && (
           <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 mb-3">
             <p className="text-xs text-red-400">{error}</p>
@@ -364,7 +364,7 @@ export default function DemoPage() {
             <button
               onClick={handleCreate}
               disabled={loading}
-              className="w-full py-3 rounded-xl text-sm font-semibold bg-blue-500 text-white active:scale-[0.98] transition-all disabled:opacity-40"
+              className="w-full py-3 min-h-[48px] rounded-xl text-sm font-semibold bg-blue-500 text-white active:scale-[0.98] transition-all disabled:opacity-40"
             >
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
@@ -392,7 +392,7 @@ export default function DemoPage() {
             <button
               onClick={handleClaim}
               disabled={loading}
-              className="w-full py-3 rounded-xl text-sm font-semibold bg-amber-500 text-black active:scale-[0.98] transition-all disabled:opacity-40"
+              className="w-full py-3 min-h-[48px] rounded-xl text-sm font-semibold bg-amber-500 text-black active:scale-[0.98] transition-all disabled:opacity-40"
             >
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
@@ -455,7 +455,7 @@ export default function DemoPage() {
             <button
               onClick={handleSubmitProof}
               disabled={loading || !proofFile}
-              className="w-full py-3 rounded-xl text-sm font-semibold bg-green-500 text-black active:scale-[0.98] transition-all disabled:opacity-40"
+              className="w-full py-3 min-h-[48px] rounded-xl text-sm font-semibold bg-green-500 text-black active:scale-[0.98] transition-all disabled:opacity-40"
             >
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
@@ -488,8 +488,8 @@ export default function DemoPage() {
                 type="text"
                 value={followUpReply}
                 onChange={(e) => setFollowUpReply(e.target.value)}
-                placeholder="Type your response to the AI..."
-                className="flex-1 bg-[#111] border border-white/[0.06] rounded-xl px-3 py-3 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-white/20"
+                placeholder="Type your response..."
+                className="flex-1 min-w-0 bg-[#111] border border-white/[0.06] rounded-xl px-3 py-3 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-white/20"
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault();
@@ -500,7 +500,7 @@ export default function DemoPage() {
               <button
                 onClick={handleFollowUpReply}
                 disabled={loading || !followUpReply.trim()}
-                className="px-4 rounded-xl text-sm font-semibold bg-blue-500 text-white active:scale-[0.98] transition-all disabled:opacity-40"
+                className="px-4 min-h-[44px] rounded-xl text-sm font-semibold bg-blue-500 text-white active:scale-[0.98] transition-all disabled:opacity-40 shrink-0"
               >
                 {loading ? (
                   <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin inline-block" />
@@ -573,22 +573,22 @@ export default function DemoPage() {
               )}
             </div>
 
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
               <Link
                 href="/leaderboard"
-                className="text-center py-2 rounded-xl text-[10px] font-medium bg-[#111] border border-white/[0.06] text-gray-400 hover:text-white transition-colors"
+                className="text-center py-2.5 min-h-[44px] flex items-center justify-center rounded-xl text-[10px] font-medium bg-[#111] border border-white/[0.06] text-gray-400 hover:text-white transition-colors"
               >
                 Leaderboard
               </Link>
               <Link
                 href="/gallery"
-                className="text-center py-2 rounded-xl text-[10px] font-medium bg-[#111] border border-white/[0.06] text-gray-400 hover:text-white transition-colors"
+                className="text-center py-2.5 min-h-[44px] flex items-center justify-center rounded-xl text-[10px] font-medium bg-[#111] border border-white/[0.06] text-gray-400 hover:text-white transition-colors"
               >
                 Gallery
               </Link>
               <Link
                 href="/dashboard"
-                className="text-center py-2 rounded-xl text-[10px] font-medium bg-[#111] border border-white/[0.06] text-gray-400 hover:text-white transition-colors"
+                className="text-center py-2.5 min-h-[44px] flex items-center justify-center rounded-xl text-[10px] font-medium bg-[#111] border border-white/[0.06] text-gray-400 hover:text-white transition-colors"
               >
                 Dashboard
               </Link>
@@ -605,7 +605,7 @@ export default function DemoPage() {
                 setFollowUpReply("");
                 setError(null);
               }}
-              className="w-full py-3 rounded-xl text-sm font-medium border border-white/[0.06] text-gray-400 hover:text-white transition-colors"
+              className="w-full py-3 min-h-[48px] rounded-xl text-sm font-medium border border-white/[0.06] text-gray-400 hover:text-white transition-colors"
             >
               Run Again
             </button>

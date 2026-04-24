@@ -210,7 +210,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
               <h1 className="text-base font-bold tracking-tight leading-none">RELAY</h1>
               {userId && (
                 <div className="flex items-center gap-1.5 mt-0.5">
-                  <button onClick={onLogout} className="text-[10px] text-gray-500 hover:text-gray-300 transition-colors leading-none">
+                  <button onClick={onLogout} className="text-[10px] text-gray-500 hover:text-gray-300 transition-colors leading-none min-h-[44px] flex items-center">
                     {shortId(userId)}
                   </button>
                   <VerificationBadge level={verificationLevel} />
@@ -219,10 +219,10 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
             </div>
           </div>
           {userId && (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide -mr-4 pr-4">
               <a
                 href="/gallery"
-                className="h-9 px-2.5 rounded-full font-semibold text-[11px] border border-white/10 text-gray-400 hover:text-white hover:border-white/20 transition-all flex items-center gap-1"
+                className="shrink-0 min-w-[44px] h-11 px-2.5 rounded-full font-semibold text-[11px] border border-white/10 text-gray-400 hover:text-white hover:border-white/20 transition-all flex items-center justify-center gap-1"
                 title="Proof Gallery"
               >
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -231,7 +231,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
               </a>
               <a
                 href="/leaderboard"
-                className="h-9 px-2.5 rounded-full font-semibold text-[11px] border border-white/10 text-gray-400 hover:text-white hover:border-white/20 transition-all flex items-center gap-1"
+                className="shrink-0 min-w-[44px] h-11 px-2.5 rounded-full font-semibold text-[11px] border border-white/10 text-gray-400 hover:text-white hover:border-white/20 transition-all flex items-center justify-center gap-1"
                 title="Leaderboard"
               >
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -240,7 +240,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
               </a>
               <a
                 href="/dashboard"
-                className="h-9 px-2.5 rounded-full font-semibold text-[11px] border border-white/10 text-gray-400 hover:text-white hover:border-white/20 transition-all flex items-center gap-1"
+                className="shrink-0 min-w-[44px] h-11 px-2.5 rounded-full font-semibold text-[11px] border border-white/10 text-gray-400 hover:text-white hover:border-white/20 transition-all flex items-center justify-center gap-1"
                 title="Agent Dashboard"
               >
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -249,7 +249,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
               </a>
               <a
                 href="/agents"
-                className="h-9 px-3 rounded-full font-semibold text-[11px] border border-white/10 text-gray-400 hover:text-white hover:border-white/20 transition-all flex items-center gap-1.5"
+                className="shrink-0 h-11 px-3 rounded-full font-semibold text-[11px] border border-white/10 text-gray-400 hover:text-white hover:border-white/20 transition-all flex items-center gap-1.5"
               >
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 9h18" /><path d="M9 21V9" />
@@ -258,7 +258,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
               </a>
               <a
                 href="/demo"
-                className="h-9 px-3 rounded-full font-semibold text-[11px] border border-blue-500/30 text-blue-400 hover:text-blue-300 hover:border-blue-500/50 transition-all flex items-center gap-1.5 bg-blue-500/5"
+                className="shrink-0 h-11 px-3 rounded-full font-semibold text-[11px] border border-blue-500/30 text-blue-400 hover:text-blue-300 hover:border-blue-500/50 transition-all flex items-center gap-1.5 bg-blue-500/5"
                 title="XMTP Demo Flow"
               >
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -268,7 +268,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
               </a>
               <a
                 href="/live"
-                className="h-9 px-3 rounded-full font-semibold text-[11px] border border-green-500/30 text-green-400 hover:text-green-300 hover:border-green-500/50 transition-all flex items-center gap-1.5 bg-green-500/5"
+                className="shrink-0 h-11 px-3 rounded-full font-semibold text-[11px] border border-green-500/30 text-green-400 hover:text-green-300 hover:border-green-500/50 transition-all flex items-center gap-1.5 bg-green-500/5"
                 title="Live Mission Control"
               >
                 <span className="relative flex h-2 w-2">
@@ -279,7 +279,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
               </a>
               <a
                 href="/map"
-                className="h-9 px-3 rounded-full font-semibold text-[11px] border border-purple-500/30 text-purple-400 hover:text-purple-300 hover:border-purple-500/50 transition-all flex items-center gap-1.5 bg-purple-500/5"
+                className="shrink-0 h-11 px-3 rounded-full font-semibold text-[11px] border border-purple-500/30 text-purple-400 hover:text-purple-300 hover:border-purple-500/50 transition-all flex items-center gap-1.5 bg-purple-500/5"
                 title="Task Map"
               >
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -291,7 +291,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
               </a>
               <button
                 onClick={() => setView("post")}
-                className="bg-white text-black h-9 px-4 rounded-full font-semibold text-xs active:scale-95 transition-all shadow-[0_0_12px_rgba(255,255,255,0.08)]"
+                className="shrink-0 bg-white text-black h-11 px-4 rounded-full font-semibold text-xs active:scale-95 transition-all shadow-[0_0_12px_rgba(255,255,255,0.08)]"
               >
                 + Request
               </button>
@@ -308,7 +308,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
               <button
                 key={t}
                 onClick={() => setTab(t)}
-                className={`flex-1 text-xs py-2.5 font-medium transition-all relative ${
+                className={`flex-1 text-xs min-h-[44px] py-2.5 font-medium transition-all relative flex items-center justify-center ${
                   tab === t ? "text-white" : "text-gray-500"
                 }`}
               >
@@ -325,7 +325,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
           {tab === "available" && (
             <button
               onClick={() => setMapMode(!mapMode)}
-              className={`ml-1 p-2 rounded-lg transition-all ${mapMode ? "bg-white/10 text-white" : "text-gray-500 hover:text-gray-300"}`}
+              className={`ml-1 min-w-[44px] min-h-[44px] p-2.5 rounded-lg transition-all flex items-center justify-center ${mapMode ? "bg-white/10 text-white" : "text-gray-500 hover:text-gray-300"}`}
             >
               {mapMode ? (
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" /><line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" /></svg>
@@ -340,7 +340,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
       {/* Stats bar */}
       {tab === "available" && tasks.length > 0 && !mapMode && (
         <div className="px-4 pt-3 pb-0">
-          <div className="flex items-center justify-between text-[10px] text-gray-500">
+          <div className="flex items-center justify-center gap-1.5 flex-wrap text-[10px] text-gray-500">
             <span>{tasks.filter(t => t.status === "open").length} open</span>
             <span className="text-gray-700">·</span>
             <span>{tasks.filter(t => t.status === "completed").length} verified</span>
@@ -472,13 +472,13 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
                     await fetch("/api/seed", { method: "POST" });
                     fetchTasks();
                   }}
-                  className="text-xs bg-[#111] border border-white/10 text-gray-300 px-4 py-2 rounded-xl hover:border-white/20 transition-all active:scale-95"
+                  className="text-xs bg-[#111] border border-white/10 text-gray-300 px-4 py-2 rounded-xl hover:border-white/20 transition-all active:scale-95 min-h-[44px]"
                 >
                   Load demo tasks
                 </button>
                 <button
                   onClick={() => setView("post")}
-                  className="text-xs text-white/60 underline underline-offset-2 hover:text-white/80 transition-colors"
+                  className="text-xs text-white/60 underline underline-offset-2 hover:text-white/80 transition-colors min-h-[44px]"
                 >
                   Or post your own
                 </button>
@@ -518,23 +518,23 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
                     </div>
                   </div>
                 )}
-                <div className="p-4">
-                  <p className="font-medium text-[15px] leading-snug">{task.description}</p>
+                <div className="p-4 min-w-0">
+                  <p className="font-medium text-[15px] leading-snug break-words">{task.description}</p>
                   <div className="flex items-center gap-1.5 mt-2 flex-wrap">
                     {task.agent && <AgentBadge agent={task.agent} />}
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <svg className="shrink-0" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
                       <circle cx="12" cy="10" r="3" />
                     </svg>
-                    <span className="text-xs text-gray-500">{task.location}</span>
+                    <span className="text-xs text-gray-500 truncate max-w-[120px]">{task.location}</span>
                     <span className="text-[10px] text-gray-700 mx-0.5">·</span>
                     <span className="text-xs text-gray-500">{timeAgo(task.createdAt)}</span>
                   </div>
                   {task.verificationResult && (
-                    <div className="mt-3 pt-3 border-t border-white/[0.04]">
-                      <p className="text-xs text-gray-400 leading-relaxed italic">&ldquo;{task.verificationResult.reasoning}&rdquo;</p>
-                      <div className="flex items-center gap-3 mt-2">
-                        <span className="text-[10px] text-gray-600 flex items-center gap-1">
+                    <div className="mt-3 pt-3 border-t border-white/[0.04] min-w-0">
+                      <p className="text-xs text-gray-400 leading-relaxed italic break-words">&ldquo;{task.verificationResult.reasoning}&rdquo;</p>
+                      <div className="flex items-center gap-2 mt-2 flex-wrap">
+                        <span className="text-[10px] text-gray-600 flex items-center gap-1 truncate max-w-full">
                           {shortId(task.poster)} → {task.claimant ? shortId(task.claimant) : "?"}
                           {task.claimantVerification && (
                             <VerificationBadge level={task.claimantVerification} size="sm" />
@@ -547,7 +547,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
                         {task.attestationTxHash && (
                           <>
                             <span className="text-[10px] text-gray-700">·</span>
-                            <a href={`https://worldscan.org/tx/${task.attestationTxHash}`} target="_blank" rel="noopener noreferrer" className="text-[10px] text-blue-400/70">
+                            <a href={`https://worldscan.org/tx/${task.attestationTxHash}`} target="_blank" rel="noopener noreferrer" className="text-[10px] text-blue-400/70 min-h-[44px] flex items-center">
                               on-chain →
                             </a>
                           </>
@@ -638,7 +638,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
       {/* XMTP Status + Powered by footer */}
       <div className="px-4 py-4 border-t border-white/[0.04]">
         {xmtpStatus && (
-          <div className="flex items-center justify-center gap-1.5 mb-2">
+          <div className="flex items-center justify-center gap-1.5 mb-2 flex-wrap">
             <span className="relative flex h-2 w-2">
               {xmtpStatus.connected ? (
                 <>
@@ -653,13 +653,13 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
               {xmtpStatus.connected ? "XMTP Connected" : "XMTP Offline"}
             </span>
             {xmtpStatus.connected && xmtpStatus.inboxId && (
-              <span className="text-[10px] text-gray-600 font-mono">
+              <span className="text-[10px] text-gray-600 font-mono truncate max-w-[120px]">
                 {xmtpStatus.inboxId.slice(0, 8)}...{xmtpStatus.inboxId.slice(-4)}
               </span>
             )}
           </div>
         )}
-        <div className="flex items-center justify-center gap-4">
+        <div className="flex items-center justify-center gap-3 sm:gap-4 flex-wrap">
           <div className="flex items-center gap-1.5">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
             <span className="text-[10px] text-gray-600">World ID</span>
@@ -717,21 +717,21 @@ function TaskCard({
     >
       <div className="flex justify-between items-start gap-3">
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5">
-            <span className="text-sm">{CATEGORY_ICONS[task.category] || "✏️"}</span>
+          <div className="flex items-start gap-1.5">
+            <span className="text-sm shrink-0 mt-0.5">{CATEGORY_ICONS[task.category] || "✏️"}</span>
             {isUrgent && (
-              <span className="text-[9px] font-bold text-red-400 bg-red-500/10 border border-red-500/20 rounded px-1.5 py-0.5 uppercase tracking-wider">
+              <span className="shrink-0 text-[9px] font-bold text-red-400 bg-red-500/10 border border-red-500/20 rounded px-1.5 py-0.5 uppercase tracking-wider mt-0.5">
                 Urgent
               </span>
             )}
-            <p className="font-medium text-[15px] leading-snug">{task.description}</p>
+            <p className="font-medium text-[15px] leading-snug break-words min-w-0">{task.description}</p>
           </div>
-          <div className="flex items-center gap-1.5 mt-1.5">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+            <svg className="shrink-0" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
               <circle cx="12" cy="10" r="3" />
             </svg>
-            <span className="text-xs text-gray-500">{task.location}</span>
+            <span className="text-xs text-gray-500 truncate max-w-[150px]">{task.location}</span>
             {distance !== null && (
               <>
                 <span className="text-[10px] text-gray-700 mx-0.5">·</span>
@@ -784,7 +784,7 @@ function TaskCard({
       </div>
 
       {task.verificationResult && (
-        <div className={`text-xs p-3 rounded-xl ${
+        <div className={`text-xs p-3 rounded-xl break-words ${
           task.verificationResult.verdict === "pass" ? "bg-green-500/8 text-green-300 border border-green-500/15" :
           task.verificationResult.verdict === "flag" ? "bg-yellow-500/8 text-yellow-300 border border-yellow-500/15" :
           "bg-red-500/8 text-red-300 border border-red-500/15"
@@ -798,7 +798,7 @@ function TaskCard({
       {task.status === "open" && userId && !isOwnTask && (
         <button
           onClick={(e) => { e.stopPropagation(); onClaim(); }}
-          className={`px-4 py-2.5 rounded-xl text-sm font-medium active:scale-[0.97] transition-all ${
+          className={`w-full min-h-[44px] px-4 py-2.5 rounded-xl text-sm font-medium active:scale-[0.97] transition-all ${
             task.claimCode
               ? "bg-amber-600 hover:bg-amber-500 text-white"
               : "bg-blue-600 hover:bg-blue-500 text-white"
@@ -811,7 +811,7 @@ function TaskCard({
       {task.status === "claimed" && isClaimant && (
         <button
           onClick={(e) => { e.stopPropagation(); onSubmitProof(); }}
-          className="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2.5 rounded-xl text-sm font-medium active:scale-[0.97] transition-all"
+          className="w-full min-h-[44px] bg-purple-600 hover:bg-purple-500 text-white px-4 py-2.5 rounded-xl text-sm font-medium active:scale-[0.97] transition-all"
         >
           Submit Proof
         </button>
@@ -941,7 +941,7 @@ function PostTask({
     <div className="flex flex-col min-h-screen max-w-lg mx-auto w-full">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
-        <button onClick={onCancel} className="text-sm text-gray-400 hover:text-white transition-colors">Cancel</button>
+        <button onClick={onCancel} className="text-sm text-gray-400 hover:text-white transition-colors min-h-[44px] min-w-[44px] flex items-center">Cancel</button>
         <span className="text-sm font-semibold">New Request</span>
         <div className="w-12" />
       </div>
@@ -959,7 +959,7 @@ function PostTask({
                   setDescription(t.description);
                   setBounty(String(t.bounty));
                 }}
-                className="shrink-0 flex items-center gap-1.5 bg-[#111] border border-white/[0.06] rounded-xl px-3 py-2 text-xs text-gray-400 hover:text-white hover:border-white/15 transition-all active:scale-95"
+                className="shrink-0 flex items-center gap-1.5 bg-[#111] border border-white/[0.06] rounded-xl px-3 py-2 min-h-[44px] text-xs text-gray-400 hover:text-white hover:border-white/15 transition-all active:scale-95"
               >
                 <span>{t.icon}</span>
                 {t.label}
@@ -981,7 +981,7 @@ function PostTask({
               <button
                 key={c.key}
                 onClick={() => setCategory(c.key)}
-                className={`flex-1 flex flex-col items-center gap-1 py-2.5 rounded-xl text-xs font-medium transition-all ${
+                className={`flex-1 flex flex-col items-center justify-center gap-1 min-h-[56px] py-2.5 rounded-xl text-xs font-medium transition-all ${
                   category === c.key
                     ? "bg-white text-black"
                     : "bg-[#111] text-gray-400 border border-white/[0.06]"
@@ -1041,7 +1041,7 @@ function PostTask({
         <button
           onClick={handleSubmit}
           disabled={!isValid || submitting}
-          className={`w-full py-3.5 rounded-2xl font-semibold text-sm transition-all active:scale-[0.98] ${
+          className={`w-full min-h-[48px] py-3.5 rounded-2xl font-semibold text-sm transition-all active:scale-[0.98] ${
             isValid ? "bg-white text-black shadow-[0_0_20px_rgba(255,255,255,0.1)]" : "bg-gray-800 text-gray-500"
           } disabled:opacity-50`}
         >
@@ -1171,7 +1171,7 @@ function SubmitProof({
     <div className="flex flex-col min-h-screen max-w-lg mx-auto w-full">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
-        <button onClick={onCancel} className="text-sm text-gray-400 hover:text-white transition-colors">Cancel</button>
+        <button onClick={onCancel} className="text-sm text-gray-400 hover:text-white transition-colors min-h-[44px] min-w-[44px] flex items-center">Cancel</button>
         <span className="text-sm font-semibold">Submit Proof</span>
         <div className="w-12" />
       </div>
@@ -1212,7 +1212,7 @@ function SubmitProof({
                   )}
                   <button
                     onClick={() => removeImage(i)}
-                    className="absolute top-1 right-1 w-5 h-5 bg-black/70 backdrop-blur-sm rounded-full flex items-center justify-center text-white text-[10px] font-bold hover:bg-red-500/80 transition-colors"
+                    className="absolute -top-1 -right-1 w-7 h-7 bg-black/70 backdrop-blur-sm rounded-full flex items-center justify-center text-white text-xs font-bold hover:bg-red-500/80 transition-colors"
                   >
                     x
                   </button>
@@ -1222,7 +1222,7 @@ function SubmitProof({
           )}
 
           {images.length < MAX_PHOTOS && (
-            <label className="flex flex-col items-center justify-center border border-dashed border-white/10 rounded-2xl p-8 cursor-pointer hover:border-white/20 transition-all bg-[#111]/50 active:scale-[0.99]">
+            <label className="flex flex-col items-center justify-center border border-dashed border-white/10 rounded-2xl p-5 sm:p-8 cursor-pointer hover:border-white/20 transition-all bg-[#111]/50 active:scale-[0.99]">
               <div className="w-12 h-12 rounded-full bg-purple-500/10 flex items-center justify-center mb-3">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#a855f6" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
@@ -1249,7 +1249,7 @@ function SubmitProof({
           placeholder="Add a note (optional)"
           value={proofNote}
           onChange={(e) => setProofNote(e.target.value)}
-          className="bg-[#111] border border-white/[0.06] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-white/20 transition-colors placeholder:text-gray-600"
+          className="w-full bg-[#111] border border-white/[0.06] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-white/20 transition-colors placeholder:text-gray-600"
         />
 
         {/* Verification spinner */}
@@ -1335,7 +1335,7 @@ function SubmitProof({
           <button
             onClick={handleSubmit}
             disabled={images.length === 0}
-            className={`w-full py-3.5 rounded-2xl font-semibold text-sm transition-all active:scale-[0.98] ${
+            className={`w-full min-h-[48px] py-3.5 rounded-2xl font-semibold text-sm transition-all active:scale-[0.98] ${
               images.length > 0 ? "bg-purple-600 text-white" : "bg-gray-800 text-gray-500"
             } disabled:opacity-50`}
           >
@@ -1405,17 +1405,17 @@ function TaskTimeline({ task }: { task: Task }) {
   const activeIndex = currentStepIndex === -1 ? steps.length - 1 : currentStepIndex;
 
   return (
-    <div className="bg-[#111] border border-white/[0.06] rounded-2xl p-4">
-      <div className="flex items-center justify-between">
+    <div className="bg-[#111] border border-white/[0.06] rounded-2xl p-3 sm:p-4 overflow-x-auto">
+      <div className="flex items-center justify-between min-w-0">
         {steps.map((step, i) => {
           const isActive = i === activeIndex && !step.done;
           const isDone = step.done;
           const isFlagged = step.label === "Flagged";
           const isRejected = step.label === "Rejected";
           return (
-            <div key={step.label} className="flex items-center flex-1 last:flex-none">
-              <div className="flex flex-col items-center gap-1.5">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${
+            <div key={step.label} className="flex items-center flex-1 last:flex-none min-w-0">
+              <div className="flex flex-col items-center gap-1 sm:gap-1.5">
+                <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center transition-all ${
                   isDone
                     ? isFlagged ? "bg-yellow-500/20 text-yellow-400" :
                       isRejected ? "bg-red-500/20 text-red-400" :
@@ -1434,7 +1434,7 @@ function TaskTimeline({ task }: { task: Task }) {
                 </span>
               </div>
               {i < steps.length - 1 && (
-                <div className={`flex-1 h-px mx-1.5 ${
+                <div className={`flex-1 h-px mx-0.5 sm:mx-1.5 ${
                   i < activeIndex ? "bg-green-500/30" : "bg-white/5"
                 }`} />
               )}
@@ -1519,7 +1519,7 @@ function TaskDetail({
     <div className="flex flex-col min-h-screen max-w-lg mx-auto w-full">
       {/* Header */}
       <div className="sticky top-0 z-10 bg-[#050505]/90 backdrop-blur-xl flex items-center justify-between px-4 py-3 border-b border-white/5">
-        <button onClick={onBack} className="flex items-center gap-1 text-sm text-gray-400 hover:text-white transition-colors">
+        <button onClick={onBack} className="flex items-center gap-1 text-sm text-gray-400 hover:text-white transition-colors min-h-[44px] min-w-[44px]">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="15 18 9 12 15 6" />
           </svg>
@@ -1530,14 +1530,14 @@ function TaskDetail({
 
       <div className="flex-1 px-4 py-5 flex flex-col gap-4 overflow-y-auto">
         {/* Task info */}
-        <div>
-          <p className="font-semibold text-lg leading-snug">{currentTask.description}</p>
-          <div className="flex items-center gap-2 mt-2">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <div className="min-w-0">
+          <p className="font-semibold text-lg leading-snug break-words">{currentTask.description}</p>
+          <div className="flex items-center gap-2 mt-2 flex-wrap">
+            <svg className="shrink-0" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
               <circle cx="12" cy="10" r="3" />
             </svg>
-            <span className="text-xs text-gray-500">{currentTask.location}</span>
+            <span className="text-xs text-gray-500 truncate max-w-[140px]">{currentTask.location}</span>
             <span className="text-[10px] text-gray-700 mx-0.5">·</span>
             <span className="text-xs text-green-400 font-semibold">${currentTask.bountyUsdc} USDC</span>
             <span className="text-[10px] text-gray-700 mx-0.5">·</span>
@@ -1576,16 +1576,16 @@ function TaskDetail({
             )}
           </div>
         ) : (
-          <div className="flex gap-3">
-            <div className="flex-1 bg-[#111] rounded-xl p-3 border border-white/[0.06]">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="bg-[#111] rounded-xl p-3 border border-white/[0.06] min-w-0">
               <p className="text-[10px] text-gray-500 uppercase tracking-wider font-medium mb-1">Poster</p>
-              <p className="text-xs font-medium">{shortId(currentTask.poster)}</p>
+              <p className="text-xs font-medium truncate">{shortId(currentTask.poster)}</p>
             </div>
             {currentTask.claimant && (
-              <div className="flex-1 bg-[#111] rounded-xl p-3 border border-white/[0.06]">
+              <div className="bg-[#111] rounded-xl p-3 border border-white/[0.06] min-w-0">
                 <p className="text-[10px] text-gray-500 uppercase tracking-wider font-medium mb-1">Claimant</p>
                 <div className="flex items-center gap-2">
-                  <p className="text-xs font-medium">{shortId(currentTask.claimant)}</p>
+                  <p className="text-xs font-medium truncate">{shortId(currentTask.claimant)}</p>
                   <VerificationBadge level={currentTask.claimantVerification} size="sm" />
                 </div>
               </div>
@@ -1598,7 +1598,7 @@ function TaskDetail({
           <div>
             <button
               onClick={() => setShowProofImage(!showProofImage)}
-              className="flex items-center gap-2 text-xs text-purple-400 font-medium"
+              className="flex items-center gap-2 text-xs text-purple-400 font-medium min-h-[44px]"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
@@ -1650,23 +1650,23 @@ function TaskDetail({
                 {currentTask.verificationResult.verdict === "pass" ? "VERIFIED" : currentTask.verificationResult.verdict === "flag" ? "FLAGGED" : "REJECTED"}
               </span>
             </div>
-            <p className="text-xs text-gray-400 leading-relaxed">{currentTask.verificationResult.reasoning}</p>
+            <p className="text-xs text-gray-400 leading-relaxed break-words">{currentTask.verificationResult.reasoning}</p>
             {currentTask.verificationResult.verdict === "pass" && (
               <div className="mt-2 pt-2 border-t border-green-500/15">
                 <p className="text-xs text-green-400 font-semibold">${currentTask.bountyUsdc} USDC released</p>
               </div>
             )}
             {currentTask.attestationTxHash && (
-              <div className="mt-2 pt-2 border-t border-white/[0.06] flex items-center gap-1.5">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="2" y="7" width="20" height="14" rx="2" ry="2" /><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
-                </svg>
+              <div className="mt-2 pt-2 border-t border-white/[0.06]">
                 <a
                   href={`https://worldscan.org/tx/${currentTask.attestationTxHash}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-[11px] text-blue-400 underline underline-offset-2"
+                  className="flex items-center gap-1.5 text-[11px] text-blue-400 underline underline-offset-2 min-h-[44px]"
                 >
+                  <svg className="shrink-0" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="2" y="7" width="20" height="14" rx="2" ry="2" /><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+                  </svg>
                   On-chain attestation →
                 </a>
               </div>
@@ -1690,13 +1690,13 @@ function TaskDetail({
                 }
               }
             }}
-            className="bg-green-600 hover:bg-green-500 text-white px-4 py-3 rounded-2xl text-sm font-semibold active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+            className="w-full bg-green-600 hover:bg-green-500 text-white px-4 py-3 rounded-2xl text-sm font-semibold active:scale-[0.98] transition-all flex items-center justify-center gap-2 min-h-[44px] flex-wrap"
           >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg className="shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <line x1="12" y1="1" x2="12" y2="23" />
               <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
             </svg>
-            Release ${currentTask.bountyUsdc} USDC
+            <span>Release ${currentTask.bountyUsdc} USDC</span>
             <span className="text-[10px] opacity-70 font-normal">via World Chain</span>
           </button>
         )}
@@ -1717,7 +1717,7 @@ function TaskDetail({
                 <button
                   key={token}
                   onClick={() => setSwapToken(token)}
-                  className={`flex-1 py-2 rounded-xl text-xs font-medium transition-all ${
+                  className={`flex-1 min-h-[44px] py-2 rounded-xl text-xs font-medium transition-all ${
                     swapToken === token
                       ? "bg-white text-black"
                       : "bg-white/5 text-gray-400 hover:bg-white/10"
@@ -1739,7 +1739,7 @@ function TaskDetail({
                   setSwapping(false);
                 }}
                 disabled={swapping}
-                className="w-full bg-pink-600 hover:bg-pink-500 text-white py-2.5 rounded-xl text-sm font-semibold active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                className="w-full min-h-[44px] bg-pink-600 hover:bg-pink-500 text-white py-2.5 rounded-xl text-sm font-semibold active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {swapping ? (
                   <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -1757,7 +1757,7 @@ function TaskDetail({
         {currentTask.status === "claimed" && isClaimant && !isFlagged && !hasFollowUp && (
           <button
             onClick={onSubmitProof}
-            className="bg-purple-600 hover:bg-purple-500 text-white px-4 py-3 rounded-2xl text-sm font-semibold active:scale-[0.98] transition-all"
+            className="w-full min-h-[44px] bg-purple-600 hover:bg-purple-500 text-white px-4 py-3 rounded-2xl text-sm font-semibold active:scale-[0.98] transition-all"
           >
             Submit Proof
           </button>
@@ -1787,7 +1787,7 @@ function TaskDetail({
                 setReEvaluating(false);
               }}
               disabled={reEvaluating}
-              className="w-full bg-purple-600 hover:bg-purple-500 text-white py-2.5 rounded-xl text-sm font-semibold active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+              className="w-full min-h-[44px] bg-purple-600 hover:bg-purple-500 text-white py-2.5 rounded-xl text-sm font-semibold active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {reEvaluating ? (
                 <>
@@ -1821,7 +1821,7 @@ function TaskDetail({
                   if (data.task) setCurrentTask(data.task);
                   fetchMessages();
                 }}
-                className="flex-1 bg-green-600 hover:bg-green-500 text-white px-4 py-3 rounded-2xl text-sm font-semibold active:scale-[0.98] transition-all"
+                className="flex-1 min-h-[44px] bg-green-600 hover:bg-green-500 text-white px-4 py-3 rounded-2xl text-sm font-semibold active:scale-[0.98] transition-all"
               >
                 Approve
               </button>
@@ -1836,7 +1836,7 @@ function TaskDetail({
                   if (data.task) setCurrentTask(data.task);
                   fetchMessages();
                 }}
-                className="flex-1 bg-red-600/80 hover:bg-red-600 text-white px-4 py-3 rounded-2xl text-sm font-semibold active:scale-[0.98] transition-all"
+                className="flex-1 min-h-[44px] bg-red-600/80 hover:bg-red-600 text-white px-4 py-3 rounded-2xl text-sm font-semibold active:scale-[0.98] transition-all"
               >
                 Reject
               </button>
@@ -1855,7 +1855,7 @@ function TaskDetail({
                 setDisputing(false);
               }}
               disabled={disputing}
-              className="w-full bg-indigo-600/80 hover:bg-indigo-600 text-white py-3 rounded-2xl text-sm font-semibold active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+              className="w-full min-h-[44px] bg-indigo-600/80 hover:bg-indigo-600 text-white py-3 rounded-2xl text-sm font-semibold active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {disputing ? (
                 <>
@@ -1927,7 +1927,7 @@ function TaskDetail({
                       {new Date(msg.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                     </span>
                   </div>
-                  <p className="text-xs text-gray-300 whitespace-pre-line leading-relaxed">{msg.text}</p>
+                  <p className="text-xs text-gray-300 whitespace-pre-line leading-relaxed break-words">{msg.text}</p>
                 </div>
               );
             })
@@ -1946,14 +1946,14 @@ function TaskDetail({
               value={chatInput}
               onChange={(e) => setChatInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-              className={`flex-1 bg-[#111] border rounded-xl px-4 py-2.5 text-sm focus:outline-none transition-colors placeholder:text-gray-600 ${
+              className={`flex-1 min-w-0 bg-[#111] border rounded-xl px-4 py-2.5 text-sm min-h-[44px] focus:outline-none transition-colors placeholder:text-gray-600 ${
                 hasFollowUp && isClaimant ? "border-purple-500/30 focus:border-purple-500/50" : "border-white/[0.06] focus:border-white/20"
               }`}
             />
             <button
               onClick={sendMessage}
               disabled={!chatInput.trim() || sending}
-              className="bg-blue-600 text-white px-4 rounded-xl text-sm font-medium disabled:opacity-30 active:scale-95 transition-all"
+              className="bg-blue-600 text-white px-4 min-w-[44px] min-h-[44px] rounded-xl text-sm font-medium disabled:opacity-30 active:scale-95 transition-all flex items-center justify-center"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="22" y1="2" x2="11" y2="13" />

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { claimTask, getTask } from "@/lib/store";
-import { postClaimNotification, postClaimBriefing } from "@/lib/xmtp";
+import { postClaimNotification, postClaimBriefing, syncAndProcessMessages } from "@/lib/xmtp";
 import { generateClaimBriefing } from "@/lib/ai-chat";
 import { notifyTaskClaimed } from "@/lib/notifications";
 import { getRedis } from "@/lib/redis";
@@ -96,6 +96,8 @@ export async function POST(
     agentName: updated.agent?.name,
     timestamp: new Date().toISOString(),
   });
+
+  syncAndProcessMessages().catch(console.error);
 
   return NextResponse.json({ task: updated });
 }
