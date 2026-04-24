@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Task not in claimed state" }, { status: 400 });
   }
 
-  submitProof(taskId, `data:image/jpeg;base64,${proofImageBase64.slice(0, 50)}...`, proofNote || null);
+  submitProof(taskId, `data:image/jpeg;base64,${proofImageBase64}`, proofNote || null);
   await postProofSubmitted(taskId);
 
   const useRealVerification = !!process.env.ANTHROPIC_API_KEY;

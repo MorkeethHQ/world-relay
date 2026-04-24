@@ -4,15 +4,22 @@ import { useState, useEffect } from "react";
 import { MiniKit } from "@worldcoin/minikit-js";
 import { Feed } from "@/components/Feed";
 
+type VerificationLevel = "orb" | "device" | "wallet" | "dev" | null;
+
 export default function Home() {
   const [userId, setUserId] = useState<string | null>(null);
+  const [verificationLevel, setVerificationLevel] = useState<VerificationLevel>(null);
   const [isVerifying, setIsVerifying] = useState(false);
   const [isInWorldApp, setIsInWorldApp] = useState(false);
 
   useEffect(() => {
     setIsInWorldApp(MiniKit.isInstalled());
     const stored = localStorage.getItem("relay_user_id");
-    if (stored) setUserId(stored);
+    const storedLevel = localStorage.getItem("relay_verification_level") as VerificationLevel;
+    if (stored) {
+      setUserId(stored);
+      setVerificationLevel(storedLevel);
+    }
   }, []);
 
   const handleVerify = async () => {
@@ -28,7 +35,9 @@ export default function Home() {
         if (result?.data?.address) {
           const addr = result.data.address;
           setUserId(addr);
+          setVerificationLevel("wallet");
           localStorage.setItem("relay_user_id", addr);
+          localStorage.setItem("relay_verification_level", "wallet");
 
           await fetch("/api/verify-identity", {
             method: "POST",
@@ -48,16 +57,26 @@ export default function Home() {
       }
     }
 
-    // Dev fallback for browser testing
     const devId = `dev_${crypto.randomUUID().slice(0, 8)}`;
     setUserId(devId);
+    setVerificationLevel("dev");
     localStorage.setItem("relay_user_id", devId);
+    localStorage.setItem("relay_verification_level", "dev");
+
+    await fetch("/api/verify-identity", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ address: devId }),
+    });
+
     setIsVerifying(false);
   };
 
   const handleLogout = () => {
     localStorage.removeItem("relay_user_id");
+    localStorage.removeItem("relay_verification_level");
     setUserId(null);
+    setVerificationLevel(null);
   };
 
   if (!userId) {
@@ -117,5 +136,5 @@ export default function Home() {
     );
   }
 
-  return <Feed userId={userId} onLogout={handleLogout} />;
+  return <Feed userId={userId} verificationLevel={verificationLevel} onLogout={handleLogout} />;
 }

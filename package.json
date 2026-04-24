@@ -11,8 +11,10 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.91.0",
     "@worldcoin/idkit": "^4.1.2",
+    "@worldcoin/idkit-core": "^4.1.2",
     "@worldcoin/minikit-js": "^2.0.3",
     "@xmtp/browser-sdk": "^5.1.0",
+    "@xmtp/node-sdk": "^4.4.0",
     "next": "16.2.4",
     "react": "19.2.4",
     "react-dom": "19.2.4",

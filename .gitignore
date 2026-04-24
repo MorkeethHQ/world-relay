@@ -40,3 +40,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# xmtp local db
+*.db3
+*.db3.*
+
+# foundry build artifacts
+contracts/out/
+contracts/cache/

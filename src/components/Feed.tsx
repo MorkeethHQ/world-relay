@@ -32,7 +32,7 @@ function timeAgo(dateStr: string): string {
 
 type Tab = "available" | "mine" | "completed";
 
-export function Feed({ userId, onLogout }: { userId: string | null; onLogout?: () => void }) {
+export function Feed({ userId, verificationLevel, onLogout }: { userId: string | null; verificationLevel?: string | null; onLogout?: () => void }) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [view, setView] = useState<"board" | "post" | "proof" | "detail">("board");
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -94,9 +94,12 @@ export function Feed({ userId, onLogout }: { userId: string | null; onLogout?: (
             <div>
               <h1 className="text-base font-bold tracking-tight leading-none">RELAY</h1>
               {userId && (
-                <button onClick={onLogout} className="text-[10px] text-gray-500 hover:text-gray-300 transition-colors leading-none mt-0.5">
-                  {shortId(userId)}
-                </button>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <button onClick={onLogout} className="text-[10px] text-gray-500 hover:text-gray-300 transition-colors leading-none">
+                    {shortId(userId)}
+                  </button>
+                  <VerificationBadge level={verificationLevel} />
+                </div>
               )}
             </div>
           </div>
@@ -301,6 +304,25 @@ function StatusBadge({ status }: { status: string }) {
   return (
     <span className={`flex items-center gap-1.5 text-[11px] font-medium ${c.bg}`}>
       <span className={`w-1.5 h-1.5 rounded-full ${c.dot} animate-[pulse-dot_2s_ease-in-out_infinite]`} />
+      {c.label}
+    </span>
+  );
+}
+
+function VerificationBadge({ level }: { level?: string | null }) {
+  if (!level) return null;
+  const config: Record<string, { color: string; label: string }> = {
+    orb: { color: "text-cyan-400", label: "Orb" },
+    device: { color: "text-blue-400", label: "Device" },
+    wallet: { color: "text-green-400", label: "Verified" },
+    dev: { color: "text-gray-500", label: "Dev" },
+  };
+  const c = config[level] || config.dev;
+  return (
+    <span className={`text-[9px] font-semibold ${c.color} flex items-center gap-0.5`}>
+      <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
+      </svg>
       {c.label}
     </span>
   );
@@ -641,9 +663,16 @@ function TaskDetail({
 }) {
   const [messages, setMessages] = useState<ThreadMessage[]>([]);
   const [currentTask, setCurrentTask] = useState(task);
+  const [chatInput, setChatInput] = useState("");
+  const [sending, setSending] = useState(false);
+  const [showProofImage, setShowProofImage] = useState(false);
   const isClaimant = currentTask.claimant === userId;
   const isPoster = currentTask.poster === userId;
+  const isParticipant = isClaimant || isPoster;
   const isFlagged = currentTask.verificationResult?.verdict === "flag" && currentTask.status === "claimed";
+  const messagesEndRef = useCallback((node: HTMLDivElement | null) => {
+    node?.scrollIntoView({ behavior: "smooth" });
+  }, []);
 
   const fetchMessages = useCallback(async () => {
     const res = await fetch(`/api/tasks/${task.id}/messages`);
@@ -651,16 +680,37 @@ function TaskDetail({
     setMessages(data.messages || []);
   }, [task.id]);
 
+  const fetchTask = useCallback(async () => {
+    const res = await fetch(`/api/tasks`);
+    const data = await res.json();
+    const updated = data.tasks?.find((t: Task) => t.id === task.id);
+    if (updated) setCurrentTask(updated);
+  }, [task.id]);
+
   useEffect(() => {
     fetchMessages();
-    const interval = setInterval(fetchMessages, 2000);
+    fetchTask();
+    const interval = setInterval(() => { fetchMessages(); fetchTask(); }, 2000);
     return () => clearInterval(interval);
-  }, [fetchMessages]);
+  }, [fetchMessages, fetchTask]);
+
+  const sendMessage = async () => {
+    if (!chatInput.trim() || !userId || sending) return;
+    setSending(true);
+    await fetch(`/api/tasks/${task.id}/messages`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sender: userId, text: chatInput.trim() }),
+    });
+    setChatInput("");
+    setSending(false);
+    fetchMessages();
+  };
 
   return (
     <div className="flex flex-col min-h-screen max-w-lg mx-auto w-full">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
+      <div className="sticky top-0 z-10 bg-[#050505]/90 backdrop-blur-xl flex items-center justify-between px-4 py-3 border-b border-white/5">
         <button onClick={onBack} className="flex items-center gap-1 text-sm text-gray-400 hover:text-white transition-colors">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="15 18 9 12 15 6" />
@@ -670,7 +720,7 @@ function TaskDetail({
         <StatusBadge status={currentTask.status} />
       </div>
 
-      <div className="flex-1 px-4 py-5 flex flex-col gap-4">
+      <div className="flex-1 px-4 py-5 flex flex-col gap-4 overflow-y-auto">
         {/* Task info */}
         <div>
           <p className="font-semibold text-lg leading-snug">{currentTask.description}</p>
@@ -700,6 +750,33 @@ function TaskDetail({
             </div>
           )}
         </div>
+
+        {/* Proof image */}
+        {currentTask.proofImageUrl && (
+          <div>
+            <button
+              onClick={() => setShowProofImage(!showProofImage)}
+              className="flex items-center gap-2 text-xs text-purple-400 font-medium"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                <circle cx="8.5" cy="8.5" r="1.5" />
+                <polyline points="21 15 16 10 5 21" />
+              </svg>
+              {showProofImage ? "Hide proof photo" : "View proof photo"}
+            </button>
+            {showProofImage && (
+              <div className="mt-2 rounded-2xl overflow-hidden border border-white/[0.06] animate-[fadeIn_0.2s_ease-out]">
+                <img src={currentTask.proofImageUrl} alt="Proof" className="w-full max-h-80 object-cover" />
+                {currentTask.proofNote && (
+                  <div className="bg-[#111] px-4 py-2 border-t border-white/[0.06]">
+                    <p className="text-xs text-gray-400 italic">&ldquo;{currentTask.proofNote}&rdquo;</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Verification result */}
         {currentTask.verificationResult && (
@@ -732,6 +809,11 @@ function TaskDetail({
               </span>
             </div>
             <p className="text-xs text-gray-400 leading-relaxed">{currentTask.verificationResult.reasoning}</p>
+            {currentTask.verificationResult.verdict === "pass" && (
+              <div className="mt-2 pt-2 border-t border-green-500/15">
+                <p className="text-xs text-green-400 font-semibold">${currentTask.bountyUsdc} USDC released</p>
+              </div>
+            )}
           </div>
         )}
 
@@ -784,18 +866,37 @@ function TaskDetail({
         )}
 
         {/* XMTP Thread */}
-        {messages.length > 0 && (
-          <div className="flex flex-col gap-2 mt-2">
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] text-gray-500 uppercase tracking-wider font-medium">Thread</span>
-              <span className="flex-1 h-px bg-white/5" />
-              <span className="text-[10px] text-gray-700">XMTP</span>
+        <div className="flex flex-col gap-2 mt-2">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] text-gray-500 uppercase tracking-wider font-medium">Thread</span>
+            <span className="flex-1 h-px bg-white/5" />
+            <div className="flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-[pulse-dot_2s_ease-in-out_infinite]" />
+              <span className="text-[10px] text-gray-600">XMTP</span>
             </div>
-            {messages.map((msg) => (
-              <div key={msg.id} className="bg-[#111] border border-white/[0.06] rounded-xl p-3">
+          </div>
+          {messages.length === 0 ? (
+            <div className="text-center py-6">
+              <p className="text-xs text-gray-600">No messages yet</p>
+            </div>
+          ) : (
+            messages.map((msg) => (
+              <div
+                key={msg.id}
+                className={`rounded-xl p-3 ${
+                  msg.sender === "relay-bot"
+                    ? "bg-[#111] border border-white/[0.06]"
+                    : msg.sender === userId
+                    ? "bg-blue-600/10 border border-blue-500/15 ml-6"
+                    : "bg-[#111] border border-white/[0.06] mr-6"
+                }`}
+              >
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-[10px] font-semibold text-blue-400">
-                    {msg.sender === "relay-bot" ? "RELAY" : shortId(msg.sender)}
+                  <span className={`text-[10px] font-semibold ${
+                    msg.sender === "relay-bot" ? "text-purple-400" :
+                    msg.sender === userId ? "text-blue-400" : "text-gray-400"
+                  }`}>
+                    {msg.sender === "relay-bot" ? "RELAY" : msg.sender === userId ? "You" : shortId(msg.sender)}
                   </span>
                   <span className="text-[10px] text-gray-700">
                     {new Date(msg.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
@@ -803,10 +904,37 @@ function TaskDetail({
                 </div>
                 <p className="text-xs text-gray-300 whitespace-pre-line leading-relaxed">{msg.text}</p>
               </div>
-            ))}
-          </div>
-        )}
+            ))
+          )}
+          <div ref={messagesEndRef} />
+        </div>
       </div>
+
+      {/* Chat input */}
+      {isParticipant && currentTask.status !== "completed" && currentTask.status !== "failed" && (
+        <div className="sticky bottom-0 bg-[#050505] border-t border-white/5 px-4 py-3">
+          <div className="flex gap-2">
+            <input
+              type="text"
+              placeholder="Message..."
+              value={chatInput}
+              onChange={(e) => setChatInput(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+              className="flex-1 bg-[#111] border border-white/[0.06] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-white/20 transition-colors placeholder:text-gray-600"
+            />
+            <button
+              onClick={sendMessage}
+              disabled={!chatInput.trim() || sending}
+              className="bg-blue-600 text-white px-4 rounded-xl text-sm font-medium disabled:opacity-30 active:scale-95 transition-all"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="22" y1="2" x2="11" y2="13" />
+                <polygon points="22 2 15 22 11 13 2 9 22 2" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
