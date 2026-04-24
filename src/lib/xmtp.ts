@@ -3,19 +3,28 @@ import { addMessage } from "./messages";
 
 let xmtpClient: any = null;
 let clientInitPromise: Promise<any> | null = null;
+let lastInitError: string | null = null;
+
+function deriveEncryptionKey(walletKey: string): Uint8Array {
+  const { createHash } = require("node:crypto") as typeof import("node:crypto");
+  const hash = createHash("sha256").update(`xmtp-relay-db-key:${walletKey}`).digest();
+  return new Uint8Array(hash);
+}
 
 async function getXmtpClient() {
   if (xmtpClient) return xmtpClient;
   if (clientInitPromise) return clientInitPromise;
 
   const walletKey = process.env.XMTP_WALLET_KEY;
-  if (!walletKey) return null;
+  if (!walletKey) {
+    lastInitError = "XMTP_WALLET_KEY not set";
+    return null;
+  }
 
   clientInitPromise = (async () => {
     try {
       const { Client } = await import("@xmtp/node-sdk");
       const { privateKeyToAccount } = await import("viem/accounts");
-      const { getRandomValues } = await import("node:crypto");
 
       const key = walletKey.startsWith("0x") ? walletKey : `0x${walletKey}`;
       const account = privateKeyToAccount(key as `0x${string}`);
@@ -24,7 +33,7 @@ async function getXmtpClient() {
         type: "EOA" as const,
         getIdentifier: () => ({
           identifier: account.address.toLowerCase(),
-          identifierKind: 0 as const, // IdentifierKind.Ethereum
+          identifierKind: 0 as const,
         }),
         signMessage: async (message: string) => {
           const sig = await account.signMessage({ message });
@@ -32,17 +41,21 @@ async function getXmtpClient() {
         },
       };
 
-      const dbEncryptionKey = getRandomValues(new Uint8Array(32));
+      const dbEncryptionKey = deriveEncryptionKey(walletKey);
       const client = await Client.create(signer, {
         dbEncryptionKey,
+        dbPath: `/tmp/xmtp-relay-${account.address.slice(2, 10)}.db`,
         env: "production",
       });
 
       xmtpClient = client;
+      lastInitError = null;
       console.log("[XMTP] Client initialized. Inbox:", client.inboxId);
       return client;
     } catch (err) {
-      console.error("[XMTP] Failed to initialize client:", err);
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error("[XMTP] Failed to initialize client:", msg);
+      lastInitError = msg;
       clientInitPromise = null;
       return null;
     }
@@ -300,12 +313,14 @@ export async function getXmtpStatus(): Promise<{
   connected: boolean;
   inboxId: string | null;
   address: string | null;
+  error: string | null;
 }> {
   const client = await getXmtpClient();
-  if (!client) return { connected: false, inboxId: null, address: null };
+  if (!client) return { connected: false, inboxId: null, address: null, error: lastInitError };
   return {
     connected: true,
     inboxId: client.inboxId,
     address: client.accountIdentifier?.identifier || null,
+    error: null,
   };
 }
