@@ -12,6 +12,8 @@ export type Task = {
   claimant: string | null;
   description: string;
   location: string;
+  lat: number | null;
+  lng: number | null;
   bountyUsdc: number;
   deadline: string;
   status: TaskStatus;

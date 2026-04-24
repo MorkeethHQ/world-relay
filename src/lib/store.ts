@@ -1,23 +1,5 @@
-export type TaskStatus = "open" | "claimed" | "completed" | "failed" | "expired";
-
-export type Task = {
-  id: string;
-  poster: string;
-  claimant: string | null;
-  description: string;
-  location: string;
-  bountyUsdc: number;
-  deadline: string;
-  status: TaskStatus;
-  proofImageUrl: string | null;
-  proofNote: string | null;
-  verificationResult: {
-    verdict: "pass" | "flag" | "fail";
-    reasoning: string;
-    confidence: number;
-  } | null;
-  createdAt: string;
-};
+import type { Task, TaskStatus } from "./types";
+export type { Task, TaskStatus };
 
 const tasks: Map<string, Task> = new Map();
 
@@ -25,6 +7,8 @@ export function createTask(input: {
   poster: string;
   description: string;
   location: string;
+  lat?: number | null;
+  lng?: number | null;
   bountyUsdc: number;
   deadlineHours: number;
 }): Task {
@@ -35,6 +19,8 @@ export function createTask(input: {
     claimant: null,
     description: input.description,
     location: input.location,
+    lat: input.lat ?? null,
+    lng: input.lng ?? null,
     bountyUsdc: input.bountyUsdc,
     deadline: new Date(Date.now() + input.deadlineHours * 3600_000).toISOString(),
     status: "open",

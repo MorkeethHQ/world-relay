@@ -7,7 +7,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { poster, description, location, bountyUsdc, deadlineHours } = body;
+  const { poster, description, location, lat, lng, bountyUsdc, deadlineHours } = body;
 
   if (!poster || !description || !location || !bountyUsdc) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -17,6 +17,8 @@ export async function POST(req: NextRequest) {
     poster,
     description,
     location,
+    lat: lat ? Number(lat) : null,
+    lng: lng ? Number(lng) : null,
     bountyUsdc: Number(bountyUsdc),
     deadlineHours: Number(deadlineHours) || 24,
   });

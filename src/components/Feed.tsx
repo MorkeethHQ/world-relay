@@ -30,6 +30,33 @@ function timeAgo(dateStr: string): string {
   return `${Math.floor(hours / 24)}d ago`;
 }
 
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function formatDistance(km: number): string {
+  if (km < 1) return `${Math.round(km * 1000)}m away`;
+  if (km < 10) return `${km.toFixed(1)}km away`;
+  return `${Math.round(km)}km away`;
+}
+
+function useUserLocation() {
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => {},
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  }, []);
+  return coords;
+}
+
 type Tab = "available" | "mine" | "completed";
 
 export function Feed({ userId, verificationLevel, onLogout }: { userId: string | null; verificationLevel?: string | null; onLogout?: () => void }) {
@@ -37,6 +64,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
   const [view, setView] = useState<"board" | "post" | "proof" | "detail">("board");
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [tab, setTab] = useState<Tab>("available");
+  const userLocation = useUserLocation();
 
   const fetchTasks = useCallback(async () => {
     const res = await fetch("/api/tasks");
@@ -74,6 +102,13 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
     if (tab === "mine") return t.poster === userId || t.claimant === userId;
     if (tab === "completed") return t.status === "completed";
     return true;
+  }).sort((a, b) => {
+    if (tab === "available" && userLocation && a.lat && a.lng && b.lat && b.lng) {
+      const distA = haversineKm(userLocation.lat, userLocation.lng, a.lat, a.lng);
+      const distB = haversineKm(userLocation.lat, userLocation.lng, b.lat, b.lng);
+      return distA - distB;
+    }
+    return 0;
   });
 
   const myTaskCount = tasks.filter(t => t.poster === userId || t.claimant === userId).length;
@@ -182,6 +217,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
                 <TaskCard
                   task={task}
                   userId={userId}
+                  userLocation={userLocation}
                   onTap={() => {
                     setSelectedTask(task);
                     setView("detail");
@@ -211,18 +247,23 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
 function TaskCard({
   task,
   userId,
+  userLocation,
   onTap,
   onClaim,
   onSubmitProof,
 }: {
   task: Task;
   userId: string | null;
+  userLocation?: { lat: number; lng: number } | null;
   onTap: () => void;
   onClaim: () => void;
   onSubmitProof: () => void;
 }) {
   const isOwnTask = task.poster === userId;
   const isClaimant = task.claimant === userId;
+  const distance = userLocation && task.lat && task.lng
+    ? haversineKm(userLocation.lat, userLocation.lng, task.lat, task.lng)
+    : null;
 
   return (
     <div
@@ -238,6 +279,12 @@ function TaskCard({
               <circle cx="12" cy="10" r="3" />
             </svg>
             <span className="text-xs text-gray-500">{task.location}</span>
+            {distance !== null && (
+              <>
+                <span className="text-[10px] text-gray-700 mx-0.5">·</span>
+                <span className="text-xs text-blue-400 font-medium">{formatDistance(distance)}</span>
+              </>
+            )}
             <span className="text-[10px] text-gray-700 mx-0.5">·</span>
             <span className="text-xs text-gray-600">{timeLeft(task.deadline)}</span>
           </div>
@@ -341,6 +388,16 @@ function PostTask({
   const [location, setLocation] = useState("");
   const [bounty, setBounty] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => {},
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  }, []);
 
   const handleSubmit = async () => {
     if (!description || !location || !bounty || !userId) return;
@@ -364,6 +421,8 @@ function PostTask({
         poster: userId,
         description,
         location,
+        lat: coords?.lat || null,
+        lng: coords?.lng || null,
         bountyUsdc: parseFloat(bounty),
         deadlineHours: 24,
       }),
