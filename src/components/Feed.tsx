@@ -257,6 +257,17 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
                 </svg>
                 Demo
               </a>
+              <a
+                href="/live"
+                className="h-9 px-3 rounded-full font-semibold text-[11px] border border-green-500/30 text-green-400 hover:text-green-300 hover:border-green-500/50 transition-all flex items-center gap-1.5 bg-green-500/5"
+                title="Live Mission Control"
+              >
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                </span>
+                Live
+              </a>
               <button
                 onClick={() => setView("post")}
                 className="bg-white text-black h-9 px-4 rounded-full font-semibold text-xs active:scale-95 transition-all shadow-[0_0_12px_rgba(255,255,255,0.08)]"
@@ -1059,9 +1070,9 @@ function SubmitProof({
   onDone: () => void;
   onCancel: () => void;
 }) {
+  const MAX_PHOTOS = 3;
   const [proofNote, setProofNote] = useState("");
-  const [imageData, setImageData] = useState<string | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [images, setImages] = useState<{ base64: string; preview: string; isVideo: boolean }[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<{ verdict: string; reasoning: string; locationVerified?: boolean; distanceKm?: number } | null>(null);
   const [proofCoords, setProofCoords] = useState<{ lat: number; lng: number } | null>(null);
@@ -1075,28 +1086,72 @@ function SubmitProof({
     );
   }, []);
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const extractVideoFrame = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const video = document.createElement("video");
+      video.preload = "metadata";
+      video.muted = true;
+      video.playsInline = true;
+      const url = URL.createObjectURL(file);
+      video.src = url;
+      video.onloadeddata = () => {
+        video.currentTime = 0.5;
+      };
+      video.onseeked = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) { reject(new Error("Canvas context unavailable")); return; }
+        ctx.drawImage(video, 0, 0);
+        const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+        URL.revokeObjectURL(url);
+        resolve(dataUrl);
+      };
+      video.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Video load failed")); };
+    });
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const dataUrl = reader.result as string;
-      setImagePreview(dataUrl);
-      setImageData(dataUrl.split(",")[1]);
-    };
-    reader.readAsDataURL(file);
+    // Reset input so same file can be re-selected
+    e.target.value = "";
+
+    if (file.type.startsWith("video/")) {
+      try {
+        const dataUrl = await extractVideoFrame(file);
+        setImages((prev) => [...prev, { base64: dataUrl.split(",")[1], preview: dataUrl, isVideo: true }]);
+      } catch {
+        console.error("Failed to extract video frame");
+      }
+    } else {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const dataUrl = reader.result as string;
+        setImages((prev) => [...prev, { base64: dataUrl.split(",")[1], preview: dataUrl, isVideo: false }]);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeImage = (index: number) => {
+    setImages((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async () => {
-    if (!imageData) return;
+    if (images.length === 0) return;
     setSubmitting(true);
+
+    const proofImages = images.map((img) => img.base64);
 
     const res = await fetch("/api/verify-proof", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         taskId: task.id,
-        proofImageBase64: imageData,
+        proofImageBase64: proofImages[0],
+        proofImages,
         proofNote: proofNote || null,
         lat: proofCoords?.lat || null,
         lng: proofCoords?.lng || null,
@@ -1141,33 +1196,52 @@ function SubmitProof({
           </div>
         </div>
 
-        {/* Photo upload */}
+        {/* Photo upload — multi-image */}
         <div>
-          <label className="text-[11px] text-gray-500 uppercase tracking-wider font-medium block mb-2">Proof Photo</label>
-          {imagePreview ? (
-            <div className="relative rounded-2xl overflow-hidden">
-              <img src={imagePreview} alt="Proof" className="w-full max-h-72 object-cover" />
-              <button
-                onClick={() => { setImageData(null); setImagePreview(null); }}
-                className="absolute top-3 right-3 bg-black/60 backdrop-blur-sm text-white text-xs px-3 py-1.5 rounded-full font-medium"
-              >
-                Remove
-              </button>
+          <label className="text-[11px] text-gray-500 uppercase tracking-wider font-medium block mb-2">
+            Proof Photos ({images.length}/{MAX_PHOTOS})
+          </label>
+
+          {images.length > 0 && (
+            <div className="flex gap-2 mb-3 overflow-x-auto pb-1">
+              {images.map((img, i) => (
+                <div key={i} className="relative shrink-0 w-24 h-24 rounded-xl overflow-hidden border border-white/[0.06]">
+                  <img src={img.preview} alt={`Proof ${i + 1}`} className="w-full h-full object-cover" />
+                  {img.isVideo && (
+                    <div className="absolute bottom-1 left-1 bg-black/70 rounded px-1 py-0.5">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="white" stroke="none">
+                        <polygon points="5 3 19 12 5 21 5 3" />
+                      </svg>
+                    </div>
+                  )}
+                  <button
+                    onClick={() => removeImage(i)}
+                    className="absolute top-1 right-1 w-5 h-5 bg-black/70 backdrop-blur-sm rounded-full flex items-center justify-center text-white text-[10px] font-bold hover:bg-red-500/80 transition-colors"
+                  >
+                    x
+                  </button>
+                </div>
+              ))}
             </div>
-          ) : (
-            <label className="flex flex-col items-center justify-center border border-dashed border-white/10 rounded-2xl p-10 cursor-pointer hover:border-white/20 transition-all bg-[#111]/50 active:scale-[0.99]">
+          )}
+
+          {images.length < MAX_PHOTOS && (
+            <label className="flex flex-col items-center justify-center border border-dashed border-white/10 rounded-2xl p-8 cursor-pointer hover:border-white/20 transition-all bg-[#111]/50 active:scale-[0.99]">
               <div className="w-12 h-12 rounded-full bg-purple-500/10 flex items-center justify-center mb-3">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#a855f6" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
                   <circle cx="12" cy="13" r="4" />
                 </svg>
               </div>
-              <span className="text-sm text-gray-400">Take photo or choose from library</span>
+              <span className="text-sm text-gray-400">
+                {images.length === 0 ? "Take photo or choose from library" : "Add another photo"}
+              </span>
+              <span className="text-[10px] text-gray-600 mt-1">Photos or video accepted</span>
               <input
                 type="file"
-                accept="image/*"
+                accept="image/*,video/*"
                 capture="environment"
-                onChange={handleImageChange}
+                onChange={handleFileChange}
                 className="hidden"
               />
             </label>
@@ -1191,7 +1265,7 @@ function SubmitProof({
             </div>
             <div className="text-center">
               <p className="text-sm font-medium text-white">Verifying proof...</p>
-              <p className="text-xs text-gray-500 mt-1">AI is analyzing your photo</p>
+              <p className="text-xs text-gray-500 mt-1">AI is analyzing your photo{images.length > 1 ? "s" : ""}</p>
             </div>
           </div>
         )}
@@ -1264,9 +1338,9 @@ function SubmitProof({
         <div className="px-4 pb-8 pt-2">
           <button
             onClick={handleSubmit}
-            disabled={!imageData}
+            disabled={images.length === 0}
             className={`w-full py-3.5 rounded-2xl font-semibold text-sm transition-all active:scale-[0.98] ${
-              imageData ? "bg-purple-600 text-white" : "bg-gray-800 text-gray-500"
+              images.length > 0 ? "bg-purple-600 text-white" : "bg-gray-800 text-gray-500"
             } disabled:opacity-50`}
           >
             Submit for Verification

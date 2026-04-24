@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { Task } from "./types";
 import type { VerificationResult } from "./verify-proof";
+import { AGENT_REGISTRY } from "./agents";
 
 const HAIKU = "claude-haiku-4-5-20251001";
 
@@ -23,6 +24,29 @@ function detectMediaType(base64: string): "image/jpeg" | "image/png" | "image/gi
   return "image/jpeg";
 }
 
+type ContentBlock =
+  | { type: "text"; text: string }
+  | { type: "image"; source: { type: "base64"; media_type: "image/jpeg" | "image/png" | "image/gif" | "image/webp"; data: string } };
+
+function buildImageBlocks(images: string | string[]): ContentBlock[] {
+  const arr = Array.isArray(images) ? images : [images];
+  const blocks: ContentBlock[] = [];
+  for (let i = 0; i < arr.length; i++) {
+    if (arr.length > 1) {
+      blocks.push({ type: "text" as const, text: `Photo ${i + 1} of ${arr.length}:` });
+    }
+    blocks.push({
+      type: "image" as const,
+      source: {
+        type: "base64" as const,
+        media_type: detectMediaType(arr[i]),
+        data: arr[i],
+      },
+    });
+  }
+  return blocks;
+}
+
 const CATEGORY_TIPS: Record<string, string> = {
   photo: "Focus on framing, clarity, and capturing the exact subject. Include context clues (signage, street names) that prove location.",
   delivery: "Photograph the item at the destination. Include any receipts, packaging labels, or handoff confirmation.",
@@ -30,15 +54,23 @@ const CATEGORY_TIPS: Record<string, string> = {
   custom: "Follow the task description precisely. When in doubt, more context in the photo is better.",
 };
 
-export async function generateLocationBriefing(task: Task): Promise<string | null> {
+export async function generateLocationBriefing(task: Task, agentId?: string): Promise<string | null> {
   const client = getClient();
   if (!client) return null;
+
+  let personalityNote = "";
+  if (agentId) {
+    const agent = AGENT_REGISTRY[agentId.toLowerCase()];
+    if (agent?.personality) {
+      personalityNote = `\nYou are acting as ${agent.name}: ${agent.personality} Channel this personality in your briefing tone.`;
+    }
+  }
 
   try {
     const response = await client.messages.create({
       model: HAIKU,
       max_tokens: 200,
-      system: `You are RELAY's AI scout. A new task was just posted. Generate a SHORT location-specific briefing for potential claimants. Include: best approach angle for photos, time-of-day tips, and one local context tip. Be specific to the EXACT location — reference street names, landmarks, nearby metro stops. Under 80 words. No greeting.`,
+      system: `You are RELAY's AI scout. A new task was just posted. Generate a SHORT location-specific briefing for potential claimants. Include: best approach angle for photos, time-of-day tips, and one local context tip. Be specific to the EXACT location — reference street names, landmarks, nearby metro stops. Under 80 words. No greeting.${personalityNote}`,
       messages: [{
         role: "user",
         content: `Task: "${task.description}"\nLocation: ${task.location}\nCategory: ${task.category}\nBounty: $${task.bountyUsdc} USDC`,
@@ -53,15 +85,23 @@ export async function generateLocationBriefing(task: Task): Promise<string | nul
   }
 }
 
-export async function generateClaimBriefing(task: Task): Promise<string | null> {
+export async function generateClaimBriefing(task: Task, agentId?: string): Promise<string | null> {
   const client = getClient();
   if (!client) return null;
+
+  let personalityNote = "";
+  if (agentId) {
+    const agent = AGENT_REGISTRY[agentId.toLowerCase()];
+    if (agent?.personality) {
+      personalityNote = `\nYou are acting as ${agent.name}: ${agent.personality} Channel this personality in your briefing tone.`;
+    }
+  }
 
   try {
     const response = await client.messages.create({
       model: HAIKU,
       max_tokens: 200,
-      system: `You are RELAY's AI assistant. A verified human just claimed a physical-world task. Generate a SHORT, friendly briefing with 3-4 specific tips for getting their proof photo verified on the first try. Be specific to THIS task — no generic advice. Use bullet points. Keep it under 100 words. No greeting, no sign-off.`,
+      system: `You are RELAY's AI assistant. A verified human just claimed a physical-world task. Generate a SHORT, friendly briefing with 3-4 specific tips for getting their proof photo verified on the first try. Be specific to THIS task — no generic advice. Use bullet points. Keep it under 100 words. No greeting, no sign-off.${personalityNote}`,
       messages: [{
         role: "user",
         content: `Task: "${task.description}"\nLocation: ${task.location}\nCategory: ${task.category}\nBounty: $${task.bountyUsdc} USDC\n\nCategory tips: ${CATEGORY_TIPS[task.category] || CATEGORY_TIPS.custom}`,
@@ -118,7 +158,7 @@ export async function generateFollowUpQuestion(
 
 export async function evaluateFollowUp(
   task: Task,
-  proofImageBase64: string,
+  proofImages: string | string[],
   threadMessages: string,
   initialVerdict: { reasoning: string; confidence: number }
 ): Promise<VerificationResult> {
@@ -128,34 +168,26 @@ export async function evaluateFollowUp(
   }
 
   try {
+    const userContent: ContentBlock[] = [
+      {
+        type: "text" as const,
+        text: `Task: "${task.description}"\nLocation: ${task.location}\n\nInitial verdict: ${initialVerdict.reasoning} (confidence: ${Math.round(initialVerdict.confidence * 100)}%)\n\nThread conversation after follow-up:\n${threadMessages}\n\nRe-evaluate this proof:`,
+      },
+      ...buildImageBlocks(proofImages),
+    ];
+
     const response = await client.messages.create({
       model: HAIKU,
       max_tokens: 256,
       system: `You are RELAY's AI verifier re-evaluating a proof after receiving additional context from the claimant via chat.
 
-You previously flagged this proof with medium confidence. Now the claimant has responded with more information. Re-evaluate considering BOTH the original photo AND the new context from the conversation.
+You previously flagged this proof with medium confidence. Now the claimant has responded with more information. Re-evaluate considering BOTH the original photo(s) AND the new context from the conversation.
 
 Respond with JSON only:
 {"verdict": "pass" | "flag" | "fail", "reasoning": "One sentence", "confidence": 0.0-1.0}
 
 Be fair — if the follow-up response resolves your concern, pass it. If it doesn't help, flag or fail.`,
-      messages: [{
-        role: "user",
-        content: [
-          {
-            type: "text" as const,
-            text: `Task: "${task.description}"\nLocation: ${task.location}\n\nInitial verdict: ${initialVerdict.reasoning} (confidence: ${Math.round(initialVerdict.confidence * 100)}%)\n\nThread conversation after follow-up:\n${threadMessages}\n\nRe-evaluate this proof:`,
-          },
-          {
-            type: "image" as const,
-            source: {
-              type: "base64" as const,
-              media_type: detectMediaType(proofImageBase64),
-              data: proofImageBase64,
-            },
-          },
-        ],
-      }],
+      messages: [{ role: "user", content: userContent }],
     });
 
     const text = response.content[0].type === "text" ? response.content[0].text : "";
@@ -169,7 +201,7 @@ Be fair — if the follow-up response resolves your concern, pass it. If it does
 
 export async function mediateDispute(
   task: Task,
-  proofImageBase64: string | null,
+  proofImages: string | string[] | null,
   threadMessages: string
 ): Promise<{ approved: boolean; reasoning: string; confidence: number }> {
   const client = getClient();
@@ -178,23 +210,13 @@ export async function mediateDispute(
   }
 
   try {
-    const textBlock = {
+    const textBlock: ContentBlock = {
       type: "text" as const,
       text: `Task: "${task.description}"\nLocation: ${task.location}\nBounty: $${task.bountyUsdc} USDC\nPoster: ${task.poster}\nClaimant: ${task.claimant}\n\nOriginal AI verdict: ${task.verificationResult?.reasoning || "N/A"} (confidence: ${Math.round((task.verificationResult?.confidence || 0) * 100)}%)\n\nFull thread conversation:\n${threadMessages}\n\nAnalyze all evidence and render your verdict:`,
     };
 
-    const userContent = proofImageBase64
-      ? [
-          textBlock,
-          {
-            type: "image" as const,
-            source: {
-              type: "base64" as const,
-              media_type: detectMediaType(proofImageBase64),
-              data: proofImageBase64,
-            },
-          },
-        ]
+    const userContent: ContentBlock[] = proofImages
+      ? [textBlock, ...buildImageBlocks(proofImages)]
       : [textBlock];
 
     const response = await client.messages.create({
@@ -202,7 +224,7 @@ export async function mediateDispute(
       max_tokens: 300,
       system: `You are RELAY's AI dispute mediator. A task proof was flagged and the poster and claimant may have discussed it in the XMTP thread.
 
-Review ALL evidence: the original proof photo, the AI's initial analysis, and the full conversation thread. Consider both sides fairly.
+Review ALL evidence: the original proof photo(s), the AI's initial analysis, and the full conversation thread. Consider both sides fairly.
 
 Respond with JSON only:
 {"approved": true/false, "reasoning": "2-3 sentences explaining your decision, referencing specific evidence", "confidence": 0.0-1.0}

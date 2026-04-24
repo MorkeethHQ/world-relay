@@ -53,6 +53,7 @@ function mockTask(overrides?: Partial<Task>): Task {
     deadline: new Date(Date.now() + 24 * 3600_000).toISOString(),
     status: "claimed",
     proofImageUrl: null,
+    proofImages: null,
     proofNote: null,
     verificationResult: null,
     attestationTxHash: null,

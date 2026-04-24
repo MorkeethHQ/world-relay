@@ -8,6 +8,7 @@ import { postAttestation } from "@/lib/attestation";
 import { recordCompletion, recordFailure } from "@/lib/reputation";
 import { fireWebhook } from "@/lib/webhooks";
 import { releaseEscrow } from "@/lib/escrow";
+import { broadcastEvent } from "@/lib/sse";
 
 export async function POST(
   req: NextRequest,
@@ -33,11 +34,14 @@ export async function POST(
     .map(m => `[${m.sender === "relay-bot" ? "RELAY" : m.sender}]: ${m.text}`)
     .join("\n");
 
-  const proofBase64 = task.proofImageUrl
-    ? task.proofImageUrl.replace(/^data:image\/\w+;base64,/, "")
-    : null;
+  // Extract all proof images as base64, falling back to single proofImageUrl
+  const proofBase64Array: string[] | null = task.proofImages
+    ? task.proofImages.map((url: string) => url.replace(/^data:image\/\w+;base64,/, ""))
+    : task.proofImageUrl
+      ? [task.proofImageUrl.replace(/^data:image\/\w+;base64,/, "")]
+      : null;
 
-  const verdict = await mediateDispute(task, proofBase64, threadHistory);
+  const verdict = await mediateDispute(task, proofBase64Array, threadHistory);
 
   await postDisputeVerdict(id, verdict.approved, verdict.reasoning, task.bountyUsdc, verdict.confidence);
 
@@ -47,9 +51,9 @@ export async function POST(
     notifyVerified(task.claimant, task.bountyUsdc).catch(console.error);
     recordCompletion(task.claimant, task.bountyUsdc, verdict.confidence).catch(console.error);
 
-    if (proofBase64) {
+    if (proofBase64Array) {
       const txHash = await postAttestation(
-        id, task.description, proofBase64.slice(0, 100), "pass", verdict.confidence
+        id, task.description, proofBase64Array[0].slice(0, 100), "pass", verdict.confidence
       ).catch(() => null);
       if (txHash) await setAttestationHash(id, txHash);
     }
@@ -68,6 +72,18 @@ export async function POST(
   if (finalTask) {
     fireWebhook(finalTask).catch(console.error);
   }
+
+  broadcastEvent("task:verified", {
+    taskId: id,
+    description: task.description.slice(0, 60),
+    location: task.location,
+    bountyUsdc: task.bountyUsdc,
+    status: finalTask?.status || "completed",
+    agentName: task.agent?.name,
+    verdict: verdict.approved ? "pass" : "fail",
+    confidence: verdict.confidence,
+    timestamp: new Date().toISOString(),
+  });
 
   return NextResponse.json({
     taskId: id,

@@ -513,13 +513,23 @@ export default function TaskDetailPage() {
           ))}
         </div>
 
-        {/* Proof Image */}
-        {task.proofImageUrl && (
+        {/* Proof Images */}
+        {(task.proofImages || task.proofImageUrl) && (
           <div className="bg-[#111] border border-white/[0.06] rounded-2xl p-4">
             <p className="text-[10px] text-gray-500 uppercase tracking-wider font-medium mb-3">
-              Proof Image
+              Proof {(task.proofImages && task.proofImages.length > 1) ? "Images" : "Image"}
             </p>
-            <ProofImage url={task.proofImageUrl} />
+            {task.proofImages && task.proofImages.length > 1 ? (
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {task.proofImages.map((url, i) => (
+                  <div key={i} className="shrink-0 w-48">
+                    <ProofImage url={url} />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <ProofImage url={task.proofImages?.[0] || task.proofImageUrl!} />
+            )}
             {task.proofNote && (
               <p className="text-[10px] text-gray-400 mt-2 italic">
                 &ldquo;{task.proofNote}&rdquo;

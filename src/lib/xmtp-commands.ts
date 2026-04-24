@@ -210,7 +210,7 @@ async function handleClaim(task: Task, sender: string): Promise<string> {
   postClaimNotification(updated, sender).catch(console.error);
   notifyTaskClaimed(updated.poster, updated.description).catch(console.error);
 
-  generateClaimBriefing(updated)
+  generateClaimBriefing(updated, updated.agent?.id || undefined)
     .then(async (briefing) => {
       if (briefing) await postClaimBriefing(updated.id, briefing);
     })

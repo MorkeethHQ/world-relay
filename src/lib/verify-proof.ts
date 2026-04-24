@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { AGENT_REGISTRY } from "./agents";
 
 export type VerificationResult = {
   verdict: "pass" | "flag" | "fail";
@@ -7,16 +8,19 @@ export type VerificationResult = {
 };
 
 const SYSTEM_PROMPT = `You are a proof verification agent for RELAY, an errand network.
-Your job: determine if a submitted photo plausibly proves that a real-world task was completed.
+Your job: determine if submitted proof photos plausibly prove that a real-world task was completed.
 
 You will receive:
 - A task description (what was requested)
-- A proof photo (submitted by the person who claims to have done it)
+- One or more proof photos (submitted by the person who claims to have done it)
 
-Evaluate whether the photo is plausible proof the task was done. Consider:
-- Does the photo show what the task asked for?
-- Is it clearly a real photo (not a screenshot, stock image, or AI-generated)?
-- Does it contain relevant context (location cues, timestamps, objects mentioned in the task)?
+You may receive multiple proof photos from different angles. Consider ALL photos together when evaluating.
+
+Evaluate whether the photos are plausible proof the task was done. Consider:
+- Do the photos show what the task asked for?
+- Are they clearly real photos (not screenshots, stock images, or AI-generated)?
+- Do they contain relevant context (location cues, timestamps, objects mentioned in the task)?
+- Do multiple angles/photos corroborate each other?
 
 Respond with JSON only:
 {
@@ -25,9 +29,9 @@ Respond with JSON only:
   "confidence": 0.0-1.0
 }
 
-- "pass": The photo clearly shows the task was completed
+- "pass": The photos clearly show the task was completed
 - "flag": Ambiguous — could be valid but needs human review
-- "fail": The photo clearly does not match the task
+- "fail": The photos clearly do not match the task
 
 Be strict but fair. When in doubt, flag rather than fail.`;
 
@@ -54,33 +58,54 @@ const CATEGORY_HINTS: Record<string, string> = {
 
 export async function verifyProof(
   taskDescription: string,
-  proofImageBase64: string,
+  proofImages: string | string[],
   proofNote?: string,
-  category?: string
+  category?: string,
+  agentId?: string
 ): Promise<VerificationResult> {
   const anthropic = new Anthropic();
-  const mediaType = detectMediaType(proofImageBase64);
+  const images = Array.isArray(proofImages) ? proofImages : [proofImages];
   const categoryHint = category ? CATEGORY_HINTS[category] || "" : "";
 
-  const userContent = [
+  // Build agent-specific system prompt section
+  let agentSection = "";
+  if (agentId) {
+    const agent = AGENT_REGISTRY[agentId.toLowerCase()];
+    if (agent?.verificationPrompt) {
+      agentSection = `\n\nAGENT-SPECIFIC INSTRUCTIONS (${agent.name}):\n${agent.verificationPrompt}`;
+    }
+  }
+
+  const systemPrompt = SYSTEM_PROMPT + agentSection;
+
+  const userContent: Array<{ type: "text"; text: string } | { type: "image"; source: { type: "base64"; media_type: "image/jpeg" | "image/png" | "image/gif" | "image/webp"; data: string } }> = [
     {
       type: "text" as const,
-      text: `Task description: "${taskDescription}"${categoryHint ? `\nCategory: ${categoryHint}` : ""}${proofNote ? `\nClaimant's note: "${proofNote}"` : ""}\n\nVerify the following proof photo:`,
+      text: `Task description: "${taskDescription}"${categoryHint ? `\nCategory: ${categoryHint}` : ""}${proofNote ? `\nClaimant's note: "${proofNote}"` : ""}\n\nVerify the following proof photo${images.length > 1 ? "s" : ""}:`,
     },
-    {
+  ];
+
+  for (let i = 0; i < images.length; i++) {
+    if (images.length > 1) {
+      userContent.push({
+        type: "text" as const,
+        text: `Photo ${i + 1} of ${images.length}:`,
+      });
+    }
+    userContent.push({
       type: "image" as const,
       source: {
         type: "base64" as const,
-        media_type: mediaType,
-        data: proofImageBase64,
+        media_type: detectMediaType(images[i]),
+        data: images[i],
       },
-    },
-  ];
+    });
+  }
 
   const response = await anthropic.messages.create({
     model: "claude-sonnet-4-6",
     max_tokens: 256,
-    system: SYSTEM_PROMPT,
+    system: systemPrompt,
     messages: [{ role: "user", content: userContent }],
   });
 

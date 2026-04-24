@@ -9,6 +9,7 @@ import { recordCompletion, recordFailure } from "@/lib/reputation";
 import { getRedis } from "@/lib/redis";
 import { fireWebhook } from "@/lib/webhooks";
 import { releaseEscrow } from "@/lib/escrow";
+import { broadcastEvent } from "@/lib/sse";
 
 const RATE_LIMIT_KEY = "ratelimit:verify";
 const MAX_VERIFICATIONS_PER_HOUR = 100;
@@ -34,10 +35,22 @@ function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): nu
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { taskId, proofImageBase64, proofNote, lat, lng } = body;
+  const { taskId, proofImageBase64, proofNote, lat, lng, proofVideoFrame } = body;
   const demoMode = req.nextUrl.searchParams.get("demo") === "true";
 
-  if (!taskId || !proofImageBase64) {
+  // Accept proofImages array, fall back to single proofImageBase64
+  let proofImages: string[] = body.proofImages || [];
+  if (proofImages.length === 0 && proofImageBase64) {
+    proofImages = [proofImageBase64];
+  }
+  // Append video frame if provided
+  if (proofVideoFrame && proofImages.length < 3) {
+    proofImages.push(proofVideoFrame);
+  }
+  // Limit to max 3 images
+  proofImages = proofImages.slice(0, 3);
+
+  if (!taskId || proofImages.length === 0) {
     return NextResponse.json({ error: "Missing taskId or proof image" }, { status: 400 });
   }
 
@@ -56,8 +69,19 @@ export async function POST(req: NextRequest) {
     locationVerified = distanceKm <= 2;
   }
 
-  await submitProof(taskId, `data:image/jpeg;base64,${proofImageBase64}`, proofNote || null);
+  const proofImageUrls = proofImages.map((img: string) => `data:image/jpeg;base64,${img}`);
+  await submitProof(taskId, proofImageUrls[0], proofNote || null, proofImageUrls);
   await postProofSubmitted(taskId, proofNote);
+
+  broadcastEvent("task:proof", {
+    taskId,
+    description: task.description.slice(0, 60),
+    location: task.location,
+    bountyUsdc: task.bountyUsdc,
+    status: "claimed",
+    agentName: task.agent?.name,
+    timestamp: new Date().toISOString(),
+  });
 
   const withinLimit = await checkRateLimit();
   const useRealVerification = !!process.env.ANTHROPIC_API_KEY && withinLimit;
@@ -65,11 +89,11 @@ export async function POST(req: NextRequest) {
   let result;
   try {
     result = useRealVerification
-      ? await verifyProof(task.description, proofImageBase64, proofNote, task.category)
-      : verifyProofStub(task.description, proofImageBase64);
+      ? await verifyProof(task.description, proofImages, proofNote, task.category, task.agent?.id)
+      : verifyProofStub(task.description, proofImages[0]);
   } catch (err) {
     console.error("AI verification error, falling back to stub:", err);
-    result = verifyProofStub(task.description, proofImageBase64);
+    result = verifyProofStub(task.description, proofImages[0]);
   }
 
   if (demoMode && useRealVerification) {
@@ -81,7 +105,7 @@ export async function POST(req: NextRequest) {
   if (isFollowUpCandidate && useRealVerification) {
     await completeTask(taskId, result);
 
-    const followUpQ = await generateFollowUpQuestion(task, proofImageBase64, {
+    const followUpQ = await generateFollowUpQuestion(task, proofImages[0], {
       reasoning: result.reasoning,
       confidence: result.confidence,
     }).catch(() => null);
@@ -120,7 +144,7 @@ export async function POST(req: NextRequest) {
     attestationTxHash = await postAttestation(
       taskId,
       task.description,
-      proofImageBase64.slice(0, 100),
+      proofImages[0].slice(0, 100),
       result.verdict,
       result.confidence
     ).catch(() => null);
@@ -156,6 +180,18 @@ export async function POST(req: NextRequest) {
   if (finalTask) {
     fireWebhook(finalTask).catch(console.error);
   }
+
+  broadcastEvent("task:verified", {
+    taskId,
+    description: task.description.slice(0, 60),
+    location: task.location,
+    bountyUsdc: task.bountyUsdc,
+    status: finalTask?.status || "completed",
+    agentName: task.agent?.name,
+    verdict: result.verdict,
+    confidence: result.confidence,
+    timestamp: new Date().toISOString(),
+  });
 
   return NextResponse.json({
     taskId,

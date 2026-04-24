@@ -48,6 +48,9 @@ async function hydrateCache(): Promise<void> {
     if ((task as any).onChainId === undefined) task.onChainId = null;
     if ((task as any).escrowTxHash === undefined) task.escrowTxHash = null;
     if ((task as any).claimCode === undefined) task.claimCode = null;
+    if ((task as any).proofImages === undefined) {
+      (task as any).proofImages = task.proofImageUrl ? [task.proofImageUrl] : null;
+    }
     cache.set(task.id, task);
   }
   cacheHydrated = true;
@@ -92,6 +95,7 @@ export function createTask(input: {
     deadline: new Date(Date.now() + input.deadlineHours * 3600_000).toISOString(),
     status: "open",
     proofImageUrl: null,
+    proofImages: null,
     proofNote: null,
     verificationResult: null,
     attestationTxHash: null,
@@ -178,11 +182,13 @@ export async function claimTask(id: string, claimant: string): Promise<Task | nu
 export async function submitProof(
   id: string,
   proofImageUrl: string,
-  proofNote: string | null
+  proofNote: string | null,
+  proofImages?: string[]
 ): Promise<Task | null> {
   const task = await getTask(id);
   if (!task || task.status !== "claimed") return null;
   task.proofImageUrl = proofImageUrl;
+  task.proofImages = proofImages && proofImages.length > 0 ? proofImages : [proofImageUrl];
   task.proofNote = proofNote;
   persistTask(task).catch(console.error);
   return task;
@@ -201,6 +207,7 @@ export async function completeTask(
     task.status = "open";
     task.claimant = null;
     task.proofImageUrl = null;
+    task.proofImages = null;
     task.proofNote = null;
   }
   persistTask(task).catch(console.error);
@@ -233,6 +240,7 @@ export async function posterConfirm(id: string, approved: boolean): Promise<Task
     task.status = "open";
     task.claimant = null;
     task.proofImageUrl = null;
+    task.proofImages = null;
     task.proofNote = null;
     task.verificationResult = null;
   }
@@ -263,6 +271,7 @@ export async function resolveFollowUp(
     task.status = "open";
     task.claimant = null;
     task.proofImageUrl = null;
+    task.proofImages = null;
     task.proofNote = null;
   }
   persistTask(task).catch(console.error);

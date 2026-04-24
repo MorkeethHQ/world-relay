@@ -4,6 +4,7 @@ import { postClaimNotification, postClaimBriefing } from "@/lib/xmtp";
 import { generateClaimBriefing } from "@/lib/ai-chat";
 import { notifyTaskClaimed } from "@/lib/notifications";
 import { getRedis } from "@/lib/redis";
+import { broadcastEvent } from "@/lib/sse";
 
 const VERIFICATION_TIERS: Record<string, number> = {
   orb: 3,
@@ -75,9 +76,19 @@ export async function POST(
   await postClaimNotification(updated, claimant);
   notifyTaskClaimed(updated.poster, updated.description).catch(console.error);
 
-  generateClaimBriefing(updated).then(async (briefing) => {
+  generateClaimBriefing(updated, updated.agent?.id || undefined).then(async (briefing) => {
     if (briefing) await postClaimBriefing(updated.id, briefing);
   }).catch(console.error);
+
+  broadcastEvent("task:claimed", {
+    taskId: updated.id,
+    description: updated.description.slice(0, 60),
+    location: updated.location,
+    bountyUsdc: updated.bountyUsdc,
+    status: updated.status,
+    agentName: updated.agent?.name,
+    timestamp: new Date().toISOString(),
+  });
 
   return NextResponse.json({ task: updated });
 }

@@ -8,6 +8,7 @@ import { postAttestation } from "@/lib/attestation";
 import { recordCompletion, recordFailure } from "@/lib/reputation";
 import { fireWebhook } from "@/lib/webhooks";
 import { releaseEscrow } from "@/lib/escrow";
+import { broadcastEvent } from "@/lib/sse";
 
 export async function POST(
   req: NextRequest,
@@ -39,11 +40,14 @@ export async function POST(
     return NextResponse.json({ error: "Please reply to the follow-up question first" }, { status: 400 });
   }
 
-  const proofBase64 = task.proofImageUrl.replace(/^data:image\/\w+;base64,/, "");
+  // Extract all proof images as base64, falling back to single proofImageUrl
+  const proofBase64Array: string[] = task.proofImages
+    ? task.proofImages.map((url: string) => url.replace(/^data:image\/\w+;base64,/, ""))
+    : [task.proofImageUrl!.replace(/^data:image\/\w+;base64,/, "")];
 
   const result = await evaluateFollowUp(
     task,
-    proofBase64,
+    proofBase64Array,
     threadAfterFollowUp,
     {
       reasoning: task.verificationResult?.reasoning || "",
@@ -59,7 +63,7 @@ export async function POST(
     recordCompletion(task.claimant, task.bountyUsdc, result.confidence).catch(console.error);
 
     const txHash = await postAttestation(
-      id, task.description, proofBase64.slice(0, 100), "pass", result.confidence
+      id, task.description, proofBase64Array[0].slice(0, 100), "pass", result.confidence
     ).catch(() => null);
     if (txHash) await setAttestationHash(id, txHash);
 
@@ -79,6 +83,18 @@ export async function POST(
   if (finalTask) {
     fireWebhook(finalTask).catch(console.error);
   }
+
+  broadcastEvent("task:verified", {
+    taskId: id,
+    description: task.description.slice(0, 60),
+    location: task.location,
+    bountyUsdc: task.bountyUsdc,
+    status: finalTask?.status || "completed",
+    agentName: task.agent?.name,
+    verdict: result.verdict,
+    confidence: result.confidence,
+    timestamp: new Date().toISOString(),
+  });
 
   return NextResponse.json({
     taskId: id,

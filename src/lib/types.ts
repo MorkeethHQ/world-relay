@@ -13,6 +13,8 @@ export type AgentInfo = {
   name: string;
   icon: string;
   color: string;
+  verificationPrompt?: string;
+  personality?: string;
 };
 
 export type AiFollowUp = {
@@ -41,6 +43,7 @@ export type Task = {
   deadline: string;
   status: TaskStatus;
   proofImageUrl: string | null;
+  proofImages: string[] | null;
   proofNote: string | null;
   verificationResult: VerificationResult | null;
   attestationTxHash: string | null;
