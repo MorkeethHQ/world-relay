@@ -124,6 +124,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [tab, setTab] = useState<Tab>("available");
   const [mapMode, setMapMode] = useState(false);
+  const [xmtpStatus, setXmtpStatus] = useState<{ connected: boolean; inboxId: string | null } | null>(null);
   const userLocation = useUserLocation();
 
   const fetchTasks = useCallback(async () => {
@@ -137,6 +138,13 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
     const interval = setInterval(fetchTasks, 3000);
     return () => clearInterval(interval);
   }, [fetchTasks]);
+
+  useEffect(() => {
+    fetch("/api/xmtp-status")
+      .then((res) => res.json())
+      .then((data) => setXmtpStatus({ connected: data.connected, inboxId: data.inboxId }))
+      .catch(() => setXmtpStatus({ connected: false, inboxId: null }));
+  }, []);
 
   if (view === "post") {
     return <PostTask userId={userId} onDone={() => { setView("board"); fetchTasks(); }} onCancel={() => setView("board")} />;
@@ -267,6 +275,18 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
                 </span>
                 Live
+              </a>
+              <a
+                href="/map"
+                className="h-9 px-3 rounded-full font-semibold text-[11px] border border-purple-500/30 text-purple-400 hover:text-purple-300 hover:border-purple-500/50 transition-all flex items-center gap-1.5 bg-purple-500/5"
+                title="Task Map"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6" />
+                  <line x1="8" y1="2" x2="8" y2="18" />
+                  <line x1="16" y1="6" x2="16" y2="22" />
+                </svg>
+                Map
               </a>
               <button
                 onClick={() => setView("post")}
@@ -611,8 +631,30 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
         )}
       </div>
 
-      {/* Powered by footer */}
+      {/* XMTP Status + Powered by footer */}
       <div className="px-4 py-4 border-t border-white/[0.04]">
+        {xmtpStatus && (
+          <div className="flex items-center justify-center gap-1.5 mb-2">
+            <span className="relative flex h-2 w-2">
+              {xmtpStatus.connected ? (
+                <>
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
+                </>
+              ) : (
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
+              )}
+            </span>
+            <span className={`text-[10px] font-medium ${xmtpStatus.connected ? "text-green-400/70" : "text-red-400/70"}`}>
+              {xmtpStatus.connected ? "XMTP Connected" : "XMTP Offline"}
+            </span>
+            {xmtpStatus.connected && xmtpStatus.inboxId && (
+              <span className="text-[10px] text-gray-600 font-mono">
+                {xmtpStatus.inboxId.slice(0, 8)}...{xmtpStatus.inboxId.slice(-4)}
+              </span>
+            )}
+          </div>
+        )}
         <div className="flex items-center justify-center gap-4">
           <div className="flex items-center gap-1.5">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>

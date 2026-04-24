@@ -558,6 +558,46 @@ export default function TaskDetailPage() {
           </div>
         )}
 
+        {/* XMTP Integration Info */}
+        <div className="bg-[#111] border border-white/[0.06] rounded-2xl p-4">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-[10px] text-gray-500 uppercase tracking-wider font-medium">
+              XMTP Thread
+            </p>
+            <div className="flex items-center gap-1.5">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
+              </span>
+              <span className="text-[10px] text-green-400 font-medium">Real XMTP Network Messages</span>
+            </div>
+          </div>
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between bg-[#0a0a0a] border border-white/[0.06] rounded-xl px-3 py-2.5">
+              <div>
+                <p className="text-[10px] text-gray-500">Inbox ID</p>
+                <p className="text-[11px] text-gray-300 font-mono mt-0.5">071050d7...0819456</p>
+              </div>
+              <a
+                href="https://xmtp.chat/dm/071050d7aa373c7bac8063c5b37addbebfe71c06357e28515d056a50a0819456"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 bg-indigo-500/10 border border-indigo-500/20 rounded-lg px-2.5 py-1.5 hover:border-indigo-500/40 transition-colors"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#818cf8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                </svg>
+                <span className="text-[10px] text-indigo-400 font-medium">View on XMTP</span>
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#818cf8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                  <polyline points="15 3 21 3 21 9" />
+                  <line x1="10" y1="14" x2="21" y2="3" />
+                </svg>
+              </a>
+            </div>
+          </div>
+        </div>
+
         {/* On-Chain Section */}
         {(task.escrowTxHash || task.attestationTxHash || task.onChainId !== null) && (
           <div className="bg-[#111] border border-white/[0.06] rounded-2xl p-4">
