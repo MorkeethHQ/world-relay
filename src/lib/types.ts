@@ -54,5 +54,6 @@ export type Task = {
   onChainId: number | null;
   escrowTxHash: string | null;
   claimCode: string | null;
+  claimantVerification?: "orb" | "device" | "wallet" | null;
   createdAt: string;
 };

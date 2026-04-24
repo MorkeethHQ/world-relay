@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import dynamic from "next/dynamic";
 import { MiniKit } from "@worldcoin/minikit-js";
 import type { Task, AgentInfo } from "@/lib/types";
+import { VerificationBadge, RequiredTierBadge } from "@/components/VerificationBadge";
 import { encodeCreateTask, encodeClaimTask, encodeReleasePayment, encodeUniswapSwap, readTaskCount, RELAY_ESCROW_ADDRESS, type SwapToken } from "@/lib/contracts";
 import { TASK_TEMPLATES } from "@/lib/agents";
 
@@ -533,8 +534,11 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
                     <div className="mt-3 pt-3 border-t border-white/[0.04]">
                       <p className="text-xs text-gray-400 leading-relaxed italic">&ldquo;{task.verificationResult.reasoning}&rdquo;</p>
                       <div className="flex items-center gap-3 mt-2">
-                        <span className="text-[10px] text-gray-600">
+                        <span className="text-[10px] text-gray-600 flex items-center gap-1">
                           {shortId(task.poster)} → {task.claimant ? shortId(task.claimant) : "?"}
+                          {task.claimantVerification && (
+                            <VerificationBadge level={task.claimantVerification} size="sm" />
+                          )}
                         </span>
                         <span className="text-[10px] text-gray-700">·</span>
                         <span className="text-[10px] text-green-500/70 font-medium">
@@ -743,7 +747,7 @@ function TaskCard({
             <p className="font-bold text-green-400 text-sm leading-none">${task.bountyUsdc}</p>
             <p className="text-[9px] text-green-500/60 mt-0.5">USDC</p>
           </div>
-          <TrustTier bounty={task.bountyUsdc} verificationLevel={verificationLevel} />
+          <RequiredTierBadge bountyUsdc={task.bountyUsdc} />
         </div>
       </div>
 
@@ -756,10 +760,15 @@ function TaskCard({
             <>
               {isOwnTask && <span className="text-[10px] text-gray-600">You posted</span>}
               {isClaimant && task.status === "claimed" && <span className="text-[10px] text-gray-600">You claimed</span>}
-              <span className="flex items-center gap-0.5 text-[9px] text-cyan-500/60">
-                <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
-                World ID
-              </span>
+              {task.claimant && task.claimantVerification && (
+                <VerificationBadge level={task.claimantVerification} size="sm" />
+              )}
+              {!task.claimant && (
+                <span className="flex items-center gap-0.5 text-[9px] text-cyan-500/60">
+                  <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
+                  World ID
+                </span>
+              )}
             </>
           )}
           {task.recurring && (
@@ -850,62 +859,7 @@ function AgentBadge({ agent }: { agent: AgentInfo }) {
   );
 }
 
-function VerificationBadge({ level, size = "sm" }: { level?: string | null; size?: "sm" | "md" }) {
-  if (!level) return null;
-  const config: Record<string, { color: string; bg: string; label: string; tier: string }> = {
-    orb: { color: "text-cyan-400", bg: "bg-cyan-500/10 border-cyan-500/20", label: "Orb Verified", tier: "Tier 1" },
-    device: { color: "text-blue-400", bg: "bg-blue-500/10 border-blue-500/20", label: "Device Verified", tier: "Tier 2" },
-    wallet: { color: "text-green-400", bg: "bg-green-500/10 border-green-500/20", label: "Verified", tier: "Tier 3" },
-    dev: { color: "text-gray-500", bg: "bg-gray-500/10 border-gray-500/20", label: "Dev", tier: "" },
-  };
-  const c = config[level] || config.dev;
-
-  if (size === "md") {
-    return (
-      <div className={`flex items-center gap-1.5 rounded-lg px-2 py-1 border ${c.bg}`}>
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className={c.color}>
-          {level === "orb" ? (
-            <><circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="4" /></>
-          ) : (
-            <><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></>
-          )}
-        </svg>
-        <span className={`text-[10px] font-bold ${c.color}`}>{c.label}</span>
-      </div>
-    );
-  }
-
-  return (
-    <span className={`text-[9px] font-semibold ${c.color} flex items-center gap-0.5`}>
-      <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-        {level === "orb" ? (
-          <><circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="4" /></>
-        ) : (
-          <><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></>
-        )}
-      </svg>
-      {c.label}
-    </span>
-  );
-}
-
-function TrustTier({ bounty, verificationLevel }: { bounty: number; verificationLevel?: string | null }) {
-  if (bounty < 10) return null;
-  const requiredLevel = bounty >= 20 ? "orb" : "device";
-  const levelRank: Record<string, number> = { orb: 3, device: 2, wallet: 1, dev: 0 };
-  const userRank = levelRank[verificationLevel || "dev"] || 0;
-  const requiredRank = levelRank[requiredLevel];
-  const canClaim = userRank >= requiredRank;
-
-  return (
-    <div className={`flex items-center gap-1 text-[9px] font-medium ${canClaim ? "text-cyan-400" : "text-gray-600"}`}>
-      <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-      </svg>
-      {bounty >= 20 ? "Orb required" : "Device+ required"}
-    </div>
-  );
-}
+// VerificationBadge and RequiredTierBadge are imported from @/components/VerificationBadge
 
 function PostTask({
   userId,
@@ -1614,7 +1568,10 @@ function TaskDetail({
             {currentTask.claimant && (
               <div className="mt-3 pt-3 border-t" style={{ borderColor: `${currentTask.agent.color}15` }}>
                 <p className="text-[10px] text-gray-500 uppercase tracking-wider font-medium mb-1">Claimed by</p>
-                <p className="text-xs font-medium">{shortId(currentTask.claimant)}</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-xs font-medium">{shortId(currentTask.claimant)}</p>
+                  <VerificationBadge level={currentTask.claimantVerification} size="sm" />
+                </div>
               </div>
             )}
           </div>
@@ -1627,7 +1584,10 @@ function TaskDetail({
             {currentTask.claimant && (
               <div className="flex-1 bg-[#111] rounded-xl p-3 border border-white/[0.06]">
                 <p className="text-[10px] text-gray-500 uppercase tracking-wider font-medium mb-1">Claimant</p>
-                <p className="text-xs font-medium">{shortId(currentTask.claimant)}</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-xs font-medium">{shortId(currentTask.claimant)}</p>
+                  <VerificationBadge level={currentTask.claimantVerification} size="sm" />
+                </div>
               </div>
             )}
           </div>

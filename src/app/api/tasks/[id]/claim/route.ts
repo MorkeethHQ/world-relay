@@ -53,8 +53,11 @@ export async function POST(
     }, { status: 403 });
   }
 
+  const userLevel = claimant.startsWith("dev_")
+    ? "wallet"
+    : await getUserVerificationLevel(claimant);
+
   if (!claimant.startsWith("dev_")) {
-    const userLevel = await getUserVerificationLevel(claimant);
     const userRank = VERIFICATION_TIERS[userLevel] || 0;
     const required = requiredTier(task.bountyUsdc);
 
@@ -68,7 +71,11 @@ export async function POST(
     }
   }
 
-  const updated = await claimTask(id, claimant);
+  const updated = await claimTask(
+    id,
+    claimant,
+    userLevel as "orb" | "device" | "wallet",
+  );
   if (!updated) {
     return NextResponse.json({ error: "Cannot claim task" }, { status: 400 });
   }

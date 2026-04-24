@@ -51,6 +51,9 @@ async function hydrateCache(): Promise<void> {
     if ((task as any).proofImages === undefined) {
       (task as any).proofImages = task.proofImageUrl ? [task.proofImageUrl] : null;
     }
+    if ((task as any).claimantVerification === undefined) {
+      (task as any).claimantVerification = null;
+    }
     cache.set(task.id, task);
   }
   cacheHydrated = true;
@@ -106,6 +109,7 @@ export function createTask(input: {
     onChainId: input.onChainId ?? null,
     escrowTxHash: input.escrowTxHash ?? null,
     claimCode: input.claimCode ?? null,
+    claimantVerification: null,
     createdAt: new Date().toISOString(),
   };
   cache.set(id, task);
@@ -169,12 +173,17 @@ export async function listTasks(): Promise<Task[]> {
   );
 }
 
-export async function claimTask(id: string, claimant: string): Promise<Task | null> {
+export async function claimTask(
+  id: string,
+  claimant: string,
+  verificationLevel?: "orb" | "device" | "wallet" | null,
+): Promise<Task | null> {
   const task = await getTask(id);
   if (!task || task.status !== "open") return null;
   if (task.poster === claimant) return null;
   task.claimant = claimant;
   task.status = "claimed";
+  task.claimantVerification = verificationLevel ?? null;
   persistTask(task).catch(console.error);
   return task;
 }

@@ -1,5 +1,7 @@
 import type { Task } from "./types";
 import { addMessage } from "./messages";
+import { getRedis } from "./redis";
+import { processIncomingMessage } from "./xmtp-commands";
 
 let xmtpClient: any = null;
 let clientInitPromise: Promise<any> | null = null;
@@ -113,6 +115,12 @@ export async function createTaskThread(
       });
       thread.groupId = group.id;
       console.log(`[XMTP] Created group ${group.id} for task ${task.id}`);
+
+      // Store group-to-task mapping in Redis for sync lookup
+      const redis = getRedis();
+      if (redis) {
+        await redis.set(`xmtp:group:${group.id}`, task.id).catch(console.error);
+      }
     } catch (err) {
       console.error("[XMTP] Failed to create group:", err);
     }
@@ -310,18 +318,195 @@ export async function postDisputeVerdict(
   ].join("\n"));
 }
 
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// XMTP Message Sync — polls for new inbound messages
+// and routes them through the command processor.
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+const LAST_SYNC_KEY = "xmtp:last_sync";
+
+export async function syncAndProcessMessages(): Promise<{
+  messagesProcessed: number;
+  conversations: number;
+}> {
+  const client = await getXmtpClient();
+  if (!client) {
+    console.warn("[XMTP Sync] Client not available, skipping sync");
+    return { messagesProcessed: 0, conversations: 0 };
+  }
+
+  const redis = getRedis();
+  if (!redis) {
+    console.warn("[XMTP Sync] Redis not available, skipping sync");
+    return { messagesProcessed: 0, conversations: 0 };
+  }
+
+  // Get last sync timestamp
+  const lastSyncRaw = await redis.get(LAST_SYNC_KEY);
+  const lastSyncNs: bigint = lastSyncRaw ? BigInt(String(lastSyncRaw)) : BigInt(0);
+
+  // Sync all conversations from the network
+  await client.conversations.sync();
+  const conversations = await client.conversations.list();
+
+  let messagesProcessed = 0;
+  let latestTimestampNs: bigint = lastSyncNs;
+  const ourInboxId = client.inboxId;
+
+  for (const conversation of conversations) {
+    try {
+      await conversation.sync();
+
+      // Fetch messages — use opts to filter by sentAfterNs if available
+      const allMessages = await conversation.messages();
+
+      for (const msg of allMessages) {
+        // Skip messages we already processed (at or before last sync)
+        const msgTimestampNs = BigInt(msg.sentAtNs);
+        if (msgTimestampNs <= lastSyncNs) continue;
+
+        // Skip our own messages
+        if (msg.senderInboxId === ourInboxId) continue;
+
+        // Skip non-text content
+        if (msg.contentType?.typeId !== "text" || typeof msg.content !== "string") {
+          continue;
+        }
+
+        const messageText = msg.content as string;
+        if (!messageText.trim()) continue;
+
+        // Track the latest timestamp
+        if (msgTimestampNs > latestTimestampNs) {
+          latestTimestampNs = msgTimestampNs;
+        }
+
+        // Resolve task ID from Redis mapping or in-memory threadMap
+        let taskId: string | null = null;
+
+        // Try Redis mapping first
+        const redisTaskId = await redis.get(`xmtp:group:${conversation.id}`);
+        if (redisTaskId) {
+          taskId = String(redisTaskId);
+        }
+
+        // Fallback: search in-memory threadMap
+        if (!taskId) {
+          for (const [tId, info] of threadMap.entries()) {
+            if (info.groupId === conversation.id) {
+              taskId = tId;
+              break;
+            }
+          }
+        }
+
+        if (!taskId) {
+          console.log(
+            `[XMTP Sync] No task mapping for group ${conversation.id}, skipping message`
+          );
+          continue;
+        }
+
+        // Use sender inbox ID as the sender identifier
+        const sender = msg.senderInboxId;
+        console.log(
+          `[XMTP Sync] Processing message for task ${taskId} from ${sender}: "${messageText.slice(0, 60)}"`
+        );
+
+        // Store the incoming message in the UI message history
+        await addMessage(taskId, sender, messageText);
+
+        // Route through the command processor
+        const response = await processIncomingMessage(
+          taskId,
+          sender,
+          messageText
+        );
+
+        if (response) {
+          // Send the bot response back via XMTP
+          try {
+            await conversation.send(response);
+          } catch (sendErr) {
+            console.error(
+              `[XMTP Sync] Failed to send response to group ${conversation.id}:`,
+              sendErr
+            );
+          }
+          // Also store the bot response in UI message history
+          await addMessage(taskId, "relay-bot", response);
+        }
+
+        messagesProcessed++;
+      }
+    } catch (convErr) {
+      console.error(
+        `[XMTP Sync] Error processing conversation ${conversation.id}:`,
+        convErr
+      );
+    }
+  }
+
+  // Update last sync timestamp
+  if (latestTimestampNs > lastSyncNs) {
+    await redis
+      .set(LAST_SYNC_KEY, latestTimestampNs.toString())
+      .catch(console.error);
+  }
+  // Always update the human-readable last-sync time
+  await redis
+    .set("xmtp:last_sync_at", new Date().toISOString())
+    .catch(console.error);
+
+  console.log(
+    `[XMTP Sync] Done. ${conversations.length} conversations, ${messagesProcessed} new messages processed.`
+  );
+  return { messagesProcessed, conversations: conversations.length };
+}
+
 export async function getXmtpStatus(): Promise<{
   connected: boolean;
   inboxId: string | null;
   address: string | null;
   error: string | null;
+  lastSync: string | null;
+  conversationCount: number;
 }> {
   const client = await getXmtpClient();
-  if (!client) return { connected: false, inboxId: null, address: null, error: lastInitError };
+  if (!client) {
+    return {
+      connected: false,
+      inboxId: null,
+      address: null,
+      error: lastInitError,
+      lastSync: null,
+      conversationCount: 0,
+    };
+  }
+
+  let lastSync: string | null = null;
+  let conversationCount = 0;
+
+  const redis = getRedis();
+  if (redis) {
+    const syncAt = await redis.get("xmtp:last_sync_at");
+    lastSync = syncAt ? String(syncAt) : null;
+  }
+
+  try {
+    await client.conversations.sync();
+    const conversations = await client.conversations.list();
+    conversationCount = conversations.length;
+  } catch {
+    // Non-fatal — just report 0
+  }
+
   return {
     connected: true,
     inboxId: client.inboxId,
     address: client.accountIdentifier?.identifier || null,
     error: null,
+    lastSync,
+    conversationCount,
   };
 }

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import type { Task, VerificationResult, AiFollowUp } from "@/lib/types";
+import { VerificationBadge, RequiredTierBadge } from "@/components/VerificationBadge";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -454,6 +455,7 @@ export default function TaskDetailPage() {
               <p className="text-xs text-green-400 font-semibold mt-0.5">
                 ${task.bountyUsdc} USDC
               </p>
+              <RequiredTierBadge bountyUsdc={task.bountyUsdc} />
             </div>
             <div>
               <p className="text-[10px] text-gray-500 uppercase tracking-wider">Category</p>
@@ -472,9 +474,12 @@ export default function TaskDetailPage() {
             {task.claimant && (
               <div>
                 <p className="text-[10px] text-gray-500 uppercase tracking-wider">Claimant</p>
-                <p className="text-xs text-gray-300 mt-0.5 font-mono">
-                  {truncate(task.claimant)}
-                </p>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                  <p className="text-xs text-gray-300 font-mono">
+                    {truncate(task.claimant)}
+                  </p>
+                  <VerificationBadge level={task.claimantVerification} size="sm" />
+                </div>
               </div>
             )}
           </div>
