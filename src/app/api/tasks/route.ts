@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createTask, listTasks } from "@/lib/store";
 
 export async function GET() {
-  return NextResponse.json({ tasks: listTasks() });
+  return NextResponse.json({ tasks: await listTasks() });
 }
 
 export async function POST(req: NextRequest) {

@@ -1,3 +1,5 @@
+import { getRedis } from "./redis";
+
 export type Message = {
   id: string;
   taskId: string;
@@ -6,10 +8,10 @@ export type Message = {
   timestamp: string;
 };
 
-const messageStore = new Map<string, Message[]>();
+const MSG_PREFIX = "msgs:";
+const localCache = new Map<string, Message[]>();
 
-export function addMessage(taskId: string, sender: string, text: string): Message {
-  const messages = messageStore.get(taskId) || [];
+export async function addMessage(taskId: string, sender: string, text: string): Promise<Message> {
   const msg: Message = {
     id: crypto.randomUUID(),
     taskId,
@@ -17,11 +19,29 @@ export function addMessage(taskId: string, sender: string, text: string): Messag
     text,
     timestamp: new Date().toISOString(),
   };
-  messages.push(msg);
-  messageStore.set(taskId, messages);
+
+  const cached = localCache.get(taskId) || [];
+  cached.push(msg);
+  localCache.set(taskId, cached);
+
+  const redis = getRedis();
+  if (redis) {
+    await redis.rpush(`${MSG_PREFIX}${taskId}`, JSON.stringify(msg)).catch(console.error);
+  }
+
   return msg;
 }
 
-export function getMessages(taskId: string): Message[] {
-  return messageStore.get(taskId) || [];
+export async function getMessages(taskId: string): Promise<Message[]> {
+  if (localCache.has(taskId)) return localCache.get(taskId)!;
+
+  const redis = getRedis();
+  if (!redis) return [];
+
+  const raw = await redis.lrange(`${MSG_PREFIX}${taskId}`, 0, -1);
+  const messages: Message[] = raw.map((r) =>
+    typeof r === "string" ? JSON.parse(r) : (r as Message)
+  );
+  localCache.set(taskId, messages);
+  return messages;
 }

@@ -10,7 +10,7 @@ export async function POST(
   const body = await req.json();
   const { approved, poster } = body;
 
-  const task = getTask(id);
+  const task = await getTask(id);
   if (!task) {
     return NextResponse.json({ error: "Task not found" }, { status: 404 });
   }
@@ -18,7 +18,7 @@ export async function POST(
     return NextResponse.json({ error: "Only poster can confirm" }, { status: 403 });
   }
 
-  const updated = posterConfirm(id, approved);
+  const updated = await posterConfirm(id, approved);
   if (!updated) {
     return NextResponse.json({ error: "Task not in flagged state" }, { status: 400 });
   }
@@ -29,5 +29,5 @@ export async function POST(
     await postVerificationResult(id, "fail", "Poster rejected proof", task.bountyUsdc);
   }
 
-  return NextResponse.json({ task: getTask(id) });
+  return NextResponse.json({ task: await getTask(id) });
 }

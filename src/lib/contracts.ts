@@ -59,7 +59,7 @@ export function encodeCreateTask(description: string, bountyUsdc: number, deadli
   const approveData = encodeFunctionData({
     abi: PERMIT2_ABI,
     functionName: "approve",
-    args: [USDC_ADDRESS, RELAY_ESCROW_ADDRESS, BigInt(bountyWei), 0],
+    args: [USDC_ADDRESS, RELAY_ESCROW_ADDRESS, BigInt(bountyWei), Math.floor(Date.now() / 1000) + 86400],
   });
 
   const createData = encodeFunctionData({

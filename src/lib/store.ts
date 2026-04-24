@@ -1,7 +1,49 @@
 import type { Task, TaskStatus } from "./types";
+import { getRedis } from "./redis";
 export type { Task, TaskStatus };
 
-const tasks: Map<string, Task> = new Map();
+const TASK_PREFIX = "task:";
+const TASK_LIST_KEY = "task_ids";
+
+const cache: Map<string, Task> = new Map();
+let cacheHydrated = false;
+
+async function persistTask(task: Task): Promise<void> {
+  const redis = getRedis();
+  if (!redis) return;
+  await Promise.all([
+    redis.set(`${TASK_PREFIX}${task.id}`, JSON.stringify(task)),
+    redis.sadd(TASK_LIST_KEY, task.id),
+  ]);
+}
+
+async function hydrateCache(): Promise<void> {
+  if (cacheHydrated) return;
+  const redis = getRedis();
+  if (!redis) {
+    cacheHydrated = true;
+    return;
+  }
+
+  const ids = await redis.smembers(TASK_LIST_KEY);
+  if (ids.length === 0) {
+    cacheHydrated = true;
+    return;
+  }
+
+  const pipeline = redis.pipeline();
+  for (const id of ids) {
+    pipeline.get(`${TASK_PREFIX}${id}`);
+  }
+  const results = await pipeline.exec();
+
+  for (const raw of results) {
+    if (!raw) continue;
+    const task: Task = typeof raw === "string" ? JSON.parse(raw) : (raw as Task);
+    cache.set(task.id, task);
+  }
+  cacheHydrated = true;
+}
 
 export function createTask(input: {
   poster: string;
@@ -29,46 +71,59 @@ export function createTask(input: {
     verificationResult: null,
     createdAt: new Date().toISOString(),
   };
-  tasks.set(id, task);
+  cache.set(id, task);
+  persistTask(task).catch(console.error);
   return task;
 }
 
-export function getTask(id: string): Task | undefined {
-  return tasks.get(id);
+export async function getTask(id: string): Promise<Task | undefined> {
+  await hydrateCache();
+  if (cache.has(id)) return cache.get(id);
+
+  const redis = getRedis();
+  if (!redis) return undefined;
+  const raw = await redis.get(`${TASK_PREFIX}${id}`);
+  if (!raw) return undefined;
+  const task: Task = typeof raw === "string" ? JSON.parse(raw) : (raw as Task);
+  cache.set(id, task);
+  return task;
 }
 
-export function listTasks(): Task[] {
-  return Array.from(tasks.values()).sort(
+export async function listTasks(): Promise<Task[]> {
+  await hydrateCache();
+  return Array.from(cache.values()).sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
 }
 
-export function claimTask(id: string, claimant: string): Task | null {
-  const task = tasks.get(id);
+export async function claimTask(id: string, claimant: string): Promise<Task | null> {
+  const task = await getTask(id);
   if (!task || task.status !== "open") return null;
   if (task.poster === claimant) return null;
   task.claimant = claimant;
   task.status = "claimed";
+  persistTask(task).catch(console.error);
   return task;
 }
 
-export function submitProof(
+export async function submitProof(
   id: string,
   proofImageUrl: string,
   proofNote: string | null
-): Task | null {
-  const task = tasks.get(id);
+): Promise<Task | null> {
+  const task = await getTask(id);
   if (!task || task.status !== "claimed") return null;
   task.proofImageUrl = proofImageUrl;
   task.proofNote = proofNote;
+  persistTask(task).catch(console.error);
   return task;
 }
 
-export function completeTask(
+export async function completeTask(
   id: string,
   result: { verdict: "pass" | "flag" | "fail"; reasoning: string; confidence: number }
-): Task | null {
-  const task = tasks.get(id);
+): Promise<Task | null> {
+  const task = await getTask(id);
   if (!task) return null;
   task.verificationResult = result;
   if (result.verdict === "pass") {
@@ -79,11 +134,12 @@ export function completeTask(
     task.proofImageUrl = null;
     task.proofNote = null;
   }
+  persistTask(task).catch(console.error);
   return task;
 }
 
-export function posterConfirm(id: string, approved: boolean): Task | null {
-  const task = tasks.get(id);
+export async function posterConfirm(id: string, approved: boolean): Promise<Task | null> {
+  const task = await getTask(id);
   if (!task || task.verificationResult?.verdict !== "flag") return null;
   if (approved) {
     task.status = "completed";
@@ -94,5 +150,6 @@ export function posterConfirm(id: string, approved: boolean): Task | null {
     task.proofNote = null;
     task.verificationResult = null;
   }
+  persistTask(task).catch(console.error);
   return task;
 }

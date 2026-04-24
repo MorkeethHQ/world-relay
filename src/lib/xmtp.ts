@@ -115,7 +115,7 @@ export async function postToThread(
   const thread = threadMap.get(taskId);
   if (!thread) return false;
 
-  addMessage(taskId, "relay-bot", message);
+  await addMessage(taskId, "relay-bot", message);
 
   const sent = await sendXmtpMessage(thread, message);
   if (!sent) {
@@ -132,7 +132,7 @@ export async function postUserMessage(
   const thread = threadMap.get(taskId);
   if (!thread) return false;
 
-  addMessage(taskId, sender, message);
+  await addMessage(taskId, sender, message);
 
   const prefixed = `[${sender.startsWith("0x") ? `${sender.slice(0, 6)}...${sender.slice(-4)}` : sender}]: ${message}`;
   await sendXmtpMessage(thread, prefixed);

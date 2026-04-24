@@ -14,7 +14,7 @@ export async function POST(
     return NextResponse.json({ error: "Missing claimant" }, { status: 400 });
   }
 
-  const task = claimTask(id, claimant);
+  const task = await claimTask(id, claimant);
   if (!task) {
     return NextResponse.json({ error: "Cannot claim task" }, { status: 400 });
   }

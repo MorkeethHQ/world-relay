@@ -1,15 +1,36 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getRedis } from "@/lib/redis";
 
-const verifiedUsers = new Map<string, {
+const VERIFIED_PREFIX = "verified:";
+
+const localCache = new Map<string, {
   nullifier: string;
   verificationLevel: string;
   verifiedAt: string;
 }>();
 
+async function saveVerifiedUser(address: string, data: { nullifier: string; verificationLevel: string; verifiedAt: string }) {
+  localCache.set(address, data);
+  const redis = getRedis();
+  if (redis) {
+    await redis.set(`${VERIFIED_PREFIX}${address}`, JSON.stringify(data)).catch(console.error);
+  }
+}
+
+async function getVerifiedUser(address: string) {
+  if (localCache.has(address)) return localCache.get(address)!;
+  const redis = getRedis();
+  if (!redis) return null;
+  const raw = await redis.get(`${VERIFIED_PREFIX}${address}`);
+  if (!raw) return null;
+  const data = typeof raw === "string" ? JSON.parse(raw) : (raw as any);
+  localCache.set(address, data);
+  return data;
+}
+
 export async function POST(req: NextRequest) {
   const body = await req.json();
 
-  // IDKit v4 proof verification
   if (body.rp_id && body.idkitResponse) {
     const { rp_id, idkitResponse } = body;
 
@@ -32,7 +53,7 @@ export async function POST(req: NextRequest) {
     const nullifier = idkitResponse.responses?.[0]?.nullifier || "unknown";
     const identifier = idkitResponse.responses?.[0]?.identifier || "orb";
 
-    verifiedUsers.set(body.address || nullifier, {
+    await saveVerifiedUser(body.address || nullifier, {
       nullifier,
       verificationLevel: identifier,
       verifiedAt: new Date().toISOString(),
@@ -46,9 +67,8 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  // Legacy walletAuth verification (MiniKit)
   if (body.address && body.signature) {
-    verifiedUsers.set(body.address, {
+    await saveVerifiedUser(body.address, {
       nullifier: body.address,
       verificationLevel: "wallet",
       verifiedAt: new Date().toISOString(),
@@ -61,9 +81,8 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  // Dev mode fallback
   if (body.address?.startsWith("dev_")) {
-    verifiedUsers.set(body.address, {
+    await saveVerifiedUser(body.address, {
       nullifier: body.address,
       verificationLevel: "dev",
       verifiedAt: new Date().toISOString(),
@@ -85,7 +104,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Missing address" }, { status: 400 });
   }
 
-  const user = verifiedUsers.get(address);
+  const user = await getVerifiedUser(address);
   if (!user) {
     return NextResponse.json({ verified: false, verification_level: null });
   }

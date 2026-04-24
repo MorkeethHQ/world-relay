@@ -9,12 +9,12 @@ export async function GET(
 ) {
   const { id } = await params;
 
-  const task = getTask(id);
+  const task = await getTask(id);
   if (!task) {
     return NextResponse.json({ error: "Task not found" }, { status: 404 });
   }
 
-  return NextResponse.json({ messages: getMessages(id) });
+  return NextResponse.json({ messages: await getMessages(id) });
 }
 
 export async function POST(
@@ -29,7 +29,7 @@ export async function POST(
     return NextResponse.json({ error: "Missing sender or text" }, { status: 400 });
   }
 
-  const task = getTask(id);
+  const task = await getTask(id);
   if (!task) {
     return NextResponse.json({ error: "Task not found" }, { status: 404 });
   }
@@ -39,5 +39,5 @@ export async function POST(
   }
 
   await postUserMessage(id, sender, text);
-  return NextResponse.json({ messages: getMessages(id) });
+  return NextResponse.json({ messages: await getMessages(id) });
 }

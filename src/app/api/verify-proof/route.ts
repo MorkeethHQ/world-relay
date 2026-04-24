@@ -2,6 +2,21 @@ import { NextRequest, NextResponse } from "next/server";
 import { getTask, submitProof, completeTask } from "@/lib/store";
 import { verifyProof, verifyProofStub } from "@/lib/verify-proof";
 import { postProofSubmitted, postVerificationResult } from "@/lib/xmtp";
+import { getRedis } from "@/lib/redis";
+
+const RATE_LIMIT_KEY = "ratelimit:verify";
+const MAX_VERIFICATIONS_PER_HOUR = 20;
+
+async function checkRateLimit(): Promise<boolean> {
+  const redis = getRedis();
+  if (!redis) return true;
+
+  const count = await redis.incr(RATE_LIMIT_KEY);
+  if (count === 1) {
+    await redis.expire(RATE_LIMIT_KEY, 3600);
+  }
+  return count <= MAX_VERIFICATIONS_PER_HOUR;
+}
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
@@ -11,7 +26,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Missing taskId or proof image" }, { status: 400 });
   }
 
-  const task = getTask(taskId);
+  const task = await getTask(taskId);
   if (!task) {
     return NextResponse.json({ error: "Task not found" }, { status: 404 });
   }
@@ -19,10 +34,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Task not in claimed state" }, { status: 400 });
   }
 
-  submitProof(taskId, `data:image/jpeg;base64,${proofImageBase64}`, proofNote || null);
+  await submitProof(taskId, `data:image/jpeg;base64,${proofImageBase64}`, proofNote || null);
   await postProofSubmitted(taskId);
 
-  const useRealVerification = !!process.env.ANTHROPIC_API_KEY;
+  const withinLimit = await checkRateLimit();
+  const useRealVerification = !!process.env.ANTHROPIC_API_KEY && withinLimit;
+
   let result;
   try {
     result = useRealVerification
@@ -33,12 +50,12 @@ export async function POST(req: NextRequest) {
     result = verifyProofStub(task.description, proofImageBase64);
   }
 
-  completeTask(taskId, result);
+  await completeTask(taskId, result);
   await postVerificationResult(taskId, result.verdict, result.reasoning, task.bountyUsdc);
 
   return NextResponse.json({
     taskId,
     verification: result,
-    task: getTask(taskId),
+    task: await getTask(taskId),
   });
 }
