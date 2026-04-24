@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { MiniKit } from "@worldcoin/minikit-js";
 import type { Task } from "@/lib/types";
-import { encodeCreateTask, RELAY_ESCROW_ADDRESS } from "@/lib/contracts";
+import { encodeCreateTask, encodeClaimTask, encodeReleasePayment, RELAY_ESCROW_ADDRESS } from "@/lib/contracts";
 
 function timeLeft(deadline: string): string {
   const ms = new Date(deadline).getTime() - Date.now();
@@ -223,6 +223,12 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
                     setView("detail");
                   }}
                   onClaim={async () => {
+                    if (MiniKit.isInstalled() && RELAY_ESCROW_ADDRESS) {
+                      const txPayload = encodeClaimTask(0);
+                      if (txPayload) {
+                        try { await MiniKit.sendTransaction(txPayload); } catch {}
+                      }
+                    }
                     await fetch(`/api/tasks/${task.id}/claim`, {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
@@ -874,6 +880,25 @@ function TaskDetail({
               </div>
             )}
           </div>
+        )}
+
+        {/* On-chain release — poster confirms settlement */}
+        {currentTask.status === "completed" && isPoster && MiniKit.isInstalled() && RELAY_ESCROW_ADDRESS && (
+          <button
+            onClick={async () => {
+              const txPayload = encodeReleasePayment(0);
+              if (txPayload) {
+                try { await MiniKit.sendTransaction(txPayload); } catch {}
+              }
+            }}
+            className="bg-green-600 hover:bg-green-500 text-white px-4 py-3 rounded-2xl text-sm font-semibold active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="12" y1="1" x2="12" y2="23" />
+              <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+            </svg>
+            Release ${currentTask.bountyUsdc} USDC On-Chain
+          </button>
         )}
 
         {/* Action buttons */}
