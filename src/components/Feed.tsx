@@ -22,7 +22,7 @@ function shortId(id: string): string {
 
 type Tab = "available" | "mine" | "completed";
 
-export function TaskBoard({ userId, onLogout }: { userId: string | null; onLogout?: () => void }) {
+export function Feed({ userId, onLogout }: { userId: string | null; onLogout?: () => void }) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [view, setView] = useState<"board" | "post" | "proof" | "detail">("board");
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -82,7 +82,7 @@ export function TaskBoard({ userId, onLogout }: { userId: string | null; onLogou
             onClick={() => setView("post")}
             className="bg-white text-black px-4 py-2 rounded-lg font-medium text-sm active:scale-95 transition-transform"
           >
-            + Post Task
+            + Request
           </button>
         )}
       </div>
@@ -96,16 +96,16 @@ export function TaskBoard({ userId, onLogout }: { userId: string | null; onLogou
               tab === t ? "bg-gray-700 text-white" : "text-gray-400"
             }`}
           >
-            {t === "available" ? "Available" : t === "mine" ? "My Tasks" : "Done"}
+            {t === "available" ? "Nearby" : t === "mine" ? "Yours" : "Done"}
           </button>
         ))}
       </div>
 
       {filtered.length === 0 && (
         <div className="text-center text-gray-500 py-12 text-sm">
-          {tab === "available" ? "No open tasks. Post one." :
-           tab === "mine" ? "No tasks yet." :
-           "No completed tasks."}
+          {tab === "available" ? "No requests nearby. Post one." :
+           tab === "mine" ? "Nothing yet." :
+           "No completed requests."}
         </div>
       )}
 
@@ -273,13 +273,13 @@ function PostTask({
   return (
     <div className="p-4 flex flex-col gap-4 max-w-lg mx-auto w-full">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-bold">Post a Task</h2>
+        <h2 className="text-lg font-bold">Post a Request</h2>
         <button onClick={onCancel} className="text-gray-400 text-sm">Cancel</button>
       </div>
 
       <div className="flex flex-col gap-3">
         <div>
-          <label className="text-xs text-gray-400 block mb-1">What do you need done?</label>
+          <label className="text-xs text-gray-400 block mb-1">What do you need?</label>
           <textarea
             placeholder="Be specific. Example: Take a photo of the menu board at the coffee shop on Rue de Rivoli."
             value={description}
@@ -422,25 +422,44 @@ function SubmitProof({
         className="bg-gray-900 border border-gray-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-gray-600"
       />
 
-      {result && (
-        <div className={`p-4 rounded-xl text-sm border ${
-          result.verdict === "pass" ? "bg-green-900/20 text-green-300 border-green-800/30" :
-          result.verdict === "flag" ? "bg-yellow-900/20 text-yellow-300 border-yellow-800/30" :
-          "bg-red-900/20 text-red-300 border-red-800/30"
-        }`}>
-          <p className="font-bold text-base">{result.verdict === "pass" ? "VERIFIED" : result.verdict === "flag" ? "FLAGGED" : "FAILED"}</p>
-          <p className="mt-1 text-xs opacity-80">{result.reasoning}</p>
-          {result.verdict === "pass" && <p className="mt-2 font-medium">Payment released. Returning to board...</p>}
+      {submitting && (
+        <div className="flex flex-col items-center gap-3 py-4">
+          <div className="w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+          <p className="text-sm text-gray-400 animate-pulse">AI is verifying your proof...</p>
         </div>
       )}
 
-      {!result && (
+      {result && (
+        <div className={`p-5 rounded-xl text-sm border animate-[fadeIn_0.3s_ease-in] ${
+          result.verdict === "pass" ? "bg-green-900/20 text-green-300 border-green-500/40" :
+          result.verdict === "flag" ? "bg-yellow-900/20 text-yellow-300 border-yellow-500/40" :
+          "bg-red-900/20 text-red-300 border-red-500/40"
+        }`}>
+          <p className="font-bold text-xl tracking-tight">
+            {result.verdict === "pass" ? "VERIFIED" : result.verdict === "flag" ? "FLAGGED" : "REJECTED"}
+          </p>
+          <p className="mt-2 text-xs opacity-80 leading-relaxed">{result.reasoning}</p>
+          {result.verdict === "pass" && (
+            <div className="mt-3 pt-3 border-t border-green-800/30">
+              <p className="font-medium text-sm">${task.bountyUsdc} USDC released to you.</p>
+            </div>
+          )}
+          {result.verdict === "flag" && (
+            <p className="mt-2 text-xs">Waiting for poster to review...</p>
+          )}
+          {result.verdict === "fail" && (
+            <p className="mt-2 text-xs">Task reopened for new claims.</p>
+          )}
+        </div>
+      )}
+
+      {!result && !submitting && (
         <button
           onClick={handleSubmit}
-          disabled={!imageData || submitting}
+          disabled={!imageData}
           className="bg-purple-600 text-white px-4 py-3 rounded-lg font-medium text-sm disabled:opacity-40 active:scale-[0.98] transition-transform"
         >
-          {submitting ? "AI is verifying your proof..." : "Submit Proof"}
+          Submit Proof
         </button>
       )}
     </div>
@@ -466,7 +485,10 @@ function TaskDetail({
   onSubmitProof: () => void;
 }) {
   const [messages, setMessages] = useState<ThreadMessage[]>([]);
-  const isClaimant = task.claimant === userId;
+  const [currentTask, setCurrentTask] = useState(task);
+  const isClaimant = currentTask.claimant === userId;
+  const isPoster = currentTask.poster === userId;
+  const isFlagged = currentTask.verificationResult?.verdict === "flag" && currentTask.status === "claimed";
 
   const fetchMessages = useCallback(async () => {
     const res = await fetch(`/api/tasks/${task.id}/messages`);
@@ -484,45 +506,80 @@ function TaskDetail({
     <div className="p-4 flex flex-col gap-4 max-w-lg mx-auto w-full">
       <div className="flex items-center justify-between">
         <button onClick={onBack} className="text-gray-400 text-sm">Back</button>
-        <StatusBadge status={task.status} />
+        <StatusBadge status={currentTask.status} />
       </div>
 
       <div>
-        <p className="font-medium">{task.description}</p>
+        <p className="font-medium">{currentTask.description}</p>
         <div className="flex items-center gap-2 mt-1">
-          <span className="text-xs text-gray-500">{task.location}</span>
+          <span className="text-xs text-gray-500">{currentTask.location}</span>
           <span className="text-xs text-gray-600">·</span>
-          <span className="text-xs text-green-400 font-medium">${task.bountyUsdc} USDC</span>
+          <span className="text-xs text-green-400 font-medium">${currentTask.bountyUsdc} USDC</span>
           <span className="text-xs text-gray-600">·</span>
-          <span className="text-xs text-gray-500">{timeLeft(task.deadline)}</span>
+          <span className="text-xs text-gray-500">{timeLeft(currentTask.deadline)}</span>
         </div>
       </div>
 
-      {task.poster && (
+      {currentTask.poster && (
         <div className="text-xs text-gray-500">
-          Posted by {shortId(task.poster)}
-          {task.claimant && ` · Claimed by ${shortId(task.claimant)}`}
+          Posted by {shortId(currentTask.poster)}
+          {currentTask.claimant && ` · Claimed by ${shortId(currentTask.claimant)}`}
         </div>
       )}
 
-      {task.verificationResult && (
+      {currentTask.verificationResult && (
         <div className={`text-xs p-3 rounded-lg border ${
-          task.verificationResult.verdict === "pass" ? "bg-green-900/20 text-green-300 border-green-800/30" :
-          task.verificationResult.verdict === "flag" ? "bg-yellow-900/20 text-yellow-300 border-yellow-800/30" :
+          currentTask.verificationResult.verdict === "pass" ? "bg-green-900/20 text-green-300 border-green-800/30" :
+          currentTask.verificationResult.verdict === "flag" ? "bg-yellow-900/20 text-yellow-300 border-yellow-800/30" :
           "bg-red-900/20 text-red-300 border-red-800/30"
         }`}>
-          <span className="font-bold">{task.verificationResult.verdict.toUpperCase()}</span>
-          {" — "}{task.verificationResult.reasoning}
+          <span className="font-bold">{currentTask.verificationResult.verdict.toUpperCase()}</span>
+          {" — "}{currentTask.verificationResult.reasoning}
         </div>
       )}
 
-      {task.status === "claimed" && isClaimant && (
+      {currentTask.status === "claimed" && isClaimant && !isFlagged && (
         <button
           onClick={onSubmitProof}
           className="bg-purple-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium active:scale-[0.98] transition-transform"
         >
           Submit Proof
         </button>
+      )}
+
+      {isFlagged && isPoster && (
+        <div className="flex gap-2">
+          <button
+            onClick={async () => {
+              const res = await fetch(`/api/tasks/${currentTask.id}/confirm`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ poster: userId, approved: true }),
+              });
+              const data = await res.json();
+              if (data.task) setCurrentTask(data.task);
+              fetchMessages();
+            }}
+            className="flex-1 bg-green-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium active:scale-[0.98] transition-transform"
+          >
+            Approve
+          </button>
+          <button
+            onClick={async () => {
+              const res = await fetch(`/api/tasks/${currentTask.id}/confirm`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ poster: userId, approved: false }),
+              });
+              const data = await res.json();
+              if (data.task) setCurrentTask(data.task);
+              fetchMessages();
+            }}
+            className="flex-1 bg-red-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium active:scale-[0.98] transition-transform"
+          >
+            Reject
+          </button>
+        </div>
       )}
 
       {messages.length > 0 && (

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { MiniKit } from "@worldcoin/minikit-js";
-import { TaskBoard } from "@/components/TaskBoard";
+import { Feed } from "@/components/Feed";
 
 export default function Home() {
   const [userId, setUserId] = useState<string | null>(null);
@@ -83,5 +83,5 @@ export default function Home() {
     );
   }
 
-  return <TaskBoard userId={userId} onLogout={handleLogout} />;
+  return <Feed userId={userId} onLogout={handleLogout} />;
 }
