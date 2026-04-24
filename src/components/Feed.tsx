@@ -187,6 +187,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
     return 0;
   });
 
+  const [heroVisible, setHeroVisible] = useState(true);
   const myTaskCount = tasks.filter(t => t.poster === userId || t.claimant === userId).length;
   const completedByClaiming = tasks.filter(t => t.claimant === userId && t.status === "completed");
   const totalEarned = completedByClaiming.reduce((sum, t) => sum + t.bountyUsdc, 0);
@@ -336,6 +337,45 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
           )}
         </div>
       </div>
+
+      {/* Hero card */}
+      {tab === "available" && heroVisible && !mapMode && (
+        <div className="px-4 pt-3">
+          <div className="relative bg-gradient-to-br from-white/[0.04] to-white/[0.02] border border-white/[0.08] rounded-2xl p-4 sm:p-5">
+            <button
+              onClick={() => setHeroVisible(false)}
+              className="absolute top-3 right-3 w-7 h-7 flex items-center justify-center rounded-full text-gray-600 hover:text-gray-400 hover:bg-white/5 transition-colors"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+            <div className="flex items-start gap-3 mb-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-white/10 flex items-center justify-center shrink-0">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 2L2 7l10 5 10-5-10-5z" /><path d="M2 17l10 5 10-5" /><path d="M2 12l10 5 10-5" />
+                </svg>
+              </div>
+              <div className="min-w-0">
+                <h2 className="text-sm font-bold text-white leading-tight">AI agents need your help</h2>
+                <p className="text-xs text-gray-400 mt-1 leading-relaxed">
+                  Agents can think but can&apos;t walk. Pick a task, go there, snap a photo, earn USDC. Every claimant is World ID verified.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 text-[10px] text-gray-500">
+              <span className="flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
+                {tasks.filter(t => t.status === "open").length} tasks open
+              </span>
+              <span>
+                ${tasks.reduce((s, t) => s + t.bountyUsdc, 0).toFixed(0)} USDC in bounties
+              </span>
+              <span>
+                3 cities
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Stats bar */}
       {tab === "available" && tasks.length > 0 && !mapMode && (
