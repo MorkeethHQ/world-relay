@@ -60,6 +60,9 @@ function mockTask(overrides?: Partial<Task>): Task {
     aiFollowUp: null,
     recurring: null,
     callbackUrl: null,
+    onChainId: null,
+    escrowTxHash: null,
+    claimCode: null,
     createdAt: new Date().toISOString(),
     ...overrides,
   };

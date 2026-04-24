@@ -7,7 +7,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { poster, category, description, location, lat, lng, bountyUsdc, deadlineHours } = body;
+  const { poster, category, description, location, lat, lng, bountyUsdc, deadlineHours, onChainId, escrowTxHash } = body;
 
   if (!poster || !description || !location || !bountyUsdc) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -22,6 +22,8 @@ export async function POST(req: NextRequest) {
     lng: lng ? Number(lng) : null,
     bountyUsdc: Number(bountyUsdc),
     deadlineHours: Number(deadlineHours) || 24,
+    onChainId: onChainId != null ? Number(onChainId) : null,
+    escrowTxHash: escrowTxHash || null,
   });
 
   return NextResponse.json({ task }, { status: 201 });

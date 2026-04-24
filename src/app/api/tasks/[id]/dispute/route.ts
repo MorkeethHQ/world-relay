@@ -7,6 +7,7 @@ import { notifyVerified } from "@/lib/notifications";
 import { postAttestation } from "@/lib/attestation";
 import { recordCompletion, recordFailure } from "@/lib/reputation";
 import { fireWebhook } from "@/lib/webhooks";
+import { releaseEscrow } from "@/lib/escrow";
 
 export async function POST(
   req: NextRequest,
@@ -51,6 +52,12 @@ export async function POST(
         id, task.description, proofBase64.slice(0, 100), "pass", verdict.confidence
       ).catch(() => null);
       if (txHash) await setAttestationHash(id, txHash);
+    }
+
+    if (task.onChainId !== null) {
+      releaseEscrow(task.onChainId).then((releaseTx) => {
+        if (releaseTx) console.log(`[Escrow] Auto-released after dispute for task ${id}: ${releaseTx}`);
+      }).catch(console.error);
     }
   } else if (!verdict.approved && task.claimant) {
     recordFailure(task.claimant).catch(console.error);

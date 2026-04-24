@@ -33,7 +33,7 @@ export async function POST(
 ) {
   const { id } = await params;
   const body = await req.json();
-  const { claimant } = body;
+  const { claimant, claimCode } = body;
 
   if (!claimant) {
     return NextResponse.json({ error: "Missing claimant" }, { status: 400 });
@@ -42,6 +42,14 @@ export async function POST(
   const task = await getTask(id);
   if (!task) {
     return NextResponse.json({ error: "Task not found" }, { status: 404 });
+  }
+
+  if (task.claimCode && task.claimCode !== claimCode) {
+    return NextResponse.json({
+      error: "Invalid claim code",
+      requiresCode: true,
+      message: "This is a restricted bounty. Enter the claim code to unlock it.",
+    }, { status: 403 });
   }
 
   if (!claimant.startsWith("dev_")) {

@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import dynamic from "next/dynamic";
 import { MiniKit } from "@worldcoin/minikit-js";
 import type { Task, AgentInfo } from "@/lib/types";
-import { encodeCreateTask, encodeClaimTask, encodeReleasePayment, encodeUniswapSwap, RELAY_ESCROW_ADDRESS, type SwapToken } from "@/lib/contracts";
+import { encodeCreateTask, encodeClaimTask, encodeReleasePayment, encodeUniswapSwap, readTaskCount, RELAY_ESCROW_ADDRESS, type SwapToken } from "@/lib/contracts";
 import { TASK_TEMPLATES } from "@/lib/agents";
 
 const TaskMap = dynamic(() => import("./TaskMap").then((m) => m.TaskMap), { ssr: false });
@@ -246,6 +246,16 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
                   <rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 9h18" /><path d="M9 21V9" />
                 </svg>
                 API
+              </a>
+              <a
+                href="/demo"
+                className="h-9 px-3 rounded-full font-semibold text-[11px] border border-blue-500/30 text-blue-400 hover:text-blue-300 hover:border-blue-500/50 transition-all flex items-center gap-1.5 bg-blue-500/5"
+                title="XMTP Demo Flow"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polygon points="5 3 19 12 5 21 5 3" />
+                </svg>
+                Demo
               </a>
               <button
                 onClick={() => setView("post")}
@@ -539,19 +549,39 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
                     setView("detail");
                   }}
                   onClaim={async () => {
-                    if (MiniKit.isInstalled() && RELAY_ESCROW_ADDRESS) {
-                      const txPayload = encodeClaimTask(0);
+                    let claimCode: string | undefined;
+                    if (task.claimCode) {
+                      const code = prompt("This is a restricted bounty. Enter the claim code:");
+                      if (!code) return;
+                      claimCode = code;
+                    }
+
+                    if (MiniKit.isInstalled() && RELAY_ESCROW_ADDRESS && task.onChainId !== null) {
+                      const txPayload = encodeClaimTask(task.onChainId);
                       if (txPayload) {
-                        try { await MiniKit.sendTransaction(txPayload); } catch {}
+                        try {
+                          const txResult = await MiniKit.sendTransaction(txPayload);
+                          if (!txResult) {
+                            alert("On-chain claim failed. Please try again.");
+                            return;
+                          }
+                        } catch (err) {
+                          alert("On-chain claim transaction rejected.");
+                          return;
+                        }
                       }
                     }
                     const res = await fetch(`/api/tasks/${task.id}/claim`, {
                       method: "POST",
                       headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ claimant: userId }),
+                      body: JSON.stringify({ claimant: userId, claimCode }),
                     });
                     if (!res.ok) {
                       const err = await res.json();
+                      if (err.requiresCode) {
+                        alert("Wrong claim code. This bounty is restricted.");
+                        return;
+                      }
                       if (err.required) {
                         alert(`This task requires ${err.required} verification. Your level: ${err.current}. Upgrade your World ID to claim higher-bounty tasks.`);
                         return;
@@ -706,9 +736,13 @@ function TaskCard({
       {task.status === "open" && userId && !isOwnTask && (
         <button
           onClick={(e) => { e.stopPropagation(); onClaim(); }}
-          className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl text-sm font-medium active:scale-[0.97] transition-all"
+          className={`px-4 py-2.5 rounded-xl text-sm font-medium active:scale-[0.97] transition-all ${
+            task.claimCode
+              ? "bg-amber-600 hover:bg-amber-500 text-white"
+              : "bg-blue-600 hover:bg-blue-500 text-white"
+          }`}
         >
-          Claim
+          {task.claimCode ? "🔒 Claim (Code Required)" : "Claim"}
         </button>
       )}
 
@@ -849,13 +883,28 @@ function PostTask({
     if (!description || !location || !bounty || !userId) return;
     setSubmitting(true);
 
+    let onChainId: number | null = null;
+    let escrowTxHash: string | null = null;
+
     if (MiniKit.isInstalled() && RELAY_ESCROW_ADDRESS) {
       const txPayload = encodeCreateTask(description, parseFloat(bounty), 24);
       if (txPayload) {
         try {
-          await MiniKit.sendTransaction(txPayload);
+          const countBefore = await readTaskCount();
+          const txResult = await MiniKit.sendTransaction(txPayload);
+          if (!txResult) {
+            alert("Escrow deposit failed. Task not created.");
+            setSubmitting(false);
+            return;
+          }
+          onChainId = countBefore;
+          escrowTxHash = typeof txResult === "object" && txResult !== null && "transactionHash" in txResult
+            ? String((txResult as Record<string, unknown>).transactionHash)
+            : null;
         } catch (err) {
-          console.error("On-chain escrow failed, continuing off-chain:", err);
+          alert("Escrow transaction rejected. USDC deposit required to post a task.");
+          setSubmitting(false);
+          return;
         }
       }
     }
@@ -872,6 +921,8 @@ function PostTask({
         lng: coords?.lng || null,
         bountyUsdc: parseFloat(bounty),
         deadlineHours: 24,
+        onChainId,
+        escrowTxHash,
       }),
     });
     onDone();
@@ -1548,12 +1599,19 @@ function TaskDetail({
         )}
 
         {/* On-chain release — poster confirms settlement */}
-        {currentTask.status === "completed" && isPoster && MiniKit.isInstalled() && RELAY_ESCROW_ADDRESS && (
+        {currentTask.status === "completed" && isPoster && MiniKit.isInstalled() && RELAY_ESCROW_ADDRESS && currentTask.onChainId !== null && (
           <button
             onClick={async () => {
-              const txPayload = encodeReleasePayment(0);
+              const txPayload = encodeReleasePayment(currentTask.onChainId!);
               if (txPayload) {
-                try { await MiniKit.sendTransaction(txPayload); } catch {}
+                try {
+                  const result = await MiniKit.sendTransaction(txPayload);
+                  if (!result) {
+                    alert("Release transaction failed.");
+                  }
+                } catch {
+                  alert("Release transaction rejected.");
+                }
               }
             }}
             className="bg-green-600 hover:bg-green-500 text-white px-4 py-3 rounded-2xl text-sm font-semibold active:scale-[0.98] transition-all flex items-center justify-center gap-2"

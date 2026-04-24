@@ -1,4 +1,5 @@
-import { encodeFunctionData, parseUnits } from "viem";
+import { encodeFunctionData, parseUnits, createPublicClient, http } from "viem";
+import { worldchain } from "viem/chains";
 
 export const WORLD_CHAIN_ID = 480;
 
@@ -49,6 +50,13 @@ const ESCROW_ABI = [
     stateMutability: "nonpayable",
     inputs: [{ name: "_taskId", type: "uint256" }],
     outputs: [],
+  },
+  {
+    name: "taskCount",
+    type: "function",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "uint256" }],
   },
 ] as const;
 
@@ -200,6 +208,22 @@ export function encodeUniswapSwap(
       { to: SWAP_ROUTER_ADDRESS, data: swapData },
     ],
   };
+}
+
+const RPC_URL = "https://worldchain-mainnet.g.alchemy.com/public";
+
+export async function readTaskCount(): Promise<number> {
+  if (!RELAY_ESCROW_ADDRESS) return 0;
+  const client = createPublicClient({
+    chain: worldchain,
+    transport: http(RPC_URL),
+  });
+  const count = await client.readContract({
+    address: RELAY_ESCROW_ADDRESS,
+    abi: ESCROW_ABI,
+    functionName: "taskCount",
+  });
+  return Number(count);
 }
 
 export { TOKEN_ADDRESSES, TOKEN_DECIMALS };

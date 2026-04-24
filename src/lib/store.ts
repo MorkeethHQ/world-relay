@@ -45,6 +45,9 @@ async function hydrateCache(): Promise<void> {
     if ((task as any).aiFollowUp === undefined) task.aiFollowUp = null;
     if ((task as any).recurring === undefined) task.recurring = null;
     if ((task as any).callbackUrl === undefined) task.callbackUrl = null;
+    if ((task as any).onChainId === undefined) task.onChainId = null;
+    if ((task as any).escrowTxHash === undefined) task.escrowTxHash = null;
+    if ((task as any).claimCode === undefined) task.claimCode = null;
     cache.set(task.id, task);
   }
   cacheHydrated = true;
@@ -62,6 +65,9 @@ export function createTask(input: {
   agentId?: string | null;
   recurring?: { intervalHours: number; totalRuns: number; parentTaskId?: string } | null;
   callbackUrl?: string | null;
+  onChainId?: number | null;
+  escrowTxHash?: string | null;
+  claimCode?: string | null;
 }): Task {
   const id = crypto.randomUUID();
   const agent = input.agentId ? getAgent(input.agentId) : null;
@@ -93,6 +99,9 @@ export function createTask(input: {
     aiFollowUp: null,
     recurring,
     callbackUrl: input.callbackUrl ?? null,
+    onChainId: input.onChainId ?? null,
+    escrowTxHash: input.escrowTxHash ?? null,
+    claimCode: input.claimCode ?? null,
     createdAt: new Date().toISOString(),
   };
   cache.set(id, task);
@@ -194,6 +203,15 @@ export async function completeTask(
     task.proofImageUrl = null;
     task.proofNote = null;
   }
+  persistTask(task).catch(console.error);
+  return task;
+}
+
+export async function setOnChainId(id: string, onChainId: number, escrowTxHash: string): Promise<Task | null> {
+  const task = await getTask(id);
+  if (!task) return null;
+  task.onChainId = onChainId;
+  task.escrowTxHash = escrowTxHash;
   persistTask(task).catch(console.error);
   return task;
 }

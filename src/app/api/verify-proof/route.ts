@@ -8,6 +8,7 @@ import { postAttestation } from "@/lib/attestation";
 import { recordCompletion, recordFailure } from "@/lib/reputation";
 import { getRedis } from "@/lib/redis";
 import { fireWebhook } from "@/lib/webhooks";
+import { releaseEscrow } from "@/lib/escrow";
 
 const RATE_LIMIT_KEY = "ratelimit:verify";
 const MAX_VERIFICATIONS_PER_HOUR = 100;
@@ -34,6 +35,7 @@ function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): nu
 export async function POST(req: NextRequest) {
   const body = await req.json();
   const { taskId, proofImageBase64, proofNote, lat, lng } = body;
+  const demoMode = req.nextUrl.searchParams.get("demo") === "true";
 
   if (!taskId || !proofImageBase64) {
     return NextResponse.json({ error: "Missing taskId or proof image" }, { status: 400 });
@@ -68,6 +70,10 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     console.error("AI verification error, falling back to stub:", err);
     result = verifyProofStub(task.description, proofImageBase64);
+  }
+
+  if (demoMode && useRealVerification) {
+    result = { ...result, verdict: "flag" as const, confidence: 0.72 };
   }
 
   const isFollowUpCandidate = result.verdict === "flag" && result.confidence >= 0.6 && result.confidence <= 0.85;
@@ -123,6 +129,18 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // Auto-release escrow when verdict is pass and task has on-chain ID
+  let escrowReleaseTxHash: string | null = null;
+  if (result.verdict === "pass" && task.onChainId !== null) {
+    escrowReleaseTxHash = await releaseEscrow(task.onChainId).catch((err) => {
+      console.error("[Escrow] Auto-release failed:", err);
+      return null;
+    });
+    if (escrowReleaseTxHash) {
+      console.log(`[Escrow] Auto-released $${task.bountyUsdc} USDC for task ${taskId}: ${escrowReleaseTxHash}`);
+    }
+  }
+
   // Spawn next recurring task if applicable
   let nextRecurringTaskId: string | null = null;
   if (result.verdict === "pass") {
@@ -143,6 +161,7 @@ export async function POST(req: NextRequest) {
     taskId,
     verification: result,
     attestationTxHash,
+    escrowReleaseTxHash,
     locationVerified,
     distanceKm: distanceKm !== null ? Math.round(distanceKm * 100) / 100 : null,
     nextRecurringTaskId,

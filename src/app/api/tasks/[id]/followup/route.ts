@@ -7,6 +7,7 @@ import { notifyVerified, notifyFlagged } from "@/lib/notifications";
 import { postAttestation } from "@/lib/attestation";
 import { recordCompletion, recordFailure } from "@/lib/reputation";
 import { fireWebhook } from "@/lib/webhooks";
+import { releaseEscrow } from "@/lib/escrow";
 
 export async function POST(
   req: NextRequest,
@@ -61,6 +62,12 @@ export async function POST(
       id, task.description, proofBase64.slice(0, 100), "pass", result.confidence
     ).catch(() => null);
     if (txHash) await setAttestationHash(id, txHash);
+
+    if (task.onChainId !== null) {
+      releaseEscrow(task.onChainId).then((releaseTx) => {
+        if (releaseTx) console.log(`[Escrow] Auto-released after follow-up for task ${id}: ${releaseTx}`);
+      }).catch(console.error);
+    }
   } else if (result.verdict === "flag") {
     notifyFlagged(task.poster, task.description).catch(console.error);
   } else if (result.verdict === "fail" && task.claimant) {

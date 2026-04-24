@@ -48,5 +48,8 @@ export type Task = {
   aiFollowUp: AiFollowUp | null;
   recurring: RecurringConfig | null;
   callbackUrl: string | null;
+  onChainId: number | null;
+  escrowTxHash: string | null;
+  claimCode: string | null;
   createdAt: string;
 };
