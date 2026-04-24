@@ -23,6 +23,14 @@ interface Stats {
   totalUsdc: number;
 }
 
+interface XmtpStatus {
+  connected: boolean;
+  inboxId: string;
+  address: string;
+  lastSync: string | null;
+  conversationCount: number;
+}
+
 const EVENT_ICONS: Record<string, string> = {
   "task:created": "\u{1F195}",
   "task:claimed": "\u{1F91D}",
@@ -103,6 +111,7 @@ export default function LivePage() {
   const [connected, setConnected] = useState(false);
   const [stats, setStats] = useState<Stats>({ total: 0, active: 0, verified: 0, totalUsdc: 0 });
   const [syncState, setSyncState] = useState<"idle" | "syncing" | "success" | "error">("idle");
+  const [xmtpStatus, setXmtpStatus] = useState<XmtpStatus | null>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
   const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -131,6 +140,19 @@ export default function LivePage() {
         setStats({ total, active, verified, totalUsdc });
       })
       .catch(console.error);
+  }, []);
+
+  // Fetch XMTP / World Chat status
+  useEffect(() => {
+    const fetchStatus = () => {
+      fetch("/api/xmtp-status")
+        .then((r) => r.json())
+        .then((data: XmtpStatus) => setXmtpStatus(data))
+        .catch(console.error);
+    };
+    fetchStatus();
+    const interval = setInterval(fetchStatus, 15000);
+    return () => clearInterval(interval);
   }, []);
 
   const connect = useCallback(() => {
@@ -261,7 +283,7 @@ export default function LivePage() {
                 ? "Synced"
                 : syncState === "error"
                 ? "Failed"
-                : "Sync XMTP"}
+                : "Sync World Chat"}
             </button>
             <a
               href="/"
@@ -282,6 +304,61 @@ export default function LivePage() {
           <StatCard label="USDC" value={`$${stats.totalUsdc}`} color="text-emerald-400" />
         </div>
       </div>
+
+      {/* World Chat Status */}
+      {xmtpStatus && (
+        <div className="border-b border-white/5">
+          <div className="max-w-3xl mx-auto px-3 sm:px-4 py-3">
+            <div className="bg-[#0a0a0a] border border-white/[0.06] rounded-xl px-4 py-3">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <div
+                    className={`w-2 h-2 rounded-full ${
+                      xmtpStatus.connected
+                        ? "bg-green-400 shadow-[0_0_6px_rgba(74,222,128,0.5)]"
+                        : "bg-red-400 shadow-[0_0_6px_rgba(248,113,113,0.5)]"
+                    }`}
+                  />
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-white/60">
+                    World Chat
+                  </span>
+                </div>
+                <span
+                  className={`text-[10px] font-mono uppercase ${
+                    xmtpStatus.connected ? "text-green-400/70" : "text-red-400/70"
+                  }`}
+                >
+                  {xmtpStatus.connected ? "connected" : "disconnected"}
+                </span>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <p className="text-[9px] text-white/25 uppercase tracking-wider">Inbox</p>
+                  <p className="text-[11px] text-white/50 font-mono mt-0.5 truncate">
+                    {xmtpStatus.inboxId
+                      ? `${xmtpStatus.inboxId.slice(0, 8)}...${xmtpStatus.inboxId.slice(-6)}`
+                      : "---"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[9px] text-white/25 uppercase tracking-wider">Conversations</p>
+                  <p className="text-[11px] text-white/50 font-mono mt-0.5">
+                    {xmtpStatus.conversationCount}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[9px] text-white/25 uppercase tracking-wider">Last Sync</p>
+                  <p className="text-[11px] text-white/50 font-mono mt-0.5">
+                    {xmtpStatus.lastSync
+                      ? relativeTime(xmtpStatus.lastSync)
+                      : "never"}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Event Feed */}
       <main className="max-w-3xl mx-auto px-3 sm:px-4 py-4">

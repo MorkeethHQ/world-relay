@@ -186,7 +186,7 @@ export default function Home() {
           <div className="flex items-center justify-center gap-4 mt-3">
             <span className="text-[9px] text-gray-700">World ID</span>
             <span className="text-gray-800">·</span>
-            <span className="text-[9px] text-gray-700">XMTP</span>
+            <span className="text-[9px] text-gray-700">World Chat</span>
             <span className="text-gray-800">·</span>
             <span className="text-[9px] text-gray-700">World Chain</span>
             <span className="text-gray-800">·</span>

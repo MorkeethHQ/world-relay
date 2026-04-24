@@ -101,20 +101,26 @@ export default function TaskMapFull() {
     for (const task of visible) {
       if (task.lat == null || task.lng == null) continue;
 
-      const color =
-        task.agent?.color || STATUS_COLORS[task.status] || "#6b7280";
-      const icon = makeIcon(color);
+      const pinColor = STATUS_COLORS[task.status] || "#6b7280";
+      const icon = makeIcon(pinColor);
       const statusLabel = STATUS_LABELS[task.status] || task.status;
+
+      const agentHtml = task.agent
+        ? `<p style="margin:0 0 4px;font-size:11px;color:#9ca3af;">
+            <span style="font-size:13px;">${task.agent.icon}</span> ${task.agent.name}
+            <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${task.agent.color};margin-left:4px;vertical-align:middle;"></span>
+          </p>`
+        : "";
 
       const popupHtml = `
         <div style="font-family:system-ui,sans-serif;color:#e5e7eb;max-width:220px;">
+          ${agentHtml}
           <p style="margin:0 0 6px;font-size:13px;line-height:1.4;">${truncate(task.description, 80)}</p>
           <p style="margin:0 0 4px;font-size:11px;color:#9ca3af;">📍 ${task.location}</p>
           <p style="margin:0 0 4px;font-size:11px;color:#9ca3af;">💰 $${task.bountyUsdc} USDC</p>
           <p style="margin:0 0 4px;font-size:11px;">
             <span style="display:inline-block;padding:1px 6px;border-radius:9999px;font-size:10px;font-weight:600;background:${STATUS_COLORS[task.status]}22;color:${STATUS_COLORS[task.status]};">${statusLabel}</span>
           </p>
-          ${task.agent ? `<p style="margin:0 0 4px;font-size:11px;color:#9ca3af;">🤖 ${task.agent.name}</p>` : ""}
           <a href="/task/${task.id}" style="display:inline-block;margin-top:6px;font-size:11px;color:#60a5fa;text-decoration:underline;">View task &rarr;</a>
         </div>
       `;

@@ -125,7 +125,9 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [tab, setTab] = useState<Tab>("available");
   const [mapMode, setMapMode] = useState(false);
+  const [agentFilter, setAgentFilter] = useState<"all" | "agent" | "community">("all");
   const [xmtpStatus, setXmtpStatus] = useState<{ connected: boolean; inboxId: string | null } | null>(null);
+  const [upgradePrompt, setUpgradePrompt] = useState<{ required: string; current: string } | null>(null);
   const userLocation = useUserLocation();
 
   const fetchTasks = useCallback(async () => {
@@ -167,7 +169,12 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
   }
 
   const filtered = tasks.filter((t) => {
-    if (tab === "available") return t.status === "open";
+    if (tab === "available") {
+      if (t.status !== "open") return false;
+      if (agentFilter === "agent") return !!(t.agent || t.poster?.startsWith("agent_"));
+      if (agentFilter === "community") return !t.agent && !t.poster?.startsWith("agent_");
+      return true;
+    }
     if (tab === "mine") return t.poster === userId || t.claimant === userId;
     if (tab === "completed") return t.status === "completed";
     return true;
@@ -260,7 +267,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
               <a
                 href="/demo"
                 className="shrink-0 h-11 px-3 rounded-full font-semibold text-[11px] border border-blue-500/30 text-blue-400 hover:text-blue-300 hover:border-blue-500/50 transition-all flex items-center gap-1.5 bg-blue-500/5"
-                title="XMTP Demo Flow"
+                title="World Chat Demo"
               >
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <polygon points="5 3 19 12 5 21 5 3" />
@@ -336,6 +343,29 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
             </button>
           )}
         </div>
+
+        {/* Agent / Community filter */}
+        {tab === "available" && (
+          <div className="flex px-4 pb-2 pt-1 gap-1.5">
+            {([
+              { key: "all" as const, label: "All" },
+              { key: "agent" as const, label: "Agent Bounties" },
+              { key: "community" as const, label: "Community" },
+            ]).map((f) => (
+              <button
+                key={f.key}
+                onClick={() => setAgentFilter(f.key)}
+                className={`text-[10px] font-medium px-2.5 py-1 rounded-full transition-all ${
+                  agentFilter === f.key
+                    ? "bg-white/10 text-white border border-white/20"
+                    : "text-gray-500 border border-white/[0.06] hover:text-gray-300 hover:border-white/10"
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Hero card */}
@@ -434,30 +464,78 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
               </div>
             </div>
 
-            {/* Trust tiers explanation */}
+            {/* Trust tiers progression */}
             <div className="bg-[#111] border border-white/[0.06] rounded-2xl p-4">
               <p className="text-[10px] text-gray-500 uppercase tracking-wider font-medium mb-2.5">World ID Trust Tiers</p>
-              <div className="flex flex-col gap-2">
-                {[
-                  { level: "orb", label: "Orb Verified", access: "All tasks", limit: "No limit", color: "text-cyan-400", icon: "◉" },
-                  { level: "device", label: "Device Verified", access: "Tasks up to $20", limit: "$20 max", color: "text-blue-400", icon: "✓" },
-                  { level: "wallet", label: "Wallet Verified", access: "Tasks up to $10", limit: "$10 max", color: "text-green-400", icon: "✓" },
-                ].map((tier) => {
-                  const isCurrentTier = verificationLevel === tier.level;
-                  return (
-                    <div key={tier.level} className={`flex items-center justify-between rounded-xl px-3 py-2 ${isCurrentTier ? "bg-white/5 border border-white/10" : ""}`}>
-                      <div className="flex items-center gap-2">
-                        <span className={`text-sm ${tier.color}`}>{tier.icon}</span>
-                        <div>
-                          <span className={`text-xs font-medium ${isCurrentTier ? "text-white" : "text-gray-400"}`}>{tier.label}</span>
-                          {isCurrentTier && <span className="text-[9px] text-gray-500 ml-1.5">← You</span>}
+              {(() => {
+                const tiers = [
+                  { level: "wallet", label: "Wallet Verified", limit: "$5 max", color: "text-green-400", bgActive: "bg-green-500/10 border-green-500/20", icon: "○", rank: 0 },
+                  { level: "device", label: "Device Verified", limit: "$10 max", color: "text-blue-400", bgActive: "bg-blue-500/10 border-blue-500/20", icon: "◎", rank: 1 },
+                  { level: "orb", label: "Orb Verified", limit: "No limit", color: "text-cyan-400", bgActive: "bg-cyan-500/10 border-cyan-500/20", icon: "◉", rank: 2 },
+                ];
+                const currentRank = tiers.findIndex(t => t.level === verificationLevel);
+                return (
+                  <>
+                    {/* Progress bar */}
+                    <div className="flex items-center gap-1 mb-3">
+                      {tiers.map((tier, i) => (
+                        <div key={tier.level} className="flex-1">
+                          <div className={`h-1.5 rounded-full ${i <= currentRank ? "bg-gradient-to-r from-green-500 via-blue-500 to-cyan-500" : "bg-white/[0.06]"}`} />
                         </div>
-                      </div>
-                      <span className="text-[10px] text-gray-600">{tier.limit}</span>
+                      ))}
                     </div>
-                  );
-                })}
-              </div>
+                    <div className="flex flex-col gap-2">
+                      {tiers.map((tier, i) => {
+                        const isCurrentTier = verificationLevel === tier.level;
+                        const isPassed = i < currentRank;
+                        const isLocked = i > currentRank;
+                        return (
+                          <div key={tier.level} className={`flex items-center justify-between rounded-xl px-3 py-2.5 border transition-all ${
+                            isCurrentTier ? `${tier.bgActive}` :
+                            isPassed ? "bg-white/[0.02] border-white/[0.04]" :
+                            "bg-transparent border-transparent opacity-40"
+                          }`}>
+                            <div className="flex items-center gap-2.5">
+                              <span className={`text-base ${isCurrentTier ? tier.color : isPassed ? "text-green-500/60" : "text-gray-600"}`}>
+                                {isPassed ? "✓" : tier.icon}
+                              </span>
+                              <div>
+                                <span className={`text-xs font-medium ${isCurrentTier ? "text-white" : isPassed ? "text-gray-400" : "text-gray-600"}`}>{tier.label}</span>
+                                {isCurrentTier && <span className="text-[9px] text-gray-400 ml-1.5 bg-white/[0.06] px-1.5 py-0.5 rounded-full">Current</span>}
+                                {isLocked && <span className="text-[9px] text-gray-700 ml-1.5">Locked</span>}
+                              </div>
+                            </div>
+                            <span className={`text-[10px] ${isCurrentTier ? "text-gray-300" : "text-gray-700"}`}>{tier.limit}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {/* Upgrade messaging */}
+                    <div className="mt-3 pt-3 border-t border-white/[0.04]">
+                      {verificationLevel === "wallet" && (
+                        <p className="text-[11px] text-gray-400 leading-relaxed">
+                          Upgrade to <span className="text-blue-400 font-medium">Device verification</span> to unlock tasks up to $10. Upgrade to <span className="text-cyan-400 font-medium">Orb</span> for unlimited access.
+                        </p>
+                      )}
+                      {verificationLevel === "device" && (
+                        <p className="text-[11px] text-gray-400 leading-relaxed">
+                          You can claim tasks up to <span className="text-blue-400 font-medium">$10</span>. Upgrade to <span className="text-cyan-400 font-medium">Orb</span> for unlimited access.
+                        </p>
+                      )}
+                      {verificationLevel === "orb" && (
+                        <p className="text-[11px] text-cyan-400/70 leading-relaxed font-medium">
+                          Maximum trust level. You can claim any task.
+                        </p>
+                      )}
+                      {!verificationLevel && (
+                        <p className="text-[11px] text-gray-500 leading-relaxed">
+                          Verify with World ID to start claiming tasks.
+                        </p>
+                      )}
+                    </div>
+                  </>
+                );
+              })()}
             </div>
 
             {completedByClaiming.length > 0 && (
@@ -658,7 +736,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
                         return;
                       }
                       if (err.required) {
-                        alert(`This task requires ${err.required} verification. Your level: ${err.current}. Upgrade your World ID to claim higher-bounty tasks.`);
+                        setUpgradePrompt({ required: err.required, current: err.current });
                         return;
                       }
                     }
@@ -675,7 +753,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
         )}
       </div>
 
-      {/* XMTP Status + Powered by footer */}
+      {/* World Chat Status + Powered by footer */}
       <div className="px-4 py-4 border-t border-white/[0.04]">
         {xmtpStatus && (
           <div className="flex items-center justify-center gap-1.5 mb-2 flex-wrap">
@@ -690,7 +768,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
               )}
             </span>
             <span className={`text-[10px] font-medium ${xmtpStatus.connected ? "text-green-400/70" : "text-red-400/70"}`}>
-              {xmtpStatus.connected ? "XMTP Connected" : "XMTP Offline"}
+              {xmtpStatus.connected ? "World Chat Connected" : "World Chat Offline"}
             </span>
             {xmtpStatus.connected && xmtpStatus.inboxId && (
               <span className="text-[10px] text-gray-600 font-mono truncate max-w-[120px]">
@@ -707,7 +785,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
           <span className="text-gray-800">·</span>
           <div className="flex items-center gap-1.5">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#818cf8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>
-            <span className="text-[10px] text-gray-600">XMTP</span>
+            <span className="text-[10px] text-gray-600">World Chat</span>
           </div>
           <span className="text-gray-800">·</span>
           <div className="flex items-center gap-1.5">
@@ -716,8 +794,69 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
           </div>
         </div>
       </div>
+
+      {/* Upgrade prompt modal */}
+      {upgradePrompt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-6">
+          <div className="bg-[#111] border border-white/[0.1] rounded-2xl p-5 max-w-sm w-full shadow-2xl">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-blue-500/15 border border-blue-500/20 flex items-center justify-center shrink-0">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-sm font-bold text-white">Verification Required</p>
+                <p className="text-[11px] text-gray-500 mt-0.5">World ID upgrade needed</p>
+              </div>
+            </div>
+
+            <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-3 mb-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] text-gray-500 uppercase tracking-wider">Required level</span>
+                <span className={`text-xs font-semibold ${upgradePrompt.required === "orb" ? "text-cyan-400" : "text-blue-400"}`}>
+                  {upgradePrompt.required === "orb" ? "◉ Orb Verified" : upgradePrompt.required === "device" ? "◎ Device Verified" : "○ Wallet Verified"}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] text-gray-500 uppercase tracking-wider">Your level</span>
+                <span className={`text-xs font-medium ${upgradePrompt.current === "orb" ? "text-cyan-400" : upgradePrompt.current === "device" ? "text-blue-400" : "text-green-400"}`}>
+                  {upgradePrompt.current === "orb" ? "◉ Orb" : upgradePrompt.current === "device" ? "◎ Device" : upgradePrompt.current === "wallet" ? "○ Wallet" : "None"}
+                </span>
+              </div>
+            </div>
+
+            <p className="text-xs text-gray-400 leading-relaxed mb-4">
+              Verify with <span className="text-white font-medium">World ID</span> to unlock higher-bounty tasks. Higher verification levels give you access to more valuable opportunities.
+            </p>
+
+            <button
+              onClick={() => setUpgradePrompt(null)}
+              className="w-full min-h-[44px] bg-blue-600 hover:bg-blue-500 text-white py-2.5 rounded-xl text-sm font-semibold active:scale-[0.98] transition-all"
+            >
+              Got it
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
+}
+
+function getAgentReason(agentId: string): string {
+  const reasons: Record<string, string> = {
+    pricehawk: "My price model needs fresh data for this area.",
+    freshmap: "Satellite data shows changes here. I need ground truth.",
+    queuewatch: "My wait-time model needs real-time calibration.",
+    accessmap: "Accessibility data for this location is outdated.",
+    plugcheck: "I'm mapping EV infrastructure. I can't plug in myself.",
+    shelfsight: "Stock anomaly detected. I need visual confirmation.",
+    greenaudit: "Park condition data is 2 weeks stale.",
+    bikenet: "Bike availability patterns need ground truth.",
+    claimseye: "I flagged this building for inspection. I need eyes on-site.",
+    listingtruth: "This listing has suspicious reviews. I need a human to verify.",
+  };
+  return reasons[agentId] || "I need a human to verify this on the ground.";
 }
 
 function TaskCard({
@@ -745,6 +884,7 @@ function TaskCard({
 
   const hoursLeft = (new Date(task.deadline).getTime() - Date.now()) / 3600_000;
   const isUrgent = task.status === "open" && (hoursLeft < 4 || task.bountyUsdc >= 15);
+  const isAgentTask = !!(task.agent || task.poster?.startsWith("agent_"));
 
   return (
     <div
@@ -754,7 +894,23 @@ function TaskCard({
           ? "bg-gradient-to-r from-red-500/[0.04] to-orange-500/[0.04] border border-red-500/20"
           : "bg-[#111] border border-white/[0.06]"
       }`}
+      style={isAgentTask && task.agent ? { borderLeftWidth: "3px", borderLeftColor: task.agent.color } : undefined}
     >
+      {/* Agent header */}
+      {isAgentTask && task.agent && (
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center gap-2">
+            <span className="text-base">{task.agent.icon}</span>
+            <span className="text-sm font-bold" style={{ color: task.agent.color }}>{task.agent.name}</span>
+            <span className="text-[9px] font-medium text-gray-400 bg-gray-800 border border-white/[0.06] rounded-full px-1.5 py-0.5 leading-none">AI</span>
+          </div>
+          {task.agent.personality && (
+            <p className="text-[11px] text-gray-500 italic leading-snug">{task.agent.personality}</p>
+          )}
+          <p className="text-[11px] text-gray-400 leading-snug">{getAgentReason(task.agent.id)}</p>
+        </div>
+      )}
+
       <div className="flex justify-between items-start gap-3">
         <div className="flex-1 min-w-0">
           <div className="flex items-start gap-1.5">
@@ -829,9 +985,22 @@ function TaskCard({
           task.verificationResult.verdict === "flag" ? "bg-yellow-500/8 text-yellow-300 border border-yellow-500/15" :
           "bg-red-500/8 text-red-300 border border-red-500/15"
         }`}>
-          <span className="font-bold text-[11px] tracking-wide">{task.verificationResult.verdict === "pass" ? "VERIFIED" : task.verificationResult.verdict === "flag" ? "FLAGGED" : "REJECTED"}</span>
-          <span className="text-gray-400 mx-1.5">—</span>
-          <span className="opacity-80">{task.verificationResult.reasoning}</span>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="font-bold text-[11px] tracking-wide">{task.verificationResult.verdict === "pass" ? "VERIFIED" : task.verificationResult.verdict === "flag" ? "FLAGGED" : "REJECTED"}</span>
+            {task.claimantVerification && (
+              <span className={`text-[9px] px-1.5 py-0.5 rounded-full border ${
+                task.claimantVerification === "orb" ? "text-cyan-400 border-cyan-500/20 bg-cyan-500/10" :
+                task.claimantVerification === "device" ? "text-blue-400 border-blue-500/20 bg-blue-500/10" :
+                "text-green-400 border-green-500/20 bg-green-500/10"
+              }`}>
+                {task.claimantVerification === "orb" ? "Orb-verified human" : task.claimantVerification === "device" ? "Device-verified" : "Wallet-level"}
+              </span>
+            )}
+            {task.verificationResult.confidence !== undefined && (
+              <span className="text-[9px] text-gray-500">{Math.round(task.verificationResult.confidence * 100)}% confidence</span>
+            )}
+          </div>
+          <span className="opacity-80 mt-1 block">{task.verificationResult.reasoning}</span>
         </div>
       )}
 
@@ -916,6 +1085,7 @@ function PostTask({
   const [bounty, setBounty] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [escrowSuccess, setEscrowSuccess] = useState<string | null>(null);
 
   useEffect(() => {
     if (!navigator.geolocation) return;
@@ -948,6 +1118,9 @@ function PostTask({
           escrowTxHash = typeof txResult === "object" && txResult !== null && "transactionHash" in txResult
             ? String((txResult as Record<string, unknown>).transactionHash)
             : null;
+          if (escrowTxHash) {
+            setEscrowSuccess(escrowTxHash);
+          }
         } catch (err) {
           alert("Escrow transaction rejected. USDC deposit required to post a task.");
           setSubmitting(false);
@@ -1078,6 +1251,22 @@ function PostTask({
       </div>
 
       <div className="px-4 pb-8 pt-2">
+        {escrowSuccess && (
+          <div className="mb-3 bg-green-500/8 border border-green-500/15 rounded-xl p-3 flex items-center gap-2">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
+            </svg>
+            <span className="text-[11px] text-green-400 font-medium">Escrow deposited</span>
+            <a
+              href={`https://worldscan.org/tx/${escrowSuccess}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[11px] text-blue-400 underline underline-offset-2 ml-auto"
+            >
+              View tx
+            </a>
+          </div>
+        )}
         <button
           onClick={handleSubmit}
           disabled={!isValid || submitting}
@@ -1513,6 +1702,7 @@ function TaskDetail({
   const [swapping, setSwapping] = useState(false);
   const [reEvaluating, setReEvaluating] = useState(false);
   const [disputing, setDisputing] = useState(false);
+  const [txSuccess, setTxSuccess] = useState<string | null>(null);
   const isClaimant = currentTask.claimant === userId;
   const isPoster = currentTask.poster === userId;
   const isParticipant = isClaimant || isPoster;
@@ -1587,6 +1777,48 @@ function TaskDetail({
 
         {/* Lifecycle timeline */}
         <TaskTimeline task={currentTask} />
+
+        {/* Transaction success banner */}
+        {txSuccess && (
+          <div className="bg-green-500/8 border border-green-500/15 rounded-xl p-3 flex items-center gap-2.5">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
+            </svg>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs text-green-400 font-medium">Transaction confirmed</p>
+              <p className="text-[10px] text-gray-500 font-mono truncate">{txSuccess}</p>
+            </div>
+            <a
+              href={`https://worldscan.org/tx/${txSuccess}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[11px] text-blue-400 underline underline-offset-2 shrink-0 min-h-[44px] flex items-center"
+            >
+              View on World Chain
+            </a>
+          </div>
+        )}
+
+        {/* Escrow transaction link */}
+        {currentTask.escrowTxHash && !txSuccess && (
+          <div className="bg-white/[0.02] border border-white/[0.06] rounded-xl p-3 flex items-center gap-2.5">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="2" y="7" width="20" height="14" rx="2" ry="2" /><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+            </svg>
+            <div className="flex-1 min-w-0">
+              <p className="text-[11px] text-gray-400 font-medium">Escrow deposit</p>
+              <p className="text-[10px] text-gray-600 font-mono truncate">{currentTask.escrowTxHash}</p>
+            </div>
+            <a
+              href={`https://worldscan.org/tx/${currentTask.escrowTxHash}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[11px] text-blue-400 underline underline-offset-2 shrink-0 min-h-[44px] flex items-center"
+            >
+              View on World Chain
+            </a>
+          </div>
+        )}
 
         {/* Agent info or People */}
         {currentTask.agent ? (
@@ -1689,6 +1921,18 @@ function TaskDetail({
               }`}>
                 {currentTask.verificationResult.verdict === "pass" ? "VERIFIED" : currentTask.verificationResult.verdict === "flag" ? "FLAGGED" : "REJECTED"}
               </span>
+              {currentTask.claimantVerification && (
+                <span className={`text-[10px] px-2 py-0.5 rounded-full border ml-1 ${
+                  currentTask.claimantVerification === "orb" ? "text-cyan-400 border-cyan-500/20 bg-cyan-500/10" :
+                  currentTask.claimantVerification === "device" ? "text-blue-400 border-blue-500/20 bg-blue-500/10" :
+                  "text-green-400 border-green-500/20 bg-green-500/10"
+                }`}>
+                  {currentTask.claimantVerification === "orb" ? "Orb-verified human" : currentTask.claimantVerification === "device" ? "Device-verified" : "Wallet-level"}
+                </span>
+              )}
+              {currentTask.verificationResult.confidence !== undefined && (
+                <span className="text-[10px] text-gray-500 ml-auto">{Math.round(currentTask.verificationResult.confidence * 100)}% confidence</span>
+              )}
             </div>
             <p className="text-xs text-gray-400 leading-relaxed break-words">{currentTask.verificationResult.reasoning}</p>
             {currentTask.verificationResult.verdict === "pass" && (
@@ -1724,6 +1968,11 @@ function TaskDetail({
                   const result = await MiniKit.sendTransaction(txPayload);
                   if (!result) {
                     alert("Release transaction failed.");
+                  } else {
+                    const hash = typeof result === "object" && result !== null && "transactionHash" in result
+                      ? String((result as Record<string, unknown>).transactionHash)
+                      : null;
+                    if (hash) setTxSuccess(hash);
                   }
                 } catch {
                   alert("Release transaction rejected.");
@@ -1774,7 +2023,13 @@ function TaskDetail({
                   setSwapping(true);
                   const txPayload = encodeUniswapSwap(currentTask.bountyUsdc, swapToken, userId as `0x${string}`);
                   if (txPayload) {
-                    try { await MiniKit.sendTransaction(txPayload); } catch {}
+                    try {
+                      const swapResult = await MiniKit.sendTransaction(txPayload);
+                      const swapHash = typeof swapResult === "object" && swapResult !== null && "transactionHash" in swapResult
+                        ? String((swapResult as Record<string, unknown>).transactionHash)
+                        : null;
+                      if (swapHash) setTxSuccess(swapHash);
+                    } catch {}
                   }
                   setSwapping(false);
                 }}
@@ -1914,14 +2169,14 @@ function TaskDetail({
           </div>
         )}
 
-        {/* XMTP Thread */}
+        {/* World Chat Thread */}
         <div className="flex flex-col gap-2 mt-2">
           <div className="flex items-center gap-2">
             <span className="text-[10px] text-gray-500 uppercase tracking-wider font-medium">Thread</span>
             <span className="flex-1 h-px bg-white/5" />
             <div className="flex items-center gap-1">
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#818cf8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
-              <span className="text-[10px] text-indigo-400/70">XMTP Encrypted</span>
+              <span className="text-[10px] text-indigo-400/70">World Chat Encrypted</span>
               <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-[pulse-dot_2s_ease-in-out_infinite]" />
             </div>
           </div>

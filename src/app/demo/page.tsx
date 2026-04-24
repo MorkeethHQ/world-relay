@@ -293,7 +293,7 @@ export default function DemoPage() {
             Back
           </Link>
           <h1 className="text-sm font-bold tracking-tight">
-            XMTP Demo Flow
+            World Chat Demo
           </h1>
           <div className="w-12" />
         </div>

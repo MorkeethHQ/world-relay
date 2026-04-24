@@ -113,82 +113,142 @@ export default function GalleryPage() {
           </div>
         ) : (
           <div className="flex flex-col gap-4">
-            {filtered.map((task, i) => (
-              <div
-                key={task.id}
-                style={{ animationDelay: `${i * 60}ms` }}
-                className="animate-[slideUp_0.3s_ease-out_both] rounded-2xl overflow-hidden bg-[#111] border border-white/[0.06]"
-              >
-                {task.proofImageUrl && (
-                  <div className="relative">
-                    <img src={task.proofImageUrl} alt="Proof" className="w-full h-52 object-cover" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-[#111] via-transparent to-transparent" />
+            {filtered.map((task, i) => {
+              const verdict = task.verificationResult?.verdict;
+              const verdictColor = verdict === "pass" ? "#22c55e" : verdict === "flag" ? "#eab308" : "#ef4444";
+              const verdictLabel = verdict === "pass" ? "PASS" : verdict === "flag" ? "FLAG" : "FAIL";
+              const confidencePct = Math.round((task.verificationResult?.confidence || 0) * 100);
 
-                    {/* Overlays */}
-                    <div className="absolute top-3 left-3 flex gap-2">
-                      {task.agent && (
+              return (
+                <div
+                  key={task.id}
+                  style={{
+                    animationDelay: `${i * 60}ms`,
+                    borderColor: `${verdictColor}30`,
+                  }}
+                  className="animate-[slideUp_0.3s_ease-out_both] rounded-2xl overflow-hidden bg-[#111] border"
+                >
+                  {task.proofImageUrl && (
+                    <div className="relative">
+                      <img src={task.proofImageUrl} alt="Proof" className="w-full h-52 object-cover" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-[#111] via-transparent to-transparent" />
+
+                      {/* Agent badge + verdict badge */}
+                      <div className="absolute top-3 left-3 right-3 flex items-start justify-between">
+                        <div className="flex gap-2">
+                          {task.agent && (
+                            <div
+                              className="flex items-center gap-1 rounded-lg px-2 py-1 backdrop-blur-sm border text-[10px] font-bold"
+                              style={{
+                                backgroundColor: `${task.agent.color}20`,
+                                borderColor: `${task.agent.color}40`,
+                                color: task.agent.color,
+                              }}
+                            >
+                              {task.agent.icon} {task.agent.name}
+                            </div>
+                          )}
+                        </div>
+                        {/* Verdict badge */}
                         <div
-                          className="flex items-center gap-1 rounded-lg px-2 py-1 backdrop-blur-sm border text-[10px] font-bold"
+                          className="flex items-center gap-1.5 rounded-lg px-2.5 py-1 backdrop-blur-sm border text-[11px] font-bold"
                           style={{
-                            backgroundColor: `${task.agent.color}20`,
-                            borderColor: `${task.agent.color}40`,
-                            color: task.agent.color,
+                            backgroundColor: `${verdictColor}20`,
+                            borderColor: `${verdictColor}40`,
+                            color: verdictColor,
                           }}
                         >
-                          {task.agent.icon} {task.agent.name}
+                          {verdict === "pass" ? (
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={verdictColor} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                              <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                          ) : verdict === "flag" ? (
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={verdictColor} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                              <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
+                            </svg>
+                          ) : (
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={verdictColor} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                            </svg>
+                          )}
+                          {verdictLabel}
                         </div>
-                      )}
-                    </div>
+                      </div>
 
-                    <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between">
-                      <div className="bg-green-500/20 backdrop-blur-sm border border-green-500/30 rounded-lg px-2.5 py-1 flex items-center gap-1.5">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
-                        </svg>
-                        <span className="text-[11px] font-bold text-green-400">
-                          {Math.round((task.verificationResult?.confidence || 0) * 100)}%
+                      <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between">
+                        <div
+                          className="backdrop-blur-sm border rounded-lg px-2.5 py-1 flex items-center gap-1.5"
+                          style={{
+                            backgroundColor: `${verdictColor}20`,
+                            borderColor: `${verdictColor}30`,
+                          }}
+                        >
+                          <span className="text-[11px] font-bold" style={{ color: verdictColor }}>
+                            {confidencePct}% confidence
+                          </span>
+                        </div>
+                        <span className="text-[11px] font-bold text-green-400 bg-black/40 backdrop-blur-sm rounded-lg px-2 py-1">
+                          ${task.bountyUsdc}
                         </span>
                       </div>
-                      <span className="text-[11px] font-bold text-green-400 bg-black/40 backdrop-blur-sm rounded-lg px-2 py-1">
-                        ${task.bountyUsdc}
-                      </span>
                     </div>
-                  </div>
-                )}
-
-                <div className="p-3 sm:p-4">
-                  <p className="text-sm font-medium leading-snug break-words">{task.description}</p>
-
-                  {task.verificationResult && (
-                    <p className="text-xs text-gray-500 mt-2 italic leading-relaxed">
-                      &ldquo;{task.verificationResult.reasoning}&rdquo;
-                    </p>
                   )}
 
-                  <div className="flex items-center justify-between mt-3 pt-3 border-t border-white/[0.04] gap-2">
-                    <div className="flex items-center gap-2 text-[10px] text-gray-600 truncate min-w-0">
-                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-                        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" />
-                      </svg>
-                      <span className="truncate">{task.location}</span>
+                  <div className="p-3 sm:p-4">
+                    {/* Before/after story */}
+                    <div
+                      className="rounded-xl px-3 py-2 mb-3 text-xs leading-relaxed"
+                      style={{
+                        backgroundColor: `${verdictColor}08`,
+                        borderLeft: `3px solid ${verdictColor}`,
+                      }}
+                    >
+                      <span className="text-gray-400">Task:</span>{" "}
+                      <span className="text-gray-300">
+                        {task.description.length > 80 ? task.description.slice(0, 80) + "..." : task.description}
+                      </span>
+                      <span className="text-gray-600 mx-1.5">{"→"}</span>
+                      <span className="font-bold" style={{ color: verdictColor }}>
+                        Verdict: {verdictLabel} ({confidencePct}%)
+                      </span>
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-[10px] text-gray-700">{timeAgo(task.createdAt)}</span>
-                      {task.attestationTxHash && (
-                        <a
-                          href={`https://worldscan.org/tx/${task.attestationTxHash}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-[10px] text-blue-400 font-medium"
-                        >
-                          on-chain
-                        </a>
-                      )}
+
+                    <p className="text-sm font-medium leading-snug break-words">{task.description}</p>
+
+                    {task.verificationResult && (
+                      <p className="text-xs text-gray-500 mt-2 italic leading-relaxed">
+                        &ldquo;{task.verificationResult.reasoning.length > 150
+                          ? task.verificationResult.reasoning.slice(0, 150) + "..."
+                          : task.verificationResult.reasoning}&rdquo;
+                      </p>
+                    )}
+
+                    <div className="flex items-center justify-between mt-3 pt-3 border-t border-white/[0.04] gap-2">
+                      <div className="flex items-center gap-2 text-[10px] text-gray-600 truncate min-w-0">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" />
+                        </svg>
+                        <span className="truncate">{task.location}</span>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-[10px] text-gray-700">{timeAgo(task.createdAt)}</span>
+                        {task.attestationTxHash && (
+                          <a
+                            href={`https://worldscan.org/tx/${task.attestationTxHash}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[10px] text-blue-400 font-medium"
+                          >
+                            on-chain
+                          </a>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

@@ -328,7 +328,7 @@ export default function AgentsPage() {
             {[
               { step: "1", label: "Post a task", detail: "Describe what you need, set location and USDC bounty", color: "text-blue-400" },
               { step: "2", label: "Verified human claims", detail: "World ID ensures one human, one claim. Orb-verified get priority.", color: "text-purple-400" },
-              { step: "3", label: "Proof submitted", detail: "Photo evidence uploaded. Full lifecycle tracked via XMTP.", color: "text-pink-400" },
+              { step: "3", label: "Proof submitted", detail: "Photo evidence uploaded. Full lifecycle tracked via World Chat.", color: "text-pink-400" },
               { step: "4", label: "AI verifies", detail: "Claude Vision analyzes proof against the task description.", color: "text-orange-400" },
               { step: "5", label: "Paid on-chain", detail: "USDC released from escrow on World Chain. Attestation recorded.", color: "text-green-400" },
             ].map((s) => (
@@ -354,7 +354,7 @@ export default function AgentsPage() {
           <span className="text-gray-800">·</span>
           <div className="flex items-center gap-1.5">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#818cf8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>
-            <span className="text-[10px] text-gray-600">XMTP</span>
+            <span className="text-[10px] text-gray-600">World Chat</span>
           </div>
           <span className="text-gray-800">·</span>
           <div className="flex items-center gap-1.5">

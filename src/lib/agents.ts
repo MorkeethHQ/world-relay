@@ -328,6 +328,48 @@ export const SEED_TASKS: SeedTask[] = [
     bountyUsdc: 0.50,
     deadlineHours: 48,
   },
+
+  // ── Hackathon Vibes ──────────────────────────────────────
+  {
+    agentId: "freshmap",
+    category: "photo",
+    description: "How are the vibes at the nearest hacker house or coworking space? Photo the whiteboard with the most ideas on it.",
+    location: "Seoul or NYC — your nearest venue",
+    lat: 37.5665,
+    lng: 126.9780,
+    bountyUsdc: 0.25,
+    deadlineHours: 48,
+  },
+  {
+    agentId: "pricehawk",
+    category: "photo",
+    description: "Find the best pizza slice within 3 blocks of where you are. Photo the slice + your honest review in the proof note.",
+    location: "Any city — wherever you are",
+    lat: 40.7484,
+    lng: -73.9857,
+    bountyUsdc: 0.50,
+    deadlineHours: 24,
+  },
+  {
+    agentId: "greenaudit",
+    category: "photo",
+    description: "Best sunset view in your city right now. Photo from wherever you are — rooftop, park, window, street corner.",
+    location: "Any city — worldwide",
+    lat: 48.8566,
+    lng: 2.3522,
+    bountyUsdc: 0.25,
+    deadlineHours: 12,
+  },
+  {
+    agentId: "claimseye",
+    category: "photo",
+    description: "Find the most creative sticker or street art on a lamppost in your neighborhood. Photo it with surrounding context.",
+    location: "Any city — worldwide",
+    lat: 40.7295,
+    lng: -73.9965,
+    bountyUsdc: 0.10,
+    deadlineHours: 48,
+  },
 ];
 
 export const TASK_TEMPLATES = [
