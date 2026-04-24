@@ -163,10 +163,17 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
     if (tab === "completed") return t.status === "completed";
     return true;
   }).sort((a, b) => {
-    if (tab === "available" && userLocation && a.lat && a.lng && b.lat && b.lng) {
-      const distA = haversineKm(userLocation.lat, userLocation.lng, a.lat, a.lng);
-      const distB = haversineKm(userLocation.lat, userLocation.lng, b.lat, b.lng);
-      return distA - distB;
+    if (tab === "available") {
+      const now = Date.now();
+      const aHoursLeft = (new Date(a.deadline).getTime() - now) / 3600_000;
+      const bHoursLeft = (new Date(b.deadline).getTime() - now) / 3600_000;
+      const aUrgent = aHoursLeft < 4 || a.bountyUsdc >= 15;
+      const bUrgent = bHoursLeft < 4 || b.bountyUsdc >= 15;
+      if (aUrgent !== bUrgent) return aUrgent ? -1 : 1;
+      if (userLocation && a.lat && a.lng && b.lat && b.lng) {
+        return haversineKm(userLocation.lat, userLocation.lng, a.lat, a.lng)
+             - haversineKm(userLocation.lat, userLocation.lng, b.lat, b.lng);
+      }
     }
     return 0;
   });
@@ -205,11 +212,30 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
           {userId && (
             <div className="flex items-center gap-2">
               <a
+                href="/gallery"
+                className="h-9 px-2.5 rounded-full font-semibold text-[11px] border border-white/10 text-gray-400 hover:text-white hover:border-white/20 transition-all flex items-center gap-1"
+                title="Proof Gallery"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" />
+                </svg>
+              </a>
+              <a
                 href="/leaderboard"
                 className="h-9 px-2.5 rounded-full font-semibold text-[11px] border border-white/10 text-gray-400 hover:text-white hover:border-white/20 transition-all flex items-center gap-1"
+                title="Leaderboard"
               >
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                </svg>
+              </a>
+              <a
+                href="/dashboard"
+                className="h-9 px-2.5 rounded-full font-semibold text-[11px] border border-white/10 text-gray-400 hover:text-white hover:border-white/20 transition-all flex items-center gap-1"
+                title="Agent Dashboard"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" />
                 </svg>
               </a>
               <a
@@ -590,15 +616,27 @@ function TaskCard({
     ? haversineKm(userLocation.lat, userLocation.lng, task.lat, task.lng)
     : null;
 
+  const hoursLeft = (new Date(task.deadline).getTime() - Date.now()) / 3600_000;
+  const isUrgent = task.status === "open" && (hoursLeft < 4 || task.bountyUsdc >= 15);
+
   return (
     <div
       onClick={onTap}
-      className="rounded-2xl p-4 flex flex-col gap-3 bg-[#111] border border-white/[0.06] cursor-pointer active:scale-[0.98] transition-all"
+      className={`rounded-2xl p-4 flex flex-col gap-3 cursor-pointer active:scale-[0.98] transition-all ${
+        isUrgent
+          ? "bg-gradient-to-r from-red-500/[0.04] to-orange-500/[0.04] border border-red-500/20"
+          : "bg-[#111] border border-white/[0.06]"
+      }`}
     >
       <div className="flex justify-between items-start gap-3">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
             <span className="text-sm">{CATEGORY_ICONS[task.category] || "✏️"}</span>
+            {isUrgent && (
+              <span className="text-[9px] font-bold text-red-400 bg-red-500/10 border border-red-500/20 rounded px-1.5 py-0.5 uppercase tracking-wider">
+                Urgent
+              </span>
+            )}
             <p className="font-medium text-[15px] leading-snug">{task.description}</p>
           </div>
           <div className="flex items-center gap-1.5 mt-1.5">
@@ -640,6 +678,14 @@ function TaskCard({
                 World ID
               </span>
             </>
+          )}
+          {task.recurring && (
+            <span className="flex items-center gap-0.5 text-[9px] text-orange-400/70 font-medium">
+              <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="23 4 23 10 17 10" /><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+              </svg>
+              {task.recurring.completedRuns}/{task.recurring.totalRuns}
+            </span>
           )}
         </div>
         <span className="text-[10px] text-gray-700">{timeAgo(task.createdAt)}</span>

@@ -20,6 +20,7 @@ export async function POST() {
       bountyUsdc: seed.bountyUsdc,
       deadlineHours: seed.deadlineHours,
       agentId: seed.agentId,
+      recurring: seed.recurring || null,
     });
     count++;
   }

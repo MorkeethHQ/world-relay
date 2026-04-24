@@ -21,6 +21,13 @@ export type AiFollowUp = {
   initialConfidence: number;
 };
 
+export type RecurringConfig = {
+  intervalHours: number;
+  totalRuns: number;
+  completedRuns: number;
+  parentTaskId: string | null;
+};
+
 export type Task = {
   id: string;
   poster: string;
@@ -39,5 +46,6 @@ export type Task = {
   attestationTxHash: string | null;
   agent: AgentInfo | null;
   aiFollowUp: AiFollowUp | null;
+  recurring: RecurringConfig | null;
   createdAt: string;
 };

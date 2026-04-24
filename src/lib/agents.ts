@@ -76,6 +76,7 @@ export type SeedTask = {
   lng: number;
   bountyUsdc: number;
   deadlineHours: number;
+  recurring?: { intervalHours: number; totalRuns: number } | null;
 };
 
 export const SEED_TASKS: SeedTask[] = [
@@ -88,6 +89,7 @@ export const SEED_TASKS: SeedTask[] = [
     lng: 2.3325,
     bountyUsdc: 5,
     deadlineHours: 24,
+    recurring: { intervalHours: 24, totalRuns: 7 },
   },
   {
     agentId: "freshmap",
@@ -107,6 +109,7 @@ export const SEED_TASKS: SeedTask[] = [
     lat: 48.8606,
     lng: 2.3376,
     bountyUsdc: 4,
+    recurring: { intervalHours: 12, totalRuns: 14 },
     deadlineHours: 6,
   },
   {

@@ -1,4 +1,4 @@
-import type { Task, TaskStatus, TaskCategory, AiFollowUp } from "./types";
+import type { Task, TaskStatus, TaskCategory, AiFollowUp, RecurringConfig } from "./types";
 import { getRedis } from "./redis";
 import { getAgent } from "./agents";
 export type { Task, TaskStatus, TaskCategory };
@@ -43,6 +43,7 @@ async function hydrateCache(): Promise<void> {
     const task: Task = typeof raw === "string" ? JSON.parse(raw) : (raw as Task);
     if (task.agent === undefined) task.agent = null;
     if ((task as any).aiFollowUp === undefined) task.aiFollowUp = null;
+    if ((task as any).recurring === undefined) task.recurring = null;
     cache.set(task.id, task);
   }
   cacheHydrated = true;
@@ -58,9 +59,18 @@ export function createTask(input: {
   bountyUsdc: number;
   deadlineHours: number;
   agentId?: string | null;
+  recurring?: { intervalHours: number; totalRuns: number; parentTaskId?: string } | null;
 }): Task {
   const id = crypto.randomUUID();
   const agent = input.agentId ? getAgent(input.agentId) : null;
+  const recurring: RecurringConfig | null = input.recurring
+    ? {
+        intervalHours: input.recurring.intervalHours,
+        totalRuns: input.recurring.totalRuns,
+        completedRuns: 0,
+        parentTaskId: input.recurring.parentTaskId || null,
+      }
+    : null;
   const task: Task = {
     id,
     poster: input.poster,
@@ -79,11 +89,38 @@ export function createTask(input: {
     attestationTxHash: null,
     agent,
     aiFollowUp: null,
+    recurring,
     createdAt: new Date().toISOString(),
   };
   cache.set(id, task);
   persistTask(task).catch(console.error);
   return task;
+}
+
+export function spawnRecurringTask(completedTask: Task): Task | null {
+  if (!completedTask.recurring) return null;
+  if (completedTask.recurring.completedRuns + 1 >= completedTask.recurring.totalRuns) return null;
+
+  const next = createTask({
+    poster: completedTask.poster,
+    category: completedTask.category,
+    description: completedTask.description,
+    location: completedTask.location,
+    lat: completedTask.lat,
+    lng: completedTask.lng,
+    bountyUsdc: completedTask.bountyUsdc,
+    deadlineHours: completedTask.recurring.intervalHours,
+    agentId: completedTask.agent?.id || null,
+    recurring: {
+      intervalHours: completedTask.recurring.intervalHours,
+      totalRuns: completedTask.recurring.totalRuns,
+      parentTaskId: completedTask.recurring.parentTaskId || completedTask.id,
+    },
+  });
+
+  next.recurring!.completedRuns = completedTask.recurring.completedRuns + 1;
+  persistTask(next).catch(console.error);
+  return next;
 }
 
 export async function hasAgentTasks(): Promise<boolean> {

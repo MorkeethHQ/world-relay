@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getTask, submitProof, completeTask, setAttestationHash, setFollowUp } from "@/lib/store";
+import { getTask, submitProof, completeTask, setAttestationHash, setFollowUp, spawnRecurringTask } from "@/lib/store";
 import { verifyProof, verifyProofStub } from "@/lib/verify-proof";
 import { postProofSubmitted, postVerificationResult, postFollowUpQuestion } from "@/lib/xmtp";
 import { generateFollowUpQuestion } from "@/lib/ai-chat";
@@ -122,12 +122,23 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // Spawn next recurring task if applicable
+  let nextRecurringTaskId: string | null = null;
+  if (result.verdict === "pass") {
+    const updatedTask = await getTask(taskId);
+    if (updatedTask?.recurring) {
+      const next = spawnRecurringTask(updatedTask);
+      if (next) nextRecurringTaskId = next.id;
+    }
+  }
+
   return NextResponse.json({
     taskId,
     verification: result,
     attestationTxHash,
     locationVerified,
     distanceKm: distanceKm !== null ? Math.round(distanceKm * 100) / 100 : null,
+    nextRecurringTaskId,
     task: await getTask(taskId),
   });
 }

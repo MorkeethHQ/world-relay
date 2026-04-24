@@ -10,6 +10,8 @@ export type UserReputation = {
   avgConfidence: number;
   verificationLevel: string;
   lastActiveAt: string;
+  currentStreak: number;
+  longestStreak: number;
 };
 
 const localCache = new Map<string, UserReputation>();
@@ -23,6 +25,8 @@ function defaultRep(address: string): UserReputation {
     avgConfidence: 0,
     verificationLevel: "wallet",
     lastActiveAt: new Date().toISOString(),
+    currentStreak: 0,
+    longestStreak: 0,
   };
 }
 
@@ -52,12 +56,16 @@ export async function recordCompletion(
   verificationLevel?: string
 ): Promise<UserReputation> {
   const rep = await getReputation(address);
+  if (rep.currentStreak === undefined) rep.currentStreak = 0;
+  if (rep.longestStreak === undefined) rep.longestStreak = 0;
   const total = rep.tasksCompleted + rep.tasksFailed;
   rep.avgConfidence = total > 0
     ? (rep.avgConfidence * rep.tasksCompleted + confidence) / (rep.tasksCompleted + 1)
     : confidence;
   rep.tasksCompleted += 1;
   rep.totalEarnedUsdc += bountyUsdc;
+  rep.currentStreak += 1;
+  if (rep.currentStreak > rep.longestStreak) rep.longestStreak = rep.currentStreak;
   rep.lastActiveAt = new Date().toISOString();
   if (verificationLevel) rep.verificationLevel = verificationLevel;
   await saveReputation(rep);
@@ -66,7 +74,10 @@ export async function recordCompletion(
 
 export async function recordFailure(address: string): Promise<UserReputation> {
   const rep = await getReputation(address);
+  if (rep.currentStreak === undefined) rep.currentStreak = 0;
+  if (rep.longestStreak === undefined) rep.longestStreak = 0;
   rep.tasksFailed += 1;
+  rep.currentStreak = 0;
   rep.lastActiveAt = new Date().toISOString();
   await saveReputation(rep);
   return rep;
@@ -83,7 +94,8 @@ export function getTrustScore(rep: UserReputation): number {
   const levelBonus: Record<string, number> = { orb: 0.3, device: 0.15, wallet: 0, dev: -0.2 };
   const bonus = levelBonus[rep.verificationLevel] || 0;
   const activityBonus = Math.min(rep.tasksCompleted * 0.02, 0.2);
-  return Math.min(1, Math.max(0, successRate * 0.5 + bonus + activityBonus + 0.2));
+  const streakBonus = Math.min((rep.currentStreak || 0) * 0.03, 0.15);
+  return Math.min(1, Math.max(0, successRate * 0.5 + bonus + activityBonus + streakBonus + 0.2));
 }
 
 export async function getLeaderboard(limit = 10): Promise<UserReputation[]> {

@@ -40,13 +40,13 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { agent_id, description, location, lat, lng, bounty_usdc, deadline_hours, callback_url } = body;
+  const { agent_id, description, location, lat, lng, bounty_usdc, deadline_hours, callback_url, recurring_hours, recurring_count } = body;
 
   if (!description || !location || !bounty_usdc) {
     return NextResponse.json({
       error: "Missing required fields",
       required: ["description", "location", "bounty_usdc"],
-      optional: ["agent_id", "lat", "lng", "deadline_hours", "callback_url"],
+      optional: ["agent_id", "lat", "lng", "deadline_hours", "callback_url", "recurring_hours", "recurring_count"],
     }, { status: 400 });
   }
 
@@ -62,6 +62,7 @@ export async function POST(req: NextRequest) {
     bountyUsdc: Number(bounty_usdc),
     deadlineHours: Number(deadline_hours) || 24,
     agentId,
+    recurring: recurring_hours ? { intervalHours: Number(recurring_hours), totalRuns: Number(recurring_count) || 7 } : null,
   });
 
   return NextResponse.json({

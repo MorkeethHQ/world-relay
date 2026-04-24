@@ -13,6 +13,8 @@ type LeaderboardEntry = {
   lastActiveAt: string;
   successRate: number;
   trustScore: number;
+  currentStreak: number;
+  longestStreak: number;
 };
 
 function shortAddress(addr: string): string {
@@ -152,6 +154,14 @@ export default function LeaderboardPage() {
                         <span className={`text-[9px] font-semibold flex items-center gap-0.5 ${tier.color}`}>
                           {tier.icon} {tier.label}
                         </span>
+                        {entry.currentStreak >= 3 && (
+                          <span className="text-[9px] font-bold text-orange-400 bg-orange-500/10 border border-orange-500/20 rounded px-1.5 py-0.5 flex items-center gap-0.5">
+                            <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+                            </svg>
+                            {entry.currentStreak}
+                          </span>
+                        )}
                       </div>
                       <div className="flex items-center gap-3 mt-1">
                         <span className="text-[11px] text-gray-500">
