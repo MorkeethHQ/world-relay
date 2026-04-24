@@ -49,6 +49,11 @@ export default function Home() {
             }),
           });
 
+          // Request push notification permission
+          try {
+            await MiniKit.requestPermission({ permission: "notifications" as any });
+          } catch {}
+
           setIsVerifying(false);
           return;
         }

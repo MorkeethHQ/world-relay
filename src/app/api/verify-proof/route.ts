@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getTask, submitProof, completeTask } from "@/lib/store";
+import { getTask, submitProof, completeTask, setAttestationHash } from "@/lib/store";
 import { verifyProof, verifyProofStub } from "@/lib/verify-proof";
 import { postProofSubmitted, postVerificationResult } from "@/lib/xmtp";
 import { notifyProofSubmitted, notifyVerified, notifyFlagged } from "@/lib/notifications";
+import { postAttestation } from "@/lib/attestation";
 import { getRedis } from "@/lib/redis";
 
 const RATE_LIMIT_KEY = "ratelimit:verify";
@@ -61,9 +62,25 @@ export async function POST(req: NextRequest) {
     notifyFlagged(task.poster, task.description).catch(console.error);
   }
 
+  // On-chain attestation — fire and forget
+  let attestationTxHash: string | null = null;
+  if (result.verdict === "pass" || result.verdict === "flag") {
+    attestationTxHash = await postAttestation(
+      taskId,
+      task.description,
+      proofImageBase64.slice(0, 100),
+      result.verdict,
+      result.confidence
+    ).catch(() => null);
+    if (attestationTxHash) {
+      await setAttestationHash(taskId, attestationTxHash);
+    }
+  }
+
   return NextResponse.json({
     taskId,
     verification: result,
+    attestationTxHash,
     task: await getTask(taskId),
   });
 }

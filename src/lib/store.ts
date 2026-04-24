@@ -69,6 +69,7 @@ export function createTask(input: {
     proofImageUrl: null,
     proofNote: null,
     verificationResult: null,
+    attestationTxHash: null,
     createdAt: new Date().toISOString(),
   };
   cache.set(id, task);
@@ -134,6 +135,14 @@ export async function completeTask(
     task.proofImageUrl = null;
     task.proofNote = null;
   }
+  persistTask(task).catch(console.error);
+  return task;
+}
+
+export async function setAttestationHash(id: string, txHash: string): Promise<Task | null> {
+  const task = await getTask(id);
+  if (!task) return null;
+  task.attestationTxHash = txHash;
   persistTask(task).catch(console.error);
   return task;
 }

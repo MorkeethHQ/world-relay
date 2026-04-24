@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { MiniKit } from "@worldcoin/minikit-js";
 import type { Task } from "@/lib/types";
-import { encodeCreateTask, encodeClaimTask, encodeReleasePayment, RELAY_ESCROW_ADDRESS } from "@/lib/contracts";
+import { encodeCreateTask, encodeClaimTask, encodeReleasePayment, encodeUniswapSwap, RELAY_ESCROW_ADDRESS, type SwapToken } from "@/lib/contracts";
 
 function timeLeft(deadline: string): string {
   const ms = new Date(deadline).getTime() - Date.now();
@@ -265,6 +265,14 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
                         <span className="text-[10px] text-green-500/70 font-medium">
                           {Math.round((task.verificationResult.confidence || 0) * 100)}% confidence
                         </span>
+                        {task.attestationTxHash && (
+                          <>
+                            <span className="text-[10px] text-gray-700">·</span>
+                            <a href={`https://worldscan.org/tx/${task.attestationTxHash}`} target="_blank" rel="noopener noreferrer" className="text-[10px] text-blue-400/70">
+                              on-chain →
+                            </a>
+                          </>
+                        )}
                       </div>
                     </div>
                   )}
@@ -828,6 +836,8 @@ function TaskDetail({
   const [chatInput, setChatInput] = useState("");
   const [sending, setSending] = useState(false);
   const [showProofImage, setShowProofImage] = useState(false);
+  const [swapToken, setSwapToken] = useState<SwapToken>("USDC");
+  const [swapping, setSwapping] = useState(false);
   const isClaimant = currentTask.claimant === userId;
   const isPoster = currentTask.poster === userId;
   const isParticipant = isClaimant || isPoster;
@@ -976,6 +986,21 @@ function TaskDetail({
                 <p className="text-xs text-green-400 font-semibold">${currentTask.bountyUsdc} USDC released</p>
               </div>
             )}
+            {currentTask.attestationTxHash && (
+              <div className="mt-2 pt-2 border-t border-white/[0.06] flex items-center gap-1.5">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="2" y="7" width="20" height="14" rx="2" ry="2" /><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+                </svg>
+                <a
+                  href={`https://worldscan.org/tx/${currentTask.attestationTxHash}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[11px] text-blue-400 underline underline-offset-2"
+                >
+                  On-chain attestation →
+                </a>
+              </div>
+            )}
           </div>
         )}
 
@@ -997,6 +1022,58 @@ function TaskDetail({
             Release ${currentTask.bountyUsdc} USDC
             <span className="text-[10px] opacity-70 font-normal">via World Chain</span>
           </button>
+        )}
+
+        {/* Uniswap swap — claimant can convert received USDC */}
+        {currentTask.status === "completed" && isClaimant && MiniKit.isInstalled() && (
+          <div className="bg-[#111] border border-white/[0.06] rounded-2xl p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f472b6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="17 1 21 5 17 9" /><path d="M3 11V9a4 4 0 0 1 4-4h14" />
+                <polyline points="7 23 3 19 7 15" /><path d="M21 13v2a4 4 0 0 1-4 4H3" />
+              </svg>
+              <span className="text-xs font-semibold text-white">Swap Earnings</span>
+              <span className="text-[10px] text-gray-600 ml-auto">via Uniswap V3</span>
+            </div>
+            <div className="flex gap-2 mb-3">
+              {(["USDC", "WETH", "WLD"] as SwapToken[]).map((token) => (
+                <button
+                  key={token}
+                  onClick={() => setSwapToken(token)}
+                  className={`flex-1 py-2 rounded-xl text-xs font-medium transition-all ${
+                    swapToken === token
+                      ? "bg-white text-black"
+                      : "bg-white/5 text-gray-400 hover:bg-white/10"
+                  }`}
+                >
+                  {token}
+                </button>
+              ))}
+            </div>
+            {swapToken !== "USDC" ? (
+              <button
+                onClick={async () => {
+                  if (!userId?.startsWith("0x")) return;
+                  setSwapping(true);
+                  const txPayload = encodeUniswapSwap(currentTask.bountyUsdc, swapToken, userId as `0x${string}`);
+                  if (txPayload) {
+                    try { await MiniKit.sendTransaction(txPayload); } catch {}
+                  }
+                  setSwapping(false);
+                }}
+                disabled={swapping}
+                className="w-full bg-pink-600 hover:bg-pink-500 text-white py-2.5 rounded-xl text-sm font-semibold active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {swapping ? (
+                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <>Swap ${currentTask.bountyUsdc} USDC → {swapToken}</>
+                )}
+              </button>
+            ) : (
+              <p className="text-xs text-gray-500 text-center py-1">Select a token to swap your USDC earnings</p>
+            )}
+          </div>
         )}
 
         {/* Action buttons */}

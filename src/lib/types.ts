@@ -20,5 +20,6 @@ export type Task = {
   proofImageUrl: string | null;
   proofNote: string | null;
   verificationResult: VerificationResult | null;
+  attestationTxHash: string | null;
   createdAt: string;
 };

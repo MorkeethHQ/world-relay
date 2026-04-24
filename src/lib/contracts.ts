@@ -6,6 +6,23 @@ export const WORLD_CHAIN_ID = 480;
 export const RELAY_ESCROW_ADDRESS = process.env.NEXT_PUBLIC_ESCROW_ADDRESS as `0x${string}` | undefined;
 export const USDC_ADDRESS = "0x79A02482A880bCE3F13e09Da970dC34db4CD24d1" as const;
 export const PERMIT2_ADDRESS = "0x000000000022D473030F116dDEE9F6B43aC78BA3" as const;
+export const WETH_ADDRESS = "0x4200000000000000000000000000000000000006" as const;
+export const WLD_ADDRESS = "0x2cFc85d8E48F8EAB294be644d9E25C3030863003" as const;
+export const SWAP_ROUTER_ADDRESS = "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45" as const;
+
+export type SwapToken = "USDC" | "WETH" | "WLD";
+
+const TOKEN_ADDRESSES: Record<SwapToken, `0x${string}`> = {
+  USDC: USDC_ADDRESS,
+  WETH: WETH_ADDRESS,
+  WLD: WLD_ADDRESS,
+};
+
+const TOKEN_DECIMALS: Record<SwapToken, number> = {
+  USDC: 6,
+  WETH: 18,
+  WLD: 18,
+};
 
 const ESCROW_ABI = [
   {
@@ -106,3 +123,83 @@ export function encodeReleasePayment(taskId: number) {
     transactions: [{ to: RELAY_ESCROW_ADDRESS, data }],
   };
 }
+
+// Uniswap V3 SwapRouter02 exactInputSingle
+const SWAP_ROUTER_ABI = [
+  {
+    name: "exactInputSingle",
+    type: "function",
+    stateMutability: "payable",
+    inputs: [
+      {
+        name: "params",
+        type: "tuple",
+        components: [
+          { name: "tokenIn", type: "address" },
+          { name: "tokenOut", type: "address" },
+          { name: "fee", type: "uint24" },
+          { name: "recipient", type: "address" },
+          { name: "amountIn", type: "uint256" },
+          { name: "amountOutMinimum", type: "uint256" },
+          { name: "sqrtPriceLimitX96", type: "uint160" },
+        ],
+      },
+    ],
+    outputs: [{ name: "amountOut", type: "uint256" }],
+  },
+] as const;
+
+const ERC20_APPROVE_ABI = [
+  {
+    name: "approve",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "spender", type: "address" },
+      { name: "amount", type: "uint256" },
+    ],
+    outputs: [{ name: "", type: "bool" }],
+  },
+] as const;
+
+export function encodeUniswapSwap(
+  amountUsdc: number,
+  toToken: SwapToken,
+  recipientAddress: `0x${string}`
+) {
+  if (toToken === "USDC") return null;
+
+  const amountIn = parseUnits(amountUsdc.toString(), 6);
+
+  const approveData = encodeFunctionData({
+    abi: ERC20_APPROVE_ABI,
+    functionName: "approve",
+    args: [SWAP_ROUTER_ADDRESS, amountIn],
+  });
+
+  const swapData = encodeFunctionData({
+    abi: SWAP_ROUTER_ABI,
+    functionName: "exactInputSingle",
+    args: [
+      {
+        tokenIn: USDC_ADDRESS,
+        tokenOut: TOKEN_ADDRESSES[toToken],
+        fee: 3000, // 0.3% pool
+        recipient: recipientAddress,
+        amountIn,
+        amountOutMinimum: BigInt(0), // accept any amount for demo
+        sqrtPriceLimitX96: BigInt(0),
+      },
+    ],
+  });
+
+  return {
+    chainId: WORLD_CHAIN_ID,
+    transactions: [
+      { to: USDC_ADDRESS, data: approveData },
+      { to: SWAP_ROUTER_ADDRESS, data: swapData },
+    ],
+  };
+}
+
+export { TOKEN_ADDRESSES, TOKEN_DECIMALS };
