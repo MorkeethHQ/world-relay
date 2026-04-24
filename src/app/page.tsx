@@ -7,8 +7,10 @@ import { TaskBoard } from "@/components/TaskBoard";
 export default function Home() {
   const [userId, setUserId] = useState<string | null>(null);
   const [isVerifying, setIsVerifying] = useState(false);
+  const [isInWorldApp, setIsInWorldApp] = useState(false);
 
   useEffect(() => {
+    setIsInWorldApp(MiniKit.isInstalled());
     const stored = localStorage.getItem("relay_user_id");
     if (stored) setUserId(stored);
   }, []);
@@ -23,23 +25,39 @@ export default function Home() {
           statement: "Sign in to RELAY",
           expirationTime: new Date(Date.now() + 3600_000),
         });
-
         if (result?.data?.address) {
-          setUserId(result.data.address);
-          localStorage.setItem("relay_user_id", result.data.address);
+          const addr = result.data.address;
+          setUserId(addr);
+          localStorage.setItem("relay_user_id", addr);
+
+          await fetch("/api/verify-identity", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              address: addr,
+              signature: result.data.signature,
+              message: result.data.message,
+            }),
+          });
+
+          setIsVerifying(false);
+          return;
         }
-      } catch {
-        const devId = `dev_${crypto.randomUUID().slice(0, 8)}`;
-        setUserId(devId);
-        localStorage.setItem("relay_user_id", devId);
+      } catch (err) {
+        console.error("MiniKit auth failed:", err);
       }
-    } else {
-      const devId = `dev_${crypto.randomUUID().slice(0, 8)}`;
-      setUserId(devId);
-      localStorage.setItem("relay_user_id", devId);
     }
 
+    // Dev fallback for browser testing
+    const devId = `dev_${crypto.randomUUID().slice(0, 8)}`;
+    setUserId(devId);
+    localStorage.setItem("relay_user_id", devId);
     setIsVerifying(false);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("relay_user_id");
+    setUserId(null);
   };
 
   if (!userId) {
@@ -54,14 +72,16 @@ export default function Home() {
         <button
           onClick={handleVerify}
           disabled={isVerifying}
-          className="bg-white text-black px-6 py-3 rounded-xl font-medium text-sm disabled:opacity-50"
+          className="bg-white text-black px-6 py-3 rounded-xl font-medium text-sm disabled:opacity-50 active:scale-[0.98] transition-transform"
         >
-          {isVerifying ? "Verifying..." : "Verify with World ID"}
+          {isVerifying ? "Verifying..." : isInWorldApp ? "Verify with World ID" : "Enter as Dev User"}
         </button>
-        <p className="text-xs text-gray-600">One human, one seat.</p>
+        <p className="text-xs text-gray-600">
+          {isInWorldApp ? "One human, one seat." : "Dev mode — World ID verification available in World App."}
+        </p>
       </div>
     );
   }
 
-  return <TaskBoard userId={userId} />;
+  return <TaskBoard userId={userId} onLogout={handleLogout} />;
 }

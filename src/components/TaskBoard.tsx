@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { MiniKit } from "@worldcoin/minikit-js";
 import type { Task } from "@/lib/types";
+import { encodeCreateTask, RELAY_ESCROW_ADDRESS } from "@/lib/contracts";
 
 function timeLeft(deadline: string): string {
   const ms = new Date(deadline).getTime() - Date.now();
@@ -20,7 +22,7 @@ function shortId(id: string): string {
 
 type Tab = "available" | "mine" | "completed";
 
-export function TaskBoard({ userId }: { userId: string | null }) {
+export function TaskBoard({ userId, onLogout }: { userId: string | null; onLogout?: () => void }) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [view, setView] = useState<"board" | "post" | "proof" | "detail">("board");
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -69,7 +71,11 @@ export function TaskBoard({ userId }: { userId: string | null }) {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold tracking-tight">RELAY</h1>
-          {userId && <p className="text-xs text-gray-500">{shortId(userId)}</p>}
+          {userId && (
+            <button onClick={onLogout} className="text-xs text-gray-500 hover:text-gray-300">
+              {shortId(userId)}
+            </button>
+          )}
         </div>
         {userId && (
           <button
@@ -237,6 +243,19 @@ function PostTask({
   const handleSubmit = async () => {
     if (!description || !location || !bounty || !userId) return;
     setSubmitting(true);
+
+    // On-chain escrow deposit if inside World App and contract is deployed
+    if (MiniKit.isInstalled() && RELAY_ESCROW_ADDRESS) {
+      const txPayload = encodeCreateTask(description, parseFloat(bounty), 24);
+      if (txPayload) {
+        try {
+          await MiniKit.sendTransaction(txPayload);
+        } catch (err) {
+          console.error("On-chain escrow failed, continuing off-chain:", err);
+        }
+      }
+    }
+
     await fetch("/api/tasks", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
