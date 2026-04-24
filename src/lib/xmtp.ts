@@ -15,7 +15,7 @@ async function getXmtpClient() {
   if (xmtpClient) return xmtpClient;
   if (clientInitPromise) return clientInitPromise;
 
-  const walletKey = process.env.XMTP_WALLET_KEY;
+  const walletKey = process.env.XMTP_WALLET_KEY?.trim();
   if (!walletKey) {
     lastInitError = "XMTP_WALLET_KEY not set";
     return null;
@@ -26,7 +26,8 @@ async function getXmtpClient() {
       const { Client } = await import("@xmtp/node-sdk");
       const { privateKeyToAccount } = await import("viem/accounts");
 
-      const key = walletKey.startsWith("0x") ? walletKey : `0x${walletKey}`;
+      const cleaned = walletKey.replace(/[^0-9a-fA-Fx]/g, "");
+      const key = cleaned.startsWith("0x") ? cleaned : `0x${cleaned}`;
       const account = privateKeyToAccount(key as `0x${string}`);
 
       const signer = {
@@ -55,7 +56,7 @@ async function getXmtpClient() {
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.error("[XMTP] Failed to initialize client:", msg);
-      lastInitError = msg;
+      lastInitError = `${msg} (key length: ${walletKey.length}, cleaned: ${walletKey.replace(/[^0-9a-fA-Fx]/g, "").length})`;
       clientInitPromise = null;
       return null;
     }
