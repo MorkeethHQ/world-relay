@@ -10,14 +10,24 @@ function timeLeft(deadline: string): string {
   if (ms <= 0) return "expired";
   const hours = Math.floor(ms / 3600_000);
   const mins = Math.floor((ms % 3600_000) / 60_000);
-  if (hours > 0) return `${hours}h ${mins}m left`;
-  return `${mins}m left`;
+  if (hours > 0) return `${hours}h ${mins}m`;
+  return `${mins}m`;
 }
 
 function shortId(id: string): string {
   if (id.startsWith("dev_")) return id;
   if (id.startsWith("0x")) return `${id.slice(0, 6)}...${id.slice(-4)}`;
   return id.slice(0, 12);
+}
+
+function timeAgo(dateStr: string): string {
+  const ms = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(ms / 60_000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
 }
 
 type Tab = "available" | "mine" | "completed";
@@ -66,73 +76,130 @@ export function Feed({ userId, onLogout }: { userId: string | null; onLogout?: (
     return true;
   });
 
+  const myTaskCount = tasks.filter(t => t.poster === userId || t.claimant === userId).length;
+
   return (
-    <div className="flex flex-col gap-3 p-4 max-w-lg mx-auto w-full">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold tracking-tight">RELAY</h1>
+    <div className="flex flex-col gap-0 max-w-lg mx-auto w-full min-h-screen">
+      {/* Header */}
+      <div className="sticky top-0 z-10 bg-[#050505]/90 backdrop-blur-xl border-b border-white/5">
+        <div className="flex items-center justify-between px-4 py-3">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 2L2 7l10 5 10-5-10-5z" />
+                <path d="M2 17l10 5 10-5" />
+                <path d="M2 12l10 5 10-5" />
+              </svg>
+            </div>
+            <div>
+              <h1 className="text-base font-bold tracking-tight leading-none">RELAY</h1>
+              {userId && (
+                <button onClick={onLogout} className="text-[10px] text-gray-500 hover:text-gray-300 transition-colors leading-none mt-0.5">
+                  {shortId(userId)}
+                </button>
+              )}
+            </div>
+          </div>
           {userId && (
-            <button onClick={onLogout} className="text-xs text-gray-500 hover:text-gray-300">
-              {shortId(userId)}
+            <button
+              onClick={() => setView("post")}
+              className="bg-white text-black h-9 px-4 rounded-full font-semibold text-xs active:scale-95 transition-all shadow-[0_0_12px_rgba(255,255,255,0.08)]"
+            >
+              + Request
             </button>
           )}
         </div>
-        {userId && (
-          <button
-            onClick={() => setView("post")}
-            className="bg-white text-black px-4 py-2 rounded-lg font-medium text-sm active:scale-95 transition-transform"
-          >
-            + Request
-          </button>
-        )}
-      </div>
 
-      <div className="flex gap-1 bg-gray-900 rounded-lg p-1">
-        {(["available", "mine", "completed"] as Tab[]).map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`flex-1 text-xs py-1.5 rounded-md font-medium transition-colors ${
-              tab === t ? "bg-gray-700 text-white" : "text-gray-400"
-            }`}
-          >
-            {t === "available" ? "Nearby" : t === "mine" ? "Yours" : "Done"}
-          </button>
-        ))}
-      </div>
-
-      {filtered.length === 0 && (
-        <div className="text-center text-gray-500 py-12 text-sm">
-          {tab === "available" ? "No requests nearby. Post one." :
-           tab === "mine" ? "Nothing yet." :
-           "No completed requests."}
+        {/* Tabs */}
+        <div className="flex px-4 gap-0">
+          {(["available", "mine", "completed"] as Tab[]).map((t) => {
+            const label = t === "available" ? "Nearby" : t === "mine" ? "Yours" : "Done";
+            const count = t === "mine" ? myTaskCount : null;
+            return (
+              <button
+                key={t}
+                onClick={() => setTab(t)}
+                className={`flex-1 text-xs py-2.5 font-medium transition-all relative ${
+                  tab === t ? "text-white" : "text-gray-500"
+                }`}
+              >
+                {label}
+                {count !== null && count > 0 && (
+                  <span className="ml-1 text-[10px] text-gray-500">{count}</span>
+                )}
+                {tab === t && (
+                  <span className="absolute bottom-0 left-1/4 right-1/4 h-0.5 bg-white rounded-full" />
+                )}
+              </button>
+            );
+          })}
         </div>
-      )}
+      </div>
 
-      <div className="flex flex-col gap-3">
-        {filtered.map((task) => (
-          <TaskCard
-            key={task.id}
-            task={task}
-            userId={userId}
-            onTap={() => {
-              setSelectedTask(task);
-              setView("detail");
-            }}
-            onClaim={async () => {
-              await fetch(`/api/tasks/${task.id}/claim`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ claimant: userId }),
-              });
-              fetchTasks();
-            }}
-            onSubmitProof={() => {
-              setSelectedTask(task);
-              setView("proof");
-            }}
-          />
-        ))}
+      {/* Content */}
+      <div className="flex-1 px-4 py-3">
+        {filtered.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 gap-3">
+            <div className="w-12 h-12 rounded-full bg-gray-900 flex items-center justify-center">
+              {tab === "available" ? (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#444" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10" />
+                  <path d="M12 6v6l4 2" />
+                </svg>
+              ) : tab === "mine" ? (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#444" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                  <circle cx="12" cy="7" r="4" />
+                </svg>
+              ) : (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#444" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                  <polyline points="22 4 12 14.01 9 11.01" />
+                </svg>
+              )}
+            </div>
+            <p className="text-sm text-gray-500">
+              {tab === "available" ? "No requests nearby yet" :
+               tab === "mine" ? "You haven't posted or claimed anything" :
+               "No completed requests"}
+            </p>
+            {tab === "available" && (
+              <button
+                onClick={() => setView("post")}
+                className="text-xs text-white/60 underline underline-offset-2 hover:text-white/80 transition-colors"
+              >
+                Post the first one
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2.5">
+            {filtered.map((task, i) => (
+              <div key={task.id} style={{ animationDelay: `${i * 50}ms` }} className="animate-[slideUp_0.3s_ease-out_both]">
+                <TaskCard
+                  task={task}
+                  userId={userId}
+                  onTap={() => {
+                    setSelectedTask(task);
+                    setView("detail");
+                  }}
+                  onClaim={async () => {
+                    await fetch(`/api/tasks/${task.id}/claim`, {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ claimant: userId }),
+                    });
+                    fetchTasks();
+                  }}
+                  onSubmitProof={() => {
+                    setSelectedTask(task);
+                    setView("proof");
+                  }}
+                />
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -155,53 +222,63 @@ function TaskCard({
   const isClaimant = task.claimant === userId;
 
   return (
-    <div onClick={onTap} className="border border-gray-800 rounded-xl p-4 flex flex-col gap-3 bg-gray-950 cursor-pointer active:bg-gray-900 transition-colors">
+    <div
+      onClick={onTap}
+      className="rounded-2xl p-4 flex flex-col gap-3 bg-[#111] border border-white/[0.06] cursor-pointer active:scale-[0.98] transition-all"
+    >
       <div className="flex justify-between items-start gap-3">
         <div className="flex-1 min-w-0">
-          <p className="font-medium text-sm leading-snug">{task.description}</p>
-          <div className="flex items-center gap-2 mt-1">
+          <p className="font-medium text-[15px] leading-snug">{task.description}</p>
+          <div className="flex items-center gap-1.5 mt-1.5">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+              <circle cx="12" cy="10" r="3" />
+            </svg>
             <span className="text-xs text-gray-500">{task.location}</span>
-            <span className="text-xs text-gray-600">·</span>
-            <span className="text-xs text-gray-500">{timeLeft(task.deadline)}</span>
+            <span className="text-[10px] text-gray-700 mx-0.5">·</span>
+            <span className="text-xs text-gray-600">{timeLeft(task.deadline)}</span>
           </div>
         </div>
-        <div className="text-right shrink-0">
-          <p className="font-bold text-green-400 text-sm">${task.bountyUsdc}</p>
-          <p className="text-[10px] text-gray-500">USDC</p>
+        <div className="text-right shrink-0 bg-green-500/10 border border-green-500/20 rounded-xl px-3 py-1.5">
+          <p className="font-bold text-green-400 text-sm leading-none">${task.bountyUsdc}</p>
+          <p className="text-[9px] text-green-500/60 mt-0.5">USDC</p>
         </div>
       </div>
 
       <div className="flex items-center justify-between">
-        <StatusBadge status={task.status} />
-        {isOwnTask && <span className="text-[10px] text-gray-600">You posted</span>}
-        {isClaimant && task.status === "claimed" && <span className="text-[10px] text-gray-600">You claimed</span>}
+        <div className="flex items-center gap-2">
+          <StatusBadge status={task.status} />
+          {isOwnTask && <span className="text-[10px] text-gray-600">You posted</span>}
+          {isClaimant && task.status === "claimed" && <span className="text-[10px] text-gray-600">You claimed</span>}
+        </div>
+        <span className="text-[10px] text-gray-700">{timeAgo(task.createdAt)}</span>
       </div>
 
       {task.verificationResult && (
-        <div className={`text-xs p-2.5 rounded-lg ${
-          task.verificationResult.verdict === "pass" ? "bg-green-900/20 text-green-300 border border-green-800/30" :
-          task.verificationResult.verdict === "flag" ? "bg-yellow-900/20 text-yellow-300 border border-yellow-800/30" :
-          "bg-red-900/20 text-red-300 border border-red-800/30"
+        <div className={`text-xs p-3 rounded-xl ${
+          task.verificationResult.verdict === "pass" ? "bg-green-500/8 text-green-300 border border-green-500/15" :
+          task.verificationResult.verdict === "flag" ? "bg-yellow-500/8 text-yellow-300 border border-yellow-500/15" :
+          "bg-red-500/8 text-red-300 border border-red-500/15"
         }`}>
-          <span className="font-bold">{task.verificationResult.verdict.toUpperCase()}</span>
-          {" — "}
-          {task.verificationResult.reasoning}
+          <span className="font-bold text-[11px] tracking-wide">{task.verificationResult.verdict === "pass" ? "VERIFIED" : task.verificationResult.verdict === "flag" ? "FLAGGED" : "REJECTED"}</span>
+          <span className="text-gray-400 mx-1.5">—</span>
+          <span className="opacity-80">{task.verificationResult.reasoning}</span>
         </div>
       )}
 
       {task.status === "open" && userId && !isOwnTask && (
         <button
           onClick={(e) => { e.stopPropagation(); onClaim(); }}
-          className="bg-blue-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium active:scale-[0.98] transition-transform"
+          className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl text-sm font-medium active:scale-[0.97] transition-all"
         >
-          Claim This Task
+          Claim
         </button>
       )}
 
       {task.status === "claimed" && isClaimant && (
         <button
           onClick={(e) => { e.stopPropagation(); onSubmitProof(); }}
-          className="bg-purple-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium active:scale-[0.98] transition-transform"
+          className="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2.5 rounded-xl text-sm font-medium active:scale-[0.97] transition-all"
         >
           Submit Proof
         </button>
@@ -211,17 +288,20 @@ function TaskCard({
 }
 
 function StatusBadge({ status }: { status: string }) {
-  const styles: Record<string, string> = {
-    open: "bg-blue-500/10 text-blue-400 border-blue-500/20",
-    claimed: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20",
-    completed: "bg-green-500/10 text-green-400 border-green-500/20",
-    failed: "bg-red-500/10 text-red-400 border-red-500/20",
-    expired: "bg-gray-500/10 text-gray-400 border-gray-500/20",
+  const config: Record<string, { bg: string; dot: string; label: string }> = {
+    open: { bg: "text-blue-400", dot: "bg-blue-400", label: "Open" },
+    claimed: { bg: "text-yellow-400", dot: "bg-yellow-400", label: "Claimed" },
+    completed: { bg: "text-green-400", dot: "bg-green-400", label: "Done" },
+    failed: { bg: "text-red-400", dot: "bg-red-400", label: "Failed" },
+    expired: { bg: "text-gray-400", dot: "bg-gray-500", label: "Expired" },
   };
 
+  const c = config[status] || config.expired;
+
   return (
-    <span className={`text-[10px] px-2 py-0.5 rounded-full border font-medium uppercase tracking-wider ${styles[status] || styles.expired}`}>
-      {status}
+    <span className={`flex items-center gap-1.5 text-[11px] font-medium ${c.bg}`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${c.dot} animate-[pulse-dot_2s_ease-in-out_infinite]`} />
+      {c.label}
     </span>
   );
 }
@@ -244,7 +324,6 @@ function PostTask({
     if (!description || !location || !bounty || !userId) return;
     setSubmitting(true);
 
-    // On-chain escrow deposit if inside World App and contract is deployed
     if (MiniKit.isInstalled() && RELAY_ESCROW_ADDRESS) {
       const txPayload = encodeCreateTask(description, parseFloat(bounty), 24);
       if (txPayload) {
@@ -270,53 +349,77 @@ function PostTask({
     onDone();
   };
 
+  const isValid = description && location && bounty;
+
   return (
-    <div className="p-4 flex flex-col gap-4 max-w-lg mx-auto w-full">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-bold">Post a Request</h2>
-        <button onClick={onCancel} className="text-gray-400 text-sm">Cancel</button>
+    <div className="flex flex-col min-h-screen max-w-lg mx-auto w-full">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
+        <button onClick={onCancel} className="text-sm text-gray-400 hover:text-white transition-colors">Cancel</button>
+        <span className="text-sm font-semibold">New Request</span>
+        <div className="w-12" />
       </div>
 
-      <div className="flex flex-col gap-3">
+      <div className="flex-1 px-4 py-5 flex flex-col gap-5">
         <div>
-          <label className="text-xs text-gray-400 block mb-1">What do you need?</label>
+          <label className="text-[11px] text-gray-500 uppercase tracking-wider font-medium block mb-2">What do you need?</label>
           <textarea
-            placeholder="Be specific. Example: Take a photo of the menu board at the coffee shop on Rue de Rivoli."
+            placeholder="Take a photo of the menu board at Blue Bottle on Rue de Rivoli"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={3}
-            className="w-full bg-gray-900 border border-gray-800 rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:border-gray-600"
+            autoFocus
+            className="w-full bg-[#111] border border-white/[0.06] rounded-xl px-4 py-3 text-sm resize-none focus:outline-none focus:border-white/20 transition-colors placeholder:text-gray-600"
           />
         </div>
         <div>
-          <label className="text-xs text-gray-400 block mb-1">Location</label>
-          <input
-            type="text"
-            placeholder="City or area"
-            value={location}
-            onChange={(e) => setLocation(e.target.value)}
-            className="w-full bg-gray-900 border border-gray-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-gray-600"
-          />
+          <label className="text-[11px] text-gray-500 uppercase tracking-wider font-medium block mb-2">Location</label>
+          <div className="relative">
+            <svg className="absolute left-3.5 top-1/2 -translate-y-1/2" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+              <circle cx="12" cy="10" r="3" />
+            </svg>
+            <input
+              type="text"
+              placeholder="City or neighborhood"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              className="w-full bg-[#111] border border-white/[0.06] rounded-xl pl-10 pr-4 py-3 text-sm focus:outline-none focus:border-white/20 transition-colors placeholder:text-gray-600"
+            />
+          </div>
         </div>
         <div>
-          <label className="text-xs text-gray-400 block mb-1">Bounty (USDC)</label>
-          <input
-            type="number"
-            placeholder="5"
-            value={bounty}
-            onChange={(e) => setBounty(e.target.value)}
-            className="w-full bg-gray-900 border border-gray-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-gray-600"
-          />
+          <label className="text-[11px] text-gray-500 uppercase tracking-wider font-medium block mb-2">Bounty</label>
+          <div className="relative">
+            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500 text-sm font-medium">$</span>
+            <input
+              type="number"
+              placeholder="5"
+              value={bounty}
+              onChange={(e) => setBounty(e.target.value)}
+              className="w-full bg-[#111] border border-white/[0.06] rounded-xl pl-8 pr-16 py-3 text-sm focus:outline-none focus:border-white/20 transition-colors placeholder:text-gray-600"
+            />
+            <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[11px] text-gray-600 font-medium">USDC</span>
+          </div>
         </div>
       </div>
 
-      <button
-        onClick={handleSubmit}
-        disabled={!description || !location || !bounty || submitting}
-        className="bg-white text-black px-4 py-3 rounded-lg font-medium text-sm disabled:opacity-40 active:scale-[0.98] transition-transform"
-      >
-        {submitting ? "Posting..." : `Post Task — $${bounty || "0"} USDC`}
-      </button>
+      <div className="px-4 pb-8 pt-2">
+        <button
+          onClick={handleSubmit}
+          disabled={!isValid || submitting}
+          className={`w-full py-3.5 rounded-2xl font-semibold text-sm transition-all active:scale-[0.98] ${
+            isValid ? "bg-white text-black shadow-[0_0_20px_rgba(255,255,255,0.1)]" : "bg-gray-800 text-gray-500"
+          } disabled:opacity-50`}
+        >
+          {submitting ? (
+            <span className="flex items-center justify-center gap-2">
+              <span className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
+              Posting...
+            </span>
+          ) : `Post Request${bounty ? ` — $${bounty} USDC` : ""}`}
+        </button>
+      </div>
     </div>
   );
 }
@@ -372,95 +475,147 @@ function SubmitProof({
   };
 
   return (
-    <div className="p-4 flex flex-col gap-4 max-w-lg mx-auto w-full">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-bold">Submit Proof</h2>
-        <button onClick={onCancel} className="text-gray-400 text-sm">Cancel</button>
+    <div className="flex flex-col min-h-screen max-w-lg mx-auto w-full">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
+        <button onClick={onCancel} className="text-sm text-gray-400 hover:text-white transition-colors">Cancel</button>
+        <span className="text-sm font-semibold">Submit Proof</span>
+        <div className="w-12" />
       </div>
 
-      <div className="bg-gray-900 border border-gray-800 rounded-xl p-3">
-        <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Task</p>
-        <p className="text-sm">{task.description}</p>
-        <div className="flex items-center gap-2 mt-1.5">
-          <span className="text-xs text-gray-500">{task.location}</span>
-          <span className="text-xs text-gray-600">·</span>
-          <span className="text-xs text-green-400 font-medium">${task.bountyUsdc} USDC</span>
-        </div>
-      </div>
-
-      <div>
-        <label className="text-xs text-gray-400 block mb-2">Proof Photo</label>
-        {imagePreview ? (
-          <div className="relative">
-            <img src={imagePreview} alt="Proof preview" className="w-full rounded-lg border border-gray-800 max-h-64 object-cover" />
-            <button
-              onClick={() => { setImageData(null); setImagePreview(null); }}
-              className="absolute top-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded"
-            >
-              Remove
-            </button>
+      <div className="flex-1 px-4 py-5 flex flex-col gap-4">
+        {/* Task context */}
+        <div className="bg-[#111] border border-white/[0.06] rounded-2xl p-4">
+          <p className="text-[10px] text-gray-500 uppercase tracking-wider font-medium mb-1.5">Task</p>
+          <p className="text-sm font-medium leading-snug">{task.description}</p>
+          <div className="flex items-center gap-2 mt-2">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+              <circle cx="12" cy="10" r="3" />
+            </svg>
+            <span className="text-xs text-gray-500">{task.location}</span>
+            <span className="text-[10px] text-gray-700 mx-0.5">·</span>
+            <span className="text-xs text-green-400 font-semibold">${task.bountyUsdc} USDC</span>
           </div>
-        ) : (
-          <label className="flex flex-col items-center justify-center border-2 border-dashed border-gray-700 rounded-lg p-6 cursor-pointer hover:border-gray-600 transition-colors">
-            <span className="text-gray-400 text-sm">Tap to take a photo or choose one</span>
-            <input
-              type="file"
-              accept="image/*"
-              capture="environment"
-              onChange={handleImageChange}
-              className="hidden"
-            />
-          </label>
+        </div>
+
+        {/* Photo upload */}
+        <div>
+          <label className="text-[11px] text-gray-500 uppercase tracking-wider font-medium block mb-2">Proof Photo</label>
+          {imagePreview ? (
+            <div className="relative rounded-2xl overflow-hidden">
+              <img src={imagePreview} alt="Proof" className="w-full max-h-72 object-cover" />
+              <button
+                onClick={() => { setImageData(null); setImagePreview(null); }}
+                className="absolute top-3 right-3 bg-black/60 backdrop-blur-sm text-white text-xs px-3 py-1.5 rounded-full font-medium"
+              >
+                Remove
+              </button>
+            </div>
+          ) : (
+            <label className="flex flex-col items-center justify-center border border-dashed border-white/10 rounded-2xl p-10 cursor-pointer hover:border-white/20 transition-all bg-[#111]/50 active:scale-[0.99]">
+              <div className="w-12 h-12 rounded-full bg-purple-500/10 flex items-center justify-center mb-3">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#a855f6" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                  <circle cx="12" cy="13" r="4" />
+                </svg>
+              </div>
+              <span className="text-sm text-gray-400">Take photo or choose from library</span>
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={handleImageChange}
+                className="hidden"
+              />
+            </label>
+          )}
+        </div>
+
+        <input
+          type="text"
+          placeholder="Add a note (optional)"
+          value={proofNote}
+          onChange={(e) => setProofNote(e.target.value)}
+          className="bg-[#111] border border-white/[0.06] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-white/20 transition-colors placeholder:text-gray-600"
+        />
+
+        {/* Verification spinner */}
+        {submitting && (
+          <div className="flex flex-col items-center gap-4 py-8">
+            <div className="relative">
+              <div className="w-12 h-12 border-2 border-purple-500/30 rounded-full" />
+              <div className="w-12 h-12 border-2 border-purple-500 border-t-transparent rounded-full animate-spin absolute inset-0" />
+            </div>
+            <div className="text-center">
+              <p className="text-sm font-medium text-white">Verifying proof...</p>
+              <p className="text-xs text-gray-500 mt-1">AI is analyzing your photo</p>
+            </div>
+          </div>
+        )}
+
+        {/* Verdict result */}
+        {result && (
+          <div className={`p-5 rounded-2xl text-sm border animate-[fadeIn_0.3s_ease-out] ${
+            result.verdict === "pass" ? "bg-green-500/8 border-green-500/20" :
+            result.verdict === "flag" ? "bg-yellow-500/8 border-yellow-500/20" :
+            "bg-red-500/8 border-red-500/20"
+          }`}>
+            <div className="flex items-center gap-2 mb-2">
+              {result.verdict === "pass" ? (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                  <polyline points="22 4 12 14.01 9 11.01" />
+                </svg>
+              ) : result.verdict === "flag" ? (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#facc15" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                  <line x1="12" y1="9" x2="12" y2="13" />
+                  <line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
+              ) : (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f87171" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="15" y1="9" x2="9" y2="15" />
+                  <line x1="9" y1="9" x2="15" y2="15" />
+                </svg>
+              )}
+              <span className={`font-bold text-lg tracking-tight ${
+                result.verdict === "pass" ? "text-green-400" :
+                result.verdict === "flag" ? "text-yellow-400" :
+                "text-red-400"
+              }`}>
+                {result.verdict === "pass" ? "VERIFIED" : result.verdict === "flag" ? "FLAGGED" : "REJECTED"}
+              </span>
+            </div>
+            <p className="text-xs text-gray-400 leading-relaxed">{result.reasoning}</p>
+            {result.verdict === "pass" && (
+              <div className="mt-3 pt-3 border-t border-green-500/15">
+                <p className="font-semibold text-sm text-green-400">${task.bountyUsdc} USDC released</p>
+              </div>
+            )}
+            {result.verdict === "flag" && (
+              <p className="mt-2 text-xs text-yellow-400/70">Waiting for poster to review...</p>
+            )}
+            {result.verdict === "fail" && (
+              <p className="mt-2 text-xs text-red-400/70">Task reopened for new claims.</p>
+            )}
+          </div>
         )}
       </div>
 
-      <input
-        type="text"
-        placeholder="Optional note about the proof"
-        value={proofNote}
-        onChange={(e) => setProofNote(e.target.value)}
-        className="bg-gray-900 border border-gray-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-gray-600"
-      />
-
-      {submitting && (
-        <div className="flex flex-col items-center gap-3 py-4">
-          <div className="w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
-          <p className="text-sm text-gray-400 animate-pulse">AI is verifying your proof...</p>
-        </div>
-      )}
-
-      {result && (
-        <div className={`p-5 rounded-xl text-sm border animate-[fadeIn_0.3s_ease-in] ${
-          result.verdict === "pass" ? "bg-green-900/20 text-green-300 border-green-500/40" :
-          result.verdict === "flag" ? "bg-yellow-900/20 text-yellow-300 border-yellow-500/40" :
-          "bg-red-900/20 text-red-300 border-red-500/40"
-        }`}>
-          <p className="font-bold text-xl tracking-tight">
-            {result.verdict === "pass" ? "VERIFIED" : result.verdict === "flag" ? "FLAGGED" : "REJECTED"}
-          </p>
-          <p className="mt-2 text-xs opacity-80 leading-relaxed">{result.reasoning}</p>
-          {result.verdict === "pass" && (
-            <div className="mt-3 pt-3 border-t border-green-800/30">
-              <p className="font-medium text-sm">${task.bountyUsdc} USDC released to you.</p>
-            </div>
-          )}
-          {result.verdict === "flag" && (
-            <p className="mt-2 text-xs">Waiting for poster to review...</p>
-          )}
-          {result.verdict === "fail" && (
-            <p className="mt-2 text-xs">Task reopened for new claims.</p>
-          )}
-        </div>
-      )}
-
       {!result && !submitting && (
-        <button
-          onClick={handleSubmit}
-          disabled={!imageData}
-          className="bg-purple-600 text-white px-4 py-3 rounded-lg font-medium text-sm disabled:opacity-40 active:scale-[0.98] transition-transform"
-        >
-          Submit Proof
-        </button>
+        <div className="px-4 pb-8 pt-2">
+          <button
+            onClick={handleSubmit}
+            disabled={!imageData}
+            className={`w-full py-3.5 rounded-2xl font-semibold text-sm transition-all active:scale-[0.98] ${
+              imageData ? "bg-purple-600 text-white" : "bg-gray-800 text-gray-500"
+            } disabled:opacity-50`}
+          >
+            Submit for Verification
+          </button>
+        </div>
       )}
     </div>
   );
@@ -503,103 +658,155 @@ function TaskDetail({
   }, [fetchMessages]);
 
   return (
-    <div className="p-4 flex flex-col gap-4 max-w-lg mx-auto w-full">
-      <div className="flex items-center justify-between">
-        <button onClick={onBack} className="text-gray-400 text-sm">Back</button>
+    <div className="flex flex-col min-h-screen max-w-lg mx-auto w-full">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
+        <button onClick={onBack} className="flex items-center gap-1 text-sm text-gray-400 hover:text-white transition-colors">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
+          Back
+        </button>
         <StatusBadge status={currentTask.status} />
       </div>
 
-      <div>
-        <p className="font-medium">{currentTask.description}</p>
-        <div className="flex items-center gap-2 mt-1">
-          <span className="text-xs text-gray-500">{currentTask.location}</span>
-          <span className="text-xs text-gray-600">·</span>
-          <span className="text-xs text-green-400 font-medium">${currentTask.bountyUsdc} USDC</span>
-          <span className="text-xs text-gray-600">·</span>
-          <span className="text-xs text-gray-500">{timeLeft(currentTask.deadline)}</span>
+      <div className="flex-1 px-4 py-5 flex flex-col gap-4">
+        {/* Task info */}
+        <div>
+          <p className="font-semibold text-lg leading-snug">{currentTask.description}</p>
+          <div className="flex items-center gap-2 mt-2">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+              <circle cx="12" cy="10" r="3" />
+            </svg>
+            <span className="text-xs text-gray-500">{currentTask.location}</span>
+            <span className="text-[10px] text-gray-700 mx-0.5">·</span>
+            <span className="text-xs text-green-400 font-semibold">${currentTask.bountyUsdc} USDC</span>
+            <span className="text-[10px] text-gray-700 mx-0.5">·</span>
+            <span className="text-xs text-gray-500">{timeLeft(currentTask.deadline)}</span>
+          </div>
         </div>
-      </div>
 
-      {currentTask.poster && (
-        <div className="text-xs text-gray-500">
-          Posted by {shortId(currentTask.poster)}
-          {currentTask.claimant && ` · Claimed by ${shortId(currentTask.claimant)}`}
-        </div>
-      )}
-
-      {currentTask.verificationResult && (
-        <div className={`text-xs p-3 rounded-lg border ${
-          currentTask.verificationResult.verdict === "pass" ? "bg-green-900/20 text-green-300 border-green-800/30" :
-          currentTask.verificationResult.verdict === "flag" ? "bg-yellow-900/20 text-yellow-300 border-yellow-800/30" :
-          "bg-red-900/20 text-red-300 border-red-800/30"
-        }`}>
-          <span className="font-bold">{currentTask.verificationResult.verdict.toUpperCase()}</span>
-          {" — "}{currentTask.verificationResult.reasoning}
-        </div>
-      )}
-
-      {currentTask.status === "claimed" && isClaimant && !isFlagged && (
-        <button
-          onClick={onSubmitProof}
-          className="bg-purple-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium active:scale-[0.98] transition-transform"
-        >
-          Submit Proof
-        </button>
-      )}
-
-      {isFlagged && isPoster && (
-        <div className="flex gap-2">
-          <button
-            onClick={async () => {
-              const res = await fetch(`/api/tasks/${currentTask.id}/confirm`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ poster: userId, approved: true }),
-              });
-              const data = await res.json();
-              if (data.task) setCurrentTask(data.task);
-              fetchMessages();
-            }}
-            className="flex-1 bg-green-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium active:scale-[0.98] transition-transform"
-          >
-            Approve
-          </button>
-          <button
-            onClick={async () => {
-              const res = await fetch(`/api/tasks/${currentTask.id}/confirm`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ poster: userId, approved: false }),
-              });
-              const data = await res.json();
-              if (data.task) setCurrentTask(data.task);
-              fetchMessages();
-            }}
-            className="flex-1 bg-red-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium active:scale-[0.98] transition-transform"
-          >
-            Reject
-          </button>
-        </div>
-      )}
-
-      {messages.length > 0 && (
-        <div className="flex flex-col gap-2">
-          <p className="text-[10px] text-gray-500 uppercase tracking-wider">XMTP Thread</p>
-          {messages.map((msg) => (
-            <div key={msg.id} className="bg-gray-900 border border-gray-800 rounded-lg p-3">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-[10px] font-medium text-blue-400">
-                  {msg.sender === "relay-bot" ? "RELAY Bot" : shortId(msg.sender)}
-                </span>
-                <span className="text-[10px] text-gray-600">
-                  {new Date(msg.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                </span>
-              </div>
-              <p className="text-xs text-gray-300 whitespace-pre-line">{msg.text}</p>
+        {/* People */}
+        <div className="flex gap-3">
+          <div className="flex-1 bg-[#111] rounded-xl p-3 border border-white/[0.06]">
+            <p className="text-[10px] text-gray-500 uppercase tracking-wider font-medium mb-1">Poster</p>
+            <p className="text-xs font-medium">{shortId(currentTask.poster)}</p>
+          </div>
+          {currentTask.claimant && (
+            <div className="flex-1 bg-[#111] rounded-xl p-3 border border-white/[0.06]">
+              <p className="text-[10px] text-gray-500 uppercase tracking-wider font-medium mb-1">Claimant</p>
+              <p className="text-xs font-medium">{shortId(currentTask.claimant)}</p>
             </div>
-          ))}
+          )}
         </div>
-      )}
+
+        {/* Verification result */}
+        {currentTask.verificationResult && (
+          <div className={`p-4 rounded-2xl border ${
+            currentTask.verificationResult.verdict === "pass" ? "bg-green-500/8 border-green-500/20" :
+            currentTask.verificationResult.verdict === "flag" ? "bg-yellow-500/8 border-yellow-500/20" :
+            "bg-red-500/8 border-red-500/20"
+          }`}>
+            <div className="flex items-center gap-2 mb-1.5">
+              {currentTask.verificationResult.verdict === "pass" ? (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
+                </svg>
+              ) : currentTask.verificationResult.verdict === "flag" ? (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#facc15" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                  <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
+              ) : (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f87171" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" />
+                </svg>
+              )}
+              <span className={`font-bold text-sm tracking-tight ${
+                currentTask.verificationResult.verdict === "pass" ? "text-green-400" :
+                currentTask.verificationResult.verdict === "flag" ? "text-yellow-400" :
+                "text-red-400"
+              }`}>
+                {currentTask.verificationResult.verdict === "pass" ? "VERIFIED" : currentTask.verificationResult.verdict === "flag" ? "FLAGGED" : "REJECTED"}
+              </span>
+            </div>
+            <p className="text-xs text-gray-400 leading-relaxed">{currentTask.verificationResult.reasoning}</p>
+          </div>
+        )}
+
+        {/* Action buttons */}
+        {currentTask.status === "claimed" && isClaimant && !isFlagged && (
+          <button
+            onClick={onSubmitProof}
+            className="bg-purple-600 hover:bg-purple-500 text-white px-4 py-3 rounded-2xl text-sm font-semibold active:scale-[0.98] transition-all"
+          >
+            Submit Proof
+          </button>
+        )}
+
+        {isFlagged && isPoster && (
+          <div className="flex flex-col gap-2">
+            <p className="text-xs text-yellow-400/70 text-center">AI flagged this proof. Your call.</p>
+            <div className="flex gap-2">
+              <button
+                onClick={async () => {
+                  const res = await fetch(`/api/tasks/${currentTask.id}/confirm`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ poster: userId, approved: true }),
+                  });
+                  const data = await res.json();
+                  if (data.task) setCurrentTask(data.task);
+                  fetchMessages();
+                }}
+                className="flex-1 bg-green-600 hover:bg-green-500 text-white px-4 py-3 rounded-2xl text-sm font-semibold active:scale-[0.98] transition-all"
+              >
+                Approve & Pay
+              </button>
+              <button
+                onClick={async () => {
+                  const res = await fetch(`/api/tasks/${currentTask.id}/confirm`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ poster: userId, approved: false }),
+                  });
+                  const data = await res.json();
+                  if (data.task) setCurrentTask(data.task);
+                  fetchMessages();
+                }}
+                className="flex-1 bg-red-600/80 hover:bg-red-600 text-white px-4 py-3 rounded-2xl text-sm font-semibold active:scale-[0.98] transition-all"
+              >
+                Reject
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* XMTP Thread */}
+        {messages.length > 0 && (
+          <div className="flex flex-col gap-2 mt-2">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] text-gray-500 uppercase tracking-wider font-medium">Thread</span>
+              <span className="flex-1 h-px bg-white/5" />
+              <span className="text-[10px] text-gray-700">XMTP</span>
+            </div>
+            {messages.map((msg) => (
+              <div key={msg.id} className="bg-[#111] border border-white/[0.06] rounded-xl p-3">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[10px] font-semibold text-blue-400">
+                    {msg.sender === "relay-bot" ? "RELAY" : shortId(msg.sender)}
+                  </span>
+                  <span className="text-[10px] text-gray-700">
+                    {new Date(msg.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                </div>
+                <p className="text-xs text-gray-300 whitespace-pre-line leading-relaxed">{msg.text}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
