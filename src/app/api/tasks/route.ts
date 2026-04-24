@@ -7,7 +7,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { poster, description, location, lat, lng, bountyUsdc, deadlineHours } = body;
+  const { poster, category, description, location, lat, lng, bountyUsdc, deadlineHours } = body;
 
   if (!poster || !description || !location || !bountyUsdc) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -15,6 +15,7 @@ export async function POST(req: NextRequest) {
 
   const task = createTask({
     poster,
+    category: category || "custom",
     description,
     location,
     lat: lat ? Number(lat) : null,

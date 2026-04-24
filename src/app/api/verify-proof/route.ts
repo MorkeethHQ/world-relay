@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
   let result;
   try {
     result = useRealVerification
-      ? await verifyProof(task.description, proofImageBase64, proofNote)
+      ? await verifyProof(task.description, proofImageBase64, proofNote, task.category)
       : verifyProofStub(task.description, proofImageBase64);
   } catch (err) {
     console.error("AI verification error, falling back to stub:", err);

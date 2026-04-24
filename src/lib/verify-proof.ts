@@ -39,18 +39,27 @@ function detectMediaType(base64: string): "image/jpeg" | "image/png" | "image/gi
   return "image/jpeg";
 }
 
+const CATEGORY_HINTS: Record<string, string> = {
+  photo: "This is a PHOTO task. The claimant was asked to photograph something specific. Focus on whether the photo shows what was requested.",
+  delivery: "This is a DELIVERY task. Look for evidence that an item was delivered — packaging, receipt, handoff, or the item at the destination.",
+  "check-in": "This is a CHECK-IN task. The claimant was asked to confirm a status at a location. Look for signs, current conditions, or timestamps.",
+  custom: "",
+};
+
 export async function verifyProof(
   taskDescription: string,
   proofImageBase64: string,
-  proofNote?: string
+  proofNote?: string,
+  category?: string
 ): Promise<VerificationResult> {
   const anthropic = new Anthropic();
   const mediaType = detectMediaType(proofImageBase64);
+  const categoryHint = category ? CATEGORY_HINTS[category] || "" : "";
 
   const userContent = [
     {
       type: "text" as const,
-      text: `Task description: "${taskDescription}"${proofNote ? `\nClaimant's note: "${proofNote}"` : ""}\n\nVerify the following proof photo:`,
+      text: `Task description: "${taskDescription}"${categoryHint ? `\nCategory: ${categoryHint}` : ""}${proofNote ? `\nClaimant's note: "${proofNote}"` : ""}\n\nVerify the following proof photo:`,
     },
     {
       type: "image" as const,

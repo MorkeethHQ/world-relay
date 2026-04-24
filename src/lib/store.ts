@@ -1,6 +1,6 @@
-import type { Task, TaskStatus } from "./types";
+import type { Task, TaskStatus, TaskCategory } from "./types";
 import { getRedis } from "./redis";
-export type { Task, TaskStatus };
+export type { Task, TaskStatus, TaskCategory };
 
 const TASK_PREFIX = "task:";
 const TASK_LIST_KEY = "task_ids";
@@ -47,6 +47,7 @@ async function hydrateCache(): Promise<void> {
 
 export function createTask(input: {
   poster: string;
+  category?: TaskCategory;
   description: string;
   location: string;
   lat?: number | null;
@@ -59,6 +60,7 @@ export function createTask(input: {
     id,
     poster: input.poster,
     claimant: null,
+    category: input.category || "custom",
     description: input.description,
     location: input.location,
     lat: input.lat ?? null,

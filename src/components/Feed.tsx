@@ -1,9 +1,12 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import dynamic from "next/dynamic";
 import { MiniKit } from "@worldcoin/minikit-js";
 import type { Task } from "@/lib/types";
 import { encodeCreateTask, encodeClaimTask, encodeReleasePayment, encodeUniswapSwap, RELAY_ESCROW_ADDRESS, type SwapToken } from "@/lib/contracts";
+
+const TaskMap = dynamic(() => import("./TaskMap").then((m) => m.TaskMap), { ssr: false });
 
 function timeLeft(deadline: string): string {
   const ms = new Date(deadline).getTime() - Date.now();
@@ -44,6 +47,13 @@ function formatDistance(km: number): string {
   return `${Math.round(km)}km away`;
 }
 
+const CATEGORY_ICONS: Record<string, string> = {
+  photo: "📸",
+  delivery: "📦",
+  "check-in": "📍",
+  custom: "✏️",
+};
+
 function useUserLocation() {
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   useEffect(() => {
@@ -64,6 +74,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
   const [view, setView] = useState<"board" | "post" | "proof" | "detail">("board");
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [tab, setTab] = useState<Tab>("available");
+  const [mapMode, setMapMode] = useState(false);
   const userLocation = useUserLocation();
 
   const fetchTasks = useCallback(async () => {
@@ -112,6 +123,10 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
   });
 
   const myTaskCount = tasks.filter(t => t.poster === userId || t.claimant === userId).length;
+  const completedByClaiming = tasks.filter(t => t.claimant === userId && t.status === "completed");
+  const totalEarned = completedByClaiming.reduce((sum, t) => sum + t.bountyUsdc, 0);
+  const totalPosted = tasks.filter(t => t.poster === userId).length;
+  const totalClaimed = tasks.filter(t => t.claimant === userId).length;
 
   return (
     <div className="flex flex-col gap-0 max-w-lg mx-auto w-full min-h-screen">
@@ -139,17 +154,28 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
             </div>
           </div>
           {userId && (
-            <button
-              onClick={() => setView("post")}
-              className="bg-white text-black h-9 px-4 rounded-full font-semibold text-xs active:scale-95 transition-all shadow-[0_0_12px_rgba(255,255,255,0.08)]"
-            >
-              + Request
-            </button>
+            <div className="flex items-center gap-2">
+              <a
+                href="/agents"
+                className="h-9 px-3 rounded-full font-semibold text-[11px] border border-white/10 text-gray-400 hover:text-white hover:border-white/20 transition-all flex items-center gap-1.5"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 9h18" /><path d="M9 21V9" />
+                </svg>
+                API
+              </a>
+              <button
+                onClick={() => setView("post")}
+                className="bg-white text-black h-9 px-4 rounded-full font-semibold text-xs active:scale-95 transition-all shadow-[0_0_12px_rgba(255,255,255,0.08)]"
+              >
+                + Request
+              </button>
+            </div>
           )}
         </div>
 
         {/* Tabs */}
-        <div className="flex px-4 gap-0">
+        <div className="flex px-4 gap-0 items-center">
           {(["available", "mine", "completed"] as Tab[]).map((t) => {
             const label = t === "available" ? "Nearby" : t === "mine" ? "Yours" : "Done";
             const count = t === "mine" ? myTaskCount : null;
@@ -171,12 +197,61 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
               </button>
             );
           })}
+          {tab === "available" && (
+            <button
+              onClick={() => setMapMode(!mapMode)}
+              className={`ml-1 p-2 rounded-lg transition-all ${mapMode ? "bg-white/10 text-white" : "text-gray-500 hover:text-gray-300"}`}
+            >
+              {mapMode ? (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" /><line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" /></svg>
+              ) : (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6" /><line x1="8" y1="2" x2="8" y2="18" /><line x1="16" y1="6" x2="16" y2="22" /></svg>
+              )}
+            </button>
+          )}
         </div>
       </div>
 
       {/* Content */}
       <div className="flex-1 px-4 py-3">
-        {filtered.length === 0 ? (
+        {/* Earnings dashboard for "Yours" tab */}
+        {tab === "mine" && (
+          <div className="mb-4 bg-gradient-to-r from-green-500/5 to-blue-500/5 border border-white/[0.06] rounded-2xl p-4">
+            <div className="grid grid-cols-3 gap-3 text-center">
+              <div>
+                <p className="text-xl font-bold text-green-400">${totalEarned.toFixed(2)}</p>
+                <p className="text-[10px] text-gray-500 mt-0.5">USDC Earned</p>
+              </div>
+              <div>
+                <p className="text-xl font-bold text-white">{completedByClaiming.length}</p>
+                <p className="text-[10px] text-gray-500 mt-0.5">Completed</p>
+              </div>
+              <div>
+                <p className="text-xl font-bold text-blue-400">{totalPosted}</p>
+                <p className="text-[10px] text-gray-500 mt-0.5">Posted</p>
+              </div>
+            </div>
+            {completedByClaiming.length > 0 && (
+              <div className="mt-3 pt-3 border-t border-white/[0.04]">
+                <p className="text-[10px] text-gray-600 text-center">
+                  {totalClaimed} tasks claimed · {completedByClaiming.length} verified by AI · settled on World Chain
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Map view */}
+        {mapMode && tab === "available" ? (
+          <TaskMap
+            tasks={tasks.filter(t => t.status === "open")}
+            userLocation={userLocation}
+            onSelectTask={(task) => {
+              setSelectedTask(task);
+              setView("detail");
+            }}
+          />
+        ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 gap-3">
             <div className="w-12 h-12 rounded-full bg-gray-900 flex items-center justify-center">
               {tab === "available" ? (
@@ -379,7 +454,10 @@ function TaskCard({
     >
       <div className="flex justify-between items-start gap-3">
         <div className="flex-1 min-w-0">
-          <p className="font-medium text-[15px] leading-snug">{task.description}</p>
+          <div className="flex items-center gap-1.5">
+            <span className="text-sm">{CATEGORY_ICONS[task.category] || "✏️"}</span>
+            <p className="font-medium text-[15px] leading-snug">{task.description}</p>
+          </div>
           <div className="flex items-center gap-1.5 mt-1.5">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
@@ -495,6 +573,7 @@ function PostTask({
   onDone: () => void;
   onCancel: () => void;
 }) {
+  const [category, setCategory] = useState<"photo" | "delivery" | "check-in" | "custom">("photo");
   const [description, setDescription] = useState("");
   const [location, setLocation] = useState("");
   const [bounty, setBounty] = useState("");
@@ -530,6 +609,7 @@ function PostTask({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         poster: userId,
+        category,
         description,
         location,
         lat: coords?.lat || null,
@@ -553,6 +633,32 @@ function PostTask({
       </div>
 
       <div className="flex-1 px-4 py-5 flex flex-col gap-5">
+        {/* Category picker */}
+        <div>
+          <label className="text-[11px] text-gray-500 uppercase tracking-wider font-medium block mb-2">Category</label>
+          <div className="flex gap-2">
+            {([
+              { key: "photo" as const, icon: "📸", label: "Photo" },
+              { key: "delivery" as const, icon: "📦", label: "Delivery" },
+              { key: "check-in" as const, icon: "📍", label: "Check-in" },
+              { key: "custom" as const, icon: "✏️", label: "Custom" },
+            ]).map((c) => (
+              <button
+                key={c.key}
+                onClick={() => setCategory(c.key)}
+                className={`flex-1 flex flex-col items-center gap-1 py-2.5 rounded-xl text-xs font-medium transition-all ${
+                  category === c.key
+                    ? "bg-white text-black"
+                    : "bg-[#111] text-gray-400 border border-white/[0.06]"
+                }`}
+              >
+                <span className="text-base">{c.icon}</span>
+                {c.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div>
           <label className="text-[11px] text-gray-500 uppercase tracking-wider font-medium block mb-2">What do you need?</label>
           <textarea

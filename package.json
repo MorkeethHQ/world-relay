@@ -16,13 +16,16 @@
     "@worldcoin/minikit-js": "^2.0.3",
     "@xmtp/browser-sdk": "^5.1.0",
     "@xmtp/node-sdk": "^4.4.0",
+    "leaflet": "^1.9.4",
     "next": "16.2.4",
     "react": "19.2.4",
     "react-dom": "19.2.4",
+    "react-leaflet": "^5.0.0",
     "viem": "^2.48.4"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/leaflet": "^1.9.21",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
