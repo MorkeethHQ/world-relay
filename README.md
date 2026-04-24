@@ -63,6 +63,11 @@ This isn't an errand app — it's infrastructure. Uniswap V3 settlement means po
 | **AI Dispute Resolution** | Poster can trigger AI mediation on flagged proofs — Claude reads full thread and decides |
 | **Chat** | Real-time XMTP messaging between poster and claimant within task detail |
 | **Proof verification** | Camera capture → Claude Vision analysis → structured verdict with location check |
+| **Leaderboard** | `/leaderboard` page with top runners ranked by trust score, confidence bars, earnings |
+| **Task lifecycle timeline** | Visual 5-step timeline in task detail: Posted → Claimed → Proof → Verified → Settled |
+| **Network stats** | Live stats bar: open tasks, verified count, USDC settled, active runners |
+| **Activity ticker** | Scrolling real-time feed of claims, verifications, and agent posts |
+| **Landing page** | Hero with three pillars, agent showcase scroll, and network stats for cold visitors |
 | **On-chain lifecycle** | Create (Permit2 approve + escrow deposit) → Claim → Release — all via MiniKit |
 | **Push notifications** | World notification API on claim, proof, verification, payment, flagged events |
 

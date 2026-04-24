@@ -68,6 +68,54 @@ function useUserLocation() {
   return coords;
 }
 
+function ActivityTicker({ tasks }: { tasks: Task[] }) {
+  const events: { icon: string; text: string; color: string; time: string }[] = [];
+
+  const sorted = [...tasks].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  for (const t of sorted.slice(0, 20)) {
+    if (t.status === "completed" && t.verificationResult) {
+      events.push({
+        icon: "✅",
+        text: `${t.agent ? t.agent.name : shortId(t.poster)} task verified${t.verificationResult.confidence ? ` · ${Math.round(t.verificationResult.confidence * 100)}%` : ""}`,
+        color: "text-green-400/70",
+        time: timeAgo(t.createdAt),
+      });
+    }
+    if (t.claimant) {
+      events.push({
+        icon: "⚡",
+        text: `${shortId(t.claimant)} claimed ${t.agent ? t.agent.name : ""} task · $${t.bountyUsdc}`,
+        color: "text-blue-400/70",
+        time: timeAgo(t.createdAt),
+      });
+    }
+    if (t.agent && t.status === "open") {
+      events.push({
+        icon: t.agent.icon,
+        text: `${t.agent.name} posted · ${t.location}`,
+        color: "text-gray-400",
+        time: timeAgo(t.createdAt),
+      });
+    }
+  }
+
+  if (events.length === 0) return null;
+
+  return (
+    <div className="overflow-hidden px-4 py-2">
+      <div className="flex gap-6 animate-[ticker_30s_linear_infinite] w-max">
+        {[...events, ...events].map((ev, i) => (
+          <span key={i} className={`text-[10px] whitespace-nowrap flex items-center gap-1.5 ${ev.color}`}>
+            <span>{ev.icon}</span>
+            {ev.text}
+            <span className="text-gray-700">{ev.time}</span>
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 type Tab = "available" | "mine" | "completed";
 
 export function Feed({ userId, verificationLevel, onLogout }: { userId: string | null; verificationLevel?: string | null; onLogout?: () => void }) {
@@ -157,6 +205,14 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
           {userId && (
             <div className="flex items-center gap-2">
               <a
+                href="/leaderboard"
+                className="h-9 px-2.5 rounded-full font-semibold text-[11px] border border-white/10 text-gray-400 hover:text-white hover:border-white/20 transition-all flex items-center gap-1"
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                </svg>
+              </a>
+              <a
                 href="/agents"
                 className="h-9 px-3 rounded-full font-semibold text-[11px] border border-white/10 text-gray-400 hover:text-white hover:border-white/20 transition-all flex items-center gap-1.5"
               >
@@ -212,6 +268,28 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
           )}
         </div>
       </div>
+
+      {/* Stats bar */}
+      {tab === "available" && tasks.length > 0 && !mapMode && (
+        <div className="px-4 pt-3 pb-0">
+          <div className="flex items-center justify-between text-[10px] text-gray-500">
+            <span>{tasks.filter(t => t.status === "open").length} open</span>
+            <span className="text-gray-700">·</span>
+            <span>{tasks.filter(t => t.status === "completed").length} verified</span>
+            <span className="text-gray-700">·</span>
+            <span className="text-green-500/70 font-medium">
+              ${tasks.filter(t => t.status === "completed").reduce((s, t) => s + t.bountyUsdc, 0).toFixed(0)} USDC settled
+            </span>
+            <span className="text-gray-700">·</span>
+            <span>{new Set(tasks.filter(t => t.claimant).map(t => t.claimant)).size} runners</span>
+          </div>
+        </div>
+      )}
+
+      {/* Activity ticker */}
+      {tab === "available" && tasks.length > 3 && !mapMode && (
+        <ActivityTicker tasks={tasks} />
+      )}
 
       {/* Content */}
       <div className="flex-1 px-4 py-3">
@@ -1102,6 +1180,105 @@ function SubmitProof({
   );
 }
 
+function TaskTimeline({ task }: { task: Task }) {
+  const steps = [
+    {
+      label: "Posted",
+      time: task.createdAt,
+      done: true,
+      icon: (
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+        </svg>
+      ),
+    },
+    {
+      label: "Claimed",
+      time: task.claimant ? task.createdAt : null,
+      done: !!task.claimant,
+      icon: (
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="8.5" cy="7" r="4" />
+        </svg>
+      ),
+    },
+    {
+      label: "Proof",
+      time: task.proofImageUrl ? task.createdAt : null,
+      done: !!task.proofImageUrl,
+      icon: (
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" /><circle cx="12" cy="13" r="4" />
+        </svg>
+      ),
+    },
+    {
+      label: task.verificationResult?.verdict === "pass" ? "Verified" : task.verificationResult?.verdict === "flag" ? "Flagged" : task.verificationResult ? "Rejected" : "AI Review",
+      time: task.verificationResult ? task.createdAt : null,
+      done: !!task.verificationResult,
+      icon: (
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 2a4 4 0 0 0-4 4v2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10a2 2 0 0 0-2-2h-2V6a4 4 0 0 0-4-4z" />
+        </svg>
+      ),
+    },
+    {
+      label: "Settled",
+      time: task.status === "completed" ? task.createdAt : null,
+      done: task.status === "completed",
+      icon: (
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
+        </svg>
+      ),
+    },
+  ];
+
+  const currentStepIndex = steps.findIndex(s => !s.done);
+  const activeIndex = currentStepIndex === -1 ? steps.length - 1 : currentStepIndex;
+
+  return (
+    <div className="bg-[#111] border border-white/[0.06] rounded-2xl p-4">
+      <div className="flex items-center justify-between">
+        {steps.map((step, i) => {
+          const isActive = i === activeIndex && !step.done;
+          const isDone = step.done;
+          const isFlagged = step.label === "Flagged";
+          const isRejected = step.label === "Rejected";
+          return (
+            <div key={step.label} className="flex items-center flex-1 last:flex-none">
+              <div className="flex flex-col items-center gap-1.5">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${
+                  isDone
+                    ? isFlagged ? "bg-yellow-500/20 text-yellow-400" :
+                      isRejected ? "bg-red-500/20 text-red-400" :
+                      "bg-green-500/20 text-green-400"
+                    : isActive
+                    ? "bg-blue-500/20 text-blue-400 animate-[pulse-dot_2s_ease-in-out_infinite]"
+                    : "bg-white/5 text-gray-600"
+                }`}>
+                  {step.icon}
+                </div>
+                <span className={`text-[9px] font-medium ${
+                  isDone ? isFlagged ? "text-yellow-400" : isRejected ? "text-red-400" : "text-green-400"
+                  : isActive ? "text-blue-400" : "text-gray-600"
+                }`}>
+                  {step.label}
+                </span>
+              </div>
+              {i < steps.length - 1 && (
+                <div className={`flex-1 h-px mx-1.5 ${
+                  i < activeIndex ? "bg-green-500/30" : "bg-white/5"
+                }`} />
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 type ThreadMessage = {
   id: string;
   sender: string;
@@ -1200,6 +1377,9 @@ function TaskDetail({
             <span className="text-xs text-gray-500">{timeLeft(currentTask.deadline)}</span>
           </div>
         </div>
+
+        {/* Lifecycle timeline */}
+        <TaskTimeline task={currentTask} />
 
         {/* Agent info or People */}
         {currentTask.agent ? (
