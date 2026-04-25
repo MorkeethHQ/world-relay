@@ -1183,7 +1183,7 @@ export default function TaskDetailPage() {
                   </svg>
                 </div>
                 <p className="text-xs font-semibold text-white">
-                  On-Chain Settlement
+                  Payment Record
                 </p>
               </div>
               {task.status === "completed" && (

@@ -447,8 +447,8 @@ export default function DemoPage() {
                   Claiming task...
                 </p>
                 <p className="text-[8px] text-amber-200/50">
-                  Runner proves they are a unique human via World ID, then
-                  receives a personalized AI briefing with tips.
+                  You prove you&apos;re a real person with World ID, then
+                  get a briefing with tips for this specific task.
                 </p>
               </div>
 
@@ -597,7 +597,7 @@ export default function DemoPage() {
                     &ldquo;{task.aiFollowUp.question}&rdquo;
                   </p>
                   <p className="text-[7px] text-amber-300/30 mt-1">
-                    Multi-turn verification for higher confidence
+                    Asking for more info before making a final decision
                   </p>
                 </div>
               ) : (
@@ -631,7 +631,7 @@ export default function DemoPage() {
                   <span className="text-[8px]">{"\u{1F4B0}"}</span>
                 </div>
                 <span className="text-[10px] font-bold text-gray-400">
-                  Settlement
+                  Payment
                 </span>
               </div>
             </div>
@@ -639,7 +639,7 @@ export default function DemoPage() {
               {/* On-chain TX */}
               <div className="bg-[#111] rounded-lg border border-white/[0.06] p-2.5">
                 <p className="text-[8px] text-gray-500 uppercase tracking-wider font-medium mb-1.5">
-                  On-Chain Settlement
+                  Payment Details
                 </p>
                 <div className="space-y-1">
                   <div className="flex justify-between">
@@ -728,8 +728,8 @@ export default function DemoPage() {
                 Step 1 of 5
               </p>
               <p className="text-xs text-gray-300 leading-relaxed">
-                An AI agent (<span className="text-blue-400 font-medium">QueueWatch</span>) posts a queue-monitoring task at the
-                Louvre with a $0.50 USDC bounty via the agent API.
+                An AI agent (<span className="text-blue-400 font-medium">QueueWatch</span>) needs to know how long the
+                Louvre queue is. It posts a $0.50 task for someone nearby to check.
               </p>
             </div>
             <button
@@ -757,8 +757,8 @@ export default function DemoPage() {
                 Step 2 of 5
               </p>
               <p className="text-xs text-gray-300 leading-relaxed">
-                A <span className="text-[#00C853] font-medium">World ID-verified</span> human claims the task. The AI generates a
-                personalized briefing with tips for getting the proof verified.
+                A <span className="text-[#00C853] font-medium">verified person</span> nearby claims the task. They get a
+                briefing with tips on what to photograph.
               </p>
             </div>
             <button
@@ -769,7 +769,7 @@ export default function DemoPage() {
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
                   <span className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
-                  Claiming + AI briefing...
+                  Claiming task...
                 </span>
               ) : (
                 "Claim Task as Verified Human"
@@ -786,7 +786,7 @@ export default function DemoPage() {
                 Step 3 of 5
               </p>
               <p className="text-xs text-gray-300 leading-relaxed">
-                Upload a photo as proof. The verification system analyzes it via vision and may ask a follow-up question for higher confidence.
+                Upload a photo as proof. The system checks it automatically and may ask a follow-up question if anything is unclear.
               </p>
             </div>
 
@@ -844,7 +844,7 @@ export default function DemoPage() {
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
                   <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Uploading + AI analyzing...
+                  Submitting proof...
                 </span>
               ) : (
                 "Submit Proof Photo"
@@ -861,7 +861,7 @@ export default function DemoPage() {
                 Step 4 of 5
               </p>
               <p className="text-xs text-gray-300 leading-relaxed">
-                The proof photo is analyzed for location, content, and task requirements. A follow-up question may be asked for higher confidence.
+                The photo is checked against the task requirements. If the result is borderline, a follow-up question appears in the chat.
               </p>
             </div>
 
@@ -926,8 +926,8 @@ export default function DemoPage() {
                 Step 5 of 5
               </p>
               <p className="text-xs text-gray-300 leading-relaxed">
-                USDC is released on-chain to the runner. The full lifecycle is recorded in a
-                <span className="text-cyan-400 font-medium"> World Chat</span> thread: task posted, claimed, verified, paid.
+                Payment is released automatically. The full history is recorded in an
+                encrypted <span className="text-cyan-400 font-medium">chat thread</span>: task posted, claimed, verified, paid.
               </p>
             </div>
 
