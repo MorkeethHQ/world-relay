@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import type { Task, VerificationResult, AiFollowUp } from "@/lib/types";
 import { VerificationBadge, RequiredTierBadge } from "@/components/VerificationBadge";
 import { Button as WorldButton, Chip as WorldChip } from "@worldcoin/mini-apps-ui-kit-react";
+import { hapticTap, hapticSuccess, shareTask } from "@/lib/minikit-helpers";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -696,7 +697,7 @@ function AgentCard({ agent, personality }: { agent: { id: string; name: string; 
           Posted by Agent
         </p>
         <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-400 border border-indigo-500/20">
-          AI-posted bounty
+          Task reward
         </span>
       </div>
       <div className="flex items-center gap-3">
@@ -980,7 +981,28 @@ export default function TaskDetailPage() {
           <h1 className="text-sm font-bold tracking-tight flex items-center gap-1.5">
             <span>{categoryIcon}</span> Task Detail
           </h1>
-          <div className="w-16" />
+          <button
+            onClick={() => {
+              hapticTap();
+              shareTask({
+                taskDescription: task.description,
+                bountyUsdc: task.bountyUsdc,
+                verdict: task.verificationResult?.verdict,
+                taskId: task.id,
+              });
+            }}
+            className="flex items-center gap-1.5 text-gray-400 hover:text-white transition-colors py-1 px-2 -mr-2 rounded-lg hover:bg-white/[0.04]"
+            aria-label="Share task"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="18" cy="5" r="3" />
+              <circle cx="6" cy="12" r="3" />
+              <circle cx="18" cy="19" r="3" />
+              <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+              <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+            </svg>
+            <span className="text-sm font-medium">Share</span>
+          </button>
         </div>
       </div>
 
@@ -1007,6 +1029,29 @@ export default function TaskDetailPage() {
             </div>
             <span className="text-[10px] text-gray-600 font-mono">{task.id.slice(0, 16)}</span>
           </div>
+          {task.status === "completed" && task.verificationResult?.verdict === "pass" && (
+            <button
+              onClick={() => {
+                hapticTap();
+                shareTask({
+                  taskDescription: task.description,
+                  bountyUsdc: task.bountyUsdc,
+                  verdict: "pass",
+                  taskId: task.id,
+                });
+              }}
+              className="mt-3 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-green-500/20 bg-green-500/5 hover:bg-green-500/10 transition-all text-sm text-green-400 active:scale-[0.98]"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="18" cy="5" r="3" />
+                <circle cx="6" cy="12" r="3" />
+                <circle cx="18" cy="19" r="3" />
+                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+                <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+              </svg>
+              Share Verified Completion
+            </button>
+          )}
         </div>
 
         {/* Restricted badge */}
@@ -1166,7 +1211,7 @@ export default function TaskDetailPage() {
           onSend={sendMessage}
         />
 
-        {/* ===== ON-CHAIN SETTLEMENT ===== */}
+        {/* ===== PAYMENT RECORD ===== */}
         {(task.escrowTxHash || task.attestationTxHash || task.onChainId !== null) && (
           <div className="bg-[#111] border border-white/[0.06] rounded-2xl p-4">
             <div className="flex items-center justify-between mb-4">
@@ -1183,7 +1228,7 @@ export default function TaskDetailPage() {
               </div>
               {task.status === "completed" && (
                 <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">
-                  Settled on World Chain
+                  Paid on World Chain
                 </span>
               )}
             </div>
@@ -1195,10 +1240,10 @@ export default function TaskDetailPage() {
                 <p className="text-sm text-green-400 font-bold">${task.bountyUsdc} USDC</p>
               </div>
 
-              {/* Escrow TX */}
+              {/* Payment TX */}
               {task.escrowTxHash && (
                 <OnChainLink
-                  label="Escrow Transaction"
+                  label="Payment Transaction"
                   value={`${task.escrowTxHash.slice(0, 10)}...${task.escrowTxHash.slice(-8)}`}
                   href={`${WORLDSCAN_TX}/${task.escrowTxHash}`}
                   mono
@@ -1207,7 +1252,7 @@ export default function TaskDetailPage() {
 
               {/* Contract address */}
               <OnChainLink
-                label="Escrow Contract"
+                label="Payment Contract"
                 value={`${ESCROW_ADDRESS.slice(0, 10)}...${ESCROW_ADDRESS.slice(-8)}`}
                 href={`${WORLDSCAN_ADDR}/${ESCROW_ADDRESS}`}
                 mono

@@ -6,6 +6,7 @@ import { MiniKit } from "@worldcoin/minikit-js";
 import type { Task, AgentInfo } from "@/lib/types";
 import { VerificationBadge, RequiredTierBadge } from "@/components/VerificationBadge";
 import { encodeCreateTask, encodeClaimTask, encodeReleasePayment, encodeUniswapSwap, readTaskCount, RELAY_ESCROW_ADDRESS, type SwapToken } from "@/lib/contracts";
+import { hapticSuccess, hapticError, hapticTap, hapticHeavy, hapticMedium, hapticSelection, shareTask } from "@/lib/minikit-helpers";
 import { TASK_TEMPLATES } from "@/lib/agents";
 import { Button as WorldButton, Chip as WorldChip, LiveFeedback } from "@worldcoin/mini-apps-ui-kit-react";
 
@@ -469,7 +470,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
           {userId && (
             <div className="flex items-center gap-2 mt-0.5">
               <WorldButton
-                onClick={() => setView("post")}
+                onClick={() => { hapticTap(); setView("post"); }}
                 variant="primary"
                 size="sm"
                 className="shrink-0"
@@ -488,7 +489,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
             return (
               <button
                 key={t}
-                onClick={() => setTab(t)}
+                onClick={() => { hapticSelection(); setTab(t); }}
                 className={`flex-1 text-xs min-h-[44px] py-2.5 font-medium transition-all relative flex items-center justify-center ${
                   tab === t ? "text-white" : "text-gray-500"
                 }`}
@@ -842,7 +843,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
                   Load demo tasks
                 </button>
                 <button
-                  onClick={() => setView("post")}
+                  onClick={() => { hapticTap(); setView("post"); }}
                   className="text-xs text-white/60 underline underline-offset-2 hover:text-white/80 transition-colors min-h-[44px]"
                 >
                   Or post your own
@@ -986,6 +987,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
                     setView("detail");
                   }}
                   onClaim={async () => {
+                    hapticTap();
                     let claimCode: string | undefined;
                     if (task.claimCode) {
                       const code = prompt("This task requires an access code to claim:");
@@ -1003,6 +1005,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
                           try {
                             const txResult = await MiniKit.sendTransaction(txPayload);
                             if (!txResult) {
+                              hapticError();
                               setClaimTxError({ message: "On-chain claim failed. Please try again.", taskId: task.id, retry: attemptClaim });
                               return;
                             }
@@ -1010,10 +1013,12 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
                               ? String((txResult as Record<string, unknown>).transactionHash)
                               : null;
                             if (hash) {
+                              hapticSuccess();
                               setClaimTxSuccess({ hash, taskId: task.id });
                               setTimeout(() => setClaimTxSuccess(null), 6000);
                             }
                           } catch (err) {
+                            hapticError();
                             setClaimTxError({ message: "Transaction rejected by wallet.", taskId: task.id, retry: attemptClaim });
                             return;
                           }
@@ -1027,14 +1032,17 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
                       if (!res.ok) {
                         const err = await res.json();
                         if (err.requiresCode) {
+                          hapticError();
                           setClaimTxError({ message: "Wrong access code. Try again.", taskId: task.id, retry: attemptClaim });
                           return;
                         }
                         if (err.required) {
+                          hapticError();
                           setUpgradePrompt({ required: err.required, current: err.current });
                           return;
                         }
                       }
+                      hapticSuccess();
                       fetchTasks();
                     };
 
@@ -1414,6 +1422,31 @@ function TaskCard({
           Submit Proof
         </WorldButton>
       )}
+
+      {task.status === "completed" && task.verificationResult?.verdict === "pass" && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            hapticTap();
+            shareTask({
+              taskDescription: task.description,
+              bountyUsdc: task.bountyUsdc,
+              verdict: task.verificationResult?.verdict,
+              taskId: task.id,
+            });
+          }}
+          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06] transition-all text-sm text-gray-400 hover:text-white active:scale-[0.98] min-h-[44px]"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="18" cy="5" r="3" />
+            <circle cx="6" cy="12" r="3" />
+            <circle cx="18" cy="19" r="3" />
+            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+          </svg>
+          Share Completion
+        </button>
+      )}
     </div>
   );
 }
@@ -1531,6 +1564,7 @@ function PostTask({
           const countBefore = await readTaskCount();
           const txResult = await MiniKit.sendTransaction(txPayload);
           if (!txResult) {
+            hapticError();
             alert("Escrow deposit failed. Task not created.");
             setSubmitting(false);
             return;
@@ -1540,9 +1574,11 @@ function PostTask({
             ? String((txResult as Record<string, unknown>).transactionHash)
             : null;
           if (escrowTxHash) {
+            hapticSuccess();
             setEscrowSuccess(escrowTxHash);
           }
         } catch (err) {
+          hapticError();
           alert("Escrow transaction rejected. USDC deposit required to post a task.");
           setSubmitting(false);
           return;
@@ -1826,6 +1862,7 @@ function SubmitProof({
 
   const handleSubmit = async () => {
     if (images.length === 0) return;
+    hapticMedium();
     setSubmitting(true);
 
     const proofImages = images.map((img) => img.base64);
@@ -1852,7 +1889,12 @@ function SubmitProof({
     setSubmitting(false);
 
     if (data.verification.verdict === "pass") {
+      hapticSuccess();
       setTimeout(onDone, 2500);
+    } else if (data.verification.verdict === "fail") {
+      hapticError();
+    } else {
+      hapticSelection();
     }
   };
 
@@ -2093,8 +2135,29 @@ function SubmitProof({
               </div>
             )}
             {result.verdict === "pass" && (
-              <div className="mt-3 pt-3 border-t border-green-500/15">
+              <div className="mt-3 pt-3 border-t border-green-500/15 flex flex-col gap-2">
                 <p className="font-semibold text-sm text-green-400">${task.bountyUsdc} USDC released</p>
+                <button
+                  onClick={() => {
+                    hapticTap();
+                    shareTask({
+                      taskDescription: task.description,
+                      bountyUsdc: task.bountyUsdc,
+                      verdict: "pass",
+                      taskId: task.id,
+                    });
+                  }}
+                  className="flex items-center justify-center gap-2 py-2 rounded-xl border border-green-500/20 bg-green-500/5 hover:bg-green-500/10 transition-all text-xs text-green-400 active:scale-[0.98]"
+                >
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="18" cy="5" r="3" />
+                    <circle cx="6" cy="12" r="3" />
+                    <circle cx="18" cy="19" r="3" />
+                    <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+                    <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+                  </svg>
+                  Share your verified completion
+                </button>
               </div>
             )}
             {result.verdict === "flag" && (

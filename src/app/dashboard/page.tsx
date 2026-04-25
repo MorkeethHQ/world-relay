@@ -408,7 +408,7 @@ export default function DashboardPage() {
                 {totalVerified === 0 ? (
                   <div className="text-center py-6">
                     <WorldTypography variant="body" level={3} className="!text-gray-500">
-                      No verified claimants yet
+                      No verified runners yet
                     </WorldTypography>
                   </div>
                 ) : (
@@ -433,7 +433,7 @@ export default function DashboardPage() {
                     <div>
                       <div className="flex items-center justify-between mb-1.5">
                         <span className="text-[10px] text-gray-500">Verification distribution</span>
-                        <span className="text-[10px] text-gray-600 font-medium">{totalVerified} claimants</span>
+                        <span className="text-[10px] text-gray-600 font-medium">{totalVerified} runners</span>
                       </div>
                       <div className="h-3 bg-white/[0.04] rounded-full overflow-hidden flex">
                         {orbCount > 0 && (

@@ -912,7 +912,7 @@ export default function DemoPage() {
                 onClick={() => setStep(5)}
                 className="w-full py-3 min-h-[48px] rounded-xl text-sm font-semibold bg-green-500 text-black active:scale-[0.98] transition-all"
               >
-                Continue to Settlement
+                Continue to Payment
               </button>
             )}
           </div>
@@ -993,12 +993,15 @@ export default function DemoPage() {
               >
                 Try it yourself
               </Link>
-              <Link
-                href="/task/completed-louvre-queue"
+              <button
+                onClick={() => {
+                  /* show completed task inline — no navigation */
+                  alert("Task completed! $0.50 USDC released to runner.");
+                }}
                 className="text-center py-3 min-h-[48px] flex items-center justify-center rounded-xl text-xs font-semibold bg-[#111] border border-white/[0.06] text-gray-300 hover:text-white active:scale-[0.98] transition-all"
               >
                 View example
-              </Link>
+              </button>
             </div>
 
             <div className="grid grid-cols-2 gap-1.5">

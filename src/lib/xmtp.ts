@@ -245,13 +245,13 @@ export async function postSettlementConfirmation(
   txHash?: string
 ): Promise<void> {
   await postToThread(taskId, [
-    `🔗 ON-CHAIN SETTLEMENT CONFIRMED`,
+    `🔗 PAYMENT CONFIRMED`,
     `━━━━━━━━━━━━━━━━━━`,
     `$${bountyUsdc} USDC released on World Chain`,
     ...(txHash ? [`Tx: ${txHash}`] : []),
     ``,
     `Task complete. Both parties verified human via World ID.`,
-    `Proof verified by AI. Settlement on-chain. Chat via XMTP.`,
+    `Proof verified by AI. Payment on-chain. Chat via XMTP.`,
   ].join("\n"));
 }
 
