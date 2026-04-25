@@ -483,7 +483,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
         {/* Tabs */}
         <div className="flex px-4 gap-0 items-center">
           {(["available", "mine", "completed"] as Tab[]).map((t) => {
-            const label = t === "available" ? "Nearby" : t === "mine" ? "Yours" : "Done";
+            const label = t === "available" ? "Find Tasks" : t === "mine" ? "My Tasks" : "History";
             const count = t === "mine" ? myTaskCount : null;
             return (
               <button
@@ -666,11 +666,6 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
             <span>{new Set(tasks.filter(t => t.claimant).map(t => t.claimant)).size} runners</span>
           </div>
         </div>
-      )}
-
-      {/* Activity ticker */}
-      {tab === "available" && tasks.length > 3 && !mapMode && (
-        <ActivityTicker tasks={tasks} />
       )}
 
       {/* Content */}

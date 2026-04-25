@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 const TABS = [
   {
     href: "/",
-    label: "Home",
+    label: "Tasks",
     icon: (active: boolean) => (
       <svg width="22" height="22" viewBox="0 0 24 24" fill={active ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
@@ -16,7 +16,7 @@ const TABS = [
   },
   {
     href: "/demo",
-    label: "Demo",
+    label: "How It Works",
     icon: (active: boolean) => (
       <svg width="22" height="22" viewBox="0 0 24 24" fill={active ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <polygon points="5 3 19 12 5 21 5 3" />
@@ -31,25 +31,6 @@ const TABS = [
         <rect x="3" y="12" width="4" height="9" rx="1" fill={active ? "currentColor" : "none"} />
         <rect x="10" y="7" width="4" height="14" rx="1" fill={active ? "currentColor" : "none"} />
         <rect x="17" y="3" width="4" height="18" rx="1" fill={active ? "currentColor" : "none"} />
-      </svg>
-    ),
-  },
-  {
-    href: "/xmtp",
-    label: "Chat",
-    icon: (active: boolean) => (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill={active ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-      </svg>
-    ),
-  },
-  {
-    href: "/map",
-    label: "Map",
-    icon: (active: boolean) => (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill={active ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-        <circle cx="12" cy="10" r="3" fill={active ? "none" : "none"} stroke="currentColor" />
       </svg>
     ),
   },
