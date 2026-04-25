@@ -287,6 +287,12 @@ export const COMPLETED_TASK_EXAMPLES = [
       confidence: 0.94,
       reasoning:
         "Photo clearly shows the Louvre Pyramid entrance queue from behind. Approximately 35-40 people visible in a serpentine line. Estimated wait time: 20-25 minutes. Photo timestamp and lighting are consistent with current conditions. Queue formation and barriers match the known layout.",
+      consensusMethod: "unanimous" as const,
+      models: [
+        { name: "Claude", verdict: "pass" as const, confidence: 0.95, reasoning: "Queue at the Louvre Pyramid is clearly visible with ~35-40 people in a serpentine line. Lighting and shadows are consistent with current time of day. Estimated 20-25 minute wait." },
+        { name: "GPT-4o", verdict: "pass" as const, confidence: 0.92, reasoning: "Photo shows a queue of approximately 35-40 people at the Louvre Pyramid entrance. The image is recent based on lighting conditions. Queue barriers match known layout." },
+        { name: "Gemini", verdict: "pass" as const, confidence: 0.94, reasoning: "Clear photo of queue at Musée du Louvre pyramid entrance. Approximately 35-40 people visible. Wait time estimate of 20-25 minutes is consistent with queue length." },
+      ],
     },
     escrowTxHash:
       "0xdbd4462ae39c618edae731524ae034842d98b35cffd2a45a95af324d45f6b406",
@@ -337,6 +343,12 @@ export const COMPLETED_TASK_EXAMPLES = [
       confidence: 0.91,
       reasoning:
         "Menu board is fully visible with legible prices in euros. Daily specials section shows 'Plat du jour: Croque Monsieur €14.50'. All items readable. Photo taken at eye level with good lighting. Café de Flore branding confirmed on the board.",
+      consensusMethod: "unanimous" as const,
+      models: [
+        { name: "Claude", verdict: "pass" as const, confidence: 0.93, reasoning: "Full menu board captured at Café de Flore with legible pricing in euros. Daily special clearly reads 'Croque Monsieur €14.50'. Branding visible." },
+        { name: "GPT-4o", verdict: "pass" as const, confidence: 0.88, reasoning: "Menu board is legible with prices in euros. Café de Flore branding confirmed. Daily specials section visible. Photo quality and angle are good." },
+        { name: "Gemini", verdict: "pass" as const, confidence: 0.91, reasoning: "Complete menu board photographed at eye level. All prices clearly visible. Café de Flore branding confirmed. Plat du jour section shows daily specials." },
+      ],
     },
     escrowTxHash:
       "0x32af60ab66a0c10dd032c779512dd75ea8f6d43e8e17944d54d487834a64f48c",
@@ -387,6 +399,12 @@ export const COMPLETED_TASK_EXAMPLES = [
       confidence: 0.72,
       reasoning:
         "Photos show elevator and ramp at Châtelet–Les Halles station. Elevator appears functional with green indicator light. However, tactile paving photo is partially obscured by foot traffic. Ramp condition is documented but angle suggests potential non-compliance with slope standards. Flagged for manual review of ramp gradient.",
+      consensusMethod: "majority" as const,
+      models: [
+        { name: "Claude", verdict: "flag" as const, confidence: 0.68, reasoning: "Elevator status confirmed (green light). Ramp appears steep — single handrail raises compliance concerns. Tactile paving partially obscured. Flagging for manual review of ramp gradient." },
+        { name: "GPT-4o", verdict: "pass" as const, confidence: 0.74, reasoning: "All three accessibility features documented. Elevator is operational. Ramp and tactile paving are present. Photo quality adequate for assessment." },
+        { name: "Gemini", verdict: "flag" as const, confidence: 0.71, reasoning: "Elevator documented with green indicator. However, ramp incline appears to exceed ADA-equivalent standards and only has one handrail. Tactile paving photo needs retaking." },
+      ],
     },
     escrowTxHash:
       "0x935f1279c7e9240b78f36441a6d73d064dfc3e8e85fff43c8fa178797c19486d",
@@ -447,6 +465,12 @@ export const COMPLETED_TASK_EXAMPLES = [
       confidence: 0.88,
       reasoning:
         "Series of storefront photos covers the requested 4-block stretch. 22 storefronts documented. Two 'for lease' signs identified at W 29th and W 31st. One new opening noted (tea shop at W 30th with 'Grand Opening' banner). Photos are sequential and geotagged within the target area.",
+      consensusMethod: "unanimous" as const,
+      models: [
+        { name: "Claude", verdict: "pass" as const, confidence: 0.90, reasoning: "22 sequential storefront photos covering W 28th–32nd on Broadway. Two vacancies identified (W 29th, W 31st). New tea shop opening at W 30th. Coverage is thorough." },
+        { name: "GPT-4o", verdict: "pass" as const, confidence: 0.85, reasoning: "Complete coverage of the 4-block stretch. Photos are geotagged and sequential. Vacancies and new opening correctly identified. Good documentation quality." },
+        { name: "Gemini", verdict: "pass" as const, confidence: 0.88, reasoning: "Storefront survey covers all requested blocks. 22 storefronts documented with 2 'for lease' signs and 1 new opening. Photos are sequential and within the target area." },
+      ],
     },
     escrowTxHash:
       "0x90217ddc54fd6eda2dcb8c0863bcdde4899f43dc2c0b8b0707a63859fa3f0f41",
@@ -497,6 +521,12 @@ export const COMPLETED_TASK_EXAMPLES = [
       confidence: 0.96,
       reasoning:
         "Full facade captured from across the street showing all 6 floors. No visible structural damage. Windows intact, no cracks in facade. Street context includes adjacent buildings and road. Address number 22 partially visible above the entrance. Building appears well-maintained with recent exterior cleaning.",
+      consensusMethod: "unanimous" as const,
+      models: [
+        { name: "Claude", verdict: "pass" as const, confidence: 0.97, reasoning: "Full 6-floor facade at 22 Rue de Rivoli. No structural damage, windows intact, facade recently cleaned. Address number partially visible. Excellent documentation." },
+        { name: "GPT-4o", verdict: "pass" as const, confidence: 0.94, reasoning: "Building facade fully captured showing all floors. No visible damage or deterioration. Street context provided with adjacent buildings. Well-maintained appearance confirmed." },
+        { name: "Gemini", verdict: "pass" as const, confidence: 0.96, reasoning: "Complete facade photograph from across the street. All 6 floors visible. No cracks, damage, or structural issues. Building appears well-maintained with recent cleaning." },
+      ],
     },
     escrowTxHash:
       "0x7ac150ffacfcf801034b0918c7711782500ef74f95d63c3cfe48ed925af27af4",
