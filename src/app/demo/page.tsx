@@ -1002,24 +1002,18 @@ export default function DemoPage() {
               </Link>
             </div>
 
-            <div className="grid grid-cols-3 gap-1.5">
-              <Link
-                href="/leaderboard"
-                className="text-center py-2.5 min-h-[40px] flex items-center justify-center rounded-xl text-[10px] font-medium bg-[#0a0a0a] border border-white/[0.04] text-gray-500 hover:text-white transition-colors"
-              >
-                Leaderboard
-              </Link>
-              <Link
-                href="/gallery"
-                className="text-center py-2.5 min-h-[40px] flex items-center justify-center rounded-xl text-[10px] font-medium bg-[#0a0a0a] border border-white/[0.04] text-gray-500 hover:text-white transition-colors"
-              >
-                Gallery
-              </Link>
+            <div className="grid grid-cols-2 gap-1.5">
               <Link
                 href="/dashboard"
                 className="text-center py-2.5 min-h-[40px] flex items-center justify-center rounded-xl text-[10px] font-medium bg-[#0a0a0a] border border-white/[0.04] text-gray-500 hover:text-white transition-colors"
               >
                 Dashboard
+              </Link>
+              <Link
+                href="/xmtp"
+                className="text-center py-2.5 min-h-[40px] flex items-center justify-center rounded-xl text-[10px] font-medium bg-[#0a0a0a] border border-white/[0.04] text-gray-500 hover:text-white transition-colors"
+              >
+                Chat Bot
               </Link>
             </div>
 

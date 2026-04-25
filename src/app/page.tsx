@@ -229,6 +229,16 @@ export default function Home() {
             <span className="text-gray-800">·</span>
             <span>${networkStats.totalBounty ? networkStats.totalBounty.toFixed(0) : "0"} paid out</span>
           </div>
+
+          {/* Built with */}
+          <div className="flex items-center gap-2 text-[10px] text-gray-700">
+            <span>Built with</span>
+            <span className="text-gray-500">World ID</span>
+            <span>·</span>
+            <span className="text-gray-500">World Chain</span>
+            <span>·</span>
+            <span className="text-gray-500">XMTP</span>
+          </div>
         </div>
       </div>
     );

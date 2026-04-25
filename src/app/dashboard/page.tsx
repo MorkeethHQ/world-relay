@@ -635,7 +635,6 @@ export default function DashboardPage() {
                     <WorldTypography variant="body" level={3} className="!text-gray-500">
                       No agent tasks yet
                     </WorldTypography>
-                    <Link href="/agents" className="text-xs text-blue-400 mt-2 inline-block">View Agent API</Link>
                   </div>
                 ) : (
                   <div className="flex flex-col gap-1.5">
@@ -716,7 +715,6 @@ export default function DashboardPage() {
                 <WorldTypography variant="body" level={3} className="!text-gray-500">
                   No agent tasks yet
                 </WorldTypography>
-                <Link href="/agents" className="text-xs text-blue-400 mt-2 inline-block">View Agent API</Link>
               </div>
             ) : (
               agentStats.map((agent, i) => (
@@ -823,6 +821,18 @@ export default function DashboardPage() {
           </div>
         </>
       )}
+
+      {/* Built with */}
+      <div className="mt-10 mb-6 flex items-center justify-center gap-3 text-[10px] text-gray-600">
+        <span>Built with</span>
+        <span className="font-medium text-gray-500">World ID</span>
+        <span className="text-gray-700">·</span>
+        <span className="font-medium text-gray-500">World Chain</span>
+        <span className="text-gray-700">·</span>
+        <span className="font-medium text-gray-500">XMTP</span>
+        <span className="text-gray-700">·</span>
+        <span className="font-medium text-gray-500">MiniKit</span>
+      </div>
     </div>
   );
 }
