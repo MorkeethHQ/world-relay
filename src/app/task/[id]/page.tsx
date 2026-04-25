@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import type { Task, VerificationResult, AiFollowUp } from "@/lib/types";
 import { VerificationBadge, RequiredTierBadge } from "@/components/VerificationBadge";
+import { Button as WorldButton, Chip as WorldChip } from "@worldcoin/mini-apps-ui-kit-react";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -80,12 +81,19 @@ function verdictBg(v: string): string {
 // Components
 // ---------------------------------------------------------------------------
 
+const STATUS_CHIP_VARIANT: Record<string, "default" | "success" | "warning" | "error"> = {
+  open: "default",
+  claimed: "warning",
+  completed: "success",
+  failed: "error",
+  expired: "error",
+};
+
 function StatusBadge({ status }: { status: string }) {
   const s = STATUS_STYLES[status] || STATUS_STYLES.open;
+  const chipVariant = STATUS_CHIP_VARIANT[status] || "default";
   return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider ${s.bg} ${s.text}`}>
-      {s.label}
-    </span>
+    <WorldChip variant={chipVariant} label={s.label} />
   );
 }
 
@@ -395,10 +403,12 @@ function WorldChatThread({
               className="flex-1 bg-white/[0.04] border border-white/[0.08] rounded-xl px-3 py-2 text-xs text-gray-200 placeholder-gray-600 outline-none focus:border-indigo-500/40 transition-colors min-h-[40px]"
               disabled={sending}
             />
-            <button
+            <WorldButton
               type="submit"
+              variant="primary"
+              size="sm"
               disabled={!draft.trim() || sending}
-              className="shrink-0 w-9 h-9 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:bg-white/[0.04] disabled:cursor-not-allowed flex items-center justify-center transition-colors"
+              className="shrink-0 !w-9 !h-9 !min-h-0 !p-0 !rounded-xl"
             >
               {sending ? (
                 <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -418,7 +428,7 @@ function WorldChatThread({
                   <polygon points="22 2 15 22 11 13 2 9 22 2" />
                 </svg>
               )}
-            </button>
+            </WorldButton>
           </form>
         </div>
       )}
@@ -611,23 +621,22 @@ export default function TaskDetailPage() {
       {/* Header */}
       <div className="sticky top-0 z-10 bg-[#050505]/90 backdrop-blur-xl border-b border-white/5">
         <div className="flex items-center justify-between px-4 py-3">
-          <Link
-            href="/"
-            className="flex items-center gap-1 text-sm text-gray-400 hover:text-white transition-colors"
-          >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <polyline points="15 18 9 12 15 6" />
-            </svg>
-            Back
+          <Link href="/">
+            <WorldButton variant="tertiary" size="sm" className="!text-gray-400 hover:!text-white">
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <polyline points="15 18 9 12 15 6" />
+              </svg>
+              Back
+            </WorldButton>
           </Link>
           <h1 className="text-sm font-bold tracking-tight flex items-center gap-1.5">
             <span>{categoryIcon}</span> Task Detail

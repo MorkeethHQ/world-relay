@@ -7,6 +7,7 @@ import type { Task, AgentInfo } from "@/lib/types";
 import { VerificationBadge, RequiredTierBadge } from "@/components/VerificationBadge";
 import { encodeCreateTask, encodeClaimTask, encodeReleasePayment, encodeUniswapSwap, readTaskCount, RELAY_ESCROW_ADDRESS, type SwapToken } from "@/lib/contracts";
 import { TASK_TEMPLATES } from "@/lib/agents";
+import { Button as WorldButton, Chip as WorldChip, LiveFeedback } from "@worldcoin/mini-apps-ui-kit-react";
 
 const TaskMap = dynamic(() => import("./TaskMap").then((m) => m.TaskMap), { ssr: false });
 
@@ -297,12 +298,14 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
                 </svg>
                 Map
               </a>
-              <button
+              <WorldButton
                 onClick={() => setView("post")}
-                className="shrink-0 bg-white text-black h-11 px-4 rounded-full font-semibold text-xs active:scale-95 transition-all shadow-[0_0_12px_rgba(255,255,255,0.08)]"
+                variant="primary"
+                size="sm"
+                className="shrink-0"
               >
                 + Request
-              </button>
+              </WorldButton>
             </div>
           )}
         </div>
@@ -1005,46 +1008,51 @@ function TaskCard({
       )}
 
       {task.status === "open" && userId && !isOwnTask && (
-        <button
+        <WorldButton
           onClick={(e) => { e.stopPropagation(); onClaim(); }}
-          className={`w-full min-h-[44px] px-4 py-2.5 rounded-xl text-sm font-medium active:scale-[0.97] transition-all ${
-            task.claimCode
-              ? "bg-amber-600 hover:bg-amber-500 text-white"
-              : "bg-blue-600 hover:bg-blue-500 text-white"
-          }`}
+          variant="primary"
+          fullWidth
+          className="min-h-[44px]"
         >
           {task.claimCode ? "🔒 Claim (Code Required)" : "Claim"}
-        </button>
+        </WorldButton>
       )}
 
       {task.status === "claimed" && isClaimant && (
-        <button
+        <WorldButton
           onClick={(e) => { e.stopPropagation(); onSubmitProof(); }}
-          className="w-full min-h-[44px] bg-purple-600 hover:bg-purple-500 text-white px-4 py-2.5 rounded-xl text-sm font-medium active:scale-[0.97] transition-all"
+          variant="secondary"
+          fullWidth
+          className="min-h-[44px]"
         >
           Submit Proof
-        </button>
+        </WorldButton>
       )}
     </div>
   );
 }
 
 function StatusBadge({ status }: { status: string }) {
-  const config: Record<string, { bg: string; dot: string; label: string }> = {
-    open: { bg: "text-blue-400", dot: "bg-blue-400", label: "Open" },
-    claimed: { bg: "text-yellow-400", dot: "bg-yellow-400", label: "Claimed" },
-    completed: { bg: "text-green-400", dot: "bg-green-400", label: "Done" },
-    failed: { bg: "text-red-400", dot: "bg-red-400", label: "Failed" },
-    expired: { bg: "text-gray-400", dot: "bg-gray-500", label: "Expired" },
+  const chipVariant: Record<string, "default" | "success" | "warning" | "error"> = {
+    open: "default",
+    claimed: "warning",
+    completed: "success",
+    failed: "error",
+    expired: "default",
+  };
+  const labels: Record<string, string> = {
+    open: "Open",
+    claimed: "Claimed",
+    completed: "Done",
+    failed: "Failed",
+    expired: "Expired",
   };
 
-  const c = config[status] || config.expired;
-
   return (
-    <span className={`flex items-center gap-1.5 text-[11px] font-medium ${c.bg}`}>
-      <span className={`w-1.5 h-1.5 rounded-full ${c.dot} animate-[pulse-dot_2s_ease-in-out_infinite]`} />
-      {c.label}
-    </span>
+    <WorldChip
+      variant={chipVariant[status] || "default"}
+      label={labels[status] || status}
+    />
   );
 }
 
@@ -1267,20 +1275,20 @@ function PostTask({
             </a>
           </div>
         )}
-        <button
-          onClick={handleSubmit}
-          disabled={!isValid || submitting}
-          className={`w-full min-h-[48px] py-3.5 rounded-2xl font-semibold text-sm transition-all active:scale-[0.98] ${
-            isValid ? "bg-white text-black shadow-[0_0_20px_rgba(255,255,255,0.1)]" : "bg-gray-800 text-gray-500"
-          } disabled:opacity-50`}
+        <LiveFeedback
+          state={submitting ? "pending" : undefined}
+          label={{ pending: "Posting...", success: "Posted!", failed: "Failed" }}
         >
-          {submitting ? (
-            <span className="flex items-center justify-center gap-2">
-              <span className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
-              Posting...
-            </span>
-          ) : `Post Request${bounty ? ` — $${bounty} USDC` : ""}`}
-        </button>
+          <WorldButton
+            onClick={handleSubmit}
+            disabled={!isValid || submitting}
+            variant="primary"
+            fullWidth
+            className="min-h-[48px]"
+          >
+            {`Post Request${bounty ? ` — $${bounty} USDC` : ""}`}
+          </WorldButton>
+        </LiveFeedback>
       </div>
     </div>
   );
@@ -1561,15 +1569,15 @@ function SubmitProof({
 
       {!result && !submitting && (
         <div className="px-4 pb-8 pt-2">
-          <button
+          <WorldButton
             onClick={handleSubmit}
             disabled={images.length === 0}
-            className={`w-full min-h-[48px] py-3.5 rounded-2xl font-semibold text-sm transition-all active:scale-[0.98] ${
-              images.length > 0 ? "bg-purple-600 text-white" : "bg-gray-800 text-gray-500"
-            } disabled:opacity-50`}
+            variant="primary"
+            fullWidth
+            className="min-h-[48px]"
           >
             Submit for Verification
-          </button>
+          </WorldButton>
         </div>
       )}
     </div>
@@ -2050,12 +2058,14 @@ function TaskDetail({
 
         {/* Action buttons */}
         {currentTask.status === "claimed" && isClaimant && !isFlagged && !hasFollowUp && (
-          <button
+          <WorldButton
             onClick={onSubmitProof}
-            className="w-full min-h-[44px] bg-purple-600 hover:bg-purple-500 text-white px-4 py-3 rounded-2xl text-sm font-semibold active:scale-[0.98] transition-all"
+            variant="primary"
+            fullWidth
+            className="min-h-[44px]"
           >
             Submit Proof
-          </button>
+          </WorldButton>
         )}
 
         {/* AI Follow-up: claimant can respond and request re-evaluation */}
