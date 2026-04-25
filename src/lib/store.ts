@@ -148,6 +148,12 @@ export function spawnRecurringTask(completedTask: Task): Task | null {
   return next;
 }
 
+/** Insert a fully-formed Task into the cache + Redis. Used for seeding demo data. */
+export function seedTask(task: Task): void {
+  cache.set(task.id, task);
+  persistTask(task).catch(console.error);
+}
+
 export async function hasAgentTasks(): Promise<boolean> {
   await hydrateCache();
   return Array.from(cache.values()).some(t => t.agent !== null && t.agent !== undefined);

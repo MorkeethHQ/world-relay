@@ -14,6 +14,9 @@ type LeaderboardEntry = {
   lastActiveAt: string;
   successRate: number;
   trustScore: number;
+  multipliedTrustScore: number;
+  multiplierLabel: string | null;
+  multiplier: number;
   currentStreak: number;
   longestStreak: number;
 };
@@ -180,8 +183,17 @@ export default function LeaderboardPage() {
                         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                           <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
                         </svg>
-                        <span className="text-sm font-bold text-green-400">{entry.trustScore.toFixed(1)}</span>
+                        <span className="text-sm font-bold text-green-400">
+                          {Math.round((entry.multipliedTrustScore ?? entry.trustScore) * 100)}
+                        </span>
                       </div>
+                      {entry.multiplierLabel && (
+                        <p className={`text-[9px] mt-0.5 font-medium ${
+                          entry.verificationLevel === "orb" ? "text-[#22c55e]" : "text-blue-400"
+                        }`}>
+                          {entry.multiplierLabel}
+                        </p>
+                      )}
                       <p className="text-[10px] text-gray-600 mt-0.5">${entry.totalEarnedUsdc.toFixed(2)}</p>
                     </div>
                   </div>

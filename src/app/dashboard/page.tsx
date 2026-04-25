@@ -2,6 +2,12 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import {
+  TopBar as WorldTopBar,
+  Typography as WorldTypography,
+  Progress as WorldProgress,
+  Spinner as WorldSpinner,
+} from "@worldcoin/mini-apps-ui-kit-react";
 import type { Task } from "@/lib/types";
 
 const ESCROW_ADDRESS = "0xc976e463bD209E09cb15a168A275890b872AA1F0";
@@ -60,9 +66,17 @@ function computeAgentStats(tasks: Task[]): AgentStats[] {
 }
 
 function extractCity(location: string): string {
-  // Take last meaningful segment as city (e.g. "123 Main St, Paris" -> "Paris")
   const parts = location.split(",").map(s => s.trim()).filter(Boolean);
   return parts[parts.length - 1] || location;
+}
+
+function RankBadge({ rank }: { rank: number }) {
+  if (rank === 1) return <span className="text-sm">&#x1F947;</span>;
+  if (rank === 2) return <span className="text-sm">&#x1F948;</span>;
+  if (rank === 3) return <span className="text-sm">&#x1F949;</span>;
+  return (
+    <span className="text-[10px] font-bold text-gray-600">#{rank}</span>
+  );
 }
 
 export default function DashboardPage() {
@@ -94,6 +108,75 @@ export default function DashboardPage() {
   const cityCount = cities.size;
   const onChainCount = tasks.filter(t => t.onChainId !== null && t.onChainId !== undefined).length;
 
+  // World ID verification breakdown: count unique claimants by verification level
+  const claimantVerificationMap = new Map<string, string>();
+  for (const t of tasks) {
+    if (t.claimant && !claimantVerificationMap.has(t.claimant)) {
+      claimantVerificationMap.set(t.claimant, t.claimantVerification || "wallet");
+    }
+  }
+  const orbCount = Array.from(claimantVerificationMap.values()).filter(v => v === "orb").length;
+  const deviceCount = Array.from(claimantVerificationMap.values()).filter(v => v === "device").length;
+  const walletCount = Array.from(claimantVerificationMap.values()).filter(v => v !== "orb" && v !== "device").length;
+  const totalVerified = orbCount + deviceCount + walletCount;
+
+  // City breakdown: group tasks by city with completion rates
+  const cityBreakdown = (() => {
+    const cityMap = new Map<string, { total: number; completed: number; bounty: number }>();
+    for (const t of tasks) {
+      const city = extractCity(t.location);
+      const normalized = ["paris", "new york", "nyc", "manhattan", "brooklyn"].includes(city.toLowerCase())
+        ? city.toLowerCase().includes("nyc") || city.toLowerCase().includes("new york") || city.toLowerCase().includes("manhattan") || city.toLowerCase().includes("brooklyn")
+          ? "NYC"
+          : "Paris"
+        : city.toLowerCase().includes("seoul") || city.toLowerCase().includes("gangnam") || city.toLowerCase().includes("hongdae")
+          ? "Seoul"
+          : city;
+      const existing = cityMap.get(normalized) || { total: 0, completed: 0, bounty: 0 };
+      existing.total += 1;
+      if (t.status === "completed") existing.completed += 1;
+      existing.bounty += t.bountyUsdc;
+      cityMap.set(normalized, existing);
+    }
+    return Array.from(cityMap.entries())
+      .map(([city, data]) => ({ city, ...data, completionRate: data.total > 0 ? data.completed / data.total : 0 }))
+      .sort((a, b) => b.total - a.total);
+  })();
+
+  // Bounty economics
+  const totalPostedUsdc = totalBounty;
+  const totalPaidUsdc = settledUsdc;
+  const avgBounty = totalTasks > 0 ? totalBounty / totalTasks : 0;
+  const completedTasksList = tasks.filter(t => t.status === "completed");
+  const avgTimeToCompletion = (() => {
+    const timeDiffs = completedTasksList
+      .filter(t => t.createdAt)
+      .map(t => {
+        const created = new Date(t.createdAt).getTime();
+        // Use completedAt if available, otherwise estimate from deadline
+        const completed = (t as Record<string, unknown>).completedAt
+          ? new Date((t as Record<string, unknown>).completedAt as string).getTime()
+          : new Date(t.deadline).getTime() - 3600_000; // estimate: 1 hour before deadline
+        return Math.max(0, completed - created);
+      });
+    if (timeDiffs.length === 0) return 0;
+    return timeDiffs.reduce((s, d) => s + d, 0) / timeDiffs.length;
+  })();
+
+  function formatDuration(ms: number): string {
+    if (ms === 0) return "N/A";
+    const hours = Math.floor(ms / 3600_000);
+    const mins = Math.floor((ms % 3600_000) / 60_000);
+    if (hours > 24) return `${Math.floor(hours / 24)}d ${hours % 24}h`;
+    if (hours > 0) return `${hours}h ${mins}m`;
+    return `${mins}m`;
+  }
+
+  // Escrow status: USDC locked in claimed-but-not-completed tasks
+  const escrowLocked = tasks
+    .filter(t => t.status === "claimed")
+    .reduce((s, t) => s + t.bountyUsdc, 0);
+
   // Leaderboard sorted by totalPosted desc
   const leaderboard = [...agentStats].sort((a, b) => {
     if (b.totalPosted !== a.totalPosted) return b.totalPosted - a.totalPosted;
@@ -103,276 +186,570 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-[#050505] text-white max-w-lg mx-auto">
-      {/* Header */}
+      {/* World TopBar */}
       <div className="sticky top-0 z-10 bg-[#050505]/90 backdrop-blur-xl border-b border-white/5">
-        <div className="flex items-center justify-between px-4 py-3">
-          <Link href="/" className="flex items-center gap-1 text-sm text-gray-400 hover:text-white transition-colors">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="15 18 9 12 15 6" />
-            </svg>
-            Back
-          </Link>
-          <h1 className="text-sm font-bold tracking-tight">Agent Dashboard</h1>
-          <div className="w-12" />
-        </div>
+        <WorldTopBar
+          title="Agent Dashboard"
+          startAdornment={
+            <Link href="/" className="flex items-center gap-1 text-sm text-gray-400 hover:text-white transition-colors">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="15 18 9 12 15 6" />
+              </svg>
+            </Link>
+          }
+          className="!bg-transparent !text-white [&_p]:!text-white"
+        />
       </div>
 
       {loading ? (
-        <div className="px-4 py-4 flex flex-col gap-3">
-          {[...Array(3)].map((_, i) => (
-            <div key={i} className="bg-[#111] rounded-2xl p-4 animate-pulse h-32" />
-          ))}
+        <div className="flex flex-col items-center justify-center py-20 gap-4">
+          <WorldSpinner className="!text-white" />
+          <WorldTypography variant="body" level={3} className="!text-gray-500">
+            Loading network data...
+          </WorldTypography>
         </div>
       ) : (
         <>
           {/* Live Network Stats */}
-          <div className="px-4 py-4">
-            <div className="bg-gradient-to-r from-blue-500/8 to-purple-500/8 border border-white/[0.06] rounded-2xl p-4">
-              <p className="text-[10px] text-gray-500 uppercase tracking-wider font-medium mb-3">Live Network Stats</p>
-              <div className="grid grid-cols-4 gap-1.5 sm:gap-3 text-center">
-                <div>
-                  <p className="text-lg sm:text-xl font-bold text-white">{totalTasks}</p>
-                  <p className="text-[8px] sm:text-[9px] text-gray-500 mt-0.5">Total Tasks</p>
+          <div className="px-4 pt-4 pb-2">
+            <div className="relative overflow-hidden rounded-2xl border border-white/[0.06]">
+              {/* Gradient background with subtle shimmer */}
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 via-purple-500/5 to-emerald-500/8" />
+              <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(59,130,246,0.08),transparent_50%)]" />
+
+              <div className="relative p-4">
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse shadow-[0_0_6px_rgba(74,222,128,0.5)]" />
+                  <WorldTypography variant="label" level={2} as="span" className="!text-gray-400 !text-[10px] uppercase tracking-wider">
+                    Live Network
+                  </WorldTypography>
                 </div>
-                <div>
-                  <p className="text-lg sm:text-xl font-bold text-blue-400">{openTasks}</p>
-                  <p className="text-[8px] sm:text-[9px] text-gray-500 mt-0.5">Open</p>
+
+                <div className="grid grid-cols-4 gap-1.5 sm:gap-3 text-center">
+                  <StatBlock value={totalTasks} label="Total Tasks" />
+                  <StatBlock value={openTasks} label="Open" color="text-blue-400" />
+                  <StatBlock value={completedTasks} label="Completed" color="text-green-400" />
+                  <StatBlock value={uniqueRunners} label="Runners" color="text-purple-400" />
                 </div>
-                <div>
-                  <p className="text-lg sm:text-xl font-bold text-green-400">{completedTasks}</p>
-                  <p className="text-[8px] sm:text-[9px] text-gray-500 mt-0.5">Completed</p>
-                </div>
-                <div>
-                  <p className="text-lg sm:text-xl font-bold text-purple-400">{uniqueRunners}</p>
-                  <p className="text-[8px] sm:text-[9px] text-gray-500 mt-0.5">Runners</p>
-                </div>
-              </div>
-              <div className="mt-3 pt-3 border-t border-white/[0.06] grid grid-cols-3 gap-2 text-center">
-                <div>
-                  <p className="text-sm font-bold text-green-400">${totalBounty.toFixed(0)}</p>
-                  <p className="text-[8px] text-gray-600">USDC Bounties</p>
-                </div>
-                <div>
-                  <p className="text-sm font-bold text-emerald-400">${settledUsdc.toFixed(0)}</p>
-                  <p className="text-[8px] text-gray-600">USDC Settled</p>
-                </div>
-                <div>
-                  <p className="text-sm font-bold text-orange-400">{cityCount}</p>
-                  <p className="text-[8px] text-gray-600">{cityCount === 1 ? "City" : "Cities"}</p>
+
+                <div className="mt-3 pt-3 border-t border-white/[0.06] grid grid-cols-3 gap-2 text-center">
+                  <div>
+                    <WorldTypography variant="number" level={5} as="span" className="!text-green-400 !font-bold">
+                      ${totalBounty.toFixed(0)}
+                    </WorldTypography>
+                    <p className="text-[9px] text-gray-600 mt-0.5">USDC Bounties</p>
+                  </div>
+                  <div>
+                    <WorldTypography variant="number" level={5} as="span" className="!text-emerald-400 !font-bold">
+                      ${settledUsdc.toFixed(0)}
+                    </WorldTypography>
+                    <p className="text-[9px] text-gray-600 mt-0.5">USDC Settled</p>
+                  </div>
+                  <div>
+                    <WorldTypography variant="number" level={5} as="span" className="!text-orange-400 !font-bold">
+                      {cityCount}
+                    </WorldTypography>
+                    <p className="text-[9px] text-gray-600 mt-0.5">{cityCount === 1 ? "City" : "Cities"}</p>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
 
           {/* On-Chain Stats */}
-          <div className="px-4 pb-4">
-            <div className="bg-[#111] border border-white/[0.06] rounded-2xl p-4">
-              <p className="text-[10px] text-gray-500 uppercase tracking-wider font-medium mb-3">On-Chain Stats</p>
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <rect x="2" y="7" width="20" height="14" rx="2" ry="2" /><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
-                    </svg>
+          <div className="px-4 pb-2">
+            <div className="relative overflow-hidden bg-[#0a0a0a] border border-white/[0.06] rounded-2xl p-4">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full blur-3xl -mr-16 -mt-16" />
+              <div className="relative">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-1.5 h-1.5 rounded-full bg-blue-400" />
+                  <WorldTypography variant="label" level={2} as="span" className="!text-gray-400 !text-[10px] uppercase tracking-wider">
+                    On-Chain
+                  </WorldTypography>
+                </div>
+
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="2" y="7" width="20" height="14" rx="2" ry="2" /><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+                      </svg>
+                    </div>
+                    <div>
+                      <WorldTypography variant="subtitle" level={3} as="span" className="!text-white !font-semibold">
+                        Escrow Contract
+                      </WorldTypography>
+                      <p className="text-[10px] text-gray-600 font-mono mt-0.5">
+                        {ESCROW_ADDRESS.slice(0, 6)}...{ESCROW_ADDRESS.slice(-4)}
+                      </p>
+                    </div>
                   </div>
+                  <div className="text-right">
+                    <WorldTypography variant="number" level={4} as="span" className="!text-blue-400">
+                      {onChainCount}
+                    </WorldTypography>
+                    <p className="text-[8px] text-gray-600">On-chain</p>
+                  </div>
+                </div>
+
+                <a
+                  href={`https://worldscan.org/address/${ESCROW_ADDRESS}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 w-full bg-blue-500/8 hover:bg-blue-500/15 border border-blue-500/20 rounded-xl px-4 py-2.5 transition-all active:scale-[0.98] min-h-[44px]"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                    <polyline points="15 3 21 3 21 9" />
+                    <line x1="10" y1="14" x2="21" y2="3" />
+                  </svg>
+                  <span className="text-xs font-medium text-blue-400">View on World Chain</span>
+                </a>
+              </div>
+            </div>
+          </div>
+
+          {/* World ID Verification Breakdown */}
+          <div className="px-4 pb-2">
+            <div className="relative overflow-hidden bg-[#0a0a0a] border border-white/[0.06] rounded-2xl p-4">
+              <div className="absolute top-0 left-0 w-32 h-32 bg-green-500/5 rounded-full blur-3xl -ml-16 -mt-16" />
+              <div className="relative">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-1.5 h-1.5 rounded-full bg-[#22c55e]" />
+                  <WorldTypography variant="label" level={2} as="span" className="!text-gray-400 !text-[10px] uppercase tracking-wider">
+                    World ID Verification
+                  </WorldTypography>
+                </div>
+
+                {totalVerified === 0 ? (
+                  <div className="text-center py-6">
+                    <WorldTypography variant="body" level={3} className="!text-gray-500">
+                      No verified claimants yet
+                    </WorldTypography>
+                  </div>
+                ) : (
+                  <>
+                    {/* Counts */}
+                    <div className="grid grid-cols-3 gap-2 mb-4">
+                      <div className="bg-[#22c55e]/8 border border-[#22c55e]/15 rounded-xl p-3 text-center">
+                        <p className="text-lg font-bold text-[#22c55e]">{orbCount}</p>
+                        <p className="text-[9px] text-[#22c55e]/60 mt-0.5 font-medium">Orb Verified</p>
+                      </div>
+                      <div className="bg-[#3b82f6]/8 border border-[#3b82f6]/15 rounded-xl p-3 text-center">
+                        <p className="text-lg font-bold text-[#3b82f6]">{deviceCount}</p>
+                        <p className="text-[9px] text-[#3b82f6]/60 mt-0.5 font-medium">Device Verified</p>
+                      </div>
+                      <div className="bg-[#9ca3af]/8 border border-[#9ca3af]/15 rounded-xl p-3 text-center">
+                        <p className="text-lg font-bold text-[#9ca3af]">{walletCount}</p>
+                        <p className="text-[9px] text-[#9ca3af]/60 mt-0.5 font-medium">Wallet</p>
+                      </div>
+                    </div>
+
+                    {/* Stacked progress bar */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-[10px] text-gray-500">Verification distribution</span>
+                        <span className="text-[10px] text-gray-600 font-medium">{totalVerified} claimants</span>
+                      </div>
+                      <div className="h-3 bg-white/[0.04] rounded-full overflow-hidden flex">
+                        {orbCount > 0 && (
+                          <div
+                            className="h-full bg-[#22c55e] transition-all duration-500"
+                            style={{ width: `${(orbCount / totalVerified) * 100}%` }}
+                            title={`Orb: ${orbCount}`}
+                          />
+                        )}
+                        {deviceCount > 0 && (
+                          <div
+                            className="h-full bg-[#3b82f6] transition-all duration-500"
+                            style={{ width: `${(deviceCount / totalVerified) * 100}%` }}
+                            title={`Device: ${deviceCount}`}
+                          />
+                        )}
+                        {walletCount > 0 && (
+                          <div
+                            className="h-full bg-[#9ca3af]/50 transition-all duration-500"
+                            style={{ width: `${(walletCount / totalVerified) * 100}%` }}
+                            title={`Wallet: ${walletCount}`}
+                          />
+                        )}
+                      </div>
+                      {/* Legend */}
+                      <div className="flex items-center gap-3 mt-2 flex-wrap">
+                        <div className="flex items-center gap-1">
+                          <div className="w-2 h-2 rounded-full bg-[#22c55e]" />
+                          <span className="text-[9px] text-gray-500">Orb {orbCount > 0 ? `${Math.round((orbCount / totalVerified) * 100)}%` : "0%"}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <div className="w-2 h-2 rounded-full bg-[#3b82f6]" />
+                          <span className="text-[9px] text-gray-500">Device {deviceCount > 0 ? `${Math.round((deviceCount / totalVerified) * 100)}%` : "0%"}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <div className="w-2 h-2 rounded-full bg-[#9ca3af]/50" />
+                          <span className="text-[9px] text-gray-500">Wallet {walletCount > 0 ? `${Math.round((walletCount / totalVerified) * 100)}%` : "0%"}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* City Breakdown */}
+          <div className="px-4 pb-2">
+            <div className="relative overflow-hidden bg-[#0a0a0a] border border-white/[0.06] rounded-2xl p-4">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/5 rounded-full blur-3xl -mr-16 -mt-16" />
+              <div className="relative">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-1.5 h-1.5 rounded-full bg-purple-400" />
+                  <WorldTypography variant="label" level={2} as="span" className="!text-gray-400 !text-[10px] uppercase tracking-wider">
+                    City Breakdown
+                  </WorldTypography>
+                </div>
+
+                {cityBreakdown.length === 0 ? (
+                  <p className="text-sm text-gray-500 text-center py-4">No tasks yet</p>
+                ) : (
+                  <div className="flex flex-col gap-1.5">
+                    {cityBreakdown.map((city) => (
+                      <div key={city.city} className="flex items-center justify-between bg-white/[0.02] border border-white/[0.04] rounded-xl px-3 py-2.5">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <span className="text-sm">
+                            {city.city === "Paris" ? "\u{1F1EB}\u{1F1F7}" : city.city === "NYC" ? "\u{1F1FA}\u{1F1F8}" : city.city === "Seoul" ? "\u{1F1F0}\u{1F1F7}" : "\u{1F30D}"}
+                          </span>
+                          <div className="min-w-0">
+                            <p className="text-xs font-semibold text-white truncate">{city.city}</p>
+                            <p className="text-[9px] text-gray-500">{city.total} tasks</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3 shrink-0">
+                          <div className="text-right">
+                            <p className="text-[10px] text-green-400 font-semibold">${city.bounty.toFixed(0)}</p>
+                            <p className="text-[8px] text-gray-600">USDC</p>
+                          </div>
+                          <div className="text-right min-w-[40px]">
+                            <p className={`text-[10px] font-bold ${city.completionRate >= 0.5 ? "text-green-400" : city.completionRate > 0 ? "text-yellow-400" : "text-gray-600"}`}>
+                              {Math.round(city.completionRate * 100)}%
+                            </p>
+                            <p className="text-[8px] text-gray-600">done</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Bounty Economics */}
+          <div className="px-4 pb-2">
+            <div className="relative overflow-hidden bg-[#0a0a0a] border border-white/[0.06] rounded-2xl p-4">
+              <div className="absolute top-0 left-0 w-32 h-32 bg-green-500/5 rounded-full blur-3xl -ml-16 -mt-16" />
+              <div className="relative">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-1.5 h-1.5 rounded-full bg-green-400" />
+                  <WorldTypography variant="label" level={2} as="span" className="!text-gray-400 !text-[10px] uppercase tracking-wider">
+                    Bounty Economics
+                  </WorldTypography>
+                </div>
+
+                <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
+                  <div className="bg-white/[0.03] border border-white/[0.04] rounded-xl p-3 text-center">
+                    <WorldTypography variant="number" level={4} as="span" className="!text-green-400 !font-bold">
+                      ${totalPostedUsdc.toFixed(2)}
+                    </WorldTypography>
+                    <p className="text-[9px] text-gray-500 mt-1">Total Posted</p>
+                  </div>
+                  <div className="bg-white/[0.03] border border-white/[0.04] rounded-xl p-3 text-center">
+                    <WorldTypography variant="number" level={4} as="span" className="!text-emerald-400 !font-bold">
+                      ${totalPaidUsdc.toFixed(2)}
+                    </WorldTypography>
+                    <p className="text-[9px] text-gray-500 mt-1">Paid Out</p>
+                  </div>
+                  <div className="bg-white/[0.03] border border-white/[0.04] rounded-xl p-3 text-center">
+                    <WorldTypography variant="number" level={4} as="span" className="!text-blue-400 !font-bold">
+                      ${avgBounty.toFixed(2)}
+                    </WorldTypography>
+                    <p className="text-[9px] text-gray-500 mt-1">Avg Bounty</p>
+                  </div>
+                  <div className="bg-white/[0.03] border border-white/[0.04] rounded-xl p-3 text-center">
+                    <WorldTypography variant="number" level={4} as="span" className="!text-purple-400 !font-bold">
+                      {formatDuration(avgTimeToCompletion)}
+                    </WorldTypography>
+                    <p className="text-[9px] text-gray-500 mt-1">Avg Completion</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Escrow Status */}
+          <div className="px-4 pb-2">
+            <div className="relative overflow-hidden bg-[#0a0a0a] border border-white/[0.06] rounded-2xl p-4">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/5 rounded-full blur-3xl -mr-16 -mt-16" />
+              <div className="relative">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-1.5 h-1.5 rounded-full bg-orange-400" />
+                  <WorldTypography variant="label" level={2} as="span" className="!text-gray-400 !text-[10px] uppercase tracking-wider">
+                    Escrow Status
+                  </WorldTypography>
+                </div>
+
+                <div className="flex items-center justify-between mb-3">
                   <div>
-                    <p className="text-xs font-semibold text-white">Escrow Contract</p>
-                    <p className="text-[10px] text-gray-600 font-mono">
+                    <WorldTypography variant="number" level={3} as="span" className="!text-orange-400 !font-bold">
+                      ${escrowLocked.toFixed(2)}
+                    </WorldTypography>
+                    <p className="text-[10px] text-gray-500 mt-0.5">USDC locked in escrow</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[10px] text-gray-400 font-mono">
                       {ESCROW_ADDRESS.slice(0, 6)}...{ESCROW_ADDRESS.slice(-4)}
+                    </p>
+                    <p className="text-[8px] text-gray-600 mt-0.5">
+                      {tasks.filter(t => t.status === "claimed").length} active escrows
                     </p>
                   </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-lg font-bold text-blue-400">{onChainCount}</p>
-                  <p className="text-[8px] text-gray-600">On-chain Tasks</p>
-                </div>
+
+                <a
+                  href={`https://worldchain-mainnet.explorer.alchemy.com/address/${ESCROW_ADDRESS}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 w-full bg-orange-500/[0.08] hover:bg-orange-500/15 border border-orange-500/20 rounded-xl px-4 py-2.5 transition-all active:scale-[0.98] min-h-[44px]"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fb923c" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                    <polyline points="15 3 21 3 21 9" />
+                    <line x1="10" y1="14" x2="21" y2="3" />
+                  </svg>
+                  <span className="text-xs font-medium text-orange-400">View Escrow on Alchemy Explorer</span>
+                </a>
               </div>
-              <a
-                href={`https://worldscan.org/address/${ESCROW_ADDRESS}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2 w-full bg-blue-500/8 hover:bg-blue-500/15 border border-blue-500/20 rounded-xl px-4 py-2.5 transition-colors active:scale-[0.98] min-h-[44px]"
-              >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-                  <polyline points="15 3 21 3 21 9" />
-                  <line x1="10" y1="14" x2="21" y2="3" />
-                </svg>
-                <span className="text-xs font-medium text-blue-400">View contract on World Chain</span>
-              </a>
             </div>
           </div>
 
           {/* Agent Leaderboard */}
-          <div className="px-4 pb-4">
-            <div className="bg-[#111] border border-white/[0.06] rounded-2xl p-4">
-              <p className="text-[10px] text-gray-500 uppercase tracking-wider font-medium mb-3">Agent Leaderboard</p>
-              {leaderboard.length === 0 ? (
-                <div className="text-center py-8">
-                  <p className="text-sm text-gray-500">No agent tasks yet</p>
-                  <Link href="/agents" className="text-xs text-blue-400 mt-2 inline-block">View Agent API</Link>
+          <div className="px-4 pb-2">
+            <div className="relative overflow-hidden bg-[#0a0a0a] border border-white/[0.06] rounded-2xl p-4">
+              <div className="absolute top-0 left-0 w-40 h-40 bg-yellow-500/[0.03] rounded-full blur-3xl -ml-20 -mt-20" />
+              <div className="relative">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-yellow-400" />
+                    <WorldTypography variant="label" level={2} as="span" className="!text-gray-400 !text-[10px] uppercase tracking-wider">
+                      Agent Leaderboard
+                    </WorldTypography>
+                  </div>
+                  <span className="text-[10px] text-gray-600 font-mono">{leaderboard.length} agents</span>
                 </div>
-              ) : (
-                <div className="flex flex-col gap-2">
-                  {leaderboard.map((agent, i) => (
-                    <div
-                      key={agent.id}
-                      style={{ animationDelay: `${i * 60}ms` }}
-                      className="animate-[slideUp_0.3s_ease-out_both] flex items-center gap-3 bg-white/[0.02] hover:bg-white/[0.04] border border-white/[0.04] rounded-xl px-3 py-2.5 transition-colors"
-                    >
-                      {/* Rank */}
-                      <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
-                        i === 0 ? "bg-yellow-500/15 text-yellow-400 border border-yellow-500/20" :
-                        i === 1 ? "bg-gray-400/10 text-gray-400 border border-gray-500/20" :
-                        i === 2 ? "bg-orange-500/10 text-orange-400 border border-orange-500/20" :
-                        "bg-white/[0.04] text-gray-600 border border-white/[0.04]"
-                      }`}>
-                        {i + 1}
-                      </div>
 
-                      {/* Agent icon + name */}
+                {leaderboard.length === 0 ? (
+                  <div className="text-center py-8">
+                    <WorldTypography variant="body" level={3} className="!text-gray-500">
+                      No agent tasks yet
+                    </WorldTypography>
+                    <Link href="/agents" className="text-xs text-blue-400 mt-2 inline-block">View Agent API</Link>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-1.5">
+                    {leaderboard.map((agent, i) => (
                       <div
-                        className="w-8 h-8 rounded-lg flex items-center justify-center text-base shrink-0"
-                        style={{ backgroundColor: `${agent.color}15` }}
+                        key={agent.id}
+                        style={{ animationDelay: `${i * 60}ms` }}
+                        className={`animate-[slideUp_0.3s_ease-out_both] flex items-center gap-3 rounded-xl px-3 py-3 transition-all ${
+                          i === 0
+                            ? "bg-gradient-to-r from-yellow-500/[0.06] to-transparent border border-yellow-500/10"
+                            : i === 1
+                            ? "bg-gradient-to-r from-gray-400/[0.04] to-transparent border border-white/[0.04]"
+                            : i === 2
+                            ? "bg-gradient-to-r from-orange-500/[0.04] to-transparent border border-orange-500/[0.06]"
+                            : "bg-white/[0.02] border border-white/[0.03] hover:bg-white/[0.04]"
+                        }`}
                       >
-                        {agent.icon}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-bold truncate" style={{ color: agent.color }}>{agent.name}</p>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <span className="text-[9px] text-gray-500">{agent.totalPosted} tasks</span>
-                          <span className="text-[9px] text-gray-700">|</span>
-                          <span className={`text-[9px] font-medium ${
-                            agent.verificationPassRate >= 0.8 ? "text-green-400" :
-                            agent.verificationPassRate >= 0.5 ? "text-yellow-400" :
-                            agent.completed === 0 ? "text-gray-600" : "text-red-400"
-                          }`}>
-                            {agent.completed === 0 ? "N/A" : `${Math.round(agent.verificationPassRate * 100)}% pass`}
-                          </span>
+                        {/* Rank */}
+                        <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0">
+                          <RankBadge rank={i + 1} />
+                        </div>
+
+                        {/* Agent icon + name */}
+                        <div
+                          className="w-9 h-9 rounded-xl flex items-center justify-center text-base shrink-0 border"
+                          style={{
+                            backgroundColor: `${agent.color}12`,
+                            borderColor: `${agent.color}25`,
+                          }}
+                        >
+                          {agent.icon}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <WorldTypography variant="subtitle" level={3} as="span" className="!font-bold truncate" style={{ color: agent.color }}>
+                              {agent.name}
+                            </WorldTypography>
+                          </div>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="text-[9px] text-gray-500">{agent.totalPosted} tasks</span>
+                            <span className="text-[9px] text-gray-700">|</span>
+                            <span className={`text-[9px] font-medium ${
+                              agent.verificationPassRate >= 0.8 ? "text-green-400" :
+                              agent.verificationPassRate >= 0.5 ? "text-yellow-400" :
+                              agent.completed === 0 ? "text-gray-600" : "text-red-400"
+                            }`}>
+                              {agent.completed === 0 ? "N/A" : `${Math.round(agent.verificationPassRate * 100)}% pass`}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* USDC deployed */}
+                        <div className="text-right shrink-0">
+                          <WorldTypography variant="number" level={5} as="span" className="!text-green-400">
+                            ${agent.totalBounty}
+                          </WorldTypography>
+                          <p className="text-[8px] text-gray-600">USDC</p>
                         </div>
                       </div>
-
-                      {/* USDC deployed */}
-                      <div className="text-right shrink-0">
-                        <p className="text-sm font-bold text-green-400">${agent.totalBounty}</p>
-                        <p className="text-[8px] text-gray-600">USDC</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
           {/* Per-agent detail cards */}
           <div className="px-4 pb-8 flex flex-col gap-3">
-            <p className="text-[10px] text-gray-500 uppercase tracking-wider font-medium">Agent Details</p>
+            <div className="flex items-center gap-2 mt-2">
+              <div className="w-1.5 h-1.5 rounded-full bg-purple-400" />
+              <WorldTypography variant="label" level={2} as="span" className="!text-gray-400 !text-[10px] uppercase tracking-wider">
+                Agent Details
+              </WorldTypography>
+            </div>
+
             {agentStats.length === 0 ? (
               <div className="text-center py-16">
-                <p className="text-sm text-gray-500">No agent tasks yet</p>
+                <WorldTypography variant="body" level={3} className="!text-gray-500">
+                  No agent tasks yet
+                </WorldTypography>
                 <Link href="/agents" className="text-xs text-blue-400 mt-2 inline-block">View Agent API</Link>
               </div>
             ) : (
               agentStats.map((agent, i) => (
                 <div
                   key={agent.id}
-                  style={{ animationDelay: `${i * 60}ms`, backgroundColor: `${agent.color}06`, borderColor: `${agent.color}15` }}
-                  className="animate-[slideUp_0.3s_ease-out_both] rounded-2xl p-4 border"
+                  style={{ animationDelay: `${i * 60}ms` }}
+                  className="animate-[slideUp_0.3s_ease-out_both] relative overflow-hidden rounded-2xl border border-white/[0.06] bg-[#0a0a0a]"
                 >
-                  {/* Agent header */}
-                  <div className="flex items-center gap-2.5 sm:gap-3 mb-3">
-                    <div
-                      className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center text-lg sm:text-xl shrink-0"
-                      style={{ backgroundColor: `${agent.color}15` }}
-                    >
-                      {agent.icon}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs sm:text-sm font-bold truncate" style={{ color: agent.color }}>{agent.name}</span>
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={agent.color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                        </svg>
-                      </div>
-                      <p className="text-[10px] text-gray-500">{agent.totalPosted} tasks posted</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-bold text-green-400">${agent.totalBounty}</p>
-                      <p className="text-[9px] text-gray-600">USDC total</p>
-                    </div>
-                  </div>
+                  {/* Subtle color glow */}
+                  <div
+                    className="absolute top-0 right-0 w-40 h-40 rounded-full blur-3xl -mr-20 -mt-20 opacity-[0.07]"
+                    style={{ backgroundColor: agent.color }}
+                  />
 
-                  {/* Stats grid */}
-                  <div className="grid grid-cols-4 gap-1.5 sm:gap-2 mb-3">
-                    <div className="bg-black/20 rounded-lg p-1.5 sm:p-2 text-center">
-                      <p className="text-xs sm:text-sm font-bold text-blue-400">{agent.open}</p>
-                      <p className="text-[7px] sm:text-[8px] text-gray-600">Open</p>
-                    </div>
-                    <div className="bg-black/20 rounded-lg p-1.5 sm:p-2 text-center">
-                      <p className="text-xs sm:text-sm font-bold text-yellow-400">{agent.claimed}</p>
-                      <p className="text-[7px] sm:text-[8px] text-gray-600">Claimed</p>
-                    </div>
-                    <div className="bg-black/20 rounded-lg p-1.5 sm:p-2 text-center">
-                      <p className="text-xs sm:text-sm font-bold text-green-400">{agent.completed}</p>
-                      <p className="text-[7px] sm:text-[8px] text-gray-600">Done</p>
-                    </div>
-                    <div className="bg-black/20 rounded-lg p-1.5 sm:p-2 text-center">
-                      <p className="text-xs sm:text-sm font-bold text-white">{Math.round(agent.completionRate * 100)}%</p>
-                      <p className="text-[7px] sm:text-[8px] text-gray-600">Rate</p>
-                    </div>
-                  </div>
-
-                  {/* Verification pass rate bar */}
-                  {agent.completed > 0 && (
-                    <div className="mb-2">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-[10px] text-gray-600">Verification pass rate</span>
-                        <span className={`text-[10px] font-medium ${
-                          agent.verificationPassRate >= 0.8 ? "text-green-400" :
-                          agent.verificationPassRate >= 0.5 ? "text-yellow-400" : "text-red-400"
-                        }`}>
-                          {Math.round(agent.verificationPassRate * 100)}%
-                        </span>
+                  <div className="relative p-4">
+                    {/* Agent header */}
+                    <div className="flex items-center gap-2.5 sm:gap-3 mb-4">
+                      <div
+                        className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl flex items-center justify-center text-lg sm:text-xl shrink-0 border"
+                        style={{
+                          backgroundColor: `${agent.color}12`,
+                          borderColor: `${agent.color}25`,
+                        }}
+                      >
+                        {agent.icon}
                       </div>
-                      <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
-                        <div
-                          className="h-full rounded-full transition-all duration-500"
-                          style={{
-                            width: `${Math.round(agent.verificationPassRate * 100)}%`,
-                            backgroundColor: agent.verificationPassRate >= 0.8 ? "#4ade80" :
-                              agent.verificationPassRate >= 0.5 ? "#facc15" : "#f87171",
-                          }}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <WorldTypography variant="subtitle" level={2} as="span" className="!font-bold truncate" style={{ color: agent.color }}>
+                            {agent.name}
+                          </WorldTypography>
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={agent.color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 opacity-60">
+                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                          </svg>
+                        </div>
+                        <p className="text-[10px] text-gray-500 mt-0.5">{agent.totalPosted} tasks posted</p>
+                      </div>
+                      <div className="text-right">
+                        <WorldTypography variant="number" level={5} as="span" className="!text-green-400">
+                          ${agent.totalBounty}
+                        </WorldTypography>
+                        <p className="text-[9px] text-gray-600">USDC total</p>
+                      </div>
+                    </div>
+
+                    {/* Stats grid */}
+                    <div className="grid grid-cols-4 gap-1.5 sm:gap-2 mb-4">
+                      {[
+                        { value: agent.open, label: "Open", color: "text-blue-400" },
+                        { value: agent.claimed, label: "Claimed", color: "text-yellow-400" },
+                        { value: agent.completed, label: "Done", color: "text-green-400" },
+                        { value: `${Math.round(agent.completionRate * 100)}%`, label: "Rate", color: "text-white" },
+                      ].map(({ value, label, color }) => (
+                        <div key={label} className="bg-white/[0.03] border border-white/[0.04] rounded-lg p-2 text-center">
+                          <p className={`text-sm font-bold ${color}`}>{value}</p>
+                          <p className="text-[9px] text-gray-600 mt-0.5">{label}</p>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Verification pass rate - using World Progress */}
+                    {agent.completed > 0 && (
+                      <div className="mb-3">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-[10px] text-gray-500">Verification pass rate</span>
+                          <span className={`text-[10px] font-bold ${
+                            agent.verificationPassRate >= 0.8 ? "text-green-400" :
+                            agent.verificationPassRate >= 0.5 ? "text-yellow-400" : "text-red-400"
+                          }`}>
+                            {Math.round(agent.verificationPassRate * 100)}%
+                          </span>
+                        </div>
+                        <WorldProgress
+                          value={Math.round(agent.verificationPassRate * 100)}
+                          className={`!bg-white/[0.06] ${
+                            agent.verificationPassRate >= 0.8 ? "!text-green-400" :
+                            agent.verificationPassRate >= 0.5 ? "!text-yellow-400" : "!text-red-400"
+                          }`}
                         />
                       </div>
-                    </div>
-                  )}
+                    )}
 
-                  {/* Confidence bar */}
-                  {agent.avgConfidence > 0 && (
-                    <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-[10px] text-gray-600">AI confidence</span>
-                        <span className="text-[10px] font-medium" style={{ color: agent.color }}>
-                          {Math.round(agent.avgConfidence * 100)}%
-                        </span>
+                    {/* Confidence bar - using World Progress */}
+                    {agent.avgConfidence > 0 && (
+                      <div>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-[10px] text-gray-500">AI confidence</span>
+                          <span className="text-[10px] font-bold" style={{ color: agent.color }}>
+                            {Math.round(agent.avgConfidence * 100)}%
+                          </span>
+                        </div>
+                        <div style={{ color: agent.color }}>
+                          <WorldProgress
+                            value={Math.round(agent.avgConfidence * 100)}
+                            className="!bg-white/[0.06]"
+                          />
+                        </div>
                       </div>
-                      <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
-                        <div
-                          className="h-full rounded-full transition-all duration-500"
-                          style={{
-                            width: `${Math.round(agent.avgConfidence * 100)}%`,
-                            backgroundColor: agent.color,
-                          }}
-                        />
-                      </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               ))
             )}
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+function StatBlock({ value, label, color }: { value: number; label: string; color?: string }) {
+  return (
+    <div>
+      <WorldTypography variant="number" level={4} as="span" className={`${color || "!text-white"}`}>
+        {value}
+      </WorldTypography>
+      <p className="text-[8px] sm:text-[9px] text-gray-500 mt-0.5">{label}</p>
     </div>
   );
 }

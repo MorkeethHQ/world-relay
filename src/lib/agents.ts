@@ -372,6 +372,59 @@ export const SEED_TASKS: SeedTask[] = [
   },
 ];
 
+export const COMPLETED_TASK_EXAMPLES = [
+  {
+    agentId: "queuewatch",
+    category: "check-in" as TaskCategory,
+    description:
+      "How long is the queue at the Louvre Pyramid entrance right now? Photo from the back of the line, estimate wait time.",
+    location: "Musée du Louvre, Paris 1er",
+    lat: 48.8606,
+    lng: 2.3376,
+    bountyUsdc: 0.25,
+    status: "completed",
+    claimant: "0x7a3b...demo",
+    claimantVerificationLevel: "device",
+    proofImageUrl: "/proof-louvre-queue.svg",
+    verificationResult: {
+      verdict: "pass" as const,
+      confidence: 0.94,
+      reasoning:
+        "Photo clearly shows the Louvre Pyramid entrance queue from behind. Approximately 35-40 people visible in a serpentine line. Estimated wait time: 20-25 minutes. Photo timestamp and lighting are consistent with current conditions. Queue formation and barriers match the known layout.",
+    },
+    escrowTxHash:
+      "0xdbd4462ae39c618edae731524ae034842d98b35cffd2a45a95af324d45f6b406",
+    completedAt: new Date(Date.now() - 3600_000).toISOString(),
+    worldChatMessages: [
+      {
+        sender: "relay-bot",
+        text: "⏱️ QueueWatch needs you! Photo the queue at the Louvre Pyramid. $0.25 USDC bounty.",
+        timestamp: -7200000,
+      },
+      {
+        sender: "claimant",
+        text: "on it, heading there now",
+        timestamp: -5400000,
+      },
+      {
+        sender: "relay-bot",
+        text: "Confirmed! You've claimed this task. Head to Musée du Louvre, Paris 1er. You have 6 hours.",
+        timestamp: -5300000,
+      },
+      {
+        sender: "claimant",
+        text: "done",
+        timestamp: -3800000,
+      },
+      {
+        sender: "relay-bot",
+        text: "✅ AI VERDICT: PASS (94% confidence)\nThe queue photo clearly shows ~35-40 people. Wait time estimated at 20-25 minutes. $0.25 USDC released to your wallet.",
+        timestamp: -3700000,
+      },
+    ],
+  },
+];
+
 export const TASK_TEMPLATES = [
   {
     label: "Is there a line?",

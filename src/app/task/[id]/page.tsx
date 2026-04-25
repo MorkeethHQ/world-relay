@@ -146,17 +146,20 @@ function ProofImage({ url }: { url: string }) {
 
   return (
     <>
-      <button onClick={() => setEnlarged(true)} className="w-full">
+      <button onClick={() => setEnlarged(true)} className="w-full" aria-label="Enlarge proof image">
         <img
           src={url}
           alt="Proof"
           className="w-full rounded-xl border border-white/[0.06] object-cover max-h-64"
+          loading="lazy"
         />
       </button>
       {enlarged && (
         <div
           className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
           onClick={() => setEnlarged(false)}
+          role="dialog"
+          aria-label="Enlarged proof image"
         >
           <img
             src={url}

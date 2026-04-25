@@ -2,6 +2,7 @@ import type { Task } from "./types";
 import { addMessage } from "./messages";
 import { getRedis } from "./redis";
 import { processIncomingMessage } from "./xmtp-commands";
+import { processAgentQuery } from "./xmtp-agent";
 
 let xmtpClient: any = null;
 let clientInitPromise: Promise<any> | null = null;
@@ -401,9 +402,64 @@ export async function syncAndProcessMessages(): Promise<{
         }
 
         if (!taskId) {
+          // No task mapping — this is a DM to the bot. Route through the agent query processor.
           console.log(
-            `[XMTP Sync] No task mapping for group ${conversation.id}, skipping message`
+            `[XMTP Sync] DM received in conversation ${conversation.id} from ${msg.senderInboxId}: "${messageText.slice(0, 60)}"`
           );
+          try {
+            const dmResponse = await processAgentQuery(messageText);
+            if (dmResponse) {
+              await conversation.send(dmResponse);
+              console.log(
+                `[XMTP Sync] Sent DM response to conversation ${conversation.id}`
+              );
+
+              // Store both the incoming message and bot response in Redis DM history
+              const dmKey = `xmtp:dm:${conversation.id}`;
+              const now = new Date().toISOString();
+              const incomingEntry = {
+                sender: msg.senderInboxId,
+                text: messageText,
+                timestamp: now,
+              };
+              const responseEntry = {
+                sender: "relay-bot",
+                text: dmResponse,
+                timestamp: now,
+              };
+
+              try {
+                const existingRaw = await redis.get(dmKey);
+                const existing: Array<{ sender: string; text: string; timestamp: string }> =
+                  existingRaw
+                    ? typeof existingRaw === "string"
+                      ? JSON.parse(existingRaw)
+                      : (existingRaw as Array<{ sender: string; text: string; timestamp: string }>)
+                    : [];
+                existing.push(incomingEntry, responseEntry);
+                // Keep last 100 messages per conversation to avoid unbounded growth
+                const trimmed = existing.slice(-100);
+                await redis.set(dmKey, JSON.stringify(trimmed));
+
+                // Track this conversation ID in a set for easy enumeration
+                await redis.sadd("xmtp:dm_conversations", conversation.id);
+
+                // Increment total DM query counter
+                await redis.incr("xmtp:dm_count");
+              } catch (storeErr) {
+                console.error(
+                  `[XMTP Sync] Failed to store DM history for conversation ${conversation.id}:`,
+                  storeErr
+                );
+              }
+            }
+          } catch (dmErr) {
+            console.error(
+              `[XMTP Sync] Failed to process/send DM response in conversation ${conversation.id}:`,
+              dmErr
+            );
+          }
+          messagesProcessed++;
           continue;
         }
 

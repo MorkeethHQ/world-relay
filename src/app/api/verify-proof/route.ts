@@ -5,7 +5,7 @@ import { postProofSubmitted, postVerificationResult, postFollowUpQuestion, syncA
 import { generateFollowUpQuestion } from "@/lib/ai-chat";
 import { notifyProofSubmitted, notifyVerified, notifyFlagged } from "@/lib/notifications";
 import { postAttestation } from "@/lib/attestation";
-import { recordCompletion, recordFailure } from "@/lib/reputation";
+import { recordCompletion, recordFailure, getReputation, getTrustScore, getVerificationMultiplier } from "@/lib/reputation";
 import { getRedis } from "@/lib/redis";
 import { fireWebhook } from "@/lib/webhooks";
 import { releaseEscrow } from "@/lib/escrow";
@@ -100,6 +100,20 @@ export async function POST(req: NextRequest) {
     result = { ...result, verdict: "flag" as const, confidence: 0.72 };
   }
 
+  // Append claimant verification level and trust score to reasoning
+  if (task.claimant) {
+    const claimantRep = await getReputation(task.claimant);
+    const claimantTrust = Math.round(getTrustScore(claimantRep) * 100);
+    const vLevel = task.claimantVerification || claimantRep.verificationLevel || "wallet";
+    const levelLabel = vLevel === "orb" ? "orb-level" : vLevel === "device" ? "device-level" : "wallet-level";
+    const multiplier = getVerificationMultiplier(vLevel);
+    const multiplierNote = multiplier > 1 ? ` (${multiplier}x multiplier)` : "";
+    result = {
+      ...result,
+      reasoning: `${result.reasoning} | Verified by ${levelLabel} human${multiplierNote} (trust score: ${claimantTrust})`,
+    };
+  }
+
   const isFollowUpCandidate = result.verdict === "flag" && result.confidence >= 0.6 && result.confidence <= 0.85;
 
   if (isFollowUpCandidate && useRealVerification) {
@@ -132,7 +146,7 @@ export async function POST(req: NextRequest) {
 
   if (task.claimant) {
     if (result.verdict === "pass") {
-      recordCompletion(task.claimant, task.bountyUsdc, result.confidence).catch(console.error);
+      recordCompletion(task.claimant, task.bountyUsdc, result.confidence, task.claimantVerification || undefined).catch(console.error);
     } else if (result.verdict === "fail") {
       recordFailure(task.claimant).catch(console.error);
     }

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getReputation, getLeaderboard, getSuccessRate, getTrustScore } from "@/lib/reputation";
+import { getReputation, getLeaderboard, getSuccessRate, getTrustScore, getMultipliedTrustScore, getMultiplierLabel, getVerificationMultiplier } from "@/lib/reputation";
 
 export async function GET(req: NextRequest) {
   const address = req.nextUrl.searchParams.get("address");
@@ -10,6 +10,9 @@ export async function GET(req: NextRequest) {
       ...rep,
       successRate: getSuccessRate(rep),
       trustScore: getTrustScore(rep),
+      multipliedTrustScore: getMultipliedTrustScore(rep),
+      multiplierLabel: getMultiplierLabel(rep.verificationLevel),
+      multiplier: getVerificationMultiplier(rep.verificationLevel),
     });
   }
 
@@ -19,6 +22,9 @@ export async function GET(req: NextRequest) {
       ...rep,
       successRate: getSuccessRate(rep),
       trustScore: getTrustScore(rep),
+      multipliedTrustScore: getMultipliedTrustScore(rep),
+      multiplierLabel: getMultiplierLabel(rep.verificationLevel),
+      multiplier: getVerificationMultiplier(rep.verificationLevel),
     })),
   });
 }

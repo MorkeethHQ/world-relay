@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createTask, hasAgentTasks } from "@/lib/store";
-import { SEED_TASKS } from "@/lib/agents";
+import { createTask, hasAgentTasks, seedTask } from "@/lib/store";
+import { SEED_TASKS, COMPLETED_TASK_EXAMPLES, getAgent } from "@/lib/agents";
 import { getEscrowState, createEscrowTask } from "@/lib/escrow";
+import { addMessage } from "@/lib/messages";
+import type { Task } from "@/lib/types";
 
 const LIVE_ESCROW_TASKS = [
   {
@@ -151,13 +153,58 @@ export async function POST(req: NextRequest) {
     console.error("[Seed] On-chain escrow task failed:", err);
   }
 
+  // ── Completed Demo Task ───────────────────────────────────────────────
+  // Seeds the QueueWatch Louvre task that has gone through the full lifecycle:
+  // posted → claimed → proof submitted → verified → payment released.
+  // This proves the entire RELAY pipeline works end-to-end for judges.
+  const COMPLETED_DEMO_ID = "completed-louvre-queue";
+  const completedExample = COMPLETED_TASK_EXAMPLES[0];
+  const completedDemoAgent = getAgent(completedExample.agentId)!;
+
+  const completedTask: Task = {
+    id: COMPLETED_DEMO_ID,
+    poster: `agent_${completedExample.agentId}`,
+    claimant: completedExample.claimant,
+    category: completedExample.category,
+    description: completedExample.description,
+    location: completedExample.location,
+    lat: completedExample.lat,
+    lng: completedExample.lng,
+    bountyUsdc: completedExample.bountyUsdc,
+    deadline: new Date(Date.now() + 6 * 3600_000).toISOString(),
+    status: "completed",
+    proofImageUrl: completedExample.proofImageUrl,
+    proofImages: completedExample.proofImageUrl ? [completedExample.proofImageUrl] : null,
+    proofNote: null,
+    verificationResult: completedExample.verificationResult,
+    attestationTxHash: null,
+    agent: completedDemoAgent,
+    aiFollowUp: null,
+    recurring: null,
+    callbackUrl: null,
+    onChainId: 5,
+    escrowTxHash: completedExample.escrowTxHash,
+    claimCode: null,
+    claimantVerification: completedExample.claimantVerificationLevel as "device",
+    createdAt: new Date(Date.now() - 8 * 3600_000).toISOString(), // posted 8 hours ago
+  };
+
+  seedTask(completedTask);
+
+  // Seed World Chat messages showing the full lifecycle conversation
+  for (const msg of completedExample.worldChatMessages) {
+    const sender = msg.sender === "claimant" ? completedExample.claimant : msg.sender;
+    await addMessage(COMPLETED_DEMO_ID, sender, msg.text);
+  }
+
   const escrowState = await getEscrowState().catch(() => null);
 
   return NextResponse.json({
     seeded: results.length,
+    completedDemo: COMPLETED_DEMO_ID,
     escrowTasks: escrowResults,
     newEscrowTask,
     escrow: escrowState,
-    message: `Seeded ${results.length} agent tasks + ${escrowResults.length} live escrow tasks with real USDC on World Chain`,
+    message: `Seeded ${results.length} agent tasks + ${escrowResults.length} live escrow tasks + 1 completed demo task with real USDC on World Chain`,
   });
 }

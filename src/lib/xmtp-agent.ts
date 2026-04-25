@@ -18,13 +18,47 @@ type QueryIntent =
   | { type: "agent"; agentId: string }
   | { type: "stats" }
   | { type: "help" }
+  | { type: "about" }
+  | { type: "nearby" }
   | { type: "default" };
 
 function parseIntent(query: string): QueryIntent {
   const q = query.toLowerCase().trim();
 
+  // About
+  if (
+    q === "about" ||
+    q === "team" ||
+    q === "who built relay" ||
+    q === "who built relay?" ||
+    q === "who made relay" ||
+    q === "who made relay?" ||
+    q === "what is relay" ||
+    q === "what is relay?" ||
+    q === "who are you" ||
+    q === "who are you?"
+  ) {
+    return { type: "about" };
+  }
+
+  // Nearby
+  if (
+    q === "nearby" ||
+    q === "near me" ||
+    q === "close" ||
+    q === "close by" ||
+    q === "around here" ||
+    q === "what's nearby" ||
+    q === "whats nearby" ||
+    q === "tasks nearby" ||
+    q === "local" ||
+    q === "local tasks"
+  ) {
+    return { type: "nearby" };
+  }
+
   // Help
-  if (q === "help" || q === "what is relay" || q === "what is relay?" || q === "explain" || q === "intro") {
+  if (q === "help" || q === "explain" || q === "intro") {
     return { type: "help" };
   }
 
@@ -103,18 +137,65 @@ function formatTask(task: Task, index: number): string {
 
 function formatHelp(): string {
   return [
-    "RELAY — Real-world tasks, verified by AI, paid in USDC",
+    "\u{1F680} RELAY — Real-world tasks, verified by AI, paid in USDC",
     "",
-    "RELAY is a task network where AI agents post micro-bounties and humans complete them. Take a photo, check a queue, verify a listing — earn USDC on World Chain.",
+    "AI agents post micro-bounties. Humans complete them. Earn USDC on World Chain.",
     "",
-    "Ask me anything:",
-    '  "tasks near Seoul" — find tasks by location',
-    '  "over $1" — filter by bounty amount',
-    '  "photo tasks" — filter by category',
-    '  "PriceHawk tasks" — filter by AI agent',
-    '  "stats" — network statistics',
+    "\u{1F50D} Try these commands:",
+    '  "tasks near Seoul" — by location',
+    '  "over $1" — by bounty amount',
+    '  "photo tasks" — by category',
+    '  "PriceHawk tasks" — by AI agent',
+    '  "nearby" — all open tasks',
+    '  "stats" — network stats',
+    '  "about" — about RELAY',
     "",
-    `Explore all tasks: ${BASE_URL}`,
+    `\u{1F310} ${BASE_URL}`,
+  ].join("\n");
+}
+
+function formatAbout(): string {
+  return [
+    "\u{1F30D} RELAY — Trust Protocol for World Build 3",
+    "",
+    "AI agents post bounties. World ID-verified humans complete real-world tasks. Get paid in USDC on World Chain.",
+    "",
+    "\u{1F527} How it works:",
+    "1. AI agents post micro-bounties",
+    "2. Humans claim + complete tasks",
+    "3. AI verifies proof photos",
+    "4. USDC settles on-chain",
+    "",
+    "\u{1F464} Built by Oscar Morkeeth (Staff PM @ Ledger) with Claude Code.",
+    "One human orchestrator + AI implementation.",
+    "",
+    `\u{1F310} ${BASE_URL}`,
+  ].join("\n");
+}
+
+function formatNearby(tasks: Task[]): string {
+  const openTasks = tasks
+    .filter((t) => t.status === "open")
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+  if (openTasks.length === 0) {
+    return `No open tasks right now. Check back soon!\n\n\u{1F310} ${BASE_URL}`;
+  }
+
+  const list = openTasks
+    .slice(0, 5)
+    .map((t, i) => [
+      `${i + 1}. ${t.description.slice(0, 60)}`,
+      `   \u{1F4CD} ${t.location} | \u{1F4B0} $${t.bountyUsdc} USDC`,
+      `   ${BASE_URL}/task/${t.id}`,
+    ].join("\n"))
+    .join("\n\n");
+
+  return [
+    `\u{1F4CD} ${openTasks.length} open task${openTasks.length === 1 ? "" : "s"} (most recent first):`,
+    "",
+    list,
+    openTasks.length > 5 ? `\n...and ${openTasks.length - 5} more at ${BASE_URL}` : "",
   ].join("\n");
 }
 
@@ -138,18 +219,30 @@ async function formatStats(tasks: Task[]): Promise<string> {
     .join("\n");
 
   return [
-    "RELAY Network Stats",
-    "---",
-    `Total tasks: ${tasks.length}`,
-    `Open: ${open.length} | Claimed: ${claimed.length} | Completed: ${completed.length}`,
-    `Total bounties: $${totalBounty.toFixed(2)} USDC`,
-    `Available bounties: $${openBounty.toFixed(2)} USDC`,
+    "\u{1F4CA} RELAY Network Stats",
+    "\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}",
     "",
-    "Top AI agents:",
-    topAgents || "  No agent tasks yet",
+    `\u{1F4CB} Tasks: ${tasks.length} total`,
+    `   \u{1F7E2} Open: ${open.length}`,
+    `   \u{1F7E1} Claimed: ${claimed.length}`,
+    `   ✅ Completed: ${completed.length}`,
     "",
-    `Explore: ${BASE_URL}`,
+    `\u{1F4B0} Bounties`,
+    `   Total: $${totalBounty.toFixed(2)} USDC`,
+    `   Available: $${openBounty.toFixed(2)} USDC`,
+    "",
+    "\u{1F916} Top AI Agents",
+    topAgents || "   No agent tasks yet",
+    "",
+    `\u{1F310} ${BASE_URL}`,
   ].join("\n");
+}
+
+/** Truncate response to stay within XMTP message size limits */
+function truncateResponse(text: string, maxLen = 1000): string {
+  if (text.length <= maxLen) return text;
+  const suffix = `\n...\n\u{1F310} ${BASE_URL}`;
+  return text.slice(0, maxLen - suffix.length) + suffix;
 }
 
 export async function processAgentQuery(query: string): Promise<string> {
@@ -157,12 +250,24 @@ export async function processAgentQuery(query: string): Promise<string> {
   const openTasks = tasks.filter((t) => t.status === "open");
   const intent = parseIntent(query);
 
+  let response: string;
+
   switch (intent.type) {
     case "help":
-      return formatHelp();
+      response = formatHelp();
+      break;
+
+    case "about":
+      response = formatAbout();
+      break;
+
+    case "nearby":
+      response = formatNearby(tasks);
+      break;
 
     case "stats":
-      return formatStats(tasks);
+      response = await formatStats(tasks);
+      break;
 
     case "location": {
       const keyword = intent.keyword.toLowerCase();
@@ -172,15 +277,17 @@ export async function processAgentQuery(query: string): Promise<string> {
           t.description.toLowerCase().includes(keyword),
       );
       if (matched.length === 0) {
-        return `No open tasks found matching "${intent.keyword}". Try "stats" to see what's available or browse ${BASE_URL}`;
+        response = `No open tasks found matching "${intent.keyword}". Try "stats" to see what's available or browse ${BASE_URL}`;
+        break;
       }
       const list = matched.slice(0, 5).map((t, i) => formatTask(t, i + 1)).join("\n\n");
-      return [
+      response = [
         `Found ${matched.length} open task${matched.length === 1 ? "" : "s"} matching "${intent.keyword}":`,
         "",
         list,
         matched.length > 5 ? `\n...and ${matched.length - 5} more. Browse all: ${BASE_URL}` : "",
       ].join("\n");
+      break;
     }
 
     case "bounty": {
@@ -202,7 +309,8 @@ export async function processAgentQuery(query: string): Promise<string> {
       }
 
       if (filtered.length === 0) {
-        return `No open tasks match that bounty filter. ${openTasks.length} tasks available at ${BASE_URL}`;
+        response = `No open tasks match that bounty filter. ${openTasks.length} tasks available at ${BASE_URL}`;
+        break;
       }
 
       // Sort by bounty for display
@@ -213,26 +321,29 @@ export async function processAgentQuery(query: string): Promise<string> {
       }
 
       const list = filtered.slice(0, 5).map((t, i) => formatTask(t, i + 1)).join("\n\n");
-      return [
+      response = [
         `${label}:`,
         "",
         list,
         filtered.length > 5 ? `\n...and ${filtered.length - 5} more. Browse all: ${BASE_URL}` : "",
       ].join("\n");
+      break;
     }
 
     case "category": {
       const matched = openTasks.filter((t) => t.category === intent.category);
       if (matched.length === 0) {
-        return `No open ${intent.category} tasks right now. Check ${BASE_URL} for all available tasks.`;
+        response = `No open ${intent.category} tasks right now. Check ${BASE_URL} for all available tasks.`;
+        break;
       }
       const list = matched.slice(0, 5).map((t, i) => formatTask(t, i + 1)).join("\n\n");
-      return [
+      response = [
         `${matched.length} open ${intent.category} task${matched.length === 1 ? "" : "s"}:`,
         "",
         list,
         matched.length > 5 ? `\n...and ${matched.length - 5} more. Browse all: ${BASE_URL}` : "",
       ].join("\n");
+      break;
     }
 
     case "agent": {
@@ -241,24 +352,27 @@ export async function processAgentQuery(query: string): Promise<string> {
         (t) => t.agent?.id === intent.agentId,
       );
       if (matched.length === 0) {
-        return `No open tasks from ${agent?.name || intent.agentId} right now. Check ${BASE_URL} for all tasks.`;
+        response = `No open tasks from ${agent?.name || intent.agentId} right now. Check ${BASE_URL} for all tasks.`;
+        break;
       }
       const list = matched.slice(0, 5).map((t, i) => formatTask(t, i + 1)).join("\n\n");
-      return [
+      response = [
         `${agent?.icon || ""} ${agent?.name || intent.agentId} has ${matched.length} open task${matched.length === 1 ? "" : "s"}:`,
         "",
         list,
         matched.length > 5 ? `\n...and ${matched.length - 5} more. Browse all: ${BASE_URL}` : "",
       ].join("\n");
+      break;
     }
 
     case "default": {
       if (openTasks.length === 0) {
-        return `No open tasks right now. Check back soon or browse ${BASE_URL}`;
+        response = `No open tasks right now. Check back soon or browse ${BASE_URL}`;
+        break;
       }
       const sorted = [...openTasks].sort((a, b) => b.bountyUsdc - a.bountyUsdc);
       const list = sorted.slice(0, 5).map((t, i) => formatTask(t, i + 1)).join("\n\n");
-      return [
+      response = [
         `Top open tasks by bounty:`,
         "",
         list,
@@ -266,6 +380,9 @@ export async function processAgentQuery(query: string): Promise<string> {
         "",
         'Send "help" to learn more about RELAY.',
       ].join("\n");
+      break;
     }
   }
+
+  return truncateResponse(response);
 }

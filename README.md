@@ -2,133 +2,166 @@
 
 **When AI hits a wall, RELAY finds a verified human.**
 
-RELAY is a trust protocol for physical-world task execution. AI agents and humans post tasks that require a real person at a real location. World ID-verified humans claim, complete, and prove tasks — AI verifies the proof, USDC settles on-chain, and every step is recorded immutably.
-
-38 million verified humans, each one a potential runner for any task an AI agent can describe.
-
-**Live:** [world-relay.vercel.app](https://world-relay.vercel.app)
-**Code:** [github.com/MorkeethHQ/world-relay](https://github.com/MorkeethHQ/world-relay)
+RELAY is a trust protocol for physical-world task execution. AI agents post tasks that require eyes, hands, or feet on the ground. World ID-verified humans claim, complete, and prove them. Claude Vision verifies the proof, USDC settles on-chain via Uniswap V3, and every step is recorded in an encrypted XMTP thread. 38 million verified humans become the physical execution layer for any AI agent with an API key.
 
 ---
 
-## Judging Criteria Mapping
+## Try It
 
-### Criteria 1: Use of World Stack
-
-Every World primitive is load-bearing — remove any one and the product breaks.
-
-| World Feature | How RELAY Uses It |
+| | |
 |---|---|
-| **World Wallet** | MiniKit `walletAuth` for sign-in. `sendTransaction` for escrow creation (Permit2 + USDC deposit), task claiming, payment release, and Uniswap swaps. All on World Chain (480). |
-| **Proof of Human** | World ID verification required for **both** poster and claimant. Three trust tiers enforce access: Orb (all tasks), Device (≤$20), Wallet (≤$10). Higher verification = higher-bounty access. Reputation system tracks completion rate, avg AI confidence, and trust score per verified human. Without World ID, bots flood the claimant side. One human, one seat. |
-| **World Chat (XMTP)** | Real XMTP groups created per task. Full lifecycle in the thread: claim notification, proof submission, AI verdict with confidence score, settlement confirmation. Users can chat within the thread. Encrypted end-to-end. The entire task story is readable from the XMTP conversation alone. |
-| **Global User Base** | Agent API (`POST /api/agent/tasks`) turns 38M World ID users into the physical execution layer for any AI agent. Insurance AI posts a damage verification task → a nearby verified human claims it → proves with a photo → paid in USDC. |
-| **Push Notifications** | World notification API wired for claim, proof, verification, and payment events. Users get pinged at every lifecycle moment. |
-| **World Chain** | On-chain escrow contract, Uniswap V3 settlement, and proof attestation — all on World Chain mainnet. |
+| **Live app** | [world-relay.vercel.app](https://world-relay.vercel.app) |
+| **DM the XMTP bot** | Send a message to `0x1101158041fd96f21cbcbb0e752a9a2303e6d70e` in any XMTP client — the bot responds with available tasks and guides you through claiming |
+| **Agent API** | `POST https://world-relay.vercel.app/api/agent/tasks` — any AI agent can post a task in one call |
+| **Source** | [github.com/MorkeethHQ/world-relay](https://github.com/MorkeethHQ/world-relay) |
 
-### Criteria 2: Idea Quality
+---
 
-RELAY is two products in one:
+## 1. Use of World Stack (Criteria 1)
 
-**Human → Human:** Post an errand. A verified person nearby does it. Proof verified by AI. Paid in seconds.
+**Every World primitive is load-bearing. Remove any one and the protocol breaks.**
 
-**Agent → Human:** Any AI agent posts a task via REST API. A verified human executes it in the physical world. The result flows back to the agent. 10 branded agent personas demo real use cases:
-- **ClaimsEye**: "Photograph storm damage at this address" (insurance)
-- **ShelfSight**: "Photo the cereal aisle and prices" (CPG/retail, $2.8B market)
-- **FreshMap**: "Photo every storefront on this block" (maps, Street View is 1-3yr stale)
-- **PlugCheck**: "Photo this EV charger's status" (networks claim 99% uptime, reality is 71%)
-- **QueueWatch**, **AccessMap**, **BikeNet**, **PriceHawk**, **GreenAudit**, **ListingTruth**
+RELAY does not bolt World features onto an existing product. The World stack IS the product — identity, wallet, messaging, notifications, and chain are each wired into the core task lifecycle.
 
-**Everyday tasks** — consumers pay $2-5 for things they can't do remotely: "Is there a line?", "What are today's specials?", "Verify this Airbnb exterior", "Is the parking lot full?"
+| World Primitive | How RELAY Uses It | What Breaks Without It |
+|---|---|---|
+| **World ID (Proof of Human)** | Verification required for both poster and claimant. Three trust tiers gate access: **Orb** (all tasks), **Device** (≤$20), **Wallet** (≤$10). Reputation system tracks completion rate, avg AI confidence, and trust score per verified human. | Bots flood the claimant side. No trust tiers. No reputation. The marketplace collapses. |
+| **World Wallet (MiniKit)** | `walletAuth` for sign-in. `sendTransaction` for escrow creation (Permit2 + USDC deposit), task claiming, payment release, and Uniswap V3 swaps. All transactions on World Chain (480). | No on-chain escrow. No trustless payment. No token flexibility. |
+| **World Chat (XMTP)** | One encrypted group per task. Full lifecycle in the thread: claim notification, AI briefing, proof submission, AI verdict with confidence score, multi-turn follow-up, dispute resolution, settlement confirmation. Claude AI is an active participant in every thread. DM bot responds to direct messages with task discovery and claiming guidance. | No coordination layer. No AI-in-the-loop conversation. No auditable task record. |
+| **World Chain** | On-chain escrow contract (RelayEscrow.sol), Uniswap V3 settlement (poster deposits any token, claimant receives preferred token), proof attestation — all on World Chain mainnet. | No escrow. No settlement. No immutable record. |
+| **Push Notifications** | World notification API fires on claim, proof submission, verification verdict, payment release, and dispute events. Users get pinged at every lifecycle moment. | Users miss time-sensitive tasks. Completion rate drops. |
+| **MiniKit UI Components** | World UI Kit integrated throughout: TopBar, Typography, Progress, Spinner, Button, Chip, LiveFeedback. The app looks and feels native to World App. | App looks foreign inside World App. Breaks user trust. |
+| **Global User Base** | Agent API (`POST /api/agent/tasks`) turns 38M World ID users into the physical execution layer for any AI agent. One API call from an insurance AI → a nearby verified human photographs storm damage → paid in USDC. | No supply side. Agents have no one to execute tasks. |
 
-This isn't an errand app — it's infrastructure. Uniswap V3 settlement means poster can deposit any token, claimant receives preferred token. On-chain attestation creates an immutable record of every verified task. The trust layer is the product.
+**Integration depth:** 7 World primitives, each one structural. The escrow contract lives on World Chain. The messaging layer is XMTP. The identity layer is World ID. The wallet is MiniKit. The UI is World UI Kit. The notifications are World API. The user base is World App's 38M verified humans.
 
-### Criteria 3: Build Quality
+---
 
-| Feature | Detail |
+## 2. Idea Quality (Criteria 2)
+
+**AI can do everything except be somewhere. RELAY fixes that.**
+
+Every major AI system will eventually hit the same wall: it needs ground truth from the physical world. A photo of a storefront. Confirmation that a package arrived. Proof that a charging station works. Today, AI has no reliable way to get this. RELAY creates the bridge.
+
+**Two products in one protocol:**
+
+**Agent-to-Human** — Any AI agent posts a task via REST API. A World ID-verified human executes it physically. The result flows back to the agent. 10 branded agent personas demonstrate real verticals:
+
+| Agent | Use Case | Market Signal |
+|---|---|---|
+| **ClaimsEye** | "Photograph storm damage at this address" | Insurance field verification — $2.1T global premiums |
+| **ShelfSight** | "Photo the cereal aisle, capture all prices" | CPG retail intelligence — $2.8B market |
+| **FreshMap** | "Photo every storefront on this block" | Google Street View is 1-3 years stale |
+| **PlugCheck** | "Photo this EV charger's status" | Networks claim 99% uptime; reality is 71% |
+| **QueueWatch** | "Is there a line? How many people?" | Real-time occupancy data |
+| **AccessMap**, **BikeNet**, **PriceHawk**, **GreenAudit**, **ListingTruth** | Accessibility auditing, bike infrastructure, price comparison, sustainability, listing verification | Each a $100M+ data market |
+
+**Human-to-Human** — Post an everyday errand. A verified person nearby does it. Pay $2-5 for things you cannot do remotely: "Is there a line?", "What are today's specials?", "Verify this Airbnb exterior", "Is the parking lot full?"
+
+**Why this is infrastructure, not an errand app:** Uniswap V3 settlement means the poster can deposit any token and the claimant receives their preferred token. On-chain attestation creates an immutable record of every verified task. The trust layer — World ID tiers + AI verification + reputation — is the product.
+
+---
+
+## 3. Build Quality (Criteria 3)
+
+**26 seed tasks across 4 cities. Pre-populated completed task showing the full lifecycle. Every feature works end-to-end.**
+
+The app is live at [world-relay.vercel.app](https://world-relay.vercel.app). There are no stubs, no mocks, no "coming soon" labels.
+
+**Core systems:**
+
+| System | Implementation |
 |---|---|
 | **Trust tiers** | Orb/Device/Wallet verification levels gate task access. $20+ requires Orb. Server-enforced. |
-| **Reputation system** | Per-user: completion count, success rate, avg AI confidence, trust score. Redis-backed. |
+| **Reputation engine** | Per-user: completion count, success rate, avg AI confidence, trust score. Redis-backed. Runner streaks tracked — consecutive completions earn up to +15% trust bonus. |
+| **AI proof verification** | Camera capture → Claude Vision (Sonnet) analyzes photo against task description → structured verdict with confidence score + location check |
+| **Multi-turn verification** | Medium-confidence proofs (60-85%) trigger AI follow-up questions in the XMTP thread. Claimant responds. Claude re-evaluates with conversation context. |
+| **AI dispute resolution** | Poster triggers AI mediation on flagged proofs. Claude reads the full XMTP thread history, the proof photo, and the initial verdict — renders a binding verdict. |
 | **Location proof** | Runner GPS checked against task coordinates at proof submission. Distance shown in verdict. |
-| **10 agent personas** | Branded AI agents (PriceHawk, FreshMap, ClaimsEye...) with colored badges on task cards |
-| **12 seed tasks** | Paris-based demo tasks from agents — feed is alive on first open |
-| **Task templates** | 10 one-tap presets: "Is there a line?", "Menu & prices", "Verify listing", etc. |
-| **Task map** | Leaflet/OSM dark tiles with colored bounty pins, GPS distance, toggle between map and feed |
-| **Task categories** | Photo, delivery, check-in, custom — each with an icon and category-adapted AI verification prompt |
-| **Agent showcase** | `/agents` page with enterprise + everyday use cases and live "Post via API" button |
+| **On-chain lifecycle** | Create (Permit2 approve + escrow deposit) → Claim → Release — all via MiniKit `sendTransaction` |
+| **Recurring tasks** | Agents configure interval + total runs. Auto-spawns next task on completion. Daily price checks, bi-daily queue monitoring. |
+| **XMTP DM bot** | Direct message `0x1101158041fd96f21cbcbb0e752a9a2303e6d70e` — bot responds intelligently with available tasks, task details, and claiming guidance |
+
+**Pages and UI:**
+
+| Page | What's There |
+|---|---|
+| **Landing** | Hero with three pillars, agent showcase scroll, network stats |
+| **Task feed + map** | Leaflet/OSM dark tiles with colored bounty pins, GPS distance, toggle between map and list. 26 seed tasks across Paris, NYC, Seoul, and hackathon vibes. |
+| **Task detail** | Visual 5-step timeline (Posted → Claimed → Proof → Verified → Settled), chat thread, proof submission |
+| **Pre-populated completed task** | Full lifecycle visible: claim → proof photo → AI verdict → settlement confirmation |
+| **Dashboard** (`/dashboard`) | Network overview (agents, tasks, verified, recurring) + per-agent cards with stats grid, confidence bars, color-coded badges. Built with World UI Kit. |
+| **Gallery** (`/gallery`) | Public feed of all verified proofs with images, AI verdicts, confidence scores, on-chain links. Filter by photo/check-in. |
+| **Live** (`/live`) | Real-time activity feed — claims, verifications, agent posts. Polished with World UI Kit components. |
+| **Leaderboard** (`/leaderboard`) | Top runners ranked by trust score, confidence bars, earnings. Lightning badge at 3+ streak. |
+| **Agent showcase** (`/agents`) | Enterprise + everyday use cases, live "Post via API" button |
 | **Earnings + profile** | Identity card with verification badge, USDC earned, trust tier explanation |
-| **Completion gallery** | Proof photos, AI verdicts, confidence scores, location verification, attestation links |
-| **AI Claim Briefing** | Claude Haiku generates task-specific tips in the XMTP thread on claim |
-| **Multi-turn Verification** | Medium-confidence proofs trigger AI follow-up questions; claimant responds; AI re-evaluates |
-| **AI Dispute Resolution** | Poster can trigger AI mediation on flagged proofs — Claude reads full thread and decides |
-| **Chat** | Real-time XMTP messaging between poster and claimant within task detail |
-| **Proof verification** | Camera capture → Claude Vision analysis → structured verdict with location check |
-| **Leaderboard** | `/leaderboard` page with top runners ranked by trust score, confidence bars, earnings |
-| **Task lifecycle timeline** | Visual 5-step timeline in task detail: Posted → Claimed → Proof → Verified → Settled |
-| **Network stats** | Live stats bar: open tasks, verified count, USDC settled, active runners |
-| **Activity ticker** | Scrolling real-time feed of claims, verifications, and agent posts |
-| **Landing page** | Hero with three pillars, agent showcase scroll, and network stats for cold visitors |
-| **Recurring tasks** | Agents configure recurring tasks (interval + total runs). Auto-spawns next task on completion. Pipeline use case (daily price checks, bi-daily queue monitoring). |
-| **Proof gallery** | `/gallery` page — public feed of all verified proofs with images, AI verdicts, confidence scores, on-chain links. Filter by photo/check-in. |
-| **Agent dashboard** | `/dashboard` page — network overview (agents, tasks, verified, recurring) + per-agent cards with stats grid, confidence bars, color-coded badges |
-| **Task urgency** | Tasks with <4h deadline OR ≥$15 bounty sort to top with gradient border + URGENT badge |
-| **Runner streaks** | Consecutive completions tracked per runner. Failures reset streak. Streak bonus in trust score (up to +15%). Lightning badge on leaderboard at 3+ streak. |
-| **On-chain lifecycle** | Create (Permit2 approve + escrow deposit) → Claim → Release — all via MiniKit |
-| **Push notifications** | World notification API on claim, proof, verification, payment, flagged events |
 
-Everything is real — no stubs, no mocks, no "coming soon."
-
-### Criteria 4: Team
-
-**Oscar Morkeeth** — Staff Product Manager at Ledger. Architecture, product decisions, scope, and integration strategy are human-driven. Deep Web3 experience across hardware wallets, DeFi, and protocol design. Long-time FWB member — organized the Stockholm FWB x Matos event.
-
-Claude Code was used as an implementation tool — the product vision, prioritization, and design decisions are Oscar's.
-
-### Criteria 5: Wildcard
-
-The agent-to-human bridge. No one else in this hackathon is connecting AI agents to physical-world human execution through World ID.
-
-A single API call from any AI agent creates a task. A World ID-verified human — one of 38 million — claims it, walks to the location, proves completion with a photo, and gets paid in USDC. The AI gets the result it couldn't get any other way.
-
-This is the missing piece between digital AI and the physical world.
+**UI polish:** World UI Kit components throughout — TopBar, Typography, Progress, Spinner, Button, Chip, LiveFeedback. Task urgency system: <4h deadline OR ≥$15 bounty sort to top with gradient border + URGENT badge. Activity ticker, network stats bar, 10 one-tap task templates.
 
 ---
 
-## XMTP Integration Depth (World Chat Prize)
+## 4. Team (Criteria 4)
 
-RELAY uses XMTP as the **primary coordination layer** for every task. This isn't notifications bolted onto a UI — the XMTP thread IS the task record. **Claude AI is an active participant in every thread.**
+**Solo build. Staff PM at Ledger. Deep Web3 experience. FWB member who organized the Stockholm FWB x Matos event.**
+
+**Oscar Morkeeth** — Staff Product Manager at Ledger, working across hardware wallets, DeFi, and protocol design. Every architecture decision, product scope, integration strategy, and design choice is human-driven.
+
+Claude Code (Opus) was used as an implementation tool — translating product decisions into code. The vision, prioritization, and all judgment calls are Oscar's.
+
+---
+
+## 5. Wildcard (Criteria 5)
+
+**The agent-to-human bridge. Nobody else is building this.**
+
+A single API call from any AI agent creates a task. A World ID-verified human — one of 38 million — claims it, walks to the location, proves completion with a photo, and gets paid in USDC. The AI gets a result it could not get any other way.
+
+This is the missing piece between digital AI and the physical world. Every AI lab, every agent framework, every autonomous system will eventually need verified ground truth from a specific place at a specific time. RELAY is how they get it.
+
+The combination is unique: World ID for sybil resistance, XMTP for encrypted multi-turn AI coordination, Claude Vision for automated verification, Uniswap V3 for flexible settlement, and a smart contract escrow that makes the whole thing trustless. Each layer reinforces the others.
+
+38 million humans. One API call. Physical-world execution on demand.
+
+---
+
+## XMTP World Chat Prize ($5K)
+
+**RELAY uses XMTP as the primary coordination layer — not as a notification pipe. Claude AI is an active participant in every thread.**
+
+The XMTP integration goes deeper than messaging. Every task creates an encrypted group where the full lifecycle plays out. A judge can open any XMTP thread and follow the complete story without ever touching the web UI.
 
 **What happens in each XMTP thread:**
 
-1. **Task Claimed** — Structured message with task description, location, bounty, claimant address
-2. **AI Briefing** — Claude Haiku generates task-specific tips in the thread ("capture price labels clearly", "include store signage in frame")
-3. **Proof Submitted** — Notification with claimant's note, "AI verification in progress"
-4. **AI Verdict** — Full structured result: VERIFIED/FLAGGED/REJECTED, reasoning, confidence score
-5. **AI Follow-Up** (if confidence 60-85%) — Claude asks a specific follow-up question in the thread. Claimant replies. Claude re-evaluates with full context.
-6. **AI Dispute Resolution** (if flagged) — Poster can trigger AI mediation. Claude reads the full XMTP thread, analyzes all evidence, and renders a binding verdict.
+1. **Task Claimed** — Structured message: task description, location, bounty, claimant address
+2. **AI Briefing** — Claude Haiku generates task-specific tips ("capture price labels clearly", "include store signage in frame")
+3. **Proof Submitted** — Claimant's note + "AI verification in progress"
+4. **AI Verdict** — Structured result: VERIFIED / FLAGGED / REJECTED, reasoning, confidence score
+5. **AI Follow-Up** (if confidence 60-85%) — Claude asks a targeted follow-up question. Claimant replies. Claude re-evaluates with full context.
+6. **AI Dispute Resolution** (if flagged) — Poster triggers mediation. Claude reads the full thread, analyzes all evidence, renders a binding verdict.
 7. **Settlement Confirmation** — USDC amount, World Chain transaction, "both parties verified human"
-8. **User Chat** — Poster and claimant can exchange messages throughout the lifecycle
+8. **User Chat** — Poster and claimant exchange messages throughout
 
-**AI × XMTP — Claude as a thread participant:**
+**XMTP DM Bot:**
 
-| Feature | What happens | Model |
+DM `0x1101158041fd96f21cbcbb0e752a9a2303e6d70e` from any XMTP client. The bot responds intelligently — listing available tasks, providing task details, and guiding users through claiming. This is a standalone XMTP integration, not a web-app redirect.
+
+**AI as thread participant:**
+
+| Feature | What Happens | Model |
 |---|---|---|
-| **Claim Briefing** | On claim, Claude generates task-specific photography tips posted to the XMTP thread | Haiku |
-| **Multi-turn Verification** | When confidence is medium (60-85%), instead of just flagging, Claude asks a follow-up question in the thread. Claimant responds. Claude re-evaluates with the conversation context. | Haiku (vision) |
-| **AI Dispute Resolution** | When flagged, poster can trigger AI mediation. Claude reads the full XMTP thread history, the proof photo, and the initial verdict — then renders a binding verdict with reasoning. | Haiku (vision) |
+| **Claim Briefing** | Claude generates task-specific photography tips posted to the XMTP thread | Haiku |
+| **Multi-turn Verification** | Medium confidence (60-85%) → Claude asks a follow-up in-thread → claimant responds → Claude re-evaluates | Haiku (vision) |
+| **Dispute Resolution** | Poster triggers mediation → Claude reads full thread history + proof photo + initial verdict → binding verdict | Haiku (vision) |
 
-The XMTP thread isn't just notifications — it's a **multi-turn AI conversation**. Claude coaches runners, asks follow-ups, and mediates disputes, all within the encrypted XMTP group.
-
-**Technical implementation:**
+**Technical depth:**
 - Production XMTP network (not dev/local)
 - EOA wallet signer with `@xmtp/node-sdk`
 - One encrypted group per task, created on claim
+- Singleton client pattern for serverless (survives cold starts via Redis)
 - Messages stored in Redis for offline access + delivered via XMTP protocol
-- Singleton client pattern for serverless (survives cold starts with Redis)
 - Claude Haiku for conversational messages (briefings, follow-ups, disputes) — cost-efficient
 - Claude Sonnet for primary proof verification (vision) — high accuracy
-
-A judge can read any XMTP thread and follow the complete story: claim → AI briefing → proof → AI analysis → follow-up question → claimant response → re-evaluation → settlement. All in one encrypted conversation.
 
 ---
 
@@ -180,16 +213,17 @@ A judge can read any XMTP thread and follow the complete story: claim → AI bri
 | `/api/tasks` | GET/POST | List and create tasks |
 | `/api/tasks/[id]/claim` | POST | Claim task — enforces World ID trust tier + triggers AI briefing in XMTP |
 | `/api/tasks/[id]/confirm` | POST | Poster approves/rejects flagged proof |
-| `/api/tasks/[id]/followup` | POST | Re-evaluate proof after claimant responds to AI follow-up question |
-| `/api/tasks/[id]/dispute` | POST | AI dispute resolution — Claude reads full thread and renders binding verdict |
+| `/api/tasks/[id]/followup` | POST | Re-evaluate proof after claimant responds to AI follow-up |
+| `/api/tasks/[id]/dispute` | POST | AI dispute resolution — Claude reads full thread, renders binding verdict |
 | `/api/tasks/[id]/messages` | GET/POST | Read/send chat messages in task thread |
 | `/api/verify-proof` | POST | Submit proof → AI verification → location check → reputation update → attestation |
 | `/api/verify-identity` | GET/POST | World ID verification (IDKit v4 + walletAuth) |
-| `/api/agent/tasks` | GET/POST | Agent API — AI agents post and list tasks (10 branded personas), supports recurring config |
+| `/api/agent/tasks` | GET/POST | Agent API — AI agents post and list tasks (10 branded personas), recurring config |
 | `/api/reputation` | GET | User reputation (trust score, completion rate) or leaderboard |
-| `/api/seed` | POST | Seed 12 demo tasks from AI agent personas |
+| `/api/seed` | POST | Seed 26 demo tasks from AI agent personas across 4 cities |
 | `/api/rp-signature` | POST | RP signing key for IDKit v4 |
 | `/api/xmtp-status` | GET | XMTP client connection status |
+| `/api/xmtp-agent` | POST | XMTP DM bot — handles direct messages with task discovery and guidance |
 
 ## Smart Contracts
 
@@ -205,6 +239,7 @@ USDC held in escrow on creation via Permit2. Released to claimant on verified co
 |---|---|
 | Framework | Next.js 16 + Turbopack |
 | Mini App SDK | @worldcoin/minikit-js |
+| UI Components | World UI Kit (TopBar, Typography, Progress, Spinner, Button, Chip, LiveFeedback) |
 | Auth | World ID (IDKit v4 + RP signing) |
 | Messaging | XMTP Node SDK (production network) |
 | AI Verification | Claude Sonnet (vision) — proof verification |
@@ -238,20 +273,15 @@ npm run dev
 | `NEXT_PUBLIC_RP_ID` | Yes | World ID RP ID |
 | `KV_REST_API_URL` | For persistence | Upstash Redis URL |
 | `KV_REST_API_TOKEN` | For persistence | Upstash Redis token |
-| `WORLD_NOTIFICATION_API_KEY` | For push notifications | World notification API key |
+| `WORLD_NOTIFICATION_API_KEY` | For push | World notification API key |
 | `AGENT_API_KEY` | Optional | API key for agent endpoint auth |
 
 ## Built With (AI Tool Usage)
 
-Per World Build 3 and ETHGlobal rules, we disclose AI usage:
-
-- **Claude Code (Opus):** Used as the primary implementation tool for writing code, debugging, and iterating on features. All architecture decisions, product scope, integration strategy, and design choices were made by Oscar Morkeeth.
-- **Claude Vision (Sonnet):** Used in production as the AI proof verification engine — analyzes submitted photos against task descriptions.
-
-No AI-generated code was submitted without human review. The product vision, prioritization, and all judgment calls are human-driven.
+Per hackathon rules: **Claude Code (Opus)** was the implementation tool — all architecture, product scope, and design decisions are Oscar Morkeeth's. **Claude Vision (Sonnet)** runs in production as the AI proof verification engine. No AI-generated code was submitted without human review.
 
 ---
 
-**World Build 3** (FWB x World) — April 23-26, 2026
+**World Build 3** (FWB x World) — April 23-27, 2026
 
-**Team:** Oscar Morkeeth — Staff PM @ Ledger, long-time FWB member (organized Stockholm FWB x Matos event)
+**Team:** Oscar Morkeeth — Staff PM @ Ledger | FWB member (organized Stockholm FWB x Matos)

@@ -120,6 +120,8 @@ function ActivityTicker({ tasks }: { tasks: Task[] }) {
 
 type Tab = "available" | "mine" | "completed";
 
+const RELAY_BOT_ADDRESS = "0x1101158041fd96f21cbcbb0e752a9a2303e6d70e";
+
 export function Feed({ userId, verificationLevel, onLogout }: { userId: string | null; verificationLevel?: string | null; onLogout?: () => void }) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [view, setView] = useState<"board" | "post" | "proof" | "detail">("board");
@@ -128,10 +130,18 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
   const [mapMode, setMapMode] = useState(false);
   const [agentFilter, setAgentFilter] = useState<"all" | "agent" | "community">("all");
   const [xmtpStatus, setXmtpStatus] = useState<{ connected: boolean; inboxId: string | null } | null>(null);
+  const [botAddrCopied, setBotAddrCopied] = useState(false);
   const [upgradePrompt, setUpgradePrompt] = useState<{ required: string; current: string } | null>(null);
+  const [claimTxSuccess, setClaimTxSuccess] = useState<{ hash: string; taskId: string } | null>(null);
+  const [claimTxError, setClaimTxError] = useState<{ message: string; taskId: string; retry: () => void } | null>(null);
   const [newTaskToast, setNewTaskToast] = useState<{ count: number; visible: boolean }>({ count: 0, visible: false });
+  const [statusToast, setStatusToast] = useState<{ message: string; color: string; visible: boolean }>({ message: "", color: "", visible: false });
+  const [changedTaskIds, setChangedTaskIds] = useState<Set<string>>(new Set());
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const knownTaskIds = useRef<Set<string>>(new Set());
+  const prevTaskStatuses = useRef<Map<string, string>>(new Map());
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const statusToastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const feedTopRef = useRef<HTMLDivElement>(null);
   const userLocation = useUserLocation();
 
@@ -153,17 +163,53 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
       }
     }
 
-    // Update the known set
+    // Detect status changes (open->claimed, claimed->completed)
+    if (prevTaskStatuses.current.size > 0) {
+      const changed: string[] = [];
+      let statusMsg = "";
+      let statusColor = "";
+
+      for (const task of incoming) {
+        const prevStatus = prevTaskStatuses.current.get(task.id);
+        if (prevStatus && prevStatus !== task.status) {
+          changed.push(task.id);
+          if (prevStatus === "open" && task.status === "claimed") {
+            statusMsg = `Task claimed: "${task.description.slice(0, 40)}${task.description.length > 40 ? "..." : ""}"`;
+            statusColor = "text-yellow-400";
+          } else if (prevStatus === "claimed" && task.status === "completed") {
+            statusMsg = `Task completed: "${task.description.slice(0, 40)}${task.description.length > 40 ? "..." : ""}"`;
+            statusColor = "text-green-400";
+          }
+        }
+      }
+
+      if (changed.length > 0) {
+        setChangedTaskIds(new Set(changed));
+        setTimeout(() => setChangedTaskIds(new Set()), 2000);
+      }
+
+      if (statusMsg) {
+        if (statusToastTimer.current) clearTimeout(statusToastTimer.current);
+        setStatusToast({ message: statusMsg, color: statusColor, visible: true });
+        statusToastTimer.current = setTimeout(() => {
+          setStatusToast((prev) => ({ ...prev, visible: false }));
+        }, 4000);
+      }
+    }
+
+    // Update the known set and previous statuses
     knownTaskIds.current = new Set(incoming.map((t) => t.id));
+    prevTaskStatuses.current = new Map(incoming.map((t) => [t.id, t.status]));
     setTasks(incoming);
   }, []);
 
   useEffect(() => {
     fetchTasks();
-    const interval = setInterval(fetchTasks, 3000);
+    const interval = setInterval(fetchTasks, 5000);
     return () => {
       clearInterval(interval);
       if (toastTimer.current) clearTimeout(toastTimer.current);
+      if (statusToastTimer.current) clearTimeout(statusToastTimer.current);
     };
   }, [fetchTasks]);
 
@@ -172,6 +218,10 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
       .then((res) => res.json())
       .then((data) => setXmtpStatus({ connected: data.connected, inboxId: data.inboxId }))
       .catch(() => setXmtpStatus({ connected: false, inboxId: null }));
+
+    if (MiniKit.isInstalled()) {
+      setNotificationsEnabled(true);
+    }
   }, []);
 
   if (view === "post") {
@@ -240,7 +290,18 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
               </svg>
             </div>
             <div>
-              <h1 className="text-base font-bold tracking-tight leading-none">RELAY</h1>
+              <div className="flex items-center gap-2">
+                <h1 className="text-base font-bold tracking-tight leading-none">RELAY</h1>
+                {notificationsEnabled && (
+                  <span className="flex items-center gap-1 bg-green-500/10 border border-green-500/20 rounded-full px-1.5 py-0.5">
+                    <svg width="8" height="8" viewBox="0 0 24 24" fill="#22c55e" stroke="none">
+                      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                      <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                    </svg>
+                    <span className="text-[8px] font-medium text-green-400">ON</span>
+                  </span>
+                )}
+              </div>
               {userId && (
                 <div className="flex items-center gap-1.5 mt-0.5">
                   <button onClick={onLogout} className="text-[10px] text-gray-500 hover:text-gray-300 transition-colors leading-none min-h-[44px] flex items-center">
@@ -257,6 +318,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
                 href="/gallery"
                 className="shrink-0 min-w-[44px] h-11 px-2.5 rounded-full font-semibold text-[11px] border border-white/10 text-gray-400 hover:text-white hover:border-white/20 transition-all flex items-center justify-center gap-1"
                 title="Proof Gallery"
+                aria-label="Proof Gallery"
               >
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" />
@@ -266,6 +328,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
                 href="/leaderboard"
                 className="shrink-0 min-w-[44px] h-11 px-2.5 rounded-full font-semibold text-[11px] border border-white/10 text-gray-400 hover:text-white hover:border-white/20 transition-all flex items-center justify-center gap-1"
                 title="Leaderboard"
+                aria-label="Leaderboard"
               >
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
@@ -275,6 +338,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
                 href="/dashboard"
                 className="shrink-0 min-w-[44px] h-11 px-2.5 rounded-full font-semibold text-[11px] border border-white/10 text-gray-400 hover:text-white hover:border-white/20 transition-all flex items-center justify-center gap-1"
                 title="Agent Dashboard"
+                aria-label="Agent Dashboard"
               >
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" />
@@ -361,6 +425,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
             <button
               onClick={() => setMapMode(!mapMode)}
               className={`ml-1 min-w-[44px] min-h-[44px] p-2.5 rounded-lg transition-all flex items-center justify-center ${mapMode ? "bg-white/10 text-white" : "text-gray-500 hover:text-gray-300"}`}
+              aria-label={mapMode ? "Switch to list view" : "Switch to map view"}
             >
               {mapMode ? (
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" /><line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" /></svg>
@@ -382,7 +447,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
               <button
                 key={f.key}
                 onClick={() => setAgentFilter(f.key)}
-                className={`text-[10px] font-medium px-2.5 py-1 rounded-full transition-all ${
+                className={`text-[10px] font-medium px-3 py-2 min-h-[44px] rounded-full transition-all flex items-center ${
                   agentFilter === f.key
                     ? "bg-white/10 text-white border border-white/20"
                     : "text-gray-500 border border-white/[0.06] hover:text-gray-300 hover:border-white/10"
@@ -416,6 +481,21 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
               {newTaskToast.count} new {newTaskToast.count === 1 ? "task" : "tasks"} available
             </span>
           </button>
+        </div>
+      )}
+
+      {/* Status change toast */}
+      {statusToast.visible && statusToast.message && (
+        <div className="px-4 pt-2">
+          <div className="w-full animate-[slideDown_0.3s_ease-out] bg-white/[0.04] border border-white/10 rounded-xl px-4 py-2.5 flex items-center gap-2">
+            <span className="relative flex h-2 w-2 shrink-0">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-yellow-500" />
+            </span>
+            <span className={`text-xs font-medium ${statusToast.color}`}>
+              {statusToast.message}
+            </span>
+          </div>
         </div>
       )}
 
@@ -672,7 +752,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
               >
                 {task.proofImageUrl && (
                   <div className="relative">
-                    <img src={task.proofImageUrl} alt="Proof" className="w-full h-48 object-cover" />
+                    <img src={task.proofImageUrl} alt="Proof" className="w-full h-48 object-cover" loading="lazy" />
                     <div className="absolute inset-0 bg-gradient-to-t from-[#111] via-transparent to-transparent" />
                     <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between">
                       <div className="bg-green-500/20 backdrop-blur-sm border border-green-500/30 rounded-lg px-2.5 py-1 flex items-center gap-1.5">
@@ -742,7 +822,11 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
         ) : (
           <div className="flex flex-col gap-2.5">
             {filtered.map((task, i) => (
-              <div key={task.id} style={{ animationDelay: `${i * 50}ms` }} className="animate-[slideUp_0.3s_ease-out_both]">
+              <div
+                key={task.id}
+                style={{ animationDelay: `${i * 50}ms` }}
+                className={`animate-[slideUp_0.3s_ease-out_both] rounded-2xl transition-shadow duration-500 ${changedTaskIds.has(task.id) ? "animate-[statusFlash_1.5s_ease-out] ring-1 ring-yellow-400/40" : ""}`}
+              >
                 <TaskCard
                   task={task}
                   userId={userId}
@@ -760,38 +844,52 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
                       claimCode = code;
                     }
 
-                    if (MiniKit.isInstalled() && RELAY_ESCROW_ADDRESS && task.onChainId !== null) {
-                      const txPayload = encodeClaimTask(task.onChainId);
-                      if (txPayload) {
-                        try {
-                          const txResult = await MiniKit.sendTransaction(txPayload);
-                          if (!txResult) {
-                            alert("On-chain claim failed. Please try again.");
+                    setClaimTxError(null);
+                    setClaimTxSuccess(null);
+
+                    const attemptClaim = async () => {
+                      if (MiniKit.isInstalled() && RELAY_ESCROW_ADDRESS && task.onChainId !== null) {
+                        const txPayload = encodeClaimTask(task.onChainId);
+                        if (txPayload) {
+                          try {
+                            const txResult = await MiniKit.sendTransaction(txPayload);
+                            if (!txResult) {
+                              setClaimTxError({ message: "On-chain claim failed. Please try again.", taskId: task.id, retry: attemptClaim });
+                              return;
+                            }
+                            const hash = typeof txResult === "object" && txResult !== null && "transactionHash" in txResult
+                              ? String((txResult as Record<string, unknown>).transactionHash)
+                              : null;
+                            if (hash) {
+                              setClaimTxSuccess({ hash, taskId: task.id });
+                              setTimeout(() => setClaimTxSuccess(null), 6000);
+                            }
+                          } catch (err) {
+                            setClaimTxError({ message: "Transaction rejected by wallet.", taskId: task.id, retry: attemptClaim });
                             return;
                           }
-                        } catch (err) {
-                          alert("On-chain claim transaction rejected.");
+                        }
+                      }
+                      const res = await fetch(`/api/tasks/${task.id}/claim`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ claimant: userId, claimCode }),
+                      });
+                      if (!res.ok) {
+                        const err = await res.json();
+                        if (err.requiresCode) {
+                          setClaimTxError({ message: "Wrong claim code. This bounty is restricted.", taskId: task.id, retry: attemptClaim });
+                          return;
+                        }
+                        if (err.required) {
+                          setUpgradePrompt({ required: err.required, current: err.current });
                           return;
                         }
                       }
-                    }
-                    const res = await fetch(`/api/tasks/${task.id}/claim`, {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ claimant: userId, claimCode }),
-                    });
-                    if (!res.ok) {
-                      const err = await res.json();
-                      if (err.requiresCode) {
-                        alert("Wrong claim code. This bounty is restricted.");
-                        return;
-                      }
-                      if (err.required) {
-                        setUpgradePrompt({ required: err.required, current: err.current });
-                        return;
-                      }
-                    }
-                    fetchTasks();
+                      fetchTasks();
+                    };
+
+                    await attemptClaim();
                   }}
                   onSubmitProof={() => {
                     setSelectedTask(task);
@@ -804,44 +902,128 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
         )}
       </div>
 
+      {/* Claim transaction success banner */}
+      {claimTxSuccess && (
+        <div className="mx-4 mb-2 bg-green-500/8 border border-green-500/15 rounded-xl p-3 flex items-center gap-2.5 animate-[fadeIn_0.3s_ease-out]">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
+          </svg>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs text-green-400 font-medium">Claim confirmed on World Chain</p>
+            <p className="text-[10px] text-gray-500 font-mono truncate">{claimTxSuccess.hash}</p>
+          </div>
+          <a
+            href={`https://worldchain-mainnet.explorer.alchemy.com/tx/${claimTxSuccess.hash}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-[11px] text-blue-400 underline underline-offset-2 shrink-0 min-h-[44px] flex items-center"
+          >
+            Explorer
+          </a>
+          <button
+            onClick={() => setClaimTxSuccess(null)}
+            className="text-gray-600 hover:text-gray-400 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+            aria-label="Dismiss"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+      )}
+
+      {/* Claim transaction error banner */}
+      {claimTxError && (
+        <div className="mx-4 mb-2 bg-red-500/8 border border-red-500/15 rounded-xl p-3 flex items-center gap-2.5 animate-[fadeIn_0.3s_ease-out]">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" />
+          </svg>
+          <p className="flex-1 text-xs text-red-400 font-medium">{claimTxError.message}</p>
+          <button
+            onClick={() => { setClaimTxError(null); claimTxError.retry(); }}
+            className="text-[11px] text-blue-400 underline underline-offset-2 shrink-0 min-h-[44px] flex items-center font-medium"
+          >
+            Retry
+          </button>
+          <button
+            onClick={() => setClaimTxError(null)}
+            className="text-gray-600 hover:text-gray-400 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+            aria-label="Dismiss error"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+      )}
+
       {/* World Chat Status + Powered by footer */}
       <div className="px-4 py-4 border-t border-white/[0.04]">
         {xmtpStatus && (
-          <div className="flex items-center justify-center gap-1.5 mb-2 flex-wrap">
-            <span className="relative flex h-2 w-2">
-              {xmtpStatus.connected ? (
-                <>
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
-                </>
-              ) : (
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
-              )}
-            </span>
-            <span className={`text-[10px] font-medium ${xmtpStatus.connected ? "text-green-400/70" : "text-red-400/70"}`}>
-              {xmtpStatus.connected ? "World Chat Connected" : "World Chat Offline"}
-            </span>
-            {xmtpStatus.connected && xmtpStatus.inboxId && (
-              <span className="text-[10px] text-gray-600 font-mono truncate max-w-[120px]">
-                {xmtpStatus.inboxId.slice(0, 8)}...{xmtpStatus.inboxId.slice(-4)}
+          xmtpStatus.connected ? (
+            <div className="flex items-center justify-center gap-1.5 mb-2 flex-wrap">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
               </span>
-            )}
-          </div>
+              <span className="text-[10px] font-medium text-green-400/70">World Chat Connected</span>
+              {xmtpStatus.inboxId && (
+                <span className="text-[10px] text-gray-500 font-mono truncate max-w-[120px]">
+                  {xmtpStatus.inboxId.slice(0, 8)}...{xmtpStatus.inboxId.slice(-4)}
+                </span>
+              )}
+            </div>
+          ) : (
+            <div className="flex items-center justify-center gap-2 mb-2 bg-red-500/8 border border-red-500/15 rounded-lg px-3 py-2">
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
+              <span className="text-[10px] font-medium text-red-400">World Chat Offline</span>
+              <span className="text-[10px] text-gray-500">-- messaging unavailable</span>
+            </div>
+          )
         )}
+        {/* DM the RELAY Bot card */}
+        <div className="mb-3">
+          <button
+            onClick={() => {
+              navigator.clipboard.writeText(RELAY_BOT_ADDRESS).then(() => {
+                setBotAddrCopied(true);
+                setTimeout(() => setBotAddrCopied(false), 2000);
+              });
+            }}
+            className="group w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl border border-white/[0.06] bg-white/[0.02] hover:border-indigo-500/20 hover:bg-indigo-500/[0.03] transition-all"
+          >
+            <div className="w-7 h-7 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center shrink-0">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#818cf8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+              </svg>
+            </div>
+            <div className="flex-1 min-w-0 text-left">
+              <p className="text-[11px] font-medium text-white/70 leading-tight">DM the RELAY bot</p>
+              <p className="text-[9px] text-gray-600 font-mono truncate mt-0.5">{RELAY_BOT_ADDRESS}</p>
+            </div>
+            <span className={`shrink-0 text-[9px] font-mono uppercase px-1.5 py-0.5 rounded border transition-all ${
+              botAddrCopied
+                ? "text-green-400 border-green-500/30 bg-green-500/10"
+                : "text-gray-500 border-white/[0.06] bg-white/[0.03] group-hover:text-indigo-400 group-hover:border-indigo-500/20"
+            }`}>
+              {botAddrCopied ? "copied" : "copy"}
+            </span>
+          </button>
+        </div>
         <div className="flex items-center justify-center gap-3 sm:gap-4 flex-wrap">
           <div className="flex items-center gap-1.5">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
-            <span className="text-[10px] text-gray-600">World ID</span>
+            <span className="text-[10px] text-gray-500">World ID</span>
           </div>
           <span className="text-gray-800">·</span>
           <div className="flex items-center gap-1.5">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#818cf8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>
-            <span className="text-[10px] text-gray-600">World Chat</span>
+            <span className="text-[10px] text-gray-500">World Chat</span>
           </div>
           <span className="text-gray-800">·</span>
           <div className="flex items-center gap-1.5">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2" /><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" /></svg>
-            <span className="text-[10px] text-gray-600">World Chain</span>
+            <span className="text-[10px] text-gray-500">World Chain</span>
           </div>
         </div>
       </div>
@@ -988,6 +1170,27 @@ function TaskCard({
             <span className="text-[10px] text-gray-700 mx-0.5">·</span>
             <span className="text-xs text-gray-600">{timeLeft(task.deadline)}</span>
           </div>
+          {/* Claimant verification line for claimed/completed tasks */}
+          {task.claimant && (task.status === "claimed" || task.status === "completed") && (
+            <div className="flex items-center gap-1.5 mt-1.5">
+              <span className="text-[11px] text-gray-500">
+                Claimed by <span className="font-medium text-gray-400">{shortId(task.claimant)}</span>
+              </span>
+              {task.claimantVerification ? (
+                <span className={`inline-flex items-center gap-1 text-[10px] font-semibold ${
+                  task.claimantVerification === "orb" ? "text-[#22c55e]" :
+                  task.claimantVerification === "device" ? "text-[#3b82f6]" :
+                  "text-[#9ca3af]"
+                }`}>
+                  {task.claimantVerification === "orb" ? "Orb Verified" :
+                   task.claimantVerification === "device" ? "Device Verified" :
+                   "Wallet"} &#x2713;
+                </span>
+              ) : (
+                <VerificationBadge level="wallet" size="sm" />
+              )}
+            </div>
+          )}
         </div>
         <div className="text-right shrink-0 flex flex-col items-end gap-1">
           <div className="bg-green-500/10 border border-green-500/20 rounded-xl px-3 py-1.5">
@@ -1308,19 +1511,25 @@ function PostTask({
 
       <div className="px-4 pb-8 pt-2">
         {escrowSuccess && (
-          <div className="mb-3 bg-green-500/8 border border-green-500/15 rounded-xl p-3 flex items-center gap-2">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
-            </svg>
-            <span className="text-[11px] text-green-400 font-medium">Escrow deposited</span>
-            <a
-              href={`https://worldscan.org/tx/${escrowSuccess}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[11px] text-blue-400 underline underline-offset-2 ml-auto"
-            >
-              View tx
-            </a>
+          <div className="mb-3 bg-green-500/8 border border-green-500/15 rounded-xl p-3 animate-[fadeIn_0.3s_ease-out]">
+            <div className="flex items-center gap-2">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
+              </svg>
+              <span className="text-[11px] text-green-400 font-medium">USDC escrowed on World Chain</span>
+              <span className="text-[9px] text-gray-600 bg-white/[0.04] border border-white/[0.06] rounded px-1.5 py-0.5 ml-auto">Powered by World Chain</span>
+            </div>
+            <div className="flex items-center justify-between mt-1.5">
+              <span className="text-[10px] text-gray-500 font-mono truncate max-w-[180px]">{escrowSuccess}</span>
+              <a
+                href={`https://worldchain-mainnet.explorer.alchemy.com/tx/${escrowSuccess}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[11px] text-blue-400 underline underline-offset-2 shrink-0"
+              >
+                View on Explorer
+              </a>
+            </div>
           </div>
         )}
         <LiveFeedback
@@ -1487,7 +1696,7 @@ function SubmitProof({
             <div className="flex gap-2 mb-3 overflow-x-auto pb-1">
               {images.map((img, i) => (
                 <div key={i} className="relative shrink-0 w-24 h-24 rounded-xl overflow-hidden border border-white/[0.06]">
-                  <img src={img.preview} alt={`Proof ${i + 1}`} className="w-full h-full object-cover" />
+                  <img src={img.preview} alt={`Proof ${i + 1}`} className="w-full h-full object-cover" loading="lazy" />
                   {img.isVideo && (
                     <div className="absolute bottom-1 left-1 bg-black/70 rounded px-1 py-0.5">
                       <svg width="10" height="10" viewBox="0 0 24 24" fill="white" stroke="none">
@@ -1836,22 +2045,30 @@ function TaskDetail({
 
         {/* Transaction success banner */}
         {txSuccess && (
-          <div className="bg-green-500/8 border border-green-500/15 rounded-xl p-3 flex items-center gap-2.5">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
-            </svg>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs text-green-400 font-medium">Transaction confirmed</p>
-              <p className="text-[10px] text-gray-500 font-mono truncate">{txSuccess}</p>
+          <div className="bg-green-500/8 border border-green-500/15 rounded-xl p-3 animate-[fadeIn_0.3s_ease-out]">
+            <div className="flex items-center gap-2.5">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
+              </svg>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs text-green-400 font-medium">Transaction confirmed on World Chain</p>
+                <p className="text-[10px] text-gray-500 font-mono truncate">{txSuccess}</p>
+              </div>
             </div>
-            <a
-              href={`https://worldscan.org/tx/${txSuccess}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[11px] text-blue-400 underline underline-offset-2 shrink-0 min-h-[44px] flex items-center"
-            >
-              View on World Chain
-            </a>
+            <div className="flex items-center justify-between mt-2 pt-2 border-t border-green-500/10">
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] text-green-400 font-semibold">${currentTask.bountyUsdc} USDC</span>
+                <span className="text-[9px] text-gray-600 bg-white/[0.04] border border-white/[0.06] rounded px-1.5 py-0.5">Powered by World Chain</span>
+              </div>
+              <a
+                href={`https://worldchain-mainnet.explorer.alchemy.com/tx/${txSuccess}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[11px] text-blue-400 underline underline-offset-2 shrink-0 min-h-[44px] flex items-center"
+              >
+                View on Explorer
+              </a>
+            </div>
           </div>
         )}
 
@@ -1863,15 +2080,15 @@ function TaskDetail({
             </svg>
             <div className="flex-1 min-w-0">
               <p className="text-[11px] text-gray-400 font-medium">Escrow deposit</p>
-              <p className="text-[10px] text-gray-600 font-mono truncate">{currentTask.escrowTxHash}</p>
+              <p className="text-[10px] text-gray-500 font-mono truncate">{currentTask.escrowTxHash}</p>
             </div>
             <a
-              href={`https://worldscan.org/tx/${currentTask.escrowTxHash}`}
+              href={`https://worldchain-mainnet.explorer.alchemy.com/tx/${currentTask.escrowTxHash}`}
               target="_blank"
               rel="noopener noreferrer"
               className="text-[11px] text-blue-400 underline underline-offset-2 shrink-0 min-h-[44px] flex items-center"
             >
-              View on World Chain
+              View on Explorer
             </a>
           </div>
         )}
@@ -1937,7 +2154,7 @@ function TaskDetail({
             </button>
             {showProofImage && (
               <div className="mt-2 rounded-2xl overflow-hidden border border-white/[0.06] animate-[fadeIn_0.2s_ease-out]">
-                <img src={currentTask.proofImageUrl} alt="Proof" className="w-full max-h-80 object-cover" />
+                <img src={currentTask.proofImageUrl} alt="Proof" className="w-full max-h-80 object-cover" loading="lazy" />
                 {currentTask.proofNote && (
                   <div className="bg-[#111] px-4 py-2 border-t border-white/[0.06]">
                     <p className="text-xs text-gray-400 italic">&ldquo;{currentTask.proofNote}&rdquo;</p>
@@ -2014,7 +2231,7 @@ function TaskDetail({
           </div>
         )}
 
-        {/* On-chain release — poster confirms settlement */}
+        {/* On-chain release -- poster confirms settlement */}
         {currentTask.status === "completed" && isPoster && MiniKit.isInstalled() && RELAY_ESCROW_ADDRESS && currentTask.onChainId !== null && (
           <button
             onClick={async () => {
@@ -2023,7 +2240,8 @@ function TaskDetail({
                 try {
                   const result = await MiniKit.sendTransaction(txPayload);
                   if (!result) {
-                    alert("Release transaction failed.");
+                    setTxSuccess(null);
+                    alert("Release transaction failed. Please try again.");
                   } else {
                     const hash = typeof result === "object" && result !== null && "transactionHash" in result
                       ? String((result as Record<string, unknown>).transactionHash)
@@ -2031,7 +2249,7 @@ function TaskDetail({
                     if (hash) setTxSuccess(hash);
                   }
                 } catch {
-                  alert("Release transaction rejected.");
+                  alert("Release transaction rejected by wallet.");
                 }
               }
             }}
@@ -2085,7 +2303,10 @@ function TaskDetail({
                         ? String((swapResult as Record<string, unknown>).transactionHash)
                         : null;
                       if (swapHash) setTxSuccess(swapHash);
-                    } catch {}
+                      else alert("Swap transaction failed. Please try again.");
+                    } catch {
+                      alert("Swap transaction rejected by wallet.");
+                    }
                   }
                   setSwapping(false);
                 }}

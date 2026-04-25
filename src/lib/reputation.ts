@@ -89,6 +89,12 @@ export function getSuccessRate(rep: UserReputation): number {
   return rep.tasksCompleted / total;
 }
 
+export function getVerificationMultiplier(level: string | undefined | null): number {
+  if (level === "orb") return 1.2;
+  if (level === "device") return 1.1;
+  return 1.0;
+}
+
 export function getTrustScore(rep: UserReputation): number {
   const successRate = getSuccessRate(rep);
   const levelBonus: Record<string, number> = { orb: 0.3, device: 0.15, wallet: 0, dev: -0.2 };
@@ -96,6 +102,18 @@ export function getTrustScore(rep: UserReputation): number {
   const activityBonus = Math.min(rep.tasksCompleted * 0.02, 0.2);
   const streakBonus = Math.min((rep.currentStreak || 0) * 0.03, 0.15);
   return Math.min(1, Math.max(0, successRate * 0.5 + bonus + activityBonus + streakBonus + 0.2));
+}
+
+export function getMultipliedTrustScore(rep: UserReputation): number {
+  const base = getTrustScore(rep);
+  const multiplier = getVerificationMultiplier(rep.verificationLevel);
+  return Math.min(1, base * multiplier);
+}
+
+export function getMultiplierLabel(level: string | undefined | null): string | null {
+  if (level === "orb") return "1.2x Orb bonus";
+  if (level === "device") return "1.1x Device bonus";
+  return null;
 }
 
 export async function getLeaderboard(limit = 10): Promise<UserReputation[]> {

@@ -315,7 +315,7 @@ export default function DemoPage() {
                   }}
                 />
                 <span
-                  className="text-[7px] sm:text-[8px] mt-1 uppercase tracking-wider font-medium transition-colors truncate max-w-full text-center"
+                  className="text-[9px] mt-1 uppercase tracking-wider font-medium transition-colors truncate max-w-full text-center"
                   style={{
                     color:
                       i <= currentStepIndex
