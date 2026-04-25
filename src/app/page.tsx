@@ -169,7 +169,7 @@ export default function Home() {
               onClick={handleDemoMode}
               className="w-full bg-[#111] border border-white/[0.08] text-white px-6 py-4 rounded-2xl font-medium text-sm active:scale-[0.97] transition-all"
             >
-              Try It Out (Preview Mode)
+              Quick Start
             </button>
           </div>
         </div>
@@ -216,7 +216,7 @@ export default function Home() {
               onClick={handleDemoMode}
               className="w-full bg-[#111] border border-white/[0.08] text-white px-6 py-4 rounded-2xl font-medium text-sm active:scale-[0.97] transition-all"
             >
-              Try It Out (Preview Mode)
+              Quick Start
             </button>
           </div>
 

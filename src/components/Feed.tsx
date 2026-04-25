@@ -647,7 +647,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
                 ${tasks.reduce((s, t) => s + t.bountyUsdc, 0).toFixed(0)} available
               </span>
               <span>
-                3 cities
+                {new Set(tasks.map(t => t.location.split(",").pop()?.trim()).filter(Boolean)).size} cities
               </span>
             </div>
           </div>
@@ -666,7 +666,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
               ${tasks.filter(t => t.status === "completed").reduce((s, t) => s + t.bountyUsdc, 0).toFixed(0)} paid out
             </span>
             <span className="text-gray-700">·</span>
-            <span>{new Set(tasks.filter(t => t.claimant).map(t => t.claimant)).size} runners</span>
+            <span>{new Set(tasks.filter(t => t.claimant).map(t => t.claimant)).size} {new Set(tasks.filter(t => t.claimant).map(t => t.claimant)).size === 1 ? "runner" : "runners"}</span>
           </div>
         </div>
       )}
@@ -834,23 +834,12 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
                "No completed tasks yet"}
             </p>
             {tab === "available" && (
-              <div className="flex flex-col items-center gap-2">
-                <button
-                  onClick={async () => {
-                    await fetch("/api/seed", { method: "POST" });
-                    fetchTasks();
-                  }}
-                  className="text-xs bg-[#111] border border-white/10 text-gray-300 px-4 py-2 rounded-xl hover:border-white/20 transition-all active:scale-95 min-h-[44px]"
-                >
-                  Load demo tasks
-                </button>
-                <button
-                  onClick={() => { hapticTap(); setView("post"); }}
-                  className="text-xs text-white/60 underline underline-offset-2 hover:text-white/80 transition-colors min-h-[44px]"
-                >
-                  Or post your own
-                </button>
-              </div>
+              <button
+                onClick={() => { hapticTap(); setView("post"); }}
+                className="text-xs bg-white text-black font-medium px-5 py-2.5 rounded-xl transition-all active:scale-95 min-h-[44px]"
+              >
+                Post a request
+              </button>
             )}
           </div>
         ) : tab === "completed" ? (
@@ -1160,10 +1149,9 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
               )}
             </div>
           ) : (
-            <div className="flex items-center justify-center gap-2 mb-2 bg-red-500/8 border border-red-500/15 rounded-lg px-3 py-2">
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
-              <span className="text-[10px] font-medium text-red-400">XMTP Offline</span>
-              <span className="text-[10px] text-gray-500">-- messaging unavailable</span>
+            <div className="flex items-center justify-center gap-2 mb-2 bg-gray-500/8 border border-white/[0.06] rounded-lg px-3 py-2">
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-gray-500" />
+              <span className="text-[10px] text-gray-500">XMTP connecting...</span>
             </div>
           )
         )}
@@ -1892,6 +1880,8 @@ function PostTask({
             <input
               type="number"
               placeholder="5"
+              min="0.01"
+              step="0.01"
               value={bounty}
               onChange={(e) => setBounty(e.target.value)}
               className="w-full bg-[#111] border border-white/[0.06] rounded-xl pl-8 pr-16 py-3 text-sm focus:outline-none focus:border-white/20 transition-colors placeholder:text-gray-600"

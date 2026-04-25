@@ -276,7 +276,7 @@ export default function DemoPage() {
       // If follow-up needed, stay on step 4 with follow-up UI
       if (updated?.aiFollowUp?.status !== "pending") {
         // Auto-advance to step 5 after a beat
-        setTimeout(() => setStep(5), 1500);
+        setTimeout(() => setStep(5), 4000);
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Unknown error");
@@ -995,8 +995,7 @@ export default function DemoPage() {
               </Link>
               <button
                 onClick={() => {
-                  /* show completed task inline — no navigation */
-                  alert("Task completed! $0.50 USDC released to runner.");
+                  window.location.href = "/task/completed-louvre-queue";
                 }}
                 className="text-center py-3 min-h-[48px] flex items-center justify-center rounded-xl text-xs font-semibold bg-[#111] border border-white/[0.06] text-gray-300 hover:text-white active:scale-[0.98] transition-all"
               >
