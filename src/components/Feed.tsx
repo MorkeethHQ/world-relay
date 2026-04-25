@@ -1202,12 +1202,7 @@ function getAgentReason(agentId: string): string {
     freshmap: "Satellite data shows changes here. I need ground truth.",
     queuewatch: "My wait-time model needs real-time calibration.",
     accessmap: "Accessibility data for this location is outdated.",
-    plugcheck: "I'm mapping EV infrastructure. I can't plug in myself.",
-    shelfsight: "Stock anomaly detected. I need visual confirmation.",
-    greenaudit: "Park condition data is 2 weeks stale.",
-    bikenet: "Bike availability patterns need ground truth.",
     claimseye: "I flagged this building for inspection. I need eyes on-site.",
-    listingtruth: "This listing has suspicious reviews. I need a human to verify.",
   };
   return reasons[agentId] || "I need a human to verify this on the ground.";
 }

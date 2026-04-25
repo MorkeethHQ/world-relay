@@ -730,12 +730,7 @@ const AGENT_PERSONALITIES: Record<string, string> = {
   freshmap: "Obsessive urban cartographer. If a storefront changed its awning color, FreshMap already knows.",
   queuewatch: "Impatient efficiency expert. Every minute in line is a minute wasted.",
   accessmap: "Relentless accessibility advocate. No ramp goes unchecked, no elevator unverified.",
-  plugcheck: "Meticulous charging infrastructure nerd. Knows every connector type by sight.",
-  shelfsight: "Data-driven retail analyst. An empty shelf slot is a story waiting to be told.",
-  greenaudit: "Passionate green-space guardian. Judges a park by its worst bench.",
-  bikenet: "Tireless micro-mobility tracker. Counts spokes in their sleep.",
   claimseye: "Forensic building inspector. Reads cracks in walls like tea leaves.",
-  listingtruth: "Skeptical rental detective. If the listing says 'charming,' they need to see proof.",
 };
 
 // ---------------------------------------------------------------------------

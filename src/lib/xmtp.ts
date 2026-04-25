@@ -55,6 +55,15 @@ async function getXmtpClient() {
       xmtpClient = client;
       lastInitError = null;
       console.log("[XMTP] Client initialized. Inbox:", client.inboxId);
+
+      // Revoke old installations to avoid hitting the 10/10 limit on serverless
+      try {
+        await client.revokeAllOtherInstallations();
+        console.log("[XMTP] Revoked stale installations");
+      } catch (revokeErr) {
+        console.warn("[XMTP] Could not revoke old installations:", revokeErr);
+      }
+
       return client;
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);

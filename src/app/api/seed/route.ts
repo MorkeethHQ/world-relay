@@ -55,7 +55,7 @@ const LIVE_ESCROW_TASKS = [
     category: "photo" as const,
     bountyUsdc: 0.25,
     deadlineHours: 72,
-    agentId: "greenaudit",
+    agentId: "freshmap",
   },
 ];
 
