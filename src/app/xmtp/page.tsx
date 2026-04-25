@@ -56,8 +56,8 @@ const INTEGRATION_POINTS = [
         <path d="M20 2a10 10 0 0 1 0 14.14" />
       </svg>
     ),
-    title: "AI Claim Briefing",
-    desc: "On claim, Claude Haiku posts task-specific tips in the thread.",
+    title: "Claim Briefing",
+    desc: "On claim, the system posts task-specific tips in the thread.",
     color: "#60a5fa",
   },
   {
@@ -69,7 +69,7 @@ const INTEGRATION_POINTS = [
       </svg>
     ),
     title: "Multi-Turn Verification",
-    desc: "Medium-confidence proofs trigger AI follow-up questions. Claimant responds in-thread. Claude re-evaluates.",
+    desc: "Medium-confidence proofs trigger follow-up questions. Claimant responds in-thread and the proof is re-evaluated.",
     color: "#a78bfa",
   },
   {
@@ -78,8 +78,8 @@ const INTEGRATION_POINTS = [
         <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
       </svg>
     ),
-    title: "AI Dispute Resolution",
-    desc: "Poster triggers AI mediation. Claude reads the full thread and renders a binding verdict.",
+    title: "Dispute Resolution",
+    desc: "Poster triggers mediation. The system reads the full thread and renders a binding verdict.",
     color: "#c084fc",
   },
   {
@@ -121,9 +121,9 @@ const THREAD_MESSAGES: { sender: "bot" | "claimant" | "poster"; label: string; t
   },
   {
     sender: "bot",
-    label: "Claude AI",
-    step: "2. AI Briefing",
-    text: `🤖 AI BRIEFING
+    label: "RELAY Bot",
+    step: "2. Briefing",
+    text: `📝 BRIEFING
 ━━━━━━━━━━━━━━━━━━
 Stand at the back of the queue facing the Pyramid. Include the full length of the line in frame. A wide-angle shot works best — try to capture the barriers and the Pyramid in the same photo.
 
@@ -137,18 +137,18 @@ Submit your proof photo when ready. Good luck!`,
   },
   {
     sender: "bot",
-    label: "Claude AI",
-    step: "4. AI Verdict",
-    text: `✅ VERIFIED — AI APPROVED
+    label: "RELAY Bot",
+    step: "4. Verified",
+    text: `✅ VERIFIED — APPROVED
 ━━━━━━━━━━━━━━━━━━
 Reasoning: Photo clearly shows the Louvre Pyramid entrance queue from behind. Approximately 35-40 people visible.
 Confidence: 94%`,
   },
   {
     sender: "bot",
-    label: "Claude AI",
+    label: "RELAY Bot",
     step: "5. Follow-up (if needed)",
-    text: `🔍 AI FOLLOW-UP
+    text: `🔍 FOLLOW-UP
 ━━━━━━━━━━━━━━━━━━
 Confidence: 72% — not enough to auto-verify.
 
@@ -164,7 +164,7 @@ Reply in this thread, then tap "Re-evaluate" for a new verdict.`,
   },
   {
     sender: "bot",
-    label: "Claude AI",
+    label: "RELAY Bot",
     step: "7. Settlement",
     text: `🔗 ON-CHAIN SETTLEMENT CONFIRMED
 ━━━━━━━━━━━━━━━━━━
@@ -172,7 +172,7 @@ $0.25 USDC released on World Chain
 Tx: 0xdbd446...5f6b406
 
 Task complete. Both parties verified human via World ID.
-Proof verified by AI. Settlement on-chain. Chat via XMTP.`,
+Proof verified. Settlement on-chain. Chat via XMTP.`,
   },
 ];
 
@@ -307,8 +307,8 @@ export default function XmtpPage() {
           </h1>
           <p className="text-sm text-gray-400 leading-relaxed max-w-sm mx-auto">
             XMTP is the coordination layer — not notifications bolted on.{" "}
-            <span className="text-white font-medium">Claude AI is an active participant</span>{" "}
-            in every thread.
+            <span className="text-white font-medium">Every task runs through a real encrypted thread</span>{" "}
+            from claim to settlement.
           </p>
         </div>
 
@@ -755,7 +755,7 @@ export default function XmtpPage() {
             { label: "World Chat", color: "#60a5fa" },
             { label: "World ID", color: "#4ade80" },
             { label: "World Chain", color: "#a78bfa" },
-            { label: "Claude AI", color: "#fbbf24" },
+            { label: "Verification", color: "#fbbf24" },
           ].map((tech, i) => (
             <span key={tech.label} className="flex items-center gap-1.5">
               {i > 0 && <span className="text-gray-800 mr-1.5">·</span>}

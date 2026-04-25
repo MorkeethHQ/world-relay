@@ -1695,7 +1695,7 @@ function PostTask({
             <label className="text-[11px] text-gray-500 uppercase tracking-wider font-medium">What do you need?</label>
             {enhanced && (
               <span className="text-[10px] text-green-400 font-medium animate-[fadeIn_0.2s_ease-out]">
-                Enhanced by Claude
+                Enhanced
               </span>
             )}
           </div>
@@ -2034,7 +2034,7 @@ function SubmitProof({
                   <circle cx="11" cy="11" r="8" />
                   <line x1="21" y1="21" x2="16.65" y2="16.65" />
                 </svg>
-                AI Pre-Check
+                Quick check
                 <span className="text-[10px] text-gray-500 ml-1">optional</span>
               </button>
             )}
@@ -2042,7 +2042,7 @@ function SubmitProof({
             {preChecking && (
               <div className="flex items-center justify-center gap-2 py-3">
                 <div className="w-4 h-4 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
-                <span className="text-xs text-gray-400">Running AI pre-check...</span>
+                <span className="text-xs text-gray-400">Checking your photo...</span>
               </div>
             )}
 
@@ -2079,14 +2079,13 @@ function SubmitProof({
                       : "text-red-400"
                   }`}>
                     {preCheck.likely === "pass"
-                      ? "AI Pre-Check: Likely to pass"
+                      ? "Looks good — likely to pass"
                       : preCheck.likely === "marginal"
-                      ? "AI Pre-Check: Marginal"
-                      : "AI Pre-Check: Consider retaking"}
+                      ? "Might need a better angle"
+                      : "Consider retaking"}
                   </span>
                 </div>
                 <p className="text-xs text-gray-400 leading-relaxed">{preCheck.assessment}</p>
-                <p className="text-[10px] text-gray-600 mt-2">Powered by Claude Haiku</p>
               </div>
             )}
           </div>

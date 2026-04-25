@@ -388,7 +388,7 @@ function AiVerdictCard({ result }: { result: VerificationResult }) {
               </svg>
             </div>
             <span className="text-[9px] text-gray-500 font-medium">
-              Verified by Claude Vision (Sonnet)
+              Verified automatically
             </span>
           </div>
         </div>
@@ -910,7 +910,7 @@ export default function TaskDetailPage() {
     steps.push({
       done: true,
       label: `AI Verified -- ${task.verificationResult.verdict.toUpperCase()} ${pct}%`,
-      detail: `Claude Vision analyzed the proof`,
+      detail: `Proof analyzed and verified`,
       time: timeAgo(verifyTime),
       icon: "\u{1F916}",
     });
@@ -919,7 +919,7 @@ export default function TaskDetailPage() {
       done: false,
       current: true,
       label: "AI Verification",
-      detail: "Processing with Claude Vision...",
+      detail: "Analyzing proof...",
       icon: "\u{1F916}",
     });
   }
@@ -1151,7 +1151,7 @@ export default function TaskDetailPage() {
                 <span className="text-[10px] text-gray-500">
                   {Math.round(task.verificationResult.confidence * 100)}% confidence
                 </span>
-                <span className="text-[9px] text-gray-600 ml-auto">Claude Vision</span>
+                <span className="text-[9px] text-gray-600 ml-auto">Verification engine</span>
               </div>
             )}
           </div>
