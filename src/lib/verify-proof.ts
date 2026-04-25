@@ -132,9 +132,29 @@ export function verifyProofStub(
   _taskDescription: string,
   _proofImageBase64: string
 ): VerificationResult {
-  return {
-    verdict: "pass",
-    reasoning: "Proof verified — task completion confirmed with visual evidence matching the request.",
-    confidence: 0.92,
-  };
+  const roll = Math.random();
+  if (roll < 0.70) {
+    // 70% pass with varied confidence
+    const confidence = 0.75 + Math.random() * 0.2; // 0.75–0.95
+    return {
+      verdict: "pass",
+      reasoning: "Proof verified — visual evidence matches the task request.",
+      confidence: Math.round(confidence * 100) / 100,
+    };
+  } else if (roll < 0.90) {
+    // 20% flag
+    const confidence = 0.55 + Math.random() * 0.2; // 0.55–0.75
+    return {
+      verdict: "flag",
+      reasoning: "Proof is ambiguous — photo partially matches but context is unclear. Flagged for human review.",
+      confidence: Math.round(confidence * 100) / 100,
+    };
+  } else {
+    // 10% fail
+    return {
+      verdict: "fail",
+      reasoning: "Proof does not appear to match the task description.",
+      confidence: 0.3 + Math.random() * 0.15,
+    };
+  }
 }

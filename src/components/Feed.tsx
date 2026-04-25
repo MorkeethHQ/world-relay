@@ -206,8 +206,16 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
   useEffect(() => {
     fetchTasks();
     const interval = setInterval(fetchTasks, 5000);
+
+    // Trigger XMTP sync every 30s so DMs get processed in near-real-time
+    // (Vercel hobby cron is daily — this compensates)
+    const syncXmtp = () => fetch("/api/xmtp-sync", { method: "POST" }).catch(() => {});
+    syncXmtp();
+    const syncInterval = setInterval(syncXmtp, 30_000);
+
     return () => {
       clearInterval(interval);
+      clearInterval(syncInterval);
       if (toastTimer.current) clearTimeout(toastTimer.current);
       if (statusToastTimer.current) clearTimeout(statusToastTimer.current);
     };

@@ -36,10 +36,15 @@ export async function getMessages(taskId: string): Promise<Message[]> {
   const redis = getRedis();
   if (!redis) return localCache.get(taskId) || [];
 
-  const raw = await redis.lrange(`${MSG_PREFIX}${taskId}`, 0, -1);
-  const messages: Message[] = raw.map((r) =>
-    typeof r === "string" ? JSON.parse(r) : (r as Message)
-  );
-  localCache.set(taskId, messages);
-  return messages;
+  try {
+    const raw = await redis.lrange(`${MSG_PREFIX}${taskId}`, 0, -1);
+    const messages: Message[] = raw.map((r) =>
+      typeof r === "string" ? JSON.parse(r) : (r as Message)
+    );
+    localCache.set(taskId, messages);
+    return messages;
+  } catch (err) {
+    console.error(`[Messages] Redis read failed for task ${taskId}:`, err);
+    return localCache.get(taskId) || [];
+  }
 }

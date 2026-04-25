@@ -21,11 +21,16 @@ async function getVerifiedUser(address: string) {
   if (localCache.has(address)) return localCache.get(address)!;
   const redis = getRedis();
   if (!redis) return null;
-  const raw = await redis.get(`${VERIFIED_PREFIX}${address}`);
-  if (!raw) return null;
-  const data = typeof raw === "string" ? JSON.parse(raw) : (raw as any);
-  localCache.set(address, data);
-  return data;
+  try {
+    const raw = await redis.get(`${VERIFIED_PREFIX}${address}`);
+    if (!raw) return null;
+    const data = typeof raw === "string" ? JSON.parse(raw) : (raw as any);
+    localCache.set(address, data);
+    return data;
+  } catch (err) {
+    console.error(`[Identity] Failed to read verified user ${address}:`, err);
+    return null;
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -34,14 +39,20 @@ export async function POST(req: NextRequest) {
   if (body.rp_id && body.idkitResponse) {
     const { rp_id, idkitResponse } = body;
 
-    const response = await fetch(
-      `https://developer.world.org/api/v4/verify/${rp_id}`,
-      {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(idkitResponse),
-      },
-    );
+    let response: Response;
+    try {
+      response = await fetch(
+        `https://developer.world.org/api/v4/verify/${rp_id}`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(idkitResponse),
+        },
+      );
+    } catch (err) {
+      console.error("[World ID] Verification request failed:", err);
+      return NextResponse.json({ error: "World ID verification service unreachable" }, { status: 502 });
+    }
 
     if (!response.ok) {
       const err = await response.text();

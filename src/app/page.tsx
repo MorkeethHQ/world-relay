@@ -15,6 +15,12 @@ export default function Home() {
   const [isMobile, setIsMobile] = useState(false);
   const [welcomeMsg, setWelcomeMsg] = useState<string | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [completedTask, setCompletedTask] = useState<{
+    id: string; description: string; agent?: { name: string; icon: string };
+    bountyUsdc: number; proofImageUrl?: string; claimantVerification?: string;
+    verificationResult?: { verdict: string; confidence: number };
+    createdAt: string;
+  } | null>(null);
 
   useEffect(() => {
     setIsInWorldApp(MiniKit.isInstalled());
@@ -26,6 +32,15 @@ export default function Home() {
       setUserId(stored);
       setVerificationLevel(storedLevel);
     }
+    // Fetch most recent completed task for the homepage showcase
+    fetch("/api/tasks").then(r => r.json()).then(data => {
+      const completed = (data.tasks || [])
+        .filter((t: Record<string, unknown>) => t.status === "completed")
+        .sort((a: Record<string, unknown>, b: Record<string, unknown>) =>
+          new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime()
+        );
+      if (completed.length > 0) setCompletedTask(completed[0]);
+    }).catch(() => {});
   }, []);
 
   const handleDemoMode = async () => {
@@ -276,41 +291,71 @@ export default function Home() {
           </div>
 
           {/* Recently Completed — proof the system works */}
-          <div className="w-full mt-2">
-            <p className="text-[10px] text-gray-500 uppercase tracking-wider font-medium text-center mb-2">Recently completed</p>
-            <a href="/task/completed-louvre-queue" className="block bg-[#0a0a0a] border border-green-500/15 rounded-2xl p-3 active:scale-[0.98] transition-transform">
-              <div className="flex gap-3">
-                <div className="w-14 h-14 rounded-xl bg-green-500/10 border border-green-500/20 flex items-center justify-center shrink-0 overflow-hidden">
-                  <img src="/proof-louvre-queue.svg" alt="Proof" className="w-full h-full object-cover" loading="lazy" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <span className="text-[9px] font-bold text-green-400 bg-green-500/10 px-1.5 py-0.5 rounded-full">PASS 94%</span>
-                    <span className="text-[9px] text-gray-500">1h ago</span>
+          {(() => {
+            const t = completedTask || {
+              id: "completed-louvre-queue",
+              description: "Louvre Pyramid queue — 35 people, ~20 min wait",
+              agent: { name: "QueueWatch", icon: "⏱️" },
+              bountyUsdc: 0.25,
+              proofImageUrl: "/proof-louvre-queue.svg",
+              claimantVerification: "device",
+              verificationResult: { verdict: "pass", confidence: 0.94 },
+              createdAt: new Date(Date.now() - 3600_000).toISOString(),
+            };
+            const ago = Math.floor((Date.now() - new Date(t.createdAt).getTime()) / 60_000);
+            const timeStr = ago < 60 ? `${ago}m ago` : `${Math.floor(ago / 60)}h ago`;
+            const conf = t.verificationResult ? Math.round(t.verificationResult.confidence * 100) : 0;
+            return (
+              <div className="w-full mt-2">
+                <p className="text-[10px] text-gray-500 uppercase tracking-wider font-medium text-center mb-2">Recently completed</p>
+                <a href={`/task/${t.id}`} className="block bg-[#0a0a0a] border border-green-500/15 rounded-2xl p-3 active:scale-[0.98] transition-transform">
+                  <div className="flex gap-3">
+                    <div className="w-14 h-14 rounded-xl bg-green-500/10 border border-green-500/20 flex items-center justify-center shrink-0 overflow-hidden">
+                      {t.proofImageUrl
+                        ? <img src={t.proofImageUrl} alt="Proof" className="w-full h-full object-cover" loading="lazy" />
+                        : <span className="text-2xl">{t.agent?.icon || "✅"}</span>
+                      }
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5 mb-1">
+                        {t.verificationResult && (
+                          <span className="text-[9px] font-bold text-green-400 bg-green-500/10 px-1.5 py-0.5 rounded-full">
+                            {t.verificationResult.verdict.toUpperCase()} {conf}%
+                          </span>
+                        )}
+                        <span className="text-[9px] text-gray-500">{timeStr}</span>
+                      </div>
+                      <p className="text-[11px] font-medium text-white leading-tight truncate">{t.description}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        {t.agent && <span className="text-[9px] text-yellow-400">{t.agent.name}</span>}
+                        <span className="text-gray-700">·</span>
+                        <span className="text-[9px] text-green-400 font-medium">${t.bountyUsdc} paid</span>
+                        {t.claimantVerification && (
+                          <>
+                            <span className="text-gray-700">·</span>
+                            <span className={`text-[9px] ${t.claimantVerification === "orb" ? "text-green-400" : t.claimantVerification === "device" ? "text-blue-400" : "text-gray-400"}`}>
+                              {t.claimantVerification.charAt(0).toUpperCase() + t.claimantVerification.slice(1)} Verified
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                  <p className="text-[11px] font-medium text-white leading-tight truncate">Louvre Pyramid queue — 35 people, ~20 min wait</p>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="text-[9px] text-yellow-400">QueueWatch</span>
-                    <span className="text-gray-700">·</span>
-                    <span className="text-[9px] text-green-400 font-medium">$0.25 paid</span>
-                    <span className="text-gray-700">·</span>
-                    <span className="text-[9px] text-blue-400">Device Verified</span>
+                  <div className="mt-2 pt-2 border-t border-white/[0.04] flex items-center gap-2">
+                    <div className="w-4 h-4 rounded-full bg-white/5 flex items-center justify-center">
+                      <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                      </svg>
+                    </div>
+                    <p className="text-[9px] text-gray-500 truncate flex-1">World Chat thread — claim, proof, AI verdict, USDC release</p>
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="9 18 15 12 9 6" />
+                    </svg>
                   </div>
-                </div>
+                </a>
               </div>
-              <div className="mt-2 pt-2 border-t border-white/[0.04] flex items-center gap-2">
-                <div className="w-4 h-4 rounded-full bg-white/5 flex items-center justify-center">
-                  <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                  </svg>
-                </div>
-                <p className="text-[9px] text-gray-500 truncate flex-1">5 World Chat messages — claim, proof, AI verdict, USDC release</p>
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="9 18 15 12 9 6" />
-                </svg>
-              </div>
-            </a>
-          </div>
+            );
+          })()}
 
           {/* Message us callout */}
           <div className="w-full mt-1">

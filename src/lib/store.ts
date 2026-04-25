@@ -26,35 +26,39 @@ async function hydrateCache(): Promise<void> {
     return;
   }
 
-  const ids = await redis.smembers(TASK_LIST_KEY);
-  if (ids.length === 0) {
-    cacheHydrated = true;
-    return;
-  }
-
-  const pipeline = redis.pipeline();
-  for (const id of ids) {
-    pipeline.get(`${TASK_PREFIX}${id}`);
-  }
-  const results = await pipeline.exec();
-
-  for (const raw of results) {
-    if (!raw) continue;
-    const task: Task = typeof raw === "string" ? JSON.parse(raw) : (raw as Task);
-    if (task.agent === undefined) task.agent = null;
-    if ((task as any).aiFollowUp === undefined) task.aiFollowUp = null;
-    if ((task as any).recurring === undefined) task.recurring = null;
-    if ((task as any).callbackUrl === undefined) task.callbackUrl = null;
-    if ((task as any).onChainId === undefined) task.onChainId = null;
-    if ((task as any).escrowTxHash === undefined) task.escrowTxHash = null;
-    if ((task as any).claimCode === undefined) task.claimCode = null;
-    if ((task as any).proofImages === undefined) {
-      (task as any).proofImages = task.proofImageUrl ? [task.proofImageUrl] : null;
+  try {
+    const ids = await redis.smembers(TASK_LIST_KEY);
+    if (ids.length === 0) {
+      cacheHydrated = true;
+      return;
     }
-    if ((task as any).claimantVerification === undefined) {
-      (task as any).claimantVerification = null;
+
+    const pipeline = redis.pipeline();
+    for (const id of ids) {
+      pipeline.get(`${TASK_PREFIX}${id}`);
     }
-    cache.set(task.id, task);
+    const results = await pipeline.exec();
+
+    for (const raw of results) {
+      if (!raw) continue;
+      const task: Task = typeof raw === "string" ? JSON.parse(raw) : (raw as Task);
+      if (task.agent === undefined) task.agent = null;
+      if ((task as any).aiFollowUp === undefined) task.aiFollowUp = null;
+      if ((task as any).recurring === undefined) task.recurring = null;
+      if ((task as any).callbackUrl === undefined) task.callbackUrl = null;
+      if ((task as any).onChainId === undefined) task.onChainId = null;
+      if ((task as any).escrowTxHash === undefined) task.escrowTxHash = null;
+      if ((task as any).claimCode === undefined) task.claimCode = null;
+      if ((task as any).proofImages === undefined) {
+        (task as any).proofImages = task.proofImageUrl ? [task.proofImageUrl] : null;
+      }
+      if ((task as any).claimantVerification === undefined) {
+        (task as any).claimantVerification = null;
+      }
+      cache.set(task.id, task);
+    }
+  } catch (err) {
+    console.error("[Store] Redis hydration failed, using in-memory cache:", err);
   }
   cacheHydrated = true;
 }
@@ -165,11 +169,16 @@ export async function getTask(id: string): Promise<Task | undefined> {
 
   const redis = getRedis();
   if (!redis) return undefined;
-  const raw = await redis.get(`${TASK_PREFIX}${id}`);
-  if (!raw) return undefined;
-  const task: Task = typeof raw === "string" ? JSON.parse(raw) : (raw as Task);
-  cache.set(id, task);
-  return task;
+  try {
+    const raw = await redis.get(`${TASK_PREFIX}${id}`);
+    if (!raw) return undefined;
+    const task: Task = typeof raw === "string" ? JSON.parse(raw) : (raw as Task);
+    cache.set(id, task);
+    return task;
+  } catch (err) {
+    console.error(`[Store] Redis get failed for task ${id}:`, err);
+    return undefined;
+  }
 }
 
 export async function listTasks(): Promise<Task[]> {

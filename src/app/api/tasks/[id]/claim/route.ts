@@ -22,10 +22,15 @@ function requiredTier(bountyUsdc: number): { level: string; rank: number } {
 async function getUserVerificationLevel(address: string): Promise<string> {
   const redis = getRedis();
   if (!redis) return "wallet";
-  const raw = await redis.get(`verified:${address}`);
-  if (!raw) return "wallet";
-  const data = typeof raw === "string" ? JSON.parse(raw) : (raw as any);
-  return data.verificationLevel || "wallet";
+  try {
+    const raw = await redis.get(`verified:${address}`);
+    if (!raw) return "wallet";
+    const data = typeof raw === "string" ? JSON.parse(raw) : (raw as any);
+    return data.verificationLevel || "wallet";
+  } catch (err) {
+    console.error(`[Claim] Failed to read verification level for ${address}:`, err);
+    return "wallet";
+  }
 }
 
 export async function POST(

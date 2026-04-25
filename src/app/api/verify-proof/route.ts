@@ -18,11 +18,16 @@ async function checkRateLimit(): Promise<boolean> {
   const redis = getRedis();
   if (!redis) return true;
 
-  const count = await redis.incr(RATE_LIMIT_KEY);
-  if (count === 1) {
-    await redis.expire(RATE_LIMIT_KEY, 3600);
+  try {
+    const count = await redis.incr(RATE_LIMIT_KEY);
+    if (count === 1) {
+      await redis.expire(RATE_LIMIT_KEY, 3600);
+    }
+    return count <= MAX_VERIFICATIONS_PER_HOUR;
+  } catch (err) {
+    console.error("[RateLimit] Redis error, allowing request:", err);
+    return true;
   }
-  return count <= MAX_VERIFICATIONS_PER_HOUR;
 }
 
 function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {

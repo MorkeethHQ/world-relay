@@ -157,6 +157,8 @@ export default function LivePage() {
       const res = await fetch("/api/xmtp-sync", { method: "POST" });
       if (!res.ok) throw new Error(`Sync failed: ${res.status}`);
       setSyncState("success");
+      // Refresh XMTP status to update lastSync timestamp
+      fetch("/api/xmtp-status").then(r => r.json()).then((data: XmtpStatus) => setXmtpStatus(data)).catch(() => {});
     } catch {
       setSyncState("error");
     }

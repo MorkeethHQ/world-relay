@@ -34,11 +34,16 @@ export async function getReputation(address: string): Promise<UserReputation> {
   if (localCache.has(address)) return localCache.get(address)!;
   const redis = getRedis();
   if (!redis) return defaultRep(address);
-  const raw = await redis.get(`${REP_PREFIX}${address}`);
-  if (!raw) return defaultRep(address);
-  const rep: UserReputation = typeof raw === "string" ? JSON.parse(raw) : (raw as UserReputation);
-  localCache.set(address, rep);
-  return rep;
+  try {
+    const raw = await redis.get(`${REP_PREFIX}${address}`);
+    if (!raw) return defaultRep(address);
+    const rep: UserReputation = typeof raw === "string" ? JSON.parse(raw) : (raw as UserReputation);
+    localCache.set(address, rep);
+    return rep;
+  } catch (err) {
+    console.error(`[Reputation] Failed to read reputation for ${address}:`, err);
+    return defaultRep(address);
+  }
 }
 
 async function saveReputation(rep: UserReputation): Promise<void> {
@@ -120,22 +125,27 @@ export async function getLeaderboard(limit = 10): Promise<UserReputation[]> {
   const redis = getRedis();
   if (!redis) return Array.from(localCache.values()).sort((a, b) => getTrustScore(b) - getTrustScore(a)).slice(0, limit);
 
-  const keys = await redis.keys(`${REP_PREFIX}*`);
-  if (keys.length === 0) return [];
+  try {
+    const keys = await redis.keys(`${REP_PREFIX}*`);
+    if (keys.length === 0) return [];
 
-  const pipeline = redis.pipeline();
-  for (const key of keys) {
-    pipeline.get(key);
+    const pipeline = redis.pipeline();
+    for (const key of keys) {
+      pipeline.get(key);
+    }
+    const results = await pipeline.exec();
+
+    const reps: UserReputation[] = [];
+    for (const raw of results) {
+      if (!raw) continue;
+      const rep: UserReputation = typeof raw === "string" ? JSON.parse(raw) : (raw as UserReputation);
+      reps.push(rep);
+      localCache.set(rep.address, rep);
+    }
+
+    return reps.sort((a, b) => getTrustScore(b) - getTrustScore(a)).slice(0, limit);
+  } catch (err) {
+    console.error("[Reputation] Failed to fetch leaderboard from Redis:", err);
+    return Array.from(localCache.values()).sort((a, b) => getTrustScore(b) - getTrustScore(a)).slice(0, limit);
   }
-  const results = await pipeline.exec();
-
-  const reps: UserReputation[] = [];
-  for (const raw of results) {
-    if (!raw) continue;
-    const rep: UserReputation = typeof raw === "string" ? JSON.parse(raw) : (raw as UserReputation);
-    reps.push(rep);
-    localCache.set(rep.address, rep);
-  }
-
-  return reps.sort((a, b) => getTrustScore(b) - getTrustScore(a)).slice(0, limit);
 }
