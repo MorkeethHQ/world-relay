@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createTask, listTasks } from "@/lib/store";
 import { generateLocationBriefing } from "@/lib/ai-chat";
 import { addMessage } from "@/lib/messages";
+import { postTaskCreated } from "@/lib/xmtp";
 import { broadcastEvent } from "@/lib/sse";
 
 let autoSeedTriggered = false;
@@ -44,6 +45,9 @@ export async function POST(req: NextRequest) {
     onChainId: onChainId != null ? Number(onChainId) : null,
     escrowTxHash: escrowTxHash || null,
   });
+
+  // Post task creation to XMTP thread
+  postTaskCreated(task).catch(console.error);
 
   // Fire-and-forget AI scout briefing (with agent personality if available)
   generateLocationBriefing(task, task.agent?.id || undefined).then(briefing => {

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTask, submitProof, completeTask, setAttestationHash, setFollowUp, spawnRecurringTask } from "@/lib/store";
 import { verifyProof, verifyProofStub } from "@/lib/verify-proof";
-import { postProofSubmitted, postVerificationResult, postFollowUpQuestion, syncAndProcessMessages } from "@/lib/xmtp";
+import { postProofSubmitted, postVerificationResult, postFollowUpQuestion, postSettlementConfirmation, syncAndProcessMessages } from "@/lib/xmtp";
 import { generateFollowUpQuestion } from "@/lib/ai-chat";
 import { notifyProofSubmitted, notifyVerified, notifyFlagged } from "@/lib/notifications";
 import { postAttestation } from "@/lib/attestation";
@@ -178,6 +178,7 @@ export async function POST(req: NextRequest) {
     });
     if (escrowReleaseTxHash) {
       console.log(`[Escrow] Auto-released $${task.bountyUsdc} USDC for task ${taskId}: ${escrowReleaseTxHash}`);
+      postSettlementConfirmation(taskId, task.bountyUsdc, escrowReleaseTxHash).catch(console.error);
     }
   }
 

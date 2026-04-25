@@ -137,21 +137,53 @@ export async function createTaskThread(
   }
 
   threadMap.set(task.id, thread);
+
+  // Persist thread info in Redis so other serverless invocations can find it
+  const redis2 = getRedis();
+  if (redis2) {
+    await redis2.set(`xmtp:thread:${task.id}`, JSON.stringify(thread)).catch(console.error);
+  }
+
   return thread;
+}
+
+async function resolveThread(taskId: string): Promise<XmtpThreadInfo | null> {
+  const cached = threadMap.get(taskId);
+  if (cached) return cached;
+
+  // Load from Redis (survives serverless cold starts)
+  const redis = getRedis();
+  if (redis) {
+    try {
+      const raw = await redis.get(`xmtp:thread:${taskId}`);
+      if (raw) {
+        const thread: XmtpThreadInfo = typeof raw === "string" ? JSON.parse(raw) : (raw as XmtpThreadInfo);
+        threadMap.set(taskId, thread);
+        return thread;
+      }
+    } catch (err) {
+      console.error(`[XMTP] Failed to load thread from Redis for task ${taskId}:`, err);
+    }
+  }
+  return null;
 }
 
 export async function postToThread(
   taskId: string,
   message: string
 ): Promise<boolean> {
-  const thread = threadMap.get(taskId);
-  if (!thread) return false;
-
+  // Always store the message so the web UI shows it, even if XMTP send fails
   await addMessage(taskId, "relay-bot", message);
+
+  const thread = await resolveThread(taskId);
+  if (!thread) {
+    console.log(`[XMTP] No thread for task ${taskId}, message stored in Redis only`);
+    return true;
+  }
 
   const sent = await sendXmtpMessage(thread, message);
   if (!sent) {
-    console.log(`[XMTP] Message stored locally for task ${taskId}`);
+    console.log(`[XMTP] XMTP send failed for task ${taskId}, message stored in Redis`);
   }
   return true;
 }
@@ -163,7 +195,7 @@ export async function postUserMessage(
 ): Promise<boolean> {
   await addMessage(taskId, sender, message);
 
-  const thread = threadMap.get(taskId);
+  const thread = await resolveThread(taskId);
   if (!thread) return false;
 
   const prefixed = `[${sender.startsWith("0x") ? `${sender.slice(0, 6)}...${sender.slice(-4)}` : sender}]: ${message}`;
@@ -171,8 +203,22 @@ export async function postUserMessage(
   return true;
 }
 
-export function getThread(taskId: string): XmtpThreadInfo | undefined {
-  return threadMap.get(taskId);
+export async function getThread(taskId: string): Promise<XmtpThreadInfo | undefined> {
+  return (await resolveThread(taskId)) || undefined;
+}
+
+export async function postTaskCreated(task: Task): Promise<void> {
+  const agentLine = task.agent ? `🤖 ${task.agent.name}: "${task.agent.id}"` : `👤 Posted by ${task.poster.startsWith("0x") ? `${task.poster.slice(0, 6)}...${task.poster.slice(-4)}` : task.poster}`;
+  await addMessage(task.id, "relay-bot", [
+    `📋 NEW TASK POSTED`,
+    `━━━━━━━━━━━━━━━━━━`,
+    `"${task.description}"`,
+    `📍 ${task.location}`,
+    `💰 $${task.bountyUsdc} USDC`,
+    agentLine,
+    ``,
+    `Waiting for a verified human to claim this task.`,
+  ].join("\n"));
 }
 
 export async function postClaimNotification(task: Task, claimantAddress: string): Promise<void> {
@@ -213,9 +259,9 @@ export async function postVerificationResult(
       `Reasoning: ${reasoning}`,
       ...(confidence ? [`Confidence: ${Math.round(confidence * 100)}%`] : []),
       ``,
-      `💸 SETTLEMENT`,
-      `$${bountyUsdc} USDC → claimant`,
-      `Escrow release on World Chain.`,
+      `💸 PAYMENT RELEASING`,
+      `$${bountyUsdc} USDC → runner`,
+      `Payment on World Chain.`,
     ].join("\n"));
   } else if (verdict === "flag") {
     await postToThread(taskId, [
@@ -225,7 +271,7 @@ export async function postVerificationResult(
       ...(confidence ? [`Confidence: ${Math.round(confidence * 100)}%`] : []),
       ``,
       `Poster: approve or reject this proof.`,
-      `$${bountyUsdc} USDC held in escrow.`,
+      `$${bountyUsdc} USDC held until resolved.`,
     ].join("\n"));
   } else {
     await postToThread(taskId, [
@@ -234,7 +280,7 @@ export async function postVerificationResult(
       `Reasoning: ${reasoning}`,
       ``,
       `Task reopened for new claims.`,
-      `$${bountyUsdc} USDC returned to escrow.`,
+      `$${bountyUsdc} USDC returned to poster.`,
     ].join("\n"));
   }
 }
@@ -293,9 +339,9 @@ export async function postReEvaluationResult(
     ...(confidence ? [`Confidence: ${Math.round(confidence * 100)}%`] : []),
     ``,
     ...(verdict === "pass" ? [
-      `💸 SETTLEMENT`,
-      `$${bountyUsdc} USDC → claimant`,
-      `Escrow release on World Chain.`,
+      `💸 PAYMENT RELEASING`,
+      `$${bountyUsdc} USDC → runner`,
+      `Payment on World Chain.`,
     ] : verdict === "flag" ? [
       `Poster: approve or reject this proof manually.`,
     ] : [
@@ -320,8 +366,8 @@ export async function postDisputeVerdict(
     `Confidence: ${Math.round(confidence * 100)}%`,
     ``,
     approved
-      ? `✅ VERDICT: APPROVED\n$${bountyUsdc} USDC → claimant. Escrow released.`
-      : `❌ VERDICT: REJECTED\nTask reopened. $${bountyUsdc} USDC returned to escrow.`,
+      ? `✅ VERDICT: APPROVED\n$${bountyUsdc} USDC → runner. Payment released.`
+      : `❌ VERDICT: REJECTED\nTask reopened. $${bountyUsdc} USDC returned to poster.`,
     ``,
     `This verdict was rendered by AI after analyzing the proof photo, initial verification, and the full XMTP thread.`,
   ].join("\n"));

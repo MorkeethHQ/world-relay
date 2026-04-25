@@ -445,7 +445,7 @@ export default function XmtpPage() {
               /* No DMs yet — show example queries */
               <div className="px-4 py-5">
                 <p className="text-[11px] text-gray-500 text-center mb-3">
-                  No DMs yet. Try messaging the bot on World Chat:
+                  No DMs yet. Try messaging the bot via XMTP:
                 </p>
                 <div className="flex flex-col gap-2">
                   {[

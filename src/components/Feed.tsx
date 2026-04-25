@@ -1123,7 +1123,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
               </span>
-              <span className="text-[10px] font-medium text-green-400/70">World Chat Connected</span>
+              <span className="text-[10px] font-medium text-green-400/70">XMTP Connected</span>
               {xmtpStatus.inboxId && (
                 <span className="text-[10px] text-gray-500 font-mono truncate max-w-[120px]">
                   {xmtpStatus.inboxId.slice(0, 8)}...{xmtpStatus.inboxId.slice(-4)}
@@ -1133,7 +1133,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
           ) : (
             <div className="flex items-center justify-center gap-2 mb-2 bg-red-500/8 border border-red-500/15 rounded-lg px-3 py-2">
               <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
-              <span className="text-[10px] font-medium text-red-400">World Chat Offline</span>
+              <span className="text-[10px] font-medium text-red-400">XMTP Offline</span>
               <span className="text-[10px] text-gray-500">-- messaging unavailable</span>
             </div>
           )
@@ -1175,7 +1175,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
           <span className="text-gray-800">·</span>
           <div className="flex items-center gap-1.5">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#818cf8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>
-            <span className="text-[10px] text-gray-500">World Chat</span>
+            <span className="text-[10px] text-gray-500">XMTP</span>
           </div>
           <span className="text-gray-800">·</span>
           <div className="flex items-center gap-1.5">
@@ -2794,14 +2794,14 @@ function TaskDetail({
           </div>
         )}
 
-        {/* World Chat Thread */}
+        {/* XMTP Thread */}
         <div className="flex flex-col gap-2 mt-2">
           <div className="flex items-center gap-2">
             <span className="text-[10px] text-gray-500 uppercase tracking-wider font-medium">Thread</span>
             <span className="flex-1 h-px bg-white/5" />
             <div className="flex items-center gap-1">
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#818cf8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
-              <span className="text-[10px] text-indigo-400/70">World Chat Encrypted</span>
+              <span className="text-[10px] text-indigo-400/70">XMTP Encrypted</span>
               <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-[pulse-dot_2s_ease-in-out_infinite]" />
             </div>
           </div>

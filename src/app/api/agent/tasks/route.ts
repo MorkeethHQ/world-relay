@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createTask, listTasks } from "@/lib/store";
 import { generateLocationBriefing } from "@/lib/ai-chat";
 import { addMessage } from "@/lib/messages";
+import { postTaskCreated } from "@/lib/xmtp";
 import { broadcastEvent } from "@/lib/sse";
 
 const AGENT_API_KEY = process.env.AGENT_API_KEY;
@@ -68,6 +69,9 @@ export async function POST(req: NextRequest) {
     recurring: recurring_hours ? { intervalHours: Number(recurring_hours), totalRuns: Number(recurring_count) || 7 } : null,
     callbackUrl: callback_url || null,
   });
+
+  // Post task creation to XMTP thread
+  postTaskCreated(task).catch(console.error);
 
   // Fire-and-forget AI scout briefing (with agent personality if available)
   generateLocationBriefing(task, agentId || undefined).then(briefing => {

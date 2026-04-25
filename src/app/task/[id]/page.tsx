@@ -549,7 +549,7 @@ function WorldChatThread({
           >
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
           </svg>
-          <span className="text-sm font-semibold text-white">World Chat</span>
+          <span className="text-sm font-semibold text-white">XMTP Thread</span>
           {messages.length > 0 && (
             <span className="text-[10px] text-gray-500 font-mono ml-1">
               {messages.length} message{messages.length !== 1 ? "s" : ""}
@@ -571,7 +571,7 @@ function WorldChatThread({
             <div className="w-5 h-5 border-2 border-gray-700 border-t-gray-500 rounded-full animate-spin" />
           </div>
           <p className="text-xs text-gray-500 text-center leading-relaxed">
-            Loading World Chat thread...
+            Waiting for XMTP thread...
           </p>
         </div>
       ) : (
