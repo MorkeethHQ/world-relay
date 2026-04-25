@@ -1,4 +1,4 @@
-@import "@worldcoin/mini-apps-ui-kit-react/dist/globals.css";
+@import "@worldcoin/mini-apps-ui-kit-react/styles.css";
 @import "tailwindcss";
 
 @theme inline {
