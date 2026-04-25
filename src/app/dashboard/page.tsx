@@ -205,7 +205,7 @@ export default function DashboardPage() {
       {/* World TopBar */}
       <div className="sticky top-0 z-10 bg-[#050505]/90 backdrop-blur-xl border-b border-white/5">
         <WorldTopBar
-          title="Agent Dashboard"
+          title="Network Stats"
           startAdornment={
             <Link href="/" className="flex items-center gap-1 text-sm text-gray-400 hover:text-white transition-colors">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -253,7 +253,7 @@ export default function DashboardPage() {
                     <WorldTypography variant="number" level={5} as="span" className="!text-green-400 !font-bold">
                       ${totalBounty.toFixed(0)}
                     </WorldTypography>
-                    <p className="text-[9px] text-gray-600 mt-0.5">USDC Bounties</p>
+                    <p className="text-[9px] text-gray-600 mt-0.5">Available</p>
                   </div>
                   <div>
                     <WorldTypography variant="number" level={5} as="span" className="!text-emerald-400 !font-bold">
@@ -510,7 +510,7 @@ export default function DashboardPage() {
                         <div className="flex items-center gap-3 shrink-0">
                           <div className="text-right">
                             <p className="text-[10px] text-green-400 font-semibold">${city.bounty.toFixed(0)}</p>
-                            <p className="text-[8px] text-gray-600">USDC</p>
+                            <p className="text-[8px] text-gray-600">posted</p>
                           </div>
                           <div className="text-right min-w-[40px]">
                             <p className={`text-[10px] font-bold ${city.completionRate >= 0.5 ? "text-green-400" : city.completionRate > 0 ? "text-yellow-400" : "text-gray-600"}`}>
@@ -527,90 +527,20 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Bounty Economics */}
+          {/* Quick economics row */}
           <div className="px-4 pb-2">
-            <div className="relative overflow-hidden bg-[#0a0a0a] border border-white/[0.06] rounded-2xl p-4">
-              <div className="absolute top-0 left-0 w-32 h-32 bg-green-500/5 rounded-full blur-3xl -ml-16 -mt-16" />
-              <div className="relative">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="w-1.5 h-1.5 rounded-full bg-green-400" />
-                  <WorldTypography variant="label" level={2} as="span" className="!text-gray-400 !text-[10px] uppercase tracking-wider">
-                    Bounty Economics
-                  </WorldTypography>
-                </div>
-
-                <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
-                  <div className="bg-white/[0.03] border border-white/[0.04] rounded-xl p-3 text-center">
-                    <WorldTypography variant="number" level={4} as="span" className="!text-green-400 !font-bold">
-                      ${totalPostedUsdc.toFixed(2)}
-                    </WorldTypography>
-                    <p className="text-[9px] text-gray-500 mt-1">Total Posted</p>
-                  </div>
-                  <div className="bg-white/[0.03] border border-white/[0.04] rounded-xl p-3 text-center">
-                    <WorldTypography variant="number" level={4} as="span" className="!text-emerald-400 !font-bold">
-                      ${totalPaidUsdc.toFixed(2)}
-                    </WorldTypography>
-                    <p className="text-[9px] text-gray-500 mt-1">Paid Out</p>
-                  </div>
-                  <div className="bg-white/[0.03] border border-white/[0.04] rounded-xl p-3 text-center">
-                    <WorldTypography variant="number" level={4} as="span" className="!text-blue-400 !font-bold">
-                      ${avgBounty.toFixed(2)}
-                    </WorldTypography>
-                    <p className="text-[9px] text-gray-500 mt-1">Avg Bounty</p>
-                  </div>
-                  <div className="bg-white/[0.03] border border-white/[0.04] rounded-xl p-3 text-center">
-                    <WorldTypography variant="number" level={4} as="span" className="!text-purple-400 !font-bold">
-                      {formatDuration(avgTimeToCompletion)}
-                    </WorldTypography>
-                    <p className="text-[9px] text-gray-500 mt-1">Avg Completion</p>
-                  </div>
-                </div>
+            <div className="flex gap-1.5">
+              <div className="flex-1 bg-[#0a0a0a] border border-white/[0.06] rounded-xl p-3 text-center">
+                <p className="text-sm font-bold text-blue-400">${avgBounty.toFixed(2)}</p>
+                <p className="text-[9px] text-gray-600 mt-0.5">Avg Task</p>
               </div>
-            </div>
-          </div>
-
-          {/* Escrow Status */}
-          <div className="px-4 pb-2">
-            <div className="relative overflow-hidden bg-[#0a0a0a] border border-white/[0.06] rounded-2xl p-4">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/5 rounded-full blur-3xl -mr-16 -mt-16" />
-              <div className="relative">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="w-1.5 h-1.5 rounded-full bg-orange-400" />
-                  <WorldTypography variant="label" level={2} as="span" className="!text-gray-400 !text-[10px] uppercase tracking-wider">
-                    Pending Payments
-                  </WorldTypography>
-                </div>
-
-                <div className="flex items-center justify-between mb-3">
-                  <div>
-                    <WorldTypography variant="number" level={3} as="span" className="!text-orange-400 !font-bold">
-                      ${escrowLocked.toFixed(2)}
-                    </WorldTypography>
-                    <p className="text-[10px] text-gray-500 mt-0.5">Held for active tasks</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-[10px] text-gray-400 font-mono">
-                      {ESCROW_ADDRESS.slice(0, 6)}...{ESCROW_ADDRESS.slice(-4)}
-                    </p>
-                    <p className="text-[8px] text-gray-600 mt-0.5">
-                      {tasks.filter(t => t.status === "claimed").length} tasks in progress
-                    </p>
-                  </div>
-                </div>
-
-                <a
-                  href={`https://worldscan.org/address/${ESCROW_ADDRESS}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-2 w-full bg-orange-500/[0.08] hover:bg-orange-500/15 border border-orange-500/20 rounded-xl px-4 py-2.5 transition-all active:scale-[0.98] min-h-[44px]"
-                >
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fb923c" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-                    <polyline points="15 3 21 3 21 9" />
-                    <line x1="10" y1="14" x2="21" y2="3" />
-                  </svg>
-                  <span className="text-xs font-medium text-orange-400">View Payment Contract</span>
-                </a>
+              <div className="flex-1 bg-[#0a0a0a] border border-white/[0.06] rounded-xl p-3 text-center">
+                <p className="text-sm font-bold text-purple-400">{formatDuration(avgTimeToCompletion)}</p>
+                <p className="text-[9px] text-gray-600 mt-0.5">Avg Time</p>
+              </div>
+              <div className="flex-1 bg-[#0a0a0a] border border-white/[0.06] rounded-xl p-3 text-center">
+                <p className="text-sm font-bold text-orange-400">${escrowLocked.toFixed(2)}</p>
+                <p className="text-[9px] text-gray-600 mt-0.5">In Progress</p>
               </div>
             </div>
           </div>
@@ -686,12 +616,12 @@ export default function DashboardPage() {
                           </div>
                         </div>
 
-                        {/* USDC deployed */}
+                        {/* Amount */}
                         <div className="text-right shrink-0">
                           <WorldTypography variant="number" level={5} as="span" className="!text-green-400">
                             ${agent.totalBounty}
                           </WorldTypography>
-                          <p className="text-[8px] text-gray-600">USDC</p>
+                          <p className="text-[8px] text-gray-600">posted</p>
                         </div>
                       </div>
                     ))}
@@ -756,7 +686,7 @@ export default function DashboardPage() {
                         <WorldTypography variant="number" level={5} as="span" className="!text-green-400">
                           ${agent.totalBounty}
                         </WorldTypography>
-                        <p className="text-[9px] text-gray-600">USDC total</p>
+                        <p className="text-[9px] text-gray-600">total posted</p>
                       </div>
                     </div>
 
