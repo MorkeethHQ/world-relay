@@ -508,14 +508,14 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
                 API
               </a>
               <a
-                href="/demo"
-                className="shrink-0 h-11 px-3 rounded-full font-semibold text-[11px] border border-blue-500/30 text-blue-400 hover:text-blue-300 hover:border-blue-500/50 transition-all flex items-center gap-1.5 bg-blue-500/5"
-                title="World Chat Demo"
+                href="/xmtp"
+                className="shrink-0 h-11 px-3 rounded-full font-semibold text-[11px] border border-indigo-500/30 text-indigo-400 hover:text-indigo-300 hover:border-indigo-500/50 transition-all flex items-center gap-1.5 bg-indigo-500/5"
+                title="XMTP Deep Dive"
               >
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polygon points="5 3 19 12 5 21 5 3" />
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
                 </svg>
-                Demo
+                XMTP
               </a>
               <a
                 href="/live"
@@ -1542,6 +1542,9 @@ function PostTask({
   const [submitting, setSubmitting] = useState(false);
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [escrowSuccess, setEscrowSuccess] = useState<string | null>(null);
+  const [enhancing, setEnhancing] = useState(false);
+  const [enhanced, setEnhanced] = useState(false);
+  const enhancedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!navigator.geolocation) return;
@@ -1551,6 +1554,30 @@ function PostTask({
       { enableHighAccuracy: true, timeout: 10000 }
     );
   }, []);
+
+  const handleEnhance = async () => {
+    if (!description.trim() || enhancing) return;
+    setEnhancing(true);
+    setEnhanced(false);
+    try {
+      const res = await fetch("/api/enhance-description", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ description, category, location }),
+      });
+      const data = await res.json();
+      if (data.enhanced) {
+        setDescription(data.enhanced);
+        setEnhanced(true);
+        if (enhancedTimer.current) clearTimeout(enhancedTimer.current);
+        enhancedTimer.current = setTimeout(() => setEnhanced(false), 2000);
+      }
+    } catch {
+      /* silently fail — user keeps their original description */
+    } finally {
+      setEnhancing(false);
+    }
+  };
 
   const handleSubmit = async () => {
     if (!description || !location || !bounty || !userId) return;
@@ -1664,15 +1691,46 @@ function PostTask({
         </div>
 
         <div>
-          <label className="text-[11px] text-gray-500 uppercase tracking-wider font-medium block mb-2">What do you need?</label>
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-[11px] text-gray-500 uppercase tracking-wider font-medium">What do you need?</label>
+            {enhanced && (
+              <span className="text-[10px] text-green-400 font-medium animate-[fadeIn_0.2s_ease-out]">
+                Enhanced by Claude
+              </span>
+            )}
+          </div>
           <textarea
             placeholder="Take a photo of the menu board at Blue Bottle on Rue de Rivoli"
             value={description}
-            onChange={(e) => setDescription(e.target.value)}
+            onChange={(e) => { setDescription(e.target.value); setEnhanced(false); }}
             rows={3}
             autoFocus
-            className="w-full bg-[#111] border border-white/[0.06] rounded-xl px-4 py-3 text-sm resize-none focus:outline-none focus:border-white/20 transition-colors placeholder:text-gray-600"
+            className={`w-full bg-[#111] border rounded-xl px-4 py-3 text-sm resize-none focus:outline-none focus:border-white/20 transition-colors placeholder:text-gray-600 ${enhanced ? "border-green-500/30" : "border-white/[0.06]"}`}
           />
+          {description.trim().length > 0 && (
+            <button
+              type="button"
+              onClick={handleEnhance}
+              disabled={enhancing}
+              className="mt-1.5 flex items-center gap-1.5 text-[11px] text-gray-400 hover:text-white transition-colors disabled:opacity-50"
+            >
+              {enhancing ? (
+                <>
+                  <svg className="animate-spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+                  </svg>
+                  <span>Enhancing...</span>
+                </>
+              ) : (
+                <>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 3l1.912 5.813a2 2 0 001.275 1.275L21 12l-5.813 1.912a2 2 0 00-1.275 1.275L12 21l-1.912-5.813a2 2 0 00-1.275-1.275L3 12l5.813-1.912a2 2 0 001.275-1.275L12 3z" />
+                  </svg>
+                  <span>Enhance with AI</span>
+                </>
+              )}
+            </button>
+          )}
         </div>
         <div>
           <label className="text-[11px] text-gray-500 uppercase tracking-wider font-medium block mb-2">Location</label>
@@ -1763,6 +1821,8 @@ function SubmitProof({
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<{ verdict: string; reasoning: string; locationVerified?: boolean; distanceKm?: number } | null>(null);
   const [proofCoords, setProofCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [preCheck, setPreCheck] = useState<{ assessment: string; likely: "pass" | "marginal" | "retake" } | null>(null);
+  const [preChecking, setPreChecking] = useState(false);
 
   useEffect(() => {
     if (!navigator.geolocation) return;
@@ -1942,6 +2002,95 @@ function SubmitProof({
           onChange={(e) => setProofNote(e.target.value)}
           className="w-full bg-[#111] border border-white/[0.06] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-white/20 transition-colors placeholder:text-gray-600"
         />
+
+        {/* AI Pre-Check */}
+        {images.length > 0 && !result && !submitting && (
+          <div className="flex flex-col gap-2">
+            {!preCheck && !preChecking && (
+              <button
+                onClick={async () => {
+                  setPreChecking(true);
+                  setPreCheck(null);
+                  try {
+                    const res = await fetch("/api/proof-precheck", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        imageBase64: images[0].base64,
+                        taskDescription: task.description,
+                      }),
+                    });
+                    const data = await res.json();
+                    setPreCheck({ assessment: data.assessment, likely: data.likely });
+                  } catch {
+                    setPreCheck({ assessment: "Pre-check unavailable. You can still submit.", likely: "marginal" });
+                  } finally {
+                    setPreChecking(false);
+                  }
+                }}
+                className="flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl border border-purple-500/20 bg-purple-500/5 hover:bg-purple-500/10 transition-all text-sm text-purple-300 active:scale-[0.98]"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#a855f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="11" cy="11" r="8" />
+                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+                AI Pre-Check
+                <span className="text-[10px] text-gray-500 ml-1">optional</span>
+              </button>
+            )}
+
+            {preChecking && (
+              <div className="flex items-center justify-center gap-2 py-3">
+                <div className="w-4 h-4 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+                <span className="text-xs text-gray-400">Running AI pre-check...</span>
+              </div>
+            )}
+
+            {preCheck && (
+              <div className={`p-3.5 rounded-xl border text-sm animate-[fadeIn_0.3s_ease-out] ${
+                preCheck.likely === "pass"
+                  ? "bg-green-500/8 border-green-500/20"
+                  : preCheck.likely === "marginal"
+                  ? "bg-yellow-500/8 border-yellow-500/20"
+                  : "bg-red-500/8 border-red-500/20"
+              }`}>
+                <div className="flex items-center gap-2 mb-1.5">
+                  {preCheck.likely === "pass" ? (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  ) : preCheck.likely === "marginal" ? (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#facc15" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                      <line x1="12" y1="9" x2="12" y2="13" />
+                      <line x1="12" y1="17" x2="12.01" y2="17" />
+                    </svg>
+                  ) : (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f87171" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="18" y1="6" x2="6" y2="18" />
+                      <line x1="6" y1="6" x2="18" y2="18" />
+                    </svg>
+                  )}
+                  <span className={`text-xs font-bold uppercase tracking-wider ${
+                    preCheck.likely === "pass"
+                      ? "text-green-400"
+                      : preCheck.likely === "marginal"
+                      ? "text-yellow-400"
+                      : "text-red-400"
+                  }`}>
+                    {preCheck.likely === "pass"
+                      ? "AI Pre-Check: Likely to pass"
+                      : preCheck.likely === "marginal"
+                      ? "AI Pre-Check: Marginal"
+                      : "AI Pre-Check: Consider retaking"}
+                  </span>
+                </div>
+                <p className="text-xs text-gray-400 leading-relaxed">{preCheck.assessment}</p>
+                <p className="text-[10px] text-gray-600 mt-2">Powered by Claude Haiku</p>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Verification spinner */}
         {submitting && (
