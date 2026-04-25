@@ -690,7 +690,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
               <div className="grid grid-cols-3 gap-3 text-center">
                 <div>
                   <p className="text-xl font-bold text-green-400">${totalEarned.toFixed(2)}</p>
-                  <p className="text-[10px] text-gray-500 mt-0.5">USDC Earned</p>
+                  <p className="text-[10px] text-gray-500 mt-0.5">Earned</p>
                 </div>
                 <div>
                   <p className="text-xl font-bold text-white">{completedByClaiming.length}</p>
@@ -917,7 +917,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
                           <>
                             <span className="text-[10px] text-gray-700">·</span>
                             <a href={`https://worldscan.org/tx/${task.attestationTxHash}`} target="_blank" rel="noopener noreferrer" className="text-[10px] text-blue-400/70 min-h-[44px] flex items-center">
-                              on-chain →
+                              verified →
                             </a>
                           </>
                         )}
@@ -1330,7 +1330,7 @@ function TaskCard({
         <div className="text-right shrink-0 flex flex-col items-end gap-1">
           <div className="bg-green-500/10 border border-green-500/20 rounded-xl px-3 py-1.5">
             <p className="font-bold text-green-400 text-sm leading-none">${task.bountyUsdc}</p>
-            <p className="text-[9px] text-green-500/60 mt-0.5">USDC</p>
+            <p className="text-[9px] text-green-500/60 mt-0.5">payout</p>
           </div>
           <RequiredTierBadge bountyUsdc={task.bountyUsdc} />
         </div>
