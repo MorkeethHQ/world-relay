@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
   if (!judgeOnly) {
     for (const seed of SEED_TASKS) {
       const task = createTask({
-        poster: `agent_${seed.agentId}`,
+        poster: seed.agentId ? `agent_${seed.agentId}` : (seed.poster || "0x_community"),
         category: seed.category,
         description: seed.description,
         location: seed.location,
@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
         lng: seed.lng,
         bountyUsdc: seed.bountyUsdc,
         deadlineHours: seed.deadlineHours,
-        agentId: seed.agentId,
+        agentId: seed.agentId || undefined,
         recurring: seed.recurring || null,
       });
       results.push({ id: task.id, description: seed.description.slice(0, 50), onChainId: null, escrowTxHash: null });

@@ -88,7 +88,8 @@ export function getAgent(agentId: string): AgentInfo | null {
 }
 
 export type SeedTask = {
-  agentId: string;
+  agentId?: string;
+  poster?: string;
   category: TaskCategory;
   description: string;
   location: string;
@@ -369,6 +370,37 @@ export const SEED_TASKS: SeedTask[] = [
     lng: -73.9965,
     bountyUsdc: 0.10,
     deadlineHours: 48,
+  },
+  // Community tasks — posted by humans, not agents
+  {
+    poster: "0x4b2e8F3a...c91d",
+    category: "photo",
+    description: "Can someone check if Maison Plisson on Boulevard Beaumarchais is open today? Need a photo of the entrance and today's hours.",
+    location: "Maison Plisson, Paris 3e",
+    lat: 48.8584,
+    lng: 2.3671,
+    bountyUsdc: 0.50,
+    deadlineHours: 4,
+  },
+  {
+    poster: "0x9f1cD7e2...a84b",
+    category: "check-in",
+    description: "Is the rooftop bar at The Hoxton open tonight? Check if there's a wait and what the vibe is like.",
+    location: "The Hoxton, Paris 2e",
+    lat: 48.8690,
+    lng: 2.3479,
+    bountyUsdc: 1.00,
+    deadlineHours: 6,
+  },
+  {
+    poster: "0x2a8bE4f1...d73e",
+    category: "delivery",
+    description: "Pick up my dry cleaning from Pressing de Rivoli (ticket #4721) and leave it with the concierge at 15 Rue de Rivoli. Will tip extra.",
+    location: "Pressing de Rivoli, Paris 1er",
+    lat: 48.8558,
+    lng: 2.3475,
+    bountyUsdc: 5.00,
+    deadlineHours: 8,
   },
 ];
 
