@@ -57,6 +57,33 @@ const CATEGORY_ICONS: Record<string, string> = {
   custom: "✏️",
 };
 
+function SkeletonCard() {
+  const shimmerBg = "bg-[length:200%_100%] bg-gradient-to-r from-white/[0.04] via-white/[0.08] to-white/[0.04] animate-[shimmer_1.5s_infinite]";
+  return (
+    <div className="rounded-2xl p-4 flex flex-col gap-3 bg-[#111] border border-white/[0.06]">
+      <div className="flex items-start gap-1.5">
+        <div className={`w-5 h-5 rounded shrink-0 mt-0.5 ${shimmerBg}`} />
+        <div className="flex-1 flex flex-col gap-1.5">
+          <div className={`h-4 rounded-md w-full ${shimmerBg}`} />
+          <div className={`h-4 rounded-md w-3/4 ${shimmerBg}`} />
+        </div>
+      </div>
+      <div className="flex items-center gap-1.5">
+        <div className={`w-3 h-3 rounded-full shrink-0 ${shimmerBg}`} />
+        <div className={`h-3 rounded-md w-28 ${shimmerBg}`} />
+        <div className={`h-3 rounded-md w-12 ${shimmerBg}`} />
+      </div>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <div className={`h-6 rounded-full w-14 ${shimmerBg}`} />
+          <div className={`h-6 rounded-lg w-20 ${shimmerBg}`} />
+        </div>
+        <div className={`h-10 rounded-xl w-16 ${shimmerBg}`} />
+      </div>
+    </div>
+  );
+}
+
 function useUserLocation() {
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   useEffect(() => {
@@ -138,6 +165,15 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
   const [statusToast, setStatusToast] = useState<{ message: string; color: string; visible: boolean }>({ message: "", color: "", visible: false });
   const [changedTaskIds, setChangedTaskIds] = useState<Set<string>>(new Set());
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [pullDistance, setPullDistance] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const touchStartY = useRef(0);
+  const isPulling = useRef(false);
+  const feedContainerRef = useRef<HTMLDivElement>(null);
+  const [sseConnected, setSseConnected] = useState(false);
+  const sseRef = useRef<EventSource | null>(null);
+  const sseReconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const knownTaskIds = useRef<Set<string>>(new Set());
   const prevTaskStatuses = useRef<Map<string, string>>(new Map());
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -201,6 +237,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
     knownTaskIds.current = new Set(incoming.map((t) => t.id));
     prevTaskStatuses.current = new Map(incoming.map((t) => [t.id, t.status]));
     setTasks(incoming);
+    setLoading(false);
   }, []);
 
   useEffect(() => {
@@ -220,6 +257,68 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
       if (statusToastTimer.current) clearTimeout(statusToastTimer.current);
     };
   }, [fetchTasks]);
+
+  // SSE: real-time refresh trigger (only in board view)
+  useEffect(() => {
+    if (view !== "board") {
+      // Clean up if we leave board view
+      if (sseRef.current) {
+        sseRef.current.close();
+        sseRef.current = null;
+        setSseConnected(false);
+      }
+      return;
+    }
+
+    function connect() {
+      if (sseRef.current) {
+        sseRef.current.close();
+      }
+      const es = new EventSource("/api/events");
+      sseRef.current = es;
+
+      es.onopen = () => {
+        setSseConnected(true);
+      };
+
+      es.onmessage = () => {
+        // Any message (including unnamed events) triggers a refresh
+        fetchTasks();
+      };
+
+      // Listen for all named task events as refresh signals
+      const eventTypes = ["task:created", "task:claimed", "task:proof", "task:verified", "task:completed", "task:failed"];
+      for (const type of eventTypes) {
+        es.addEventListener(type, () => {
+          fetchTasks();
+        });
+      }
+
+      es.onerror = () => {
+        setSseConnected(false);
+        es.close();
+        sseRef.current = null;
+        // Reconnect after 5 seconds
+        sseReconnectTimer.current = setTimeout(() => {
+          connect();
+        }, 5000);
+      };
+    }
+
+    connect();
+
+    return () => {
+      if (sseRef.current) {
+        sseRef.current.close();
+        sseRef.current = null;
+      }
+      if (sseReconnectTimer.current) {
+        clearTimeout(sseReconnectTimer.current);
+        sseReconnectTimer.current = null;
+      }
+      setSseConnected(false);
+    };
+  }, [view, fetchTasks]);
 
   useEffect(() => {
     fetch("/api/xmtp-status")
@@ -250,6 +349,41 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
       />
     );
   }
+
+  const PULL_THRESHOLD = 60;
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    const container = feedContainerRef.current;
+    if (!container || container.scrollTop > 0) return;
+    touchStartY.current = e.touches[0].clientY;
+    isPulling.current = true;
+  }, []);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!isPulling.current || isRefreshing) return;
+    const container = feedContainerRef.current;
+    if (!container || container.scrollTop > 0) {
+      isPulling.current = false;
+      setPullDistance(0);
+      return;
+    }
+    const delta = e.touches[0].clientY - touchStartY.current;
+    if (delta > 0) {
+      setPullDistance(Math.min(delta * 0.5, 100));
+    }
+  }, [isRefreshing]);
+
+  const handleTouchEnd = useCallback(async () => {
+    if (!isPulling.current) return;
+    isPulling.current = false;
+    if (pullDistance >= PULL_THRESHOLD && !isRefreshing) {
+      setIsRefreshing(true);
+      setPullDistance(PULL_THRESHOLD * 0.5);
+      await fetchTasks();
+      setIsRefreshing(false);
+    }
+    setPullDistance(0);
+  }, [pullDistance, isRefreshing, fetchTasks]);
 
   const filtered = tasks.filter((t) => {
     if (tab === "available") {
@@ -285,7 +419,13 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
   const totalClaimed = tasks.filter(t => t.claimant === userId).length;
 
   return (
-    <div className="flex flex-col gap-0 max-w-lg mx-auto w-full min-h-screen">
+    <div
+      ref={feedContainerRef}
+      className="flex flex-col gap-0 max-w-lg mx-auto w-full min-h-screen"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
       {/* Header */}
       <div className="sticky top-0 z-10 bg-[#050505]/90 backdrop-blur-xl border-b border-white/5">
         <div className="flex items-center justify-between px-4 py-3">
@@ -309,6 +449,12 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
                     <span className="text-[8px] font-medium text-green-400">ON</span>
                   </span>
                 )}
+                <span className="flex items-center gap-1 rounded-full px-1.5 py-0.5" title={sseConnected ? "Real-time updates active" : "Real-time updates disconnected"}>
+                  <span className={`inline-flex rounded-full h-1.5 w-1.5 ${sseConnected ? "bg-green-500" : "bg-gray-600"}`} />
+                  <span className={`text-[8px] font-medium ${sseConnected ? "text-green-400/70" : "text-gray-600"}`}>
+                    {sseConnected ? "Live" : ""}
+                  </span>
+                </span>
               </div>
               {userId && (
                 <div className="flex items-center gap-1.5 mt-0.5">
@@ -466,6 +612,37 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
             ))}
           </div>
         )}
+      </div>
+
+      {/* Pull-to-refresh indicator */}
+      <div
+        className="flex items-center justify-center overflow-hidden transition-all duration-200 ease-out"
+        style={{ height: pullDistance > 0 || isRefreshing ? `${Math.max(pullDistance, isRefreshing ? 40 : 0)}px` : "0px" }}
+      >
+        {isRefreshing ? (
+          <svg className="w-5 h-5 text-gray-400 animate-spin" viewBox="0 0 24 24" fill="none">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+          </svg>
+        ) : pullDistance > 0 ? (
+          <div className="flex flex-col items-center gap-1">
+            <svg
+              className="w-4 h-4 text-gray-500 transition-transform duration-150"
+              style={{ transform: pullDistance >= 60 ? "rotate(180deg)" : "rotate(0deg)" }}
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+            <span className="text-[10px] text-gray-600">
+              {pullDistance >= 60 ? "Release to refresh" : "Pull to refresh"}
+            </span>
+          </div>
+        ) : null}
       </div>
 
       {/* Scroll anchor for "new tasks" toast */}
@@ -697,6 +874,14 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
               setView("detail");
             }}
           />
+        ) : loading ? (
+          <div className="flex flex-col gap-2.5">
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} style={{ animationDelay: `${i * 80}ms` }} className="animate-[fadeIn_0.3s_ease-out_both]">
+                <SkeletonCard />
+              </div>
+            ))}
+          </div>
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 gap-3">
             <div className="w-12 h-12 rounded-full bg-gray-900 flex items-center justify-center">

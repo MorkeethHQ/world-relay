@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { AGENT_REGISTRY, SEED_TASKS } from "@/lib/agents";
-import type { Task } from "@/lib/types";
+import type { Task, TaskCategory } from "@/lib/types";
+
+/* ── Agent option builder ─────────────────────────────────── */
 
 type AgentOption = {
   id: string;
@@ -13,6 +15,7 @@ type AgentOption = {
   defaultDescription: string;
   defaultLocation: string;
   defaultBounty: number;
+  defaultCategory: TaskCategory;
 };
 
 function buildAgentOptions(): AgentOption[] {
@@ -21,19 +24,22 @@ function buildAgentOptions(): AgentOption[] {
     return {
       ...agent,
       defaultDescription: seed?.description || "",
-      defaultLocation: seed?.location || "",
-      defaultBounty: seed?.bountyUsdc || 5,
+      defaultLocation: seed?.location || "Paris",
+      defaultBounty: seed?.bountyUsdc || 2.5,
+      defaultCategory: seed?.category || "photo",
     };
   });
 }
 
 const AGENTS = buildAgentOptions();
+const CATEGORIES: { value: TaskCategory; label: string; icon: string }[] = [
+  { value: "photo", label: "Photo", icon: "📸" },
+  { value: "check-in", label: "Check-in", icon: "📍" },
+  { value: "delivery", label: "Delivery", icon: "📦" },
+  { value: "custom", label: "Custom", icon: "🔧" },
+];
 
-type StatusEntry = {
-  time: string;
-  label: string;
-  color: string;
-};
+/* ── Helpers ────────────────────────────────────────────────── */
 
 function statusColor(status: string): string {
   switch (status) {
@@ -60,49 +66,234 @@ function timeStr(): string {
   });
 }
 
+function timeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
+
+/* ── Syntax-highlighted JSON ────────────────────────────────── */
+
+function JsonHighlight({ data }: { data: unknown }) {
+  const raw = JSON.stringify(data, null, 2);
+  const lines = raw.split("\n");
+
+  return (
+    <pre className="font-mono text-[10px] sm:text-[11px] leading-relaxed overflow-x-auto whitespace-pre-wrap break-all">
+      {lines.map((line, i) => (
+        <div key={i}>
+          {line.split(/("(?:[^"\\]|\\.)*")\s*(:?)/g).map((part, j) => {
+            if (j % 3 === 1) {
+              // It is a quoted string
+              const isKey = line.indexOf(part) < line.indexOf(":");
+              return (
+                <span
+                  key={j}
+                  className={isKey ? "text-blue-400" : "text-yellow-300"}
+                >
+                  {part}
+                </span>
+              );
+            }
+            // Numbers, booleans, null
+            const numPart = part.replace(
+              /\b(true|false|null|\d+\.?\d*)\b/g,
+              '<NUM>$1</NUM>'
+            );
+            if (numPart.includes("<NUM>")) {
+              return (
+                <span key={j}>
+                  {part.split(/\b(true|false|null|\d+\.?\d*)\b/).map((seg, k) =>
+                    k % 2 === 1 ? (
+                      <span key={k} className="text-purple-400">
+                        {seg}
+                      </span>
+                    ) : (
+                      <span key={k} className="text-gray-500">
+                        {seg}
+                      </span>
+                    )
+                  )}
+                </span>
+              );
+            }
+            return (
+              <span key={j} className="text-gray-500">
+                {part}
+              </span>
+            );
+          })}
+        </div>
+      ))}
+    </pre>
+  );
+}
+
+/* ── Confetti burst (pure CSS, no deps) ─────────────────────── */
+
+function ConfettiBurst() {
+  const colors = ["#22c55e", "#3b82f6", "#f59e0b", "#ec4899", "#8b5cf6", "#06b6d4"];
+  return (
+    <div className="fixed inset-0 pointer-events-none z-50" aria-hidden>
+      {Array.from({ length: 40 }).map((_, i) => {
+        const color = colors[i % colors.length];
+        const left = Math.random() * 100;
+        const delay = Math.random() * 0.4;
+        const size = 4 + Math.random() * 6;
+        const drift = (Math.random() - 0.5) * 200;
+        return (
+          <span
+            key={i}
+            className="absolute rounded-sm"
+            style={{
+              left: `${left}%`,
+              top: "-10px",
+              width: size,
+              height: size,
+              backgroundColor: color,
+              animation: `confettiFall 1.4s ${delay}s ease-out forwards`,
+              transform: `translateX(${drift}px) rotate(${Math.random() * 360}deg)`,
+              opacity: 0,
+            }}
+          />
+        );
+      })}
+      <style>{`
+        @keyframes confettiFall {
+          0% { opacity: 1; transform: translateY(0) rotate(0deg); }
+          100% { opacity: 0; transform: translateY(100vh) rotate(720deg); }
+        }
+      `}</style>
+    </div>
+  );
+}
+
+/* ── Main page ──────────────────────────────────────────────── */
+
+type StatusEntry = {
+  time: string;
+  label: string;
+  color: string;
+};
+
+type RecentTask = {
+  id: string;
+  description: string;
+  location: string;
+  bountyUsdc: number;
+  status: string;
+  createdAt: string;
+};
+
 export default function PlaygroundPage() {
+  // Form state
   const [selectedAgent, setSelectedAgent] = useState<AgentOption>(AGENTS[0]);
   const [description, setDescription] = useState(AGENTS[0].defaultDescription);
   const [location, setLocation] = useState(AGENTS[0].defaultLocation);
-  const [bounty, setBounty] = useState(String(AGENTS[0].defaultBounty));
+  const [bounty, setBounty] = useState(AGENTS[0].defaultBounty);
+  const [category, setCategory] = useState<TaskCategory>(AGENTS[0].defaultCategory);
   const [deadlineHours, setDeadlineHours] = useState("24");
-  const [callbackUrl, setCallbackUrl] = useState("");
-  const [recurringEnabled, setRecurringEnabled] = useState(false);
-  const [recurringHours, setRecurringHours] = useState("24");
-  const [recurringCount, setRecurringCount] = useState("7");
+
+  // Post state
   const [posting, setPosting] = useState(false);
+  const [requestBody, setRequestBody] = useState<Record<string, unknown> | null>(null);
   const [response, setResponse] = useState<Record<string, unknown> | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [taskId, setTaskId] = useState<string | null>(null);
+  const [showConfetti, setShowConfetti] = useState(false);
+
+  // Live status feed
   const [feed, setFeed] = useState<StatusEntry[]>([]);
   const [currentTask, setCurrentTask] = useState<Task | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Update form when agent changes
+  // Recent activity
+  const [recentTasks, setRecentTasks] = useState<RecentTask[]>([]);
+  const [recentLoading, setRecentLoading] = useState(false);
+
+  // Tab state for request/response viewer
+  const [viewerTab, setViewerTab] = useState<"request" | "response">("response");
+
+  // Curl command section open/closed
+  const [curlOpen, setCurlOpen] = useState(true);
+
+  /* ── Build payload (for curl + actual post) ──────────────── */
+
+  const buildPayload = useCallback((): Record<string, unknown> => {
+    return {
+      agent_id: selectedAgent.id,
+      description,
+      location,
+      bounty_usdc: bounty,
+      category,
+      deadline_hours: Number(deadlineHours),
+    };
+  }, [selectedAgent.id, description, location, bounty, category, deadlineHours]);
+
+  /* ── Build curl command ──────────────────────────────────── */
+
+  const curlCommand = (() => {
+    const payload = buildPayload();
+    const json = JSON.stringify(payload, null, 2);
+    return `curl -X POST https://world-relay.vercel.app/api/agent/tasks \\
+  -H "Content-Type: application/json" \\
+  -d '${json}'`;
+  })();
+
+  /* ── Fetch recent tasks ──────────────────────────────────── */
+
+  const fetchRecent = useCallback(async () => {
+    setRecentLoading(true);
+    try {
+      const res = await fetch("/api/agent/tasks");
+      if (res.ok) {
+        const data = await res.json();
+        setRecentTasks((data.tasks || []).slice(0, 5));
+      }
+    } catch {
+      // silent
+    }
+    setRecentLoading(false);
+  }, []);
+
+  useEffect(() => {
+    fetchRecent();
+  }, [fetchRecent]);
+
+  /* ── Agent selection ─────────────────────────────────────── */
+
   function selectAgent(agent: AgentOption) {
     setSelectedAgent(agent);
     setDescription(agent.defaultDescription);
     setLocation(agent.defaultLocation);
-    setBounty(String(agent.defaultBounty));
+    setBounty(agent.defaultBounty);
+    setCategory(agent.defaultCategory);
     setResponse(null);
+    setRequestBody(null);
     setError(null);
     setTaskId(null);
     setFeed([]);
     setCurrentTask(null);
+    setShowConfetti(false);
     if (pollRef.current) {
       clearInterval(pollRef.current);
       pollRef.current = null;
     }
   }
 
-  // Poll for task status
+  /* ── Poll task status ────────────────────────────────────── */
+
   useEffect(() => {
     if (!taskId) return;
 
     let lastStatus = "";
 
     const poll = () => {
-      fetch(`/api/tasks`)
+      fetch("/api/tasks")
         .then((r) => r.json())
         .then((data) => {
           const task = (data.tasks as Task[])?.find((t) => t.id === taskId);
@@ -125,7 +316,6 @@ export default function PlaygroundPage() {
               },
             ]);
 
-            // Stop polling on terminal states
             if (
               task.status === "completed" ||
               task.status === "failed" ||
@@ -152,30 +342,22 @@ export default function PlaygroundPage() {
     };
   }, [taskId]);
 
+  /* ── Post task ───────────────────────────────────────────── */
+
   async function handlePost() {
     setPosting(true);
     setError(null);
     setResponse(null);
+    setRequestBody(null);
     setTaskId(null);
     setFeed([]);
     setCurrentTask(null);
+    setShowConfetti(false);
+
+    const body = buildPayload();
+    setRequestBody(body);
 
     try {
-      const body: Record<string, unknown> = {
-        agent_id: selectedAgent.id,
-        description,
-        location,
-        bounty_usdc: Number(bounty),
-        deadline_hours: Number(deadlineHours),
-      };
-      if (callbackUrl.trim()) {
-        body.callback_url = callbackUrl.trim();
-      }
-      if (recurringEnabled) {
-        body.recurring_hours = Number(recurringHours);
-        body.recurring_count = Number(recurringCount);
-      }
-
       const res = await fetch("/api/agent/tasks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -184,34 +366,57 @@ export default function PlaygroundPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.error || "Request failed");
+        setError(data.error || `Request failed (${res.status})`);
+        setResponse(data);
+        setViewerTab("response");
         setPosting(false);
         return;
       }
 
       setResponse(data);
+      setViewerTab("response");
+      setShowConfetti(true);
+      setTimeout(() => setShowConfetti(false), 2000);
+
       const id = data.task?.id;
       if (id) {
         setTaskId(id);
         setFeed([
           {
             time: timeStr(),
-            label: "Task posted - awaiting human claim",
+            label: "Task posted — awaiting human claim",
             color: "#3b82f6",
           },
         ]);
       }
+
+      // Refresh recent
+      fetchRecent();
     } catch {
-      setError("Network error");
+      setError("Network error — is the dev server running?");
     }
     setPosting(false);
   }
 
+  /* ── Copy to clipboard helper ────────────────────────────── */
+
+  const [copied, setCopied] = useState(false);
+  function copyToClipboard(text: string) {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  }
+
+  /* ── Render ──────────────────────────────────────────────── */
+
   return (
-    <div className="min-h-screen bg-[#050505] text-white max-w-lg mx-auto">
+    <div className="min-h-screen bg-[#050505] text-white">
+      {showConfetti && <ConfettiBurst />}
+
       {/* Header */}
       <div className="sticky top-0 z-10 bg-[#050505]/90 backdrop-blur-xl border-b border-white/5">
-        <div className="flex items-center justify-between px-4 py-3">
+        <div className="max-w-lg mx-auto flex items-center justify-between px-4 py-3">
           <Link
             href="/"
             className="flex items-center gap-1 text-sm text-gray-400 hover:text-white transition-colors"
@@ -228,18 +433,20 @@ export default function PlaygroundPage() {
             >
               <polyline points="15 18 9 12 15 6" />
             </svg>
-            Back
+            Feed
           </Link>
-          <h1 className="text-sm font-bold tracking-tight">Agent Playground</h1>
+          <h1 className="text-sm font-bold tracking-tight font-mono">
+            Agent API Playground
+          </h1>
           <div className="w-12" />
         </div>
       </div>
 
-      <div className="px-3 sm:px-4 py-4 flex flex-col gap-4">
-        {/* Agent Picker */}
-        <div>
-          <p className="text-[11px] text-gray-500 uppercase tracking-wider font-medium mb-2">
-            Select Agent
+      <div className="max-w-lg mx-auto px-3 sm:px-4 py-4 flex flex-col gap-4">
+        {/* ── Agent Picker ──────────────────────────────────── */}
+        <section>
+          <p className="text-[11px] text-gray-500 uppercase tracking-wider font-medium font-mono mb-2">
+            &gt; select agent
           </p>
           <div className="grid grid-cols-2 gap-2">
             {AGENTS.map((agent) => (
@@ -258,7 +465,7 @@ export default function PlaygroundPage() {
               >
                 <div className="flex items-center gap-2">
                   <div
-                    className="w-8 h-8 rounded-lg flex items-center justify-center text-base"
+                    className="w-8 h-8 rounded-lg flex items-center justify-center text-base flex-shrink-0"
                     style={{ backgroundColor: `${agent.color}15` }}
                   >
                     {agent.icon}
@@ -273,183 +480,217 @@ export default function PlaygroundPage() {
                     >
                       {agent.name}
                     </p>
+                    <p className="text-[9px] text-gray-600 font-mono truncate">
+                      {agent.id}
+                    </p>
                   </div>
                 </div>
               </button>
             ))}
           </div>
-        </div>
+        </section>
 
-        {/* Selected agent header */}
-        <div
-          className="rounded-2xl p-4 border"
-          style={{
-            backgroundColor: `${selectedAgent.color}08`,
-            borderColor: `${selectedAgent.color}20`,
-          }}
-        >
-          <div className="flex items-center gap-3">
+        {/* ── Task Form ────────────────────────────────────── */}
+        <section className="bg-[#111] border border-white/[0.06] rounded-2xl p-4 flex flex-col gap-3">
+          <div className="flex items-center gap-3 mb-1">
             <div
-              className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl"
+              className="w-10 h-10 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
               style={{ backgroundColor: `${selectedAgent.color}15` }}
             >
               {selectedAgent.icon}
             </div>
-            <div>
+            <div className="min-w-0">
               <p className="text-sm font-bold" style={{ color: selectedAgent.color }}>
                 {selectedAgent.name}
               </p>
-              <p className="text-[11px] text-gray-500">
-                Agent ID: {selectedAgent.id}
+              <p className="text-[10px] text-gray-600 font-mono">
+                agent_id: &quot;{selectedAgent.id}&quot;
               </p>
             </div>
           </div>
-        </div>
 
-        {/* Task Form */}
-        <div className="bg-[#111] border border-white/[0.06] rounded-2xl p-4 flex flex-col gap-3">
-          <p className="text-[11px] text-gray-500 uppercase tracking-wider font-medium">
-            Task Details
-          </p>
-
+          {/* Category picker */}
           <div>
-            <label className="text-[10px] text-gray-600 uppercase tracking-wider block mb-1">
-              Description
+            <label className="text-[10px] text-gray-600 uppercase tracking-wider font-mono block mb-1.5">
+              category
+            </label>
+            <div className="grid grid-cols-4 gap-1.5">
+              {CATEGORIES.map((cat) => (
+                <button
+                  key={cat.value}
+                  onClick={() => setCategory(cat.value)}
+                  className="rounded-lg py-2 px-1 text-center border transition-all"
+                  style={{
+                    backgroundColor:
+                      category === cat.value
+                        ? `${selectedAgent.color}15`
+                        : "rgba(0,0,0,0.3)",
+                    borderColor:
+                      category === cat.value
+                        ? `${selectedAgent.color}40`
+                        : "rgba(255,255,255,0.04)",
+                  }}
+                >
+                  <span className="text-sm block">{cat.icon}</span>
+                  <span
+                    className="text-[9px] font-medium font-mono block mt-0.5"
+                    style={{
+                      color:
+                        category === cat.value ? selectedAgent.color : "#6b7280",
+                    }}
+                  >
+                    {cat.label}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Description */}
+          <div>
+            <label className="text-[10px] text-gray-600 uppercase tracking-wider font-mono block mb-1">
+              description
             </label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
-              className="w-full bg-black/40 border border-white/[0.06] rounded-xl px-3 py-2 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-white/20 resize-none"
+              className="w-full bg-black/40 border border-white/[0.06] rounded-xl px-3 py-2 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-white/20 resize-none font-mono"
               placeholder="Describe the task..."
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-[10px] text-gray-600 uppercase tracking-wider block mb-1">
-                Location
+          {/* Location */}
+          <div>
+            <label className="text-[10px] text-gray-600 uppercase tracking-wider font-mono block mb-1">
+              location
+            </label>
+            <input
+              type="text"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              className="w-full bg-black/40 border border-white/[0.06] rounded-xl px-3 py-2 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-white/20 font-mono"
+              placeholder="Paris"
+            />
+          </div>
+
+          {/* Bounty slider */}
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-[10px] text-gray-600 uppercase tracking-wider font-mono">
+                bounty_usdc
               </label>
-              <input
-                type="text"
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                className="w-full bg-black/40 border border-white/[0.06] rounded-xl px-3 py-2 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-white/20"
-                placeholder="Paris 6e"
-              />
+              <span
+                className="text-sm font-bold font-mono tabular-nums"
+                style={{ color: selectedAgent.color }}
+              >
+                ${bounty.toFixed(2)}
+              </span>
             </div>
-            <div>
-              <label className="text-[10px] text-gray-600 uppercase tracking-wider block mb-1">
-                Bounty (USDC)
-              </label>
-              <input
-                type="number"
-                value={bounty}
-                onChange={(e) => setBounty(e.target.value)}
-                min="1"
-                className="w-full bg-black/40 border border-white/[0.06] rounded-xl px-3 py-2 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-white/20"
-              />
+            <input
+              type="range"
+              min="0.25"
+              max="10"
+              step="0.25"
+              value={bounty}
+              onChange={(e) => setBounty(Number(e.target.value))}
+              className="w-full h-1.5 rounded-full appearance-none cursor-pointer"
+              style={{
+                background: `linear-gradient(to right, ${selectedAgent.color} ${((bounty - 0.25) / 9.75) * 100}%, rgba(255,255,255,0.08) ${((bounty - 0.25) / 9.75) * 100}%)`,
+              }}
+            />
+            <div className="flex justify-between text-[9px] text-gray-700 font-mono mt-0.5">
+              <span>$0.25</span>
+              <span>$10.00</span>
             </div>
           </div>
 
+          {/* Deadline */}
           <div>
-            <label className="text-[10px] text-gray-600 uppercase tracking-wider block mb-1">
-              Deadline (hours)
+            <label className="text-[10px] text-gray-600 uppercase tracking-wider font-mono block mb-1">
+              deadline_hours
             </label>
             <input
               type="number"
               value={deadlineHours}
               onChange={(e) => setDeadlineHours(e.target.value)}
               min="1"
-              className="w-full bg-black/40 border border-white/[0.06] rounded-xl px-3 py-2 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-white/20"
+              max="168"
+              className="w-full bg-black/40 border border-white/[0.06] rounded-xl px-3 py-2 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-white/20 font-mono"
             />
           </div>
+        </section>
 
-          {/* Webhook URL */}
-          <div>
-            <label className="text-[10px] text-gray-600 uppercase tracking-wider block mb-1">
-              Webhook URL (optional)
-            </label>
-            <input
-              type="url"
-              value={callbackUrl}
-              onChange={(e) => setCallbackUrl(e.target.value)}
-              className="w-full bg-black/40 border border-white/[0.06] rounded-xl px-3 py-2 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-white/20"
-              placeholder="https://your-api.com/webhook"
-            />
-          </div>
-
-          {/* Recurring toggle */}
-          <div>
-            <button
-              onClick={() => setRecurringEnabled(!recurringEnabled)}
-              className="flex items-center gap-2 text-[10px] text-gray-500 uppercase tracking-wider font-medium"
-            >
-              <div
-                className="w-4 h-4 rounded border flex items-center justify-center transition-all"
-                style={{
-                  borderColor: recurringEnabled
-                    ? selectedAgent.color
-                    : "rgba(255,255,255,0.1)",
-                  backgroundColor: recurringEnabled
-                    ? `${selectedAgent.color}30`
-                    : "transparent",
+        {/* ── Live Curl Command ─────────────────────────────── */}
+        <section className="bg-[#0a0a0a] border border-white/[0.06] rounded-2xl overflow-hidden">
+          <button
+            onClick={() => setCurlOpen(!curlOpen)}
+            className="w-full px-4 py-2.5 flex items-center justify-between text-left"
+          >
+            <div className="flex items-center gap-2">
+              <span className="text-green-400 text-[10px] font-mono font-bold">
+                POST
+              </span>
+              <span className="text-[11px] text-gray-400 font-mono">
+                /api/agent/tasks
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  copyToClipboard(curlCommand);
                 }}
+                className="text-[10px] text-gray-600 hover:text-gray-300 font-mono transition-colors px-2 py-0.5 rounded border border-white/[0.06] hover:border-white/10"
               >
-                {recurringEnabled && (
-                  <svg
-                    width="10"
-                    height="10"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke={selectedAgent.color}
-                    strokeWidth="3"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                )}
+                {copied ? "copied!" : "copy"}
+              </button>
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#6b7280"
+                strokeWidth="2"
+                className={`transition-transform ${curlOpen ? "rotate-180" : ""}`}
+              >
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </div>
+          </button>
+          {curlOpen && (
+            <div className="px-4 pb-3">
+              <div className="bg-black/60 rounded-xl p-3 font-mono text-[10px] sm:text-[11px] leading-relaxed overflow-x-auto">
+                <span className="text-yellow-300">curl</span>{" "}
+                <span className="text-gray-400">-X</span>{" "}
+                <span className="text-green-400">POST</span>{" "}
+                <span className="text-blue-400">
+                  https://world-relay.vercel.app/api/agent/tasks
+                </span>{" "}
+                <span className="text-gray-600">\</span>
+                <br />
+                {"  "}
+                <span className="text-gray-400">-H</span>{" "}
+                <span className="text-yellow-300">
+                  &quot;Content-Type: application/json&quot;
+                </span>{" "}
+                <span className="text-gray-600">\</span>
+                <br />
+                {"  "}
+                <span className="text-gray-400">-d</span>{" "}
+                <span className="text-gray-500">&apos;</span>
+                <JsonHighlight data={buildPayload()} />
+                <span className="text-gray-500">&apos;</span>
               </div>
-              Recurring task
-            </button>
+            </div>
+          )}
+        </section>
 
-            {recurringEnabled && (
-              <div className="grid grid-cols-2 gap-3 mt-2">
-                <div>
-                  <label className="text-[10px] text-gray-600 uppercase tracking-wider block mb-1">
-                    Interval (hours)
-                  </label>
-                  <input
-                    type="number"
-                    value={recurringHours}
-                    onChange={(e) => setRecurringHours(e.target.value)}
-                    min="1"
-                    className="w-full bg-black/40 border border-white/[0.06] rounded-xl px-3 py-2 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-white/20"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] text-gray-600 uppercase tracking-wider block mb-1">
-                    Total runs
-                  </label>
-                  <input
-                    type="number"
-                    value={recurringCount}
-                    onChange={(e) => setRecurringCount(e.target.value)}
-                    min="1"
-                    className="w-full bg-black/40 border border-white/[0.06] rounded-xl px-3 py-2 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-white/20"
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Fire button */}
+        {/* ── Fire Button ──────────────────────────────────── */}
         <button
           onClick={handlePost}
-          disabled={posting || !description || !location || !bounty}
-          className="w-full py-3 min-h-[48px] rounded-xl text-sm font-semibold active:scale-[0.98] transition-all disabled:opacity-40"
+          disabled={posting || !description || !location || bounty < 0.25}
+          className="w-full py-3.5 min-h-[48px] rounded-xl text-sm font-bold font-mono active:scale-[0.98] transition-all disabled:opacity-30"
           style={{
             backgroundColor: selectedAgent.color,
             color: "#000",
@@ -458,32 +699,46 @@ export default function PlaygroundPage() {
           {posting ? (
             <span className="flex items-center justify-center gap-2">
               <span className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
-              Posting...
+              posting...
             </span>
           ) : (
             <span className="flex items-center justify-center gap-2">
-              {selectedAgent.icon} Fire Task as {selectedAgent.name}
+              {selectedAgent.icon} POST task as {selectedAgent.name}
             </span>
           )}
         </button>
 
-        {/* Error */}
+        {/* ── Error ────────────────────────────────────────── */}
         {error && (
           <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 animate-[fadeIn_0.3s_ease-out]">
-            <p className="text-xs text-red-400 font-medium">{error}</p>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-red-400 text-[10px] font-mono font-bold">
+                ERROR
+              </span>
+              <span className="text-red-400/60 text-[10px] font-mono">
+                {response ? "400 Bad Request" : "Network"}
+              </span>
+            </div>
+            <p className="text-xs text-red-400 font-mono">{error}</p>
           </div>
         )}
 
-        {/* Response */}
-        {response && (
-          <div className="bg-[#111] border border-white/[0.06] rounded-2xl overflow-hidden animate-[fadeIn_0.3s_ease-out]">
-            <div className="px-4 py-3 border-b border-white/[0.04] flex items-center gap-2">
+        {/* ── Success Banner ───────────────────────────────── */}
+        {response && !error && taskId && (
+          <div
+            className="rounded-xl p-4 border animate-[fadeIn_0.3s_ease-out]"
+            style={{
+              backgroundColor: `${selectedAgent.color}08`,
+              borderColor: `${selectedAgent.color}25`,
+            }}
+          >
+            <div className="flex items-center gap-2 mb-2">
               <svg
-                width="14"
-                height="14"
+                width="16"
+                height="16"
                 viewBox="0 0 24 24"
                 fill="none"
-                stroke="#4ade80"
+                stroke="#22c55e"
                 strokeWidth="2.5"
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -491,19 +746,95 @@ export default function PlaygroundPage() {
                 <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
                 <polyline points="22 4 12 14.01 9 11.01" />
               </svg>
-              <span className="text-xs font-bold text-green-400">TASK POSTED</span>
+              <span className="text-sm font-bold text-green-400 font-mono">
+                201 Created
+              </span>
             </div>
-            <div className="px-4 py-3">
-              <div className="bg-black/40 rounded-xl p-2.5 sm:p-3 font-mono text-[10px] sm:text-[11px] text-gray-400 leading-relaxed overflow-x-auto whitespace-pre-wrap break-all">
-                {JSON.stringify(response, null, 2)}
-              </div>
-            </div>
+            <p className="text-[11px] text-gray-400 font-mono mb-2">
+              Task <span className="text-white">{taskId.slice(0, 12)}...</span>{" "}
+              posted successfully.
+            </p>
+            <Link
+              href={`/task/${taskId}`}
+              className="inline-flex items-center gap-1.5 text-[11px] font-medium font-mono px-3 py-1.5 rounded-lg transition-colors"
+              style={{
+                backgroundColor: `${selectedAgent.color}20`,
+                color: selectedAgent.color,
+              }}
+            >
+              View in feed
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+              >
+                <path d="M5 12h14M12 5l7 7-7 7" />
+              </svg>
+            </Link>
           </div>
         )}
 
-        {/* Live Status Feed */}
+        {/* ── Request / Response Viewer ─────────────────────── */}
+        {(requestBody || response) && (
+          <section className="bg-[#0a0a0a] border border-white/[0.06] rounded-2xl overflow-hidden animate-[fadeIn_0.3s_ease-out]">
+            {/* Tabs */}
+            <div className="flex border-b border-white/[0.04]">
+              <button
+                onClick={() => setViewerTab("request")}
+                className={`flex-1 py-2.5 text-[10px] font-mono font-bold uppercase tracking-wider transition-colors ${
+                  viewerTab === "request"
+                    ? "text-blue-400 border-b-2 border-blue-400"
+                    : "text-gray-600 hover:text-gray-400"
+                }`}
+              >
+                Request
+              </button>
+              <button
+                onClick={() => setViewerTab("response")}
+                className={`flex-1 py-2.5 text-[10px] font-mono font-bold uppercase tracking-wider transition-colors ${
+                  viewerTab === "response"
+                    ? "text-green-400 border-b-2 border-green-400"
+                    : "text-gray-600 hover:text-gray-400"
+                }`}
+              >
+                Response
+                {response && !error && (
+                  <span className="ml-1.5 text-[9px] text-green-500">201</span>
+                )}
+                {error && (
+                  <span className="ml-1.5 text-[9px] text-red-500">ERR</span>
+                )}
+              </button>
+            </div>
+            <div className="p-3">
+              <div className="bg-black/40 rounded-xl p-3 overflow-x-auto max-h-[320px] overflow-y-auto">
+                {viewerTab === "request" && requestBody && (
+                  <JsonHighlight data={requestBody} />
+                )}
+                {viewerTab === "response" && response && (
+                  <JsonHighlight data={response} />
+                )}
+                {viewerTab === "request" && !requestBody && (
+                  <p className="text-[11px] text-gray-600 font-mono italic">
+                    Submit a task to see the request body.
+                  </p>
+                )}
+                {viewerTab === "response" && !response && (
+                  <p className="text-[11px] text-gray-600 font-mono italic">
+                    Submit a task to see the response.
+                  </p>
+                )}
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* ── Live Status Feed ──────────────────────────────── */}
         {feed.length > 0 && (
-          <div className="bg-[#111] border border-white/[0.06] rounded-2xl overflow-hidden animate-[fadeIn_0.3s_ease-out]">
+          <section className="bg-[#111] border border-white/[0.06] rounded-2xl overflow-hidden animate-[fadeIn_0.3s_ease-out]">
             <div className="px-4 py-3 border-b border-white/[0.04] flex items-center gap-2">
               <span
                 className="w-2 h-2 rounded-full animate-pulse"
@@ -516,8 +847,8 @@ export default function PlaygroundPage() {
                       : "#22c55e",
                 }}
               />
-              <span className="text-[11px] text-gray-500 uppercase tracking-wider font-medium">
-                Live Status
+              <span className="text-[11px] text-gray-500 uppercase tracking-wider font-medium font-mono">
+                live status
               </span>
               {taskId && (
                 <span className="text-[10px] text-gray-700 font-mono ml-auto">
@@ -538,12 +869,14 @@ export default function PlaygroundPage() {
                   <span className="text-[10px] text-gray-600 font-mono shrink-0">
                     {entry.time}
                   </span>
-                  <span className="text-xs text-gray-300">{entry.label}</span>
+                  <span className="text-xs text-gray-300 font-mono">
+                    {entry.label}
+                  </span>
                 </div>
               ))}
             </div>
 
-            {/* Task details when completed */}
+            {/* Verification result */}
             {currentTask && currentTask.verificationResult && (
               <div className="px-4 pb-3">
                 <div
@@ -564,11 +897,11 @@ export default function PlaygroundPage() {
                   }}
                 >
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-[10px] text-gray-500 uppercase tracking-wider font-medium">
+                    <span className="text-[10px] text-gray-500 uppercase tracking-wider font-medium font-mono">
                       Verification
                     </span>
                     <span
-                      className="text-xs font-bold"
+                      className="text-xs font-bold font-mono"
                       style={{
                         color:
                           currentTask.verificationResult.verdict === "pass"
@@ -590,7 +923,7 @@ export default function PlaygroundPage() {
                       href={`https://worldscan.org/tx/${currentTask.attestationTxHash}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-[10px] text-blue-400 font-medium mt-2 inline-block"
+                      className="text-[10px] text-blue-400 font-medium font-mono mt-2 inline-block"
                     >
                       View on-chain attestation
                     </a>
@@ -598,41 +931,159 @@ export default function PlaygroundPage() {
                 </div>
               </div>
             )}
-          </div>
+          </section>
         )}
 
-        {/* API Reference */}
-        <div className="bg-[#111] border border-white/[0.06] rounded-2xl p-4">
-          <p className="text-[11px] text-gray-500 uppercase tracking-wider font-medium mb-2">
-            API Reference
-          </p>
-          <div className="bg-black/40 rounded-xl p-2.5 sm:p-3 font-mono text-[10px] sm:text-[11px] text-gray-400 leading-relaxed overflow-x-auto break-all">
-            <span className="text-green-400">POST</span> /api/agent/tasks
-            <br />
-            {"{"}
-            <br />
-            &nbsp;&nbsp;<span className="text-blue-400">&quot;agent_id&quot;</span>:{" "}
-            <span className="text-yellow-300">&quot;{selectedAgent.id}&quot;</span>,
-            <br />
-            &nbsp;&nbsp;<span className="text-blue-400">&quot;description&quot;</span>:{" "}
-            <span className="text-yellow-300">&quot;...&quot;</span>,
-            <br />
-            &nbsp;&nbsp;<span className="text-blue-400">&quot;location&quot;</span>:{" "}
-            <span className="text-yellow-300">&quot;...&quot;</span>,
-            <br />
-            &nbsp;&nbsp;<span className="text-blue-400">&quot;bounty_usdc&quot;</span>:{" "}
-            <span className="text-purple-400">{bounty || "5"}</span>,
-            <br />
-            &nbsp;&nbsp;<span className="text-blue-400">&quot;deadline_hours&quot;</span>:{" "}
-            <span className="text-purple-400">{deadlineHours}</span>,
-            <br />
-            &nbsp;&nbsp;<span className="text-blue-400">&quot;callback_url&quot;</span>:{" "}
-            <span className="text-yellow-300">&quot;https://...&quot;</span>
-            <br />
-            {"}"}
+        {/* ── Recent API Activity ──────────────────────────── */}
+        <section className="bg-[#111] border border-white/[0.06] rounded-2xl overflow-hidden">
+          <div className="px-4 py-3 border-b border-white/[0.04] flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] text-gray-500 uppercase tracking-wider font-medium font-mono">
+                recent api activity
+              </span>
+            </div>
+            <button
+              onClick={fetchRecent}
+              disabled={recentLoading}
+              className="text-[10px] text-gray-600 hover:text-gray-300 font-mono transition-colors px-2 py-0.5 rounded border border-white/[0.06] hover:border-white/10"
+            >
+              {recentLoading ? "..." : "refresh"}
+            </button>
           </div>
-        </div>
+          {recentTasks.length === 0 ? (
+            <div className="px-4 py-6 text-center">
+              <p className="text-[11px] text-gray-600 font-mono">
+                {recentLoading
+                  ? "Loading..."
+                  : "No open tasks found. Post one above!"}
+              </p>
+            </div>
+          ) : (
+            <div className="divide-y divide-white/[0.04]">
+              {recentTasks.map((task) => (
+                <div
+                  key={task.id}
+                  className="px-4 py-3 flex items-start gap-3 hover:bg-white/[0.02] transition-colors"
+                >
+                  <div
+                    className="w-2 h-2 rounded-full mt-1.5 shrink-0"
+                    style={{ backgroundColor: statusColor(task.status) }}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[11px] text-gray-300 font-mono truncate leading-tight">
+                      {task.description.slice(0, 80)}
+                      {task.description.length > 80 ? "..." : ""}
+                    </p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-[9px] text-gray-600 font-mono">
+                        {task.id.slice(0, 8)}
+                      </span>
+                      <span className="text-[9px] text-gray-700">|</span>
+                      <span className="text-[9px] text-gray-600 font-mono">
+                        {task.location}
+                      </span>
+                      <span className="text-[9px] text-gray-700">|</span>
+                      <span className="text-[9px] font-mono text-green-500/70">
+                        ${task.bountyUsdc}
+                      </span>
+                      {task.createdAt && (
+                        <>
+                          <span className="text-[9px] text-gray-700">|</span>
+                          <span className="text-[9px] text-gray-600 font-mono">
+                            {timeAgo(task.createdAt)}
+                          </span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* ── API Reference ────────────────────────────────── */}
+        <section className="bg-[#0a0a0a] border border-white/[0.06] rounded-2xl p-4">
+          <p className="text-[11px] text-gray-500 uppercase tracking-wider font-medium font-mono mb-3">
+            &gt; api reference
+          </p>
+
+          <div className="flex flex-col gap-3">
+            {/* POST endpoint */}
+            <div>
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className="text-[9px] font-mono font-bold bg-green-500/15 text-green-400 px-1.5 py-0.5 rounded">
+                  POST
+                </span>
+                <span className="text-[11px] text-gray-400 font-mono">
+                  /api/agent/tasks
+                </span>
+              </div>
+              <div className="bg-black/40 rounded-lg p-2.5 font-mono text-[10px] text-gray-500 leading-relaxed">
+                <span className="text-gray-600">Required:</span>{" "}
+                <span className="text-blue-400">description</span>,{" "}
+                <span className="text-blue-400">location</span>,{" "}
+                <span className="text-blue-400">bounty_usdc</span>
+                <br />
+                <span className="text-gray-600">Optional:</span>{" "}
+                <span className="text-gray-500">
+                  agent_id, lat, lng, deadline_hours, callback_url, recurring_hours,
+                  recurring_count
+                </span>
+              </div>
+            </div>
+
+            {/* GET endpoint */}
+            <div>
+              <div className="flex items-center gap-2 mb-1.5">
+                <span className="text-[9px] font-mono font-bold bg-blue-500/15 text-blue-400 px-1.5 py-0.5 rounded">
+                  GET
+                </span>
+                <span className="text-[11px] text-gray-400 font-mono">
+                  /api/agent/tasks
+                </span>
+              </div>
+              <div className="bg-black/40 rounded-lg p-2.5 font-mono text-[10px] text-gray-500 leading-relaxed">
+                Returns open tasks. Response:{" "}
+                <span className="text-yellow-300">
+                  {"{ tasks: [{ id, description, location, bountyUsdc, ... }] }"}
+                </span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Footer spacer */}
+        <div className="h-8" />
       </div>
+
+      {/* Global slider thumb styles */}
+      <style>{`
+        input[type="range"]::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          appearance: none;
+          width: 18px;
+          height: 18px;
+          border-radius: 50%;
+          background: white;
+          cursor: pointer;
+          border: 2px solid rgba(255,255,255,0.2);
+          box-shadow: 0 1px 4px rgba(0,0,0,0.5);
+        }
+        input[type="range"]::-moz-range-thumb {
+          width: 18px;
+          height: 18px;
+          border-radius: 50%;
+          background: white;
+          cursor: pointer;
+          border: 2px solid rgba(255,255,255,0.2);
+          box-shadow: 0 1px 4px rgba(0,0,0,0.5);
+        }
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(6px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
     </div>
   );
 }
