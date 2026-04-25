@@ -226,4 +226,130 @@ export async function readTaskCount(): Promise<number> {
   return Number(count);
 }
 
+// ── Double-or-Nothing contract ──────────────────────────────────
+
+export const DOUBLE_OR_NOTHING_ADDRESS = process.env.NEXT_PUBLIC_DON_ADDRESS as `0x${string}` | undefined;
+
+const DON_ABI = [
+  {
+    name: "createTask",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "_description", type: "string" },
+      { name: "_bounty", type: "uint256" },
+      { name: "_deadline", type: "uint256" },
+    ],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+  {
+    name: "stakeAndClaim",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [{ name: "_taskId", type: "uint256" }],
+    outputs: [],
+  },
+  {
+    name: "resolve",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "_taskId", type: "uint256" },
+      { name: "_verified", type: "bool" },
+    ],
+    outputs: [],
+  },
+  {
+    name: "taskCount",
+    type: "function",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+] as const;
+
+export function encodeCreateDoubleOrNothing(description: string, bountyUsdc: number, deadlineHours: number) {
+  if (!DOUBLE_OR_NOTHING_ADDRESS) return null;
+
+  const bountyWei = parseUnits(bountyUsdc.toString(), 6);
+  const deadline = BigInt(Math.floor(Date.now() / 1000) + deadlineHours * 3600);
+
+  const approveData = encodeFunctionData({
+    abi: PERMIT2_ABI,
+    functionName: "approve",
+    args: [USDC_ADDRESS, DOUBLE_OR_NOTHING_ADDRESS, BigInt(bountyWei), Math.floor(Date.now() / 1000) + 86400],
+  });
+
+  const createData = encodeFunctionData({
+    abi: DON_ABI,
+    functionName: "createTask",
+    args: [description, bountyWei, deadline],
+  });
+
+  return {
+    chainId: WORLD_CHAIN_ID,
+    transactions: [
+      { to: PERMIT2_ADDRESS, data: approveData },
+      { to: DOUBLE_OR_NOTHING_ADDRESS, data: createData },
+    ],
+  };
+}
+
+export function encodeStakeAndClaim(taskId: number) {
+  if (!DOUBLE_OR_NOTHING_ADDRESS) return null;
+
+  // Runner needs to approve USDC spend for matching stake
+  // The amount equals the task bounty — read from chain or passed in
+  const stakeData = encodeFunctionData({
+    abi: DON_ABI,
+    functionName: "stakeAndClaim",
+    args: [BigInt(taskId)],
+  });
+
+  return {
+    chainId: WORLD_CHAIN_ID,
+    transactions: [{ to: DOUBLE_OR_NOTHING_ADDRESS, data: stakeData }],
+  };
+}
+
+export function encodeStakeAndClaimWithApproval(taskId: number, bountyUsdc: number) {
+  if (!DOUBLE_OR_NOTHING_ADDRESS) return null;
+
+  const stakeWei = parseUnits(bountyUsdc.toString(), 6);
+
+  const approveData = encodeFunctionData({
+    abi: PERMIT2_ABI,
+    functionName: "approve",
+    args: [USDC_ADDRESS, DOUBLE_OR_NOTHING_ADDRESS, BigInt(stakeWei), Math.floor(Date.now() / 1000) + 86400],
+  });
+
+  const stakeData = encodeFunctionData({
+    abi: DON_ABI,
+    functionName: "stakeAndClaim",
+    args: [BigInt(taskId)],
+  });
+
+  return {
+    chainId: WORLD_CHAIN_ID,
+    transactions: [
+      { to: PERMIT2_ADDRESS, data: approveData },
+      { to: DOUBLE_OR_NOTHING_ADDRESS, data: stakeData },
+    ],
+  };
+}
+
+export async function readDonTaskCount(): Promise<number> {
+  if (!DOUBLE_OR_NOTHING_ADDRESS) return 0;
+  const client = createPublicClient({
+    chain: worldchain,
+    transport: http(RPC_URL),
+  });
+  const count = await client.readContract({
+    address: DOUBLE_OR_NOTHING_ADDRESS,
+    abi: DON_ABI,
+    functionName: "taskCount",
+  });
+  return Number(count);
+}
+
 export { TOKEN_ADDRESSES, TOKEN_DECIMALS };

@@ -2,10 +2,19 @@ export type TaskStatus = "open" | "claimed" | "completed" | "failed" | "expired"
 
 export type TaskCategory = "photo" | "delivery" | "check-in" | "custom";
 
+export type ModelVerdict = {
+  name: string;
+  verdict: "pass" | "flag" | "fail";
+  confidence: number;
+  reasoning: string;
+};
+
 export type VerificationResult = {
   verdict: "pass" | "flag" | "fail";
   reasoning: string;
   confidence: number;
+  models?: ModelVerdict[];
+  consensusMethod?: "majority" | "unanimous";
 };
 
 export type AgentInfo = {

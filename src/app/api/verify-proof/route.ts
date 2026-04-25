@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTask, submitProof, completeTask, setAttestationHash, setFollowUp, spawnRecurringTask } from "@/lib/store";
-import { verifyProof, verifyProofStub } from "@/lib/verify-proof";
+import { verifyProof, verifyProofConsensus, verifyProofStub } from "@/lib/verify-proof";
+import type { ConsensusResult } from "@/lib/verify-proof";
 import { postProofSubmitted, postVerificationResult, postFollowUpQuestion, postSettlementConfirmation, syncAndProcessMessages } from "@/lib/xmtp";
 import { generateFollowUpQuestion } from "@/lib/ai-chat";
 import { notifyProofSubmitted, notifyVerified, notifyFlagged } from "@/lib/notifications";
@@ -90,12 +91,25 @@ export async function POST(req: NextRequest) {
 
   const withinLimit = await checkRateLimit();
   const useRealVerification = !!process.env.ANTHROPIC_API_KEY && withinLimit;
+  const useConsensus = useRealVerification && !!process.env.OPENROUTER_API_KEY;
 
-  let result;
+  let result: { verdict: "pass" | "flag" | "fail"; reasoning: string; confidence: number; models?: Array<{ name: string; verdict: "pass" | "flag" | "fail"; confidence: number; reasoning: string }>; consensusMethod?: "majority" | "unanimous" };
+  let consensusResult: ConsensusResult | null = null;
   try {
-    result = useRealVerification
-      ? await verifyProof(task.description, proofImages, proofNote, task.category, task.agent?.id)
-      : verifyProofStub(task.description, proofImages[0]);
+    if (useConsensus) {
+      consensusResult = await verifyProofConsensus(task.description, proofImages, proofNote, task.category, task.agent?.id);
+      result = {
+        verdict: consensusResult.verdict,
+        reasoning: consensusResult.reasoning,
+        confidence: consensusResult.confidence,
+        models: consensusResult.models,
+        consensusMethod: consensusResult.consensusMethod,
+      };
+    } else if (useRealVerification) {
+      result = await verifyProof(task.description, proofImages, proofNote, task.category, task.agent?.id);
+    } else {
+      result = verifyProofStub(task.description, proofImages[0]);
+    }
   } catch (err) {
     console.error("AI verification error, falling back to stub:", err);
     result = verifyProofStub(task.description, proofImages[0]);
@@ -215,6 +229,12 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     taskId,
     verification: result,
+    consensus: consensusResult
+      ? {
+          models: consensusResult.models,
+          consensusMethod: consensusResult.consensusMethod,
+        }
+      : null,
     attestationTxHash,
     escrowReleaseTxHash,
     locationVerified,

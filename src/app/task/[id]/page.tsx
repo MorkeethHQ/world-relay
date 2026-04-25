@@ -382,6 +382,24 @@ function AiVerdictCard({ result }: { result: VerificationResult }) {
           <p className="text-xs text-gray-300 italic leading-relaxed pt-3">
             &ldquo;{result.reasoning}&rdquo;
           </p>
+          {result.models && result.models.length > 0 && (
+            <div className="mt-3 pt-3 border-t border-white/[0.04]">
+              <p className="text-[9px] text-gray-500 uppercase tracking-wider font-medium mb-2">
+                {result.consensusMethod === "unanimous" ? "Unanimous" : "Majority"} consensus — {result.models.length} models
+              </p>
+              <div className="flex flex-col gap-1.5">
+                {result.models.map((m, i) => (
+                  <div key={i} className="flex items-center gap-2 bg-white/[0.02] rounded-lg px-2.5 py-1.5">
+                    <span className={`w-1.5 h-1.5 rounded-full ${m.verdict === "pass" ? "bg-green-500" : m.verdict === "flag" ? "bg-yellow-500" : "bg-red-500"}`} />
+                    <span className="text-[10px] text-gray-400 flex-1 truncate">{m.name}</span>
+                    <span className={`text-[10px] font-semibold ${m.verdict === "pass" ? "text-green-400" : m.verdict === "flag" ? "text-yellow-400" : "text-red-400"}`}>
+                      {m.verdict.toUpperCase()} {Math.round(m.confidence * 100)}%
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="flex items-center gap-1.5 mt-3 pt-2 border-t border-white/[0.04]">
             <div className="w-4 h-4 rounded bg-indigo-500/20 flex items-center justify-center">
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#818cf8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -389,7 +407,7 @@ function AiVerdictCard({ result }: { result: VerificationResult }) {
               </svg>
             </div>
             <span className="text-[9px] text-gray-500 font-medium">
-              Verified automatically
+              {result.models && result.models.length > 0 ? `${result.models.length}-model consensus` : "Verified automatically"}
             </span>
           </div>
         </div>

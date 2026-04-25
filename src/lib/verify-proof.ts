@@ -7,6 +7,21 @@ export type VerificationResult = {
   confidence: number;
 };
 
+export type ModelResult = {
+  name: string;
+  verdict: "pass" | "flag" | "fail";
+  confidence: number;
+  reasoning: string;
+};
+
+export type ConsensusResult = {
+  verdict: "pass" | "flag" | "fail";
+  confidence: number;
+  reasoning: string;
+  models: ModelResult[];
+  consensusMethod: "majority" | "unanimous";
+};
+
 const SYSTEM_PROMPT = `You are a proof verification agent for RELAY, an errand network.
 Your job: determine if submitted proof photos plausibly prove that a real-world task was completed.
 
@@ -126,6 +141,249 @@ export async function verifyProof(
       confidence: 0,
     };
   }
+}
+
+// --- Multi-model consensus verification ---
+
+const MODEL_TIMEOUT_MS = 15000;
+
+async function callClaude(
+  systemPrompt: string,
+  userText: string,
+  images: string[]
+): Promise<ModelResult> {
+  const anthropic = new Anthropic();
+
+  const userContent: Array<
+    | { type: "text"; text: string }
+    | {
+        type: "image";
+        source: {
+          type: "base64";
+          media_type: "image/jpeg" | "image/png" | "image/gif" | "image/webp";
+          data: string;
+        };
+      }
+  > = [{ type: "text" as const, text: userText }];
+
+  for (let i = 0; i < images.length; i++) {
+    if (images.length > 1) {
+      userContent.push({
+        type: "text" as const,
+        text: `Photo ${i + 1} of ${images.length}:`,
+      });
+    }
+    userContent.push({
+      type: "image" as const,
+      source: {
+        type: "base64" as const,
+        media_type: detectMediaType(images[i]),
+        data: images[i],
+      },
+    });
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), MODEL_TIMEOUT_MS);
+
+  try {
+    const response = await anthropic.messages.create(
+      {
+        model: "claude-sonnet-4-6",
+        max_tokens: 256,
+        system: systemPrompt,
+        messages: [{ role: "user", content: userContent }],
+      },
+      { signal: controller.signal }
+    );
+
+    const text =
+      response.content[0].type === "text" ? response.content[0].text : "";
+    const parsed = JSON.parse(extractJson(text));
+    return {
+      name: "Claude Sonnet 4.6",
+      verdict: parsed.verdict,
+      confidence: parsed.confidence,
+      reasoning: parsed.reasoning,
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function callOpenRouter(
+  model: string,
+  modelDisplayName: string,
+  systemPrompt: string,
+  userText: string,
+  images: string[]
+): Promise<ModelResult> {
+  const apiKey = process.env.OPENROUTER_API_KEY;
+  if (!apiKey) throw new Error("OPENROUTER_API_KEY not set");
+
+  // Build content array with text and images in OpenAI vision format
+  const content: Array<
+    | { type: "text"; text: string }
+    | { type: "image_url"; image_url: { url: string } }
+  > = [{ type: "text", text: userText }];
+
+  for (let i = 0; i < images.length; i++) {
+    if (images.length > 1) {
+      content.push({ type: "text", text: `Photo ${i + 1} of ${images.length}:` });
+    }
+    const mediaType = detectMediaType(images[i]);
+    content.push({
+      type: "image_url",
+      image_url: { url: `data:${mediaType};base64,${images[i]}` },
+    });
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), MODEL_TIMEOUT_MS);
+
+  try {
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+        "HTTP-Referer": "https://world-relay.vercel.app",
+      },
+      body: JSON.stringify({
+        model,
+        max_tokens: 256,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content },
+        ],
+      }),
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      const errText = await response.text().catch(() => "unknown error");
+      throw new Error(`OpenRouter ${model} returned ${response.status}: ${errText}`);
+    }
+
+    const data = await response.json();
+    const text: string = data.choices?.[0]?.message?.content ?? "";
+    const parsed = JSON.parse(extractJson(text));
+    return {
+      name: modelDisplayName,
+      verdict: parsed.verdict,
+      confidence: parsed.confidence,
+      reasoning: parsed.reasoning,
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function aggregateResults(results: ModelResult[]): ConsensusResult {
+  // Count verdicts
+  const verdictCounts: Record<string, number> = { pass: 0, flag: 0, fail: 0 };
+  for (const r of results) {
+    verdictCounts[r.verdict] = (verdictCounts[r.verdict] || 0) + 1;
+  }
+
+  // Find majority verdict
+  let majorityVerdict: "pass" | "flag" | "fail" = "flag";
+  let maxCount = 0;
+  for (const v of ["pass", "flag", "fail"] as const) {
+    if (verdictCounts[v] > maxCount) {
+      maxCount = verdictCounts[v];
+      majorityVerdict = v;
+    }
+  }
+
+  const isUnanimous = maxCount === results.length;
+
+  // Average confidence
+  const avgConfidence =
+    Math.round(
+      (results.reduce((sum, r) => sum + r.confidence, 0) / results.length) * 100
+    ) / 100;
+
+  // Combine reasonings
+  const combinedReasoning = results
+    .map((r) => `[${r.name}] ${r.reasoning}`)
+    .join(" | ");
+
+  return {
+    verdict: majorityVerdict,
+    confidence: avgConfidence,
+    reasoning: combinedReasoning,
+    models: results,
+    consensusMethod: isUnanimous ? "unanimous" : "majority",
+  };
+}
+
+export async function verifyProofConsensus(
+  taskDescription: string,
+  proofImages: string | string[],
+  proofNote?: string,
+  category?: string,
+  agentId?: string
+): Promise<ConsensusResult> {
+  const images = Array.isArray(proofImages) ? proofImages : [proofImages];
+  const categoryHint = category ? CATEGORY_HINTS[category] || "" : "";
+
+  let agentSection = "";
+  if (agentId) {
+    const agent = AGENT_REGISTRY[agentId.toLowerCase()];
+    if (agent?.verificationPrompt) {
+      agentSection = `\n\nAGENT-SPECIFIC INSTRUCTIONS (${agent.name}):\n${agent.verificationPrompt}`;
+    }
+  }
+
+  const systemPrompt = SYSTEM_PROMPT + agentSection;
+  const userText = `Task description: "${taskDescription}"${categoryHint ? `\nCategory: ${categoryHint}` : ""}${proofNote ? `\nClaimant's note: "${proofNote}"` : ""}\n\nVerify the following proof photo${images.length > 1 ? "s" : ""}:`;
+
+  // Launch all 3 models in parallel with individual error handling
+  const modelPromises: Promise<ModelResult>[] = [
+    callClaude(systemPrompt, userText, images).catch((err) => {
+      console.error("[Consensus] Claude failed:", err);
+      return {
+        name: "Claude Sonnet 4.6",
+        verdict: "flag" as const,
+        confidence: 0,
+        reasoning: "Model unavailable — flagged for manual review",
+      };
+    }),
+    callOpenRouter(
+      "openai/gpt-4o",
+      "GPT-4o",
+      systemPrompt,
+      userText,
+      images
+    ).catch((err) => {
+      console.error("[Consensus] GPT-4o failed:", err);
+      return {
+        name: "GPT-4o",
+        verdict: "flag" as const,
+        confidence: 0,
+        reasoning: "Model unavailable — flagged for manual review",
+      };
+    }),
+    callOpenRouter(
+      "google/gemini-2.0-flash-001",
+      "Gemini 2.0 Flash",
+      systemPrompt,
+      userText,
+      images
+    ).catch((err) => {
+      console.error("[Consensus] Gemini failed:", err);
+      return {
+        name: "Gemini 2.0 Flash",
+        verdict: "flag" as const,
+        confidence: 0,
+        reasoning: "Model unavailable — flagged for manual review",
+      };
+    }),
+  ];
+
+  const results = await Promise.all(modelPromises);
+  return aggregateResults(results);
 }
 
 export function verifyProofStub(
