@@ -882,7 +882,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
                         <span className="text-[11px] font-bold text-green-400">VERIFIED</span>
                       </div>
                       <span className="text-[11px] font-bold text-green-400 bg-black/40 backdrop-blur-sm rounded-lg px-2 py-1">
-                        ${task.bountyUsdc} USDC
+                        ${task.bountyUsdc} paid
                       </span>
                     </div>
                   </div>
@@ -941,6 +941,35 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
           </div>
         ) : (
           <div className="flex flex-col gap-2.5">
+            {/* Recently completed — show activity to judges */}
+            {tab === "available" && (() => {
+              const recent = tasks
+                .filter(t => t.status === "completed" && t.verificationResult)
+                .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                .slice(0, 3);
+              if (recent.length === 0) return null;
+              return (
+                <div className="mb-1">
+                  <p className="text-[10px] text-gray-600 uppercase tracking-wider font-medium mb-2 px-1">Recently verified</p>
+                  <div className="flex flex-col gap-1.5">
+                    {recent.map(t => (
+                      <div
+                        key={t.id}
+                        className="flex items-center gap-2.5 bg-green-500/[0.04] border border-green-500/10 rounded-xl px-3 py-2 cursor-pointer active:scale-[0.98] transition-all"
+                        onClick={() => { setSelectedTask(t); setView("detail"); }}
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
+                        </svg>
+                        <span className="text-[11px] text-gray-400 truncate flex-1">{t.description.slice(0, 55)}{t.description.length > 55 ? "…" : ""}</span>
+                        <span className="text-[10px] text-green-400 font-semibold shrink-0">${t.bountyUsdc} paid</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="border-t border-white/[0.04] mt-3 mb-1" />
+                </div>
+              );
+            })()}
             {filtered.map((task, i) => (
               <div
                 key={task.id}
@@ -1198,11 +1227,11 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
 
 function getAgentReason(agentId: string): string {
   const reasons: Record<string, string> = {
-    pricehawk: "My price model needs fresh data for this area.",
-    freshmap: "Satellite data shows changes here. I need ground truth.",
-    queuewatch: "My wait-time model needs real-time calibration.",
-    accessmap: "Accessibility data for this location is outdated.",
-    claimseye: "I flagged this building for inspection. I need eyes on-site.",
+    pricehawk: "Online prices don't match reality. I need a human to check.",
+    freshmap: "My map data is months stale. I need someone on the ground.",
+    queuewatch: "No API exists for real-time queues. Only a human can check.",
+    accessmap: "Official accessibility data is unreliable. I need eyes on-site.",
+    claimseye: "I can't trust listing photos. I need someone to walk by.",
   };
   return reasons[agentId] || "I need a human to verify this on the ground.";
 }
