@@ -189,8 +189,21 @@ export default function LivePage() {
         .catch(console.error);
     };
     fetchStatus();
-    const interval = setInterval(fetchStatus, 15000);
-    return () => clearInterval(interval);
+    const statusInterval = setInterval(fetchStatus, 10000);
+
+    // Auto-sync XMTP every 30s so DMs appear without clicking Sync
+    const syncXmtp = () => {
+      fetch("/api/xmtp-sync", { method: "POST" })
+        .then(() => fetchStatus())
+        .catch(() => {});
+    };
+    syncXmtp();
+    const syncInterval = setInterval(syncXmtp, 30_000);
+
+    return () => {
+      clearInterval(statusInterval);
+      clearInterval(syncInterval);
+    };
   }, []);
 
   // Fetch DM history
