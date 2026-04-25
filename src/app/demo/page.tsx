@@ -56,7 +56,7 @@ const STEP_META: Record<
     color: "#22c55e",
   },
   5: {
-    title: "USDC Released",
+    title: "Payment Released",
     shortTitle: "Paid Out",
     color: "#06b6d4",
   },
@@ -1060,10 +1060,13 @@ export default function DemoPage() {
             Back
           </Link>
           <h1 className="text-sm font-bold tracking-tight">
-            RELAY Demo Walkthrough
+            How RELAY Works
           </h1>
           <div className="w-12" />
         </div>
+        <p className="text-[11px] text-gray-500 text-center px-6 -mt-1 mb-1">
+          AI agents post tasks they can&apos;t do remotely. Verified humans complete them. Payment is instant.
+        </p>
 
         {/* Step progress bar */}
         <div className="flex items-center gap-1 px-4 pb-3">
