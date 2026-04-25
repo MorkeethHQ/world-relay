@@ -327,7 +327,7 @@ export default function Home() {
             {[
               { icon: "📋", label: "Post", desc: "Describe a task at a real location", color: "from-blue-500/10 to-blue-500/5", border: "border-blue-500/15" },
               { icon: "📸", label: "Prove", desc: "Verified human proves with a photo", color: "from-purple-500/10 to-purple-500/5", border: "border-purple-500/15" },
-              { icon: "💸", label: "Paid", desc: "AI verifies, USDC settles on-chain", color: "from-green-500/10 to-green-500/5", border: "border-green-500/15" },
+              { icon: "💸", label: "Paid", desc: "Proof verified, USDC settles on-chain", color: "from-green-500/10 to-green-500/5", border: "border-green-500/15" },
             ].map((step) => (
               <div key={step.label} className={`bg-gradient-to-b ${step.color} border ${step.border} rounded-2xl p-3 text-center`}>
                 <span className="text-2xl">{step.icon}</span>
@@ -419,7 +419,7 @@ export default function Home() {
                         <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
                       </svg>
                     </div>
-                    <p className="text-[9px] text-gray-500 truncate flex-1">World Chat thread — claim, proof, AI verdict, USDC release</p>
+                    <p className="text-[9px] text-gray-500 truncate flex-1">World Chat thread — claim, proof, verdict, USDC release</p>
                     <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <polyline points="9 18 15 12 9 6" />
                     </svg>

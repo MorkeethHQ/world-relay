@@ -956,7 +956,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                           <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
                         </svg>
-                        <span className="text-[11px] font-bold text-green-400">AI VERIFIED</span>
+                        <span className="text-[11px] font-bold text-green-400">VERIFIED</span>
                       </div>
                       <span className="text-[11px] font-bold text-green-400 bg-black/40 backdrop-blur-sm rounded-lg px-2 py-1">
                         ${task.bountyUsdc} USDC
@@ -2100,7 +2100,7 @@ function SubmitProof({
             </div>
             <div className="text-center">
               <p className="text-sm font-medium text-white">Verifying proof...</p>
-              <p className="text-xs text-gray-500 mt-1">AI is analyzing your photo{images.length > 1 ? "s" : ""}</p>
+              <p className="text-xs text-gray-500 mt-1">Analyzing your photo{images.length > 1 ? "s" : ""}</p>
             </div>
           </div>
         )}
@@ -2219,7 +2219,7 @@ function TaskTimeline({ task }: { task: Task }) {
       ),
     },
     {
-      label: task.verificationResult?.verdict === "pass" ? "Verified" : task.verificationResult?.verdict === "flag" ? "Flagged" : task.verificationResult ? "Rejected" : "AI Review",
+      label: task.verificationResult?.verdict === "pass" ? "Verified" : task.verificationResult?.verdict === "flag" ? "Flagged" : task.verificationResult ? "Rejected" : "Pending Review",
       time: task.verificationResult ? task.createdAt : null,
       done: !!task.verificationResult,
       icon: (
@@ -2689,9 +2689,9 @@ function TaskDetail({
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a855f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /><line x1="12" y1="17" x2="12.01" y2="17" />
               </svg>
-              <span className="text-sm font-semibold text-purple-400">AI needs more info</span>
+              <span className="text-sm font-semibold text-purple-400">More info needed</span>
             </div>
-            <p className="text-xs text-gray-400 mb-3">Reply to the AI&apos;s question in the thread below, then tap re-evaluate.</p>
+            <p className="text-xs text-gray-400 mb-3">Reply to the question in the thread below, then tap re-evaluate.</p>
             <button
               onClick={async () => {
                 setReEvaluating(true);
@@ -2711,7 +2711,7 @@ function TaskDetail({
               {reEvaluating ? (
                 <>
                   <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  AI re-evaluating...
+                  Re-evaluating...
                 </>
               ) : (
                 <>
@@ -2727,7 +2727,7 @@ function TaskDetail({
 
         {isFlagged && isPoster && (
           <div className="flex flex-col gap-2">
-            <p className="text-xs text-yellow-400/70 text-center">AI flagged this proof. Your call — or let AI mediate.</p>
+            <p className="text-xs text-yellow-400/70 text-center">This proof was flagged. Your call — or request mediation.</p>
             <div className="flex gap-2">
               <button
                 onClick={async () => {
@@ -2779,14 +2779,14 @@ function TaskDetail({
               {disputing ? (
                 <>
                   <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  AI analyzing thread...
+                  Analyzing thread...
                 </>
               ) : (
                 <>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <circle cx="12" cy="12" r="10" /><path d="M12 16v-4" /><path d="M12 8h.01" />
                   </svg>
-                  AI Mediate — Let AI decide
+                  Mediate — Request verdict
                 </>
               )}
             </button>

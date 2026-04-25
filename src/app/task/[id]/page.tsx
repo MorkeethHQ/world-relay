@@ -307,7 +307,7 @@ function AiVerdictCard({ result }: { result: VerificationResult }) {
               <p className={`text-sm font-bold ${verdictColor(result.verdict)}`}>
                 {verdictLabel}
               </p>
-              <p className="text-[10px] text-gray-500">AI Verification</p>
+              <p className="text-[10px] text-gray-500">Verification</p>
             </div>
           </div>
 
@@ -359,7 +359,7 @@ function AiVerdictCard({ result }: { result: VerificationResult }) {
         className="w-full px-4 py-2.5 border-t border-white/[0.06] flex items-center justify-between hover:bg-white/[0.02] transition-colors"
       >
         <span className="text-[10px] text-gray-500 uppercase tracking-wider font-medium">
-          AI Reasoning
+          Reasoning
         </span>
         <svg
           width="14"
@@ -407,7 +407,7 @@ function FollowUpCard({ followUp }: { followUp: AiFollowUp }) {
       <div className="flex items-center gap-2 mb-2">
         <span className="text-amber-400 text-sm">&#9888;&#65039;</span>
         <span className="text-[10px] text-amber-400 uppercase tracking-wider font-medium">
-          AI Follow-up &middot; {followUp.status}
+          Follow-up &middot; {followUp.status}
         </span>
       </div>
       <p className="text-xs text-gray-300 leading-relaxed">{followUp.question}</p>
@@ -909,7 +909,7 @@ export default function TaskDetailPage() {
     const pct = Math.round(task.verificationResult.confidence * 100);
     steps.push({
       done: true,
-      label: `AI Verified -- ${task.verificationResult.verdict.toUpperCase()} ${pct}%`,
+      label: `Verified — ${task.verificationResult.verdict.toUpperCase()} ${pct}%`,
       detail: `Proof analyzed and verified`,
       time: timeAgo(verifyTime),
       icon: "\u{1F916}",
@@ -918,7 +918,7 @@ export default function TaskDetailPage() {
     steps.push({
       done: false,
       current: true,
-      label: "AI Verification",
+      label: "Verification",
       detail: "Analyzing proof...",
       icon: "\u{1F916}",
     });
@@ -1221,7 +1221,7 @@ export default function TaskDetailPage() {
               {/* Attestation */}
               {task.attestationTxHash && (
                 <OnChainLink
-                  label="AI Attestation TX"
+                  label="Attestation TX"
                   value={`${task.attestationTxHash.slice(0, 10)}...${task.attestationTxHash.slice(-8)}`}
                   href={`${WORLDSCAN_TX}/${task.attestationTxHash}`}
                   mono
