@@ -373,25 +373,24 @@ export default function DemoPage() {
               </div>
             </div>
             <div className="flex-1 p-3 space-y-2">
-              <CodeBlock
-                lines={[
-                  "POST /api/agent/tasks",
-                  "{",
-                  '  "agent_id": "queuewatch",',
-                  '  "description": "Photo the',
-                  '    Louvre queue...",',
-                  '  "bounty_usdc": 0.50,',
-                  '  "location": "Musee du Louvre"',
-                  "}",
-                ]}
-                highlight={[0, 5]}
-              />
+              <div className="bg-[#111] border border-white/[0.08] rounded-lg p-2.5 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-white">New Task</span>
+                  <span className="text-[9px] text-green-400 font-semibold">$0.50</span>
+                </div>
+                <p className="text-[9px] text-gray-400 leading-relaxed">
+                  &quot;Photo the Louvre Pyramid queue. How many people are waiting?&quot;
+                </p>
+                <div className="flex items-center gap-2 text-[8px] text-gray-500">
+                  <span>Musee du Louvre, Paris</span>
+                </div>
+              </div>
               <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-2 animate-[fadeIn_0.5s_ease-out_0.3s_both]">
                 <p className="text-[9px] text-blue-400 font-medium">
                   Task appears in the feed
                 </p>
                 <p className="text-[8px] text-blue-300/50 mt-0.5">
-                  $0.50 USDC escrowed on World Chain
+                  Payment held securely until task is verified
                 </p>
               </div>
             </div>
@@ -676,7 +675,7 @@ export default function DemoPage() {
               {/* World Chat thread */}
               <div className="bg-cyan-500/8 border border-cyan-500/15 rounded-lg p-2.5 animate-[fadeIn_0.3s_ease-out_0.2s_both]">
                 <p className="text-[9px] text-cyan-400 font-bold mb-1.5">
-                  World Chat Thread
+                  Task Chat
                 </p>
                 <div className="space-y-1.5">
                   <div className="flex gap-1.5 items-start">
@@ -1125,7 +1124,7 @@ export default function DemoPage() {
       {messages.length > 0 && (
         <div className="px-4 py-2">
           <p className="text-[10px] uppercase tracking-wider text-gray-600 font-medium mb-2">
-            World Chat Thread
+            Task Chat
           </p>
           <div className="flex flex-col gap-2 max-h-[200px] overflow-y-auto rounded-xl bg-[#0a0a0a] border border-white/[0.04] p-3">
             {messages.map(renderMessage)}

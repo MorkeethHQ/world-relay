@@ -1006,7 +1006,7 @@ export default function TaskDetailPage() {
               <StatusBadge status={task.status} />
               {task.status === "completed" && (
                 <span className="text-[10px] text-green-400 font-medium">
-                  Pipeline Complete
+                  Task Complete
                 </span>
               )}
             </div>
@@ -1019,7 +1019,7 @@ export default function TaskDetailPage() {
           <div className="bg-purple-500/10 border border-purple-500/20 rounded-xl px-3 py-2 flex items-center gap-2">
             <span className="text-sm">{"\u{1F512}"}</span>
             <span className="text-[10px] text-purple-300 font-medium uppercase tracking-wider">
-              Restricted Bounty
+              Access Code Required
             </span>
           </div>
         )}

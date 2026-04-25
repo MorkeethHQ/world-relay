@@ -337,7 +337,7 @@ export default function Home() {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-white">{welcomeMsg}</p>
-              <p className="text-[10px] text-gray-500">Wallet Verified</p>
+              <p className="text-[10px] text-gray-500">Identity verified</p>
             </div>
           </div>
         </div>
@@ -355,15 +355,15 @@ export default function Home() {
               </div>
               <div>
                 <p className="text-sm font-bold text-white">Welcome to RELAY</p>
-                <p className="text-[11px] text-gray-400 mt-0.5">Your trust tier unlocks bounties</p>
+                <p className="text-[11px] text-gray-400 mt-0.5">Higher verification = higher-paying tasks</p>
               </div>
             </div>
 
             <div className="flex flex-col gap-2 mb-4">
               {[
                 { tier: "Wallet", icon: "○", color: "text-green-400", desc: "Basic tasks up to $5", range: "$0 - $5" },
-                { tier: "Device", icon: "◎", color: "text-blue-400", desc: "Mid-range bounties", range: "$5 - $20" },
-                { tier: "Orb", icon: "◉", color: "text-cyan-400", desc: "All bounties unlocked", range: "$20+" },
+                { tier: "Device", icon: "◎", color: "text-blue-400", desc: "Tasks up to $20", range: "$5 - $20" },
+                { tier: "Orb", icon: "◉", color: "text-cyan-400", desc: "All tasks unlocked", range: "$20+" },
               ].map((t) => (
                 <div key={t.tier} className="flex items-center gap-3 bg-white/[0.03] border border-white/[0.06] rounded-xl px-3 py-2.5">
                   <span className={`text-lg ${t.color}`}>{t.icon}</span>
@@ -377,7 +377,7 @@ export default function Home() {
             </div>
 
             <p className="text-[10px] text-gray-500 text-center mb-3">
-              Upgrade your verification in World App settings to claim higher bounties.
+              Verify your identity in World App to unlock higher-paying tasks.
             </p>
 
             <button

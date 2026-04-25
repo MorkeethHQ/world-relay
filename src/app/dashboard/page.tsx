@@ -259,7 +259,7 @@ export default function DashboardPage() {
                     <WorldTypography variant="number" level={5} as="span" className="!text-emerald-400 !font-bold">
                       ${settledUsdc.toFixed(0)}
                     </WorldTypography>
-                    <p className="text-[9px] text-gray-600 mt-0.5">USDC Settled</p>
+                    <p className="text-[9px] text-gray-600 mt-0.5">Paid Out</p>
                   </div>
                   <div>
                     <WorldTypography variant="number" level={5} as="span" className="!text-orange-400 !font-bold">
@@ -348,7 +348,7 @@ export default function DashboardPage() {
                 <div className="flex items-center gap-2 mb-3">
                   <div className="w-1.5 h-1.5 rounded-full bg-blue-400" />
                   <WorldTypography variant="label" level={2} as="span" className="!text-gray-400 !text-[10px] uppercase tracking-wider">
-                    On-Chain
+                    Payment Contract
                   </WorldTypography>
                 </div>
 
@@ -361,7 +361,7 @@ export default function DashboardPage() {
                     </div>
                     <div>
                       <WorldTypography variant="subtitle" level={3} as="span" className="!text-white !font-semibold">
-                        Escrow Contract
+                        Payment Contract
                       </WorldTypography>
                       <p className="text-[10px] text-gray-600 font-mono mt-0.5">
                         {ESCROW_ADDRESS.slice(0, 6)}...{ESCROW_ADDRESS.slice(-4)}
@@ -372,7 +372,7 @@ export default function DashboardPage() {
                     <WorldTypography variant="number" level={4} as="span" className="!text-blue-400">
                       {onChainCount}
                     </WorldTypography>
-                    <p className="text-[8px] text-gray-600">On-chain</p>
+                    <p className="text-[8px] text-gray-600">Tasks funded</p>
                   </div>
                 </div>
 
@@ -577,7 +577,7 @@ export default function DashboardPage() {
                 <div className="flex items-center gap-2 mb-3">
                   <div className="w-1.5 h-1.5 rounded-full bg-orange-400" />
                   <WorldTypography variant="label" level={2} as="span" className="!text-gray-400 !text-[10px] uppercase tracking-wider">
-                    Escrow Status
+                    Pending Payments
                   </WorldTypography>
                 </div>
 
@@ -586,14 +586,14 @@ export default function DashboardPage() {
                     <WorldTypography variant="number" level={3} as="span" className="!text-orange-400 !font-bold">
                       ${escrowLocked.toFixed(2)}
                     </WorldTypography>
-                    <p className="text-[10px] text-gray-500 mt-0.5">USDC locked in escrow</p>
+                    <p className="text-[10px] text-gray-500 mt-0.5">Held for active tasks</p>
                   </div>
                   <div className="text-right">
                     <p className="text-[10px] text-gray-400 font-mono">
                       {ESCROW_ADDRESS.slice(0, 6)}...{ESCROW_ADDRESS.slice(-4)}
                     </p>
                     <p className="text-[8px] text-gray-600 mt-0.5">
-                      {tasks.filter(t => t.status === "claimed").length} active escrows
+                      {tasks.filter(t => t.status === "claimed").length} tasks in progress
                     </p>
                   </div>
                 </div>
@@ -609,7 +609,7 @@ export default function DashboardPage() {
                     <polyline points="15 3 21 3 21 9" />
                     <line x1="10" y1="14" x2="21" y2="3" />
                   </svg>
-                  <span className="text-xs font-medium text-orange-400">View Escrow on Alchemy Explorer</span>
+                  <span className="text-xs font-medium text-orange-400">View Payment Contract</span>
                 </a>
               </div>
             </div>

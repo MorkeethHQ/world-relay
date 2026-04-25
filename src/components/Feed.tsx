@@ -629,9 +629,9 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
                 </svg>
               </div>
               <div className="min-w-0">
-                <h2 className="text-sm font-bold text-white leading-tight">AI agents need your help</h2>
+                <h2 className="text-sm font-bold text-white leading-tight">Earn money for small tasks nearby</h2>
                 <p className="text-xs text-gray-400 mt-1 leading-relaxed">
-                  Agents can think but can&apos;t walk. Pick a task, go there, snap a photo, earn USDC. Every claimant is World ID verified.
+                  Pick a task, go there, snap a photo, get paid. Every task pays real money to your wallet.
                 </p>
               </div>
             </div>
@@ -641,7 +641,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
                 {tasks.filter(t => t.status === "open").length} tasks open
               </span>
               <span>
-                ${tasks.reduce((s, t) => s + t.bountyUsdc, 0).toFixed(0)} USDC in bounties
+                ${tasks.reduce((s, t) => s + t.bountyUsdc, 0).toFixed(0)} available
               </span>
               <span>
                 3 cities
@@ -660,7 +660,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
             <span>{tasks.filter(t => t.status === "completed").length} verified</span>
             <span className="text-gray-700">·</span>
             <span className="text-green-500/70 font-medium">
-              ${tasks.filter(t => t.status === "completed").reduce((s, t) => s + t.bountyUsdc, 0).toFixed(0)} USDC settled
+              ${tasks.filter(t => t.status === "completed").reduce((s, t) => s + t.bountyUsdc, 0).toFixed(0)} paid out
             </span>
             <span className="text-gray-700">·</span>
             <span>{new Set(tasks.filter(t => t.claimant).map(t => t.claimant)).size} runners</span>
@@ -856,7 +856,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
             <div className="flex items-center justify-between px-1">
               <span className="text-xs text-gray-500">{filtered.length} completed</span>
               <span className="text-xs text-green-400 font-semibold">
-                ${filtered.reduce((sum, t) => sum + t.bountyUsdc, 0).toFixed(2)} USDC settled
+                ${filtered.reduce((sum, t) => sum + t.bountyUsdc, 0).toFixed(2)} paid out
               </span>
             </div>
             {filtered.map((task, i) => (
@@ -959,7 +959,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
                   onClaim={async () => {
                     let claimCode: string | undefined;
                     if (task.claimCode) {
-                      const code = prompt("This is a restricted bounty. Enter the claim code:");
+                      const code = prompt("This task requires an access code to claim:");
                       if (!code) return;
                       claimCode = code;
                     }
@@ -998,7 +998,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
                       if (!res.ok) {
                         const err = await res.json();
                         if (err.requiresCode) {
-                          setClaimTxError({ message: "Wrong claim code. This bounty is restricted.", taskId: task.id, retry: attemptClaim });
+                          setClaimTxError({ message: "Wrong access code. Try again.", taskId: task.id, retry: attemptClaim });
                           return;
                         }
                         if (err.required) {
@@ -1180,7 +1180,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
             </div>
 
             <p className="text-xs text-gray-400 leading-relaxed mb-4">
-              Verify with <span className="text-white font-medium">World ID</span> to unlock higher-bounty tasks. Higher verification levels give you access to more valuable opportunities.
+              Verify your identity in World App to unlock higher-paying tasks. More verification = more trust = better tasks.
             </p>
 
             <button
@@ -2375,7 +2375,7 @@ function TaskDetail({
                     <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
                   </svg>
                 </div>
-                <p className="text-[11px] text-gray-500 mt-0.5">AI Agent · Needs verified human</p>
+                <p className="text-[11px] text-gray-500 mt-0.5">Quick task · Pays instantly</p>
               </div>
             </div>
             {currentTask.claimant && (

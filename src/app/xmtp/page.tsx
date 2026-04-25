@@ -303,12 +303,12 @@ export default function XmtpPage() {
           </div>
 
           <h1 className="text-2xl font-bold tracking-tight mb-2 bg-gradient-to-r from-indigo-400 via-purple-400 to-violet-400 bg-clip-text text-transparent">
-            World Chat Integration
+            Task Chat
           </h1>
           <p className="text-sm text-gray-400 leading-relaxed max-w-sm mx-auto">
-            XMTP is the coordination layer — not notifications bolted on.{" "}
-            <span className="text-white font-medium">Every task runs through a real encrypted thread</span>{" "}
-            from claim to settlement.
+            Every task has its own{" "}
+            <span className="text-white font-medium">private encrypted chat</span>.{" "}
+            Claim a task, get a briefing, submit proof, get your verdict — all in one thread.
           </p>
         </div>
 
@@ -604,107 +604,42 @@ export default function XmtpPage() {
         </div>
 
         {/* ════════════════════════════════════════════════
-            6. TECHNICAL IMPLEMENTATION
+            6. UNDER THE HOOD (judge-friendly, not dev-focused)
         ════════════════════════════════════════════════ */}
         <div>
           <p className="text-[11px] text-gray-500 uppercase tracking-wider font-medium mb-3">
-            Technical Implementation
+            Under the Hood
           </p>
 
           <div className="bg-[#0a0a0a] border border-white/[0.06] rounded-2xl overflow-hidden">
-            {/* Tech badges */}
-            <div className="px-4 py-3 border-b border-white/[0.04]">
-              <div className="flex flex-wrap gap-2">
-                {[
-                  { label: "@xmtp/node-sdk", color: "#818cf8" },
-                  { label: "Production Network", color: "#4ade80" },
-                  { label: "Singleton Client", color: "#60a5fa" },
-                  { label: "Redis Persistence", color: "#f472b6" },
-                  { label: "Deterministic Keys", color: "#fbbf24" },
-                ].map((badge) => (
-                  <span
-                    key={badge.label}
-                    className="text-[9px] font-medium px-2 py-1 rounded-full border"
-                    style={{
-                      color: badge.color,
-                      borderColor: `${badge.color}25`,
-                      backgroundColor: `${badge.color}08`,
-                    }}
-                  >
-                    {badge.label}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            {/* Architecture decisions */}
             <div className="flex flex-col divide-y divide-white/[0.04]">
-              {/* Singleton pattern */}
-              <div className="px-4 py-3">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-[9px] text-indigo-400 font-bold bg-indigo-500/10 px-1.5 py-0.5 rounded">01</span>
-                  <span className="text-[11px] text-white font-medium">Singleton Client Pattern</span>
-                </div>
-                <p className="text-[10px] text-gray-500 leading-relaxed mb-2">
-                  One XMTP client per serverless instance. Module-level promise deduplication prevents race conditions during cold starts.
-                </p>
-                <div className="bg-black/40 rounded-lg p-2.5 font-mono text-[9px] leading-relaxed overflow-x-auto">
-                  <span style={{ color: "#c084fc" }}>let</span> <span style={{ color: "#60a5fa" }}>clientInitPromise</span><span style={{ color: "#6b7280" }}>: Promise | </span><span style={{ color: "#c084fc" }}>null</span><span style={{ color: "#6b7280" }}> = </span><span style={{ color: "#c084fc" }}>null</span><span style={{ color: "#6b7280" }}>;</span>
-                  {"\n"}<span style={{ color: "#c084fc" }}>async function</span> <span style={{ color: "#fbbf24" }}>getXmtpClient</span><span style={{ color: "#6b7280" }}>() {"{"}</span>
-                  {"\n"}{"  "}<span style={{ color: "#c084fc" }}>if</span> <span style={{ color: "#6b7280" }}>(</span><span style={{ color: "#60a5fa" }}>xmtpClient</span><span style={{ color: "#6b7280" }}>)</span> <span style={{ color: "#c084fc" }}>return</span> <span style={{ color: "#60a5fa" }}>xmtpClient</span><span style={{ color: "#6b7280" }}>;</span>
-                  {"\n"}{"  "}<span style={{ color: "#c084fc" }}>if</span> <span style={{ color: "#6b7280" }}>(</span><span style={{ color: "#60a5fa" }}>clientInitPromise</span><span style={{ color: "#6b7280" }}>)</span> <span style={{ color: "#c084fc" }}>return</span> <span style={{ color: "#60a5fa" }}>clientInitPromise</span><span style={{ color: "#6b7280" }}>;</span>
-                  {"\n"}{"  "}<span style={{ color: "#6b7280" }}>// ... dedup cold-start init</span>
-                  {"\n"}<span style={{ color: "#6b7280" }}>{"}"}</span>
+              <div className="px-4 py-3 flex items-start gap-3">
+                <span className="w-2 h-2 rounded-full bg-green-500 mt-1.5 shrink-0" />
+                <div>
+                  <p className="text-[11px] text-white font-medium">Production XMTP network</p>
+                  <p className="text-[10px] text-gray-500">Real encrypted messaging, not a testnet or mock</p>
                 </div>
               </div>
-
-              {/* Deterministic key derivation */}
-              <div className="px-4 py-3">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-[9px] text-indigo-400 font-bold bg-indigo-500/10 px-1.5 py-0.5 rounded">02</span>
-                  <span className="text-[11px] text-white font-medium">Deterministic Encryption Key</span>
-                </div>
-                <p className="text-[10px] text-gray-500 leading-relaxed mb-2">
-                  DB encryption key derived from wallet key via SHA-256. Same key across serverless instances — no shared filesystem needed.
-                </p>
-                <div className="bg-black/40 rounded-lg p-2.5 font-mono text-[9px] leading-relaxed overflow-x-auto">
-                  <span style={{ color: "#c084fc" }}>function</span> <span style={{ color: "#fbbf24" }}>deriveEncryptionKey</span><span style={{ color: "#6b7280" }}>(</span><span style={{ color: "#60a5fa" }}>walletKey</span><span style={{ color: "#6b7280" }}>) {"{"}</span>
-                  {"\n"}{"  "}<span style={{ color: "#c084fc" }}>const</span> <span style={{ color: "#60a5fa" }}>hash</span> <span style={{ color: "#6b7280" }}>= </span><span style={{ color: "#fbbf24" }}>createHash</span><span style={{ color: "#6b7280" }}>(</span><span style={{ color: "#4ade80" }}>&quot;sha256&quot;</span><span style={{ color: "#6b7280" }}>)</span>
-                  {"\n"}{"    "}<span style={{ color: "#6b7280" }}>.</span><span style={{ color: "#fbbf24" }}>update</span><span style={{ color: "#6b7280" }}>(</span><span style={{ color: "#4ade80" }}>`xmtp-relay-db-key:${"{"}</span><span style={{ color: "#60a5fa" }}>walletKey</span><span style={{ color: "#4ade80" }}>{"}"}`</span><span style={{ color: "#6b7280" }}>)</span>
-                  {"\n"}{"    "}<span style={{ color: "#6b7280" }}>.</span><span style={{ color: "#fbbf24" }}>digest</span><span style={{ color: "#6b7280" }}>();</span>
-                  {"\n"}{"  "}<span style={{ color: "#c084fc" }}>return new</span> <span style={{ color: "#fbbf24" }}>Uint8Array</span><span style={{ color: "#6b7280" }}>(</span><span style={{ color: "#60a5fa" }}>hash</span><span style={{ color: "#6b7280" }}>);</span>
-                  {"\n"}<span style={{ color: "#6b7280" }}>{"}"}</span>
+              <div className="px-4 py-3 flex items-start gap-3">
+                <span className="w-2 h-2 rounded-full bg-indigo-500 mt-1.5 shrink-0" />
+                <div>
+                  <p className="text-[11px] text-white font-medium">One chat per task</p>
+                  <p className="text-[10px] text-gray-500">Each claimed task creates its own encrypted group automatically</p>
                 </div>
               </div>
-
-              {/* Redis message persistence */}
-              <div className="px-4 py-3">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-[9px] text-indigo-400 font-bold bg-indigo-500/10 px-1.5 py-0.5 rounded">03</span>
-                  <span className="text-[11px] text-white font-medium">Redis-Backed Message Persistence</span>
-                </div>
-                <p className="text-[10px] text-gray-500 leading-relaxed mb-2">
-                  Group-to-task mappings and DM history stored in Redis. Bigint nanosecond timestamps for exact sync watermarking across restarts.
-                </p>
-                <div className="bg-black/40 rounded-lg p-2.5 font-mono text-[9px] leading-relaxed overflow-x-auto">
-                  <span style={{ color: "#6b7280" }}>// Nano-second precision sync cursor</span>
-                  {"\n"}<span style={{ color: "#c084fc" }}>const</span> <span style={{ color: "#60a5fa" }}>lastSyncNs</span><span style={{ color: "#6b7280" }}>: </span><span style={{ color: "#c084fc" }}>bigint</span> <span style={{ color: "#6b7280" }}>= </span><span style={{ color: "#fbbf24" }}>BigInt</span><span style={{ color: "#6b7280" }}>(</span><span style={{ color: "#60a5fa" }}>raw</span><span style={{ color: "#6b7280" }}>);</span>
-                  {"\n"}<span style={{ color: "#6b7280" }}>// Group-to-task: O(1) lookup</span>
-                  {"\n"}<span style={{ color: "#c084fc" }}>await</span> <span style={{ color: "#60a5fa" }}>redis</span><span style={{ color: "#6b7280" }}>.</span><span style={{ color: "#fbbf24" }}>set</span><span style={{ color: "#6b7280" }}>(</span><span style={{ color: "#4ade80" }}>`xmtp:group:${"{"}</span><span style={{ color: "#60a5fa" }}>group.id</span><span style={{ color: "#4ade80" }}>{"}"}`</span><span style={{ color: "#6b7280" }}>, </span><span style={{ color: "#60a5fa" }}>task.id</span><span style={{ color: "#6b7280" }}>);</span>
-                  {"\n"}<span style={{ color: "#6b7280" }}>// DM history per conversation</span>
-                  {"\n"}<span style={{ color: "#c084fc" }}>await</span> <span style={{ color: "#60a5fa" }}>redis</span><span style={{ color: "#6b7280" }}>.</span><span style={{ color: "#fbbf24" }}>set</span><span style={{ color: "#6b7280" }}>(</span><span style={{ color: "#4ade80" }}>`xmtp:dm:${"{"}</span><span style={{ color: "#60a5fa" }}>conv.id</span><span style={{ color: "#4ade80" }}>{"}"}`</span><span style={{ color: "#6b7280" }}>, </span><span style={{ color: "#60a5fa" }}>history</span><span style={{ color: "#6b7280" }}>);</span>
+              <div className="px-4 py-3 flex items-start gap-3">
+                <span className="w-2 h-2 rounded-full bg-purple-500 mt-1.5 shrink-0" />
+                <div>
+                  <p className="text-[11px] text-white font-medium">Standalone DM bot</p>
+                  <p className="text-[10px] text-gray-500">Message the bot directly from any XMTP client — no web app needed</p>
                 </div>
               </div>
-
-              {/* Sync architecture */}
-              <div className="px-4 py-3">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-[9px] text-indigo-400 font-bold bg-indigo-500/10 px-1.5 py-0.5 rounded">04</span>
-                  <span className="text-[11px] text-white font-medium">Bidirectional Sync + Routing</span>
+              <div className="px-4 py-3 flex items-start gap-3">
+                <span className="w-2 h-2 rounded-full bg-blue-500 mt-1.5 shrink-0" />
+                <div>
+                  <p className="text-[11px] text-white font-medium">Full lifecycle in-thread</p>
+                  <p className="text-[10px] text-gray-500">Claim, briefing, proof, verdict, follow-up, settlement — all in one conversation</p>
                 </div>
-                <p className="text-[10px] text-gray-500 leading-relaxed">
-                  Polls all conversations, routes messages by group-to-task mapping. Unknown groups are DMs — routed to the NLP agent query processor. Bot sends back deep-linked responses.
-                </p>
               </div>
             </div>
           </div>
@@ -726,9 +661,9 @@ export default function XmtpPage() {
             </svg>
           </div>
 
-          <p className="text-lg font-bold text-white mb-1">Message RELAY on World Chat</p>
+          <p className="text-lg font-bold text-white mb-1">Try the Chat Bot</p>
           <p className="text-[11px] text-gray-500 leading-relaxed mb-4 max-w-xs mx-auto">
-            Open World App, go to Chat, and message this address. The bot responds in seconds.
+            Open any XMTP-compatible app and message this address. The bot responds in seconds with available tasks.
           </p>
 
           <div className="bg-black/30 border border-white/[0.06] rounded-xl px-4 py-3 flex items-center gap-2 mb-4">
