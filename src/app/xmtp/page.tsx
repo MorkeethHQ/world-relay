@@ -35,72 +35,35 @@ type DmData = {
 
 const BOT_ADDRESS = "0x1101158041fd96f21cbcbb0e752a9a2303e6d70e";
 
-const INTEGRATION_POINTS = [
+const LIFECYCLE_STEPS = [
   {
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#818cf8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-        <circle cx="9" cy="7" r="4" />
-        <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-      </svg>
-    ),
-    title: "Per-Task Groups",
-    desc: "Every claimed task creates an encrypted XMTP group. The full lifecycle plays out in the thread.",
+    step: "1",
+    title: "Task Claimed → Thread Created",
+    desc: "The moment someone claims a task, RELAY creates an encrypted XMTP group. This thread becomes the workspace.",
     color: "#818cf8",
   },
   {
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 2a10 10 0 1 0 10 10H12V2z" />
-        <path d="M20 2a10 10 0 0 1 0 14.14" />
-      </svg>
-    ),
-    title: "Claim Briefing",
-    desc: "On claim, the system posts task-specific tips in the thread.",
+    step: "2",
+    title: "Briefing Delivered in Thread",
+    desc: "The bot posts task-specific instructions: what to photograph, where to stand, what details matter. The runner reads it in-thread.",
     color: "#60a5fa",
   },
   {
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="12" cy="12" r="10" />
-        <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
-        <line x1="12" y1="17" x2="12.01" y2="17" />
-      </svg>
-    ),
-    title: "Multi-Turn Verification",
-    desc: "Medium-confidence proofs trigger follow-up questions. Claimant responds in-thread and the proof is re-evaluated.",
+    step: "3",
+    title: "Proof Submitted in Thread",
+    desc: "The runner replies with their photo and notes — directly in the XMTP conversation. No separate upload flow.",
     color: "#a78bfa",
   },
   {
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#c084fc" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-      </svg>
-    ),
-    title: "Dispute Resolution",
-    desc: "Poster triggers mediation. The system reads the full thread and renders a binding verdict.",
+    step: "4",
+    title: "Verdict Returned in Thread",
+    desc: "Verification runs automatically. The result — approved, rejected, or follow-up question — posts back to the same thread.",
     color: "#c084fc",
   },
   {
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6366f1" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-      </svg>
-    ),
-    title: "DM Bot",
-    desc: 'Message the RELAY inbox directly. Ask about tasks, filter by bounty, check stats. Bot responds with deep links.',
-    color: "#6366f1",
-  },
-  {
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8b5cf6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <line x1="12" y1="1" x2="12" y2="23" />
-        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-      </svg>
-    ),
-    title: "Settlement Notifications",
-    desc: "USDC released -> confirmation posted to the thread with amount and World Chain tx link.",
+    step: "5",
+    title: "Payment Confirmed in Thread",
+    desc: "Once approved, the payment releases on World Chain and the confirmation (amount + tx link) appears in the thread. Done.",
     color: "#8b5cf6",
   },
 ];
@@ -116,7 +79,7 @@ const THREAD_MESSAGES: { sender: "bot" | "claimant" | "poster"; label: string; t
 ━━━━━━━━━━━━━━━━━━
 "How long is the queue at the Louvre Pyramid?"
 📍 Musee du Louvre, Paris 1er
-💰 $0.25 USDC bounty
+💰 $0.25 payout
 👤 Claimed by 0x7a3b...demo`,
   },
   {
@@ -165,14 +128,14 @@ Reply in this thread, then tap "Re-evaluate" for a new verdict.`,
   {
     sender: "bot",
     label: "RELAY Bot",
-    step: "7. Settlement",
-    text: `🔗 ON-CHAIN SETTLEMENT CONFIRMED
+    step: "7. Payment",
+    text: `💸 PAYMENT CONFIRMED
 ━━━━━━━━━━━━━━━━━━
-$0.25 USDC released on World Chain
+$0.25 released on World Chain
 Tx: 0xdbd446...5f6b406
 
-Task complete. Both parties verified human via World ID.
-Proof verified. Settlement on-chain. Chat via XMTP.`,
+Task complete. Both parties verified via World ID.
+Proof verified. Payment released. All in one thread.`,
   },
 ];
 
@@ -279,7 +242,7 @@ export default function XmtpPage() {
             Feed
           </Link>
           <span className="text-[10px] text-gray-600 uppercase tracking-wider font-medium">
-            World Chat Integration
+            How Tasks Work
           </span>
         </div>
       </div>
@@ -303,12 +266,12 @@ export default function XmtpPage() {
           </div>
 
           <h1 className="text-2xl font-bold tracking-tight mb-2 bg-gradient-to-r from-indigo-400 via-purple-400 to-violet-400 bg-clip-text text-transparent">
-            Task Chat
+            XMTP is the coordination layer.
           </h1>
           <p className="text-sm text-gray-400 leading-relaxed max-w-sm mx-auto">
-            Every task has its own{" "}
-            <span className="text-white font-medium">private encrypted chat</span>.{" "}
-            Claim a task, get a briefing, submit proof, get your verdict — all in one thread.
+            XMTP isn&apos;t a feature we added — it&apos;s{" "}
+            <span className="text-white font-medium">how RELAY works</span>.{" "}
+            Every task runs inside an encrypted XMTP thread: briefing, proof, verdict, payment. Remove XMTP and there is no RELAY.
           </p>
         </div>
 
@@ -380,37 +343,34 @@ export default function XmtpPage() {
         </div>
 
         {/* ════════════════════════════════════════════════
-            3. 6 INTEGRATION POINTS
+            3. TASK LIFECYCLE — every step through XMTP
         ════════════════════════════════════════════════ */}
         <div>
-          <p className="text-[11px] text-gray-500 uppercase tracking-wider font-medium mb-3">
-            6 Integration Points
+          <p className="text-[11px] text-gray-500 uppercase tracking-wider font-medium mb-1">
+            The Task Lifecycle
           </p>
-          <div className="flex flex-col gap-3">
-            {INTEGRATION_POINTS.map((point, i) => (
-              <div
-                key={i}
-                className="bg-[#0a0a0a] border border-white/[0.06] rounded-2xl p-4 hover:border-indigo-500/20 transition-all"
-              >
-                <div className="flex items-start gap-3">
+          <p className="text-[10px] text-gray-600 mb-3">
+            Every step happens inside one encrypted XMTP thread
+          </p>
+          <div className="flex flex-col gap-0">
+            {LIFECYCLE_STEPS.map((step, i) => (
+              <div key={i} className="flex gap-3">
+                {/* Vertical line + dot */}
+                <div className="flex flex-col items-center">
                   <div
-                    className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-                    style={{ backgroundColor: `${point.color}12` }}
+                    className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-[11px] font-bold border"
+                    style={{ color: step.color, borderColor: `${step.color}40`, backgroundColor: `${step.color}10` }}
                   >
-                    {point.icon}
+                    {step.step}
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-white">{point.title}</span>
-                      <span
-                        className="text-[8px] font-bold px-1.5 py-0.5 rounded-full"
-                        style={{ color: point.color, backgroundColor: `${point.color}15` }}
-                      >
-                        {i + 1}/6
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-gray-400 mt-1 leading-relaxed">{point.desc}</p>
-                  </div>
+                  {i < LIFECYCLE_STEPS.length - 1 && (
+                    <div className="w-px flex-1 min-h-[24px] bg-gradient-to-b" style={{ backgroundImage: `linear-gradient(to bottom, ${step.color}30, ${LIFECYCLE_STEPS[i+1].color}30)` }} />
+                  )}
+                </div>
+                {/* Content */}
+                <div className="pb-5 flex-1">
+                  <p className="text-xs font-bold text-white">{step.title}</p>
+                  <p className="text-[11px] text-gray-400 mt-0.5 leading-relaxed">{step.desc}</p>
                 </div>
               </div>
             ))}
@@ -490,7 +450,7 @@ export default function XmtpPage() {
                 <div className="flex flex-col gap-2">
                   {[
                     { query: "nearby tasks", desc: "Browse tasks near your location" },
-                    { query: "high bounty", desc: "Filter by highest USDC payout" },
+                    { query: "high payout", desc: "Filter by highest-paying tasks" },
                     { query: "who built relay", desc: "Learn about the team" },
                     { query: "network stats", desc: "Live metrics and activity" },
                   ].map((ex) => (
@@ -515,10 +475,10 @@ export default function XmtpPage() {
         ════════════════════════════════════════════════ */}
         <div>
           <p className="text-[11px] text-gray-500 uppercase tracking-wider font-medium mb-1">
-            Full Task Lifecycle
+            A Real Task, One Thread
           </p>
           <p className="text-[10px] text-gray-600 mb-3">
-            QueueWatch Louvre task — 7 messages, one thread
+            &quot;How long is the Louvre queue?&quot; — claimed, briefed, proved, verified, paid. 7 messages.
           </p>
 
           <div className="bg-[#0a0a0a] border border-indigo-500/10 rounded-2xl overflow-hidden">
@@ -531,7 +491,7 @@ export default function XmtpPage() {
               </div>
               <div className="flex-1">
                 <p className="text-[11px] font-semibold text-white">RELAY: Louvre Pyramid queue...</p>
-                <p className="text-[8px] text-gray-600">Task t_louvre01 -- $0.25 USDC at Musee du Louvre</p>
+                <p className="text-[8px] text-gray-600">Task t_louvre01 · $0.25 · Musee du Louvre</p>
               </div>
               <div className="flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
@@ -596,7 +556,7 @@ export default function XmtpPage() {
               <div className="flex items-center gap-2">
                 <span className="text-[8px] text-gray-600">7 messages</span>
                 <span className="text-gray-800">|</span>
-                <span className="text-[8px] text-green-400">$0.25 USDC settled</span>
+                <span className="text-[8px] text-green-400">$0.25 paid</span>
               </div>
               <span className="text-[8px] text-gray-700">End-to-end encrypted via XMTP</span>
             </div>
@@ -604,11 +564,11 @@ export default function XmtpPage() {
         </div>
 
         {/* ════════════════════════════════════════════════
-            6. UNDER THE HOOD (judge-friendly, not dev-focused)
+            6. WHY XMTP — architectural justification
         ════════════════════════════════════════════════ */}
         <div>
           <p className="text-[11px] text-gray-500 uppercase tracking-wider font-medium mb-3">
-            Under the Hood
+            Why XMTP Is Load-Bearing
           </p>
 
           <div className="bg-[#0a0a0a] border border-white/[0.06] rounded-2xl overflow-hidden">
@@ -616,29 +576,29 @@ export default function XmtpPage() {
               <div className="px-4 py-3 flex items-start gap-3">
                 <span className="w-2 h-2 rounded-full bg-green-500 mt-1.5 shrink-0" />
                 <div>
-                  <p className="text-[11px] text-white font-medium">Production XMTP network</p>
-                  <p className="text-[10px] text-gray-500">Real encrypted messaging, not a testnet or mock</p>
+                  <p className="text-[11px] text-white font-medium">Production network — not a testnet demo</p>
+                  <p className="text-[10px] text-gray-500">Real encrypted messaging between real wallets, right now</p>
                 </div>
               </div>
               <div className="px-4 py-3 flex items-start gap-3">
                 <span className="w-2 h-2 rounded-full bg-indigo-500 mt-1.5 shrink-0" />
                 <div>
-                  <p className="text-[11px] text-white font-medium">One chat per task</p>
-                  <p className="text-[10px] text-gray-500">Each claimed task creates its own encrypted group automatically</p>
+                  <p className="text-[11px] text-white font-medium">No XMTP = no coordination</p>
+                  <p className="text-[10px] text-gray-500">Briefing, proof submission, verification, and payment all happen in-thread. Remove XMTP and the task can&apos;t execute.</p>
                 </div>
               </div>
               <div className="px-4 py-3 flex items-start gap-3">
                 <span className="w-2 h-2 rounded-full bg-purple-500 mt-1.5 shrink-0" />
                 <div>
-                  <p className="text-[11px] text-white font-medium">Standalone DM bot</p>
-                  <p className="text-[10px] text-gray-500">Message the bot directly from any XMTP client — no web app needed</p>
+                  <p className="text-[11px] text-white font-medium">One encrypted thread per task</p>
+                  <p className="text-[10px] text-gray-500">Automatically created on claim. All participants, all messages, one workspace — private by default.</p>
                 </div>
               </div>
               <div className="px-4 py-3 flex items-start gap-3">
                 <span className="w-2 h-2 rounded-full bg-blue-500 mt-1.5 shrink-0" />
                 <div>
-                  <p className="text-[11px] text-white font-medium">Full lifecycle in-thread</p>
-                  <p className="text-[10px] text-gray-500">Claim, briefing, proof, verdict, follow-up, settlement — all in one conversation</p>
+                  <p className="text-[11px] text-white font-medium">Works outside the web app</p>
+                  <p className="text-[10px] text-gray-500">DM the bot from any XMTP client to browse tasks, check stats, or get help — no browser required</p>
                 </div>
               </div>
             </div>
@@ -661,9 +621,9 @@ export default function XmtpPage() {
             </svg>
           </div>
 
-          <p className="text-lg font-bold text-white mb-1">Try the Chat Bot</p>
+          <p className="text-lg font-bold text-white mb-1">Message the Bot</p>
           <p className="text-[11px] text-gray-500 leading-relaxed mb-4 max-w-xs mx-auto">
-            Open any XMTP-compatible app and message this address. The bot responds in seconds with available tasks.
+            Open any XMTP client and DM this address. Browse tasks, ask questions, or check your stats — the bot responds in seconds.
           </p>
 
           <div className="bg-black/30 border border-white/[0.06] rounded-xl px-4 py-3 flex items-center gap-2 mb-4">
@@ -672,7 +632,7 @@ export default function XmtpPage() {
           </div>
 
           <div className="flex flex-wrap justify-center gap-2">
-            {["nearby tasks", "high bounty", "stats", "help"].map((q) => (
+            {["nearby tasks", "high payout", "stats", "help"].map((q) => (
               <span
                 key={q}
                 className="text-[10px] text-indigo-300 bg-indigo-500/10 border border-indigo-500/15 px-2.5 py-1 rounded-full"
@@ -687,10 +647,9 @@ export default function XmtpPage() {
         <div className="flex items-center justify-center gap-3 py-2 flex-wrap">
           {[
             { label: "XMTP", color: "#818cf8" },
-            { label: "World Chat", color: "#60a5fa" },
             { label: "World ID", color: "#4ade80" },
             { label: "World Chain", color: "#a78bfa" },
-            { label: "Verification", color: "#fbbf24" },
+            { label: "MiniKit", color: "#60a5fa" },
           ].map((tech, i) => (
             <span key={tech.label} className="flex items-center gap-1.5">
               {i > 0 && <span className="text-gray-800 mr-1.5">·</span>}
