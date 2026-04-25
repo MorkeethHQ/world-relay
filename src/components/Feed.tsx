@@ -1033,7 +1033,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
             <p className="text-[10px] text-gray-500 font-mono truncate">{claimTxSuccess.hash}</p>
           </div>
           <a
-            href={`https://worldchain-mainnet.explorer.alchemy.com/tx/${claimTxSuccess.hash}`}
+            href={`https://worldscan.org/tx/${claimTxSuccess.hash}`}
             target="_blank"
             rel="noopener noreferrer"
             className="text-[11px] text-blue-400 underline underline-offset-2 shrink-0 min-h-[44px] flex items-center"
@@ -1700,7 +1700,7 @@ function PostTask({
             <div className="flex items-center justify-between mt-1.5">
               <span className="text-[10px] text-gray-500 font-mono truncate max-w-[180px]">{escrowSuccess}</span>
               <a
-                href={`https://worldchain-mainnet.explorer.alchemy.com/tx/${escrowSuccess}`}
+                href={`https://worldscan.org/tx/${escrowSuccess}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-[11px] text-blue-400 underline underline-offset-2 shrink-0"
@@ -2329,7 +2329,7 @@ function TaskDetail({
                 <span className="text-[9px] text-gray-600 bg-white/[0.04] border border-white/[0.06] rounded px-1.5 py-0.5">Powered by World Chain</span>
               </div>
               <a
-                href={`https://worldchain-mainnet.explorer.alchemy.com/tx/${txSuccess}`}
+                href={`https://worldscan.org/tx/${txSuccess}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-[11px] text-blue-400 underline underline-offset-2 shrink-0 min-h-[44px] flex items-center"
@@ -2351,7 +2351,7 @@ function TaskDetail({
               <p className="text-[10px] text-gray-500 font-mono truncate">{currentTask.escrowTxHash}</p>
             </div>
             <a
-              href={`https://worldchain-mainnet.explorer.alchemy.com/tx/${currentTask.escrowTxHash}`}
+              href={`https://worldscan.org/tx/${currentTask.escrowTxHash}`}
               target="_blank"
               rel="noopener noreferrer"
               className="text-[11px] text-blue-400 underline underline-offset-2 shrink-0 min-h-[44px] flex items-center"

@@ -20,8 +20,8 @@ type Message = {
 };
 
 const ESCROW_ADDRESS = "0xc976e463bD209E09cb15a168A275890b872AA1F0";
-const WORLDSCAN_TX = "https://worldchain-mainnet.explorer.alchemy.com/tx";
-const WORLDSCAN_ADDR = "https://worldchain-mainnet.explorer.alchemy.com/address";
+const WORLDSCAN_TX = "https://worldscan.org/tx";
+const WORLDSCAN_ADDR = "https://worldscan.org/address";
 
 function truncate(addr: string): string {
   if (addr.startsWith("0x") && addr.length > 10)
