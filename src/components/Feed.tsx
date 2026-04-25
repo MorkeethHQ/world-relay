@@ -2810,8 +2810,8 @@ function TaskDetail({
             </div>
           ) : (
             messages.map((msg) => {
-              const isAiBriefing = msg.sender === "relay-bot" && msg.text.includes("AI BRIEFING");
-              const isAiFollowUp = msg.sender === "relay-bot" && msg.text.includes("AI FOLLOW-UP");
+              const isAiBriefing = msg.sender === "relay-bot" && (msg.text.includes("BRIEFING") && !msg.text.includes("SCOUT"));
+              const isAiFollowUp = msg.sender === "relay-bot" && msg.text.includes("FOLLOW-UP");
               const isAiDispute = msg.sender === "relay-bot" && msg.text.includes("DISPUTE RESOLUTION");
               const isAiReEval = msg.sender === "relay-bot" && msg.text.includes("RE-EVALUATION");
               const isAiMessage = isAiBriefing || isAiFollowUp || isAiDispute || isAiReEval;

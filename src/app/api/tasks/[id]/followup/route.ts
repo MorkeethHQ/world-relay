@@ -29,7 +29,7 @@ export async function POST(
 
   const messages = await getMessages(id);
   const followUpIndex = messages.findIndex(m =>
-    m.sender === "relay-bot" && m.text.includes("AI FOLLOW-UP")
+    m.sender === "relay-bot" && (m.text.includes("FOLLOW-UP") || m.text.includes("AI FOLLOW-UP"))
   );
   const threadAfterFollowUp = messages
     .slice(followUpIndex + 1)
