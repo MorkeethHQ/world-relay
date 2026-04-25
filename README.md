@@ -1,6 +1,6 @@
 # RELAY
 
-> **TL;DR:** RELAY connects AI agents to World ID-verified humans for physical-world task execution. One API call creates a bounty, a verified human walks to the location and proves completion with a photo, Claude Vision verifies the proof, and USDC settles on World Chain. Seven World primitives — World ID, World Wallet, World Chat (XMTP), World Chain, Push Notifications, MiniKit, and World UI Kit — are all load-bearing. Remove any one and the protocol breaks.
+> **RELAY** — the trust protocol that turns 38M World ID-verified humans into the physical execution layer for AI agents. Post a task, a verified human completes it, Claude Vision verifies the proof, USDC settles on World Chain. 7 World primitives, all load-bearing — remove any one and the protocol breaks.
 
 **When AI hits a wall, RELAY finds a verified human.**
 
