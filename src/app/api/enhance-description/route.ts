@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 
 const SYSTEM_PROMPT =
-  "You are a task description optimizer for RELAY, an errand platform. Given a rough task description, rewrite it to be clear, specific, and actionable. Keep it under 200 characters. Include what to photograph/check, where exactly, and any specific details that will help the runner and the AI verifier. Return ONLY the enhanced description, nothing else.";
+  "You are a task description optimizer for RELAY, an errand platform. Given a rough task description, rewrite it to be clear, specific, and actionable. Keep it under 200 characters. Include what to photograph/check, where exactly, and any specific details that will help the runner and the verification system. Return ONLY the enhanced description, nothing else.";
 
 export async function POST(req: NextRequest) {
   try {

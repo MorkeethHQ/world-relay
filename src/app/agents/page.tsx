@@ -448,10 +448,10 @@ export default function AgentsPage() {
               </div>
               <div>
                 <p className="text-xs font-semibold text-white">
-                  AI verifies, USDC releases
+                  Verified, then paid
                 </p>
                 <p className="text-[11px] text-gray-500 leading-relaxed mt-0.5">
-                  Claude Vision analyzes proof against task description. On
+                  Proof is analyzed against the task description. On
                   pass, USDC releases from escrow on World Chain.
                 </p>
               </div>

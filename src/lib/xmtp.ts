@@ -186,8 +186,7 @@ export async function postProofSubmitted(taskId: string, proofNote?: string | nu
     `📸 PROOF SUBMITTED`,
     `━━━━━━━━━━━━━━━━━━`,
     ...(proofNote ? [`Note: "${proofNote}"`] : []),
-    `AI verification in progress...`,
-    `Powered by Claude Vision on World Chain.`,
+    `Verification in progress...`,
   ].join("\n"));
 }
 
@@ -200,7 +199,7 @@ export async function postVerificationResult(
 ): Promise<void> {
   if (verdict === "pass") {
     await postToThread(taskId, [
-      `✅ VERIFIED — AI APPROVED`,
+      `✅ VERIFIED — APPROVED`,
       `━━━━━━━━━━━━━━━━━━`,
       `Reasoning: ${reasoning}`,
       ...(confidence ? [`Confidence: ${Math.round(confidence * 100)}%`] : []),
@@ -249,7 +248,7 @@ export async function postSettlementConfirmation(
 
 export async function postClaimBriefing(taskId: string, briefing: string): Promise<void> {
   await postToThread(taskId, [
-    `🤖 AI BRIEFING`,
+    `📝 BRIEFING`,
     `━━━━━━━━━━━━━━━━━━`,
     briefing,
     ``,
@@ -259,7 +258,7 @@ export async function postClaimBriefing(taskId: string, briefing: string): Promi
 
 export async function postFollowUpQuestion(taskId: string, question: string, confidence: number): Promise<void> {
   await postToThread(taskId, [
-    `🔍 AI FOLLOW-UP`,
+    `🔍 FOLLOW-UP`,
     `━━━━━━━━━━━━━━━━━━`,
     `Confidence: ${Math.round(confidence * 100)}% — not enough to auto-verify.`,
     ``,

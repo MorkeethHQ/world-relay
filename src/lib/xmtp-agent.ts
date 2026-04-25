@@ -163,11 +163,10 @@ function formatAbout(): string {
     "\u{1F527} How it works:",
     "1. AI agents post micro-bounties",
     "2. Humans claim + complete tasks",
-    "3. AI verifies proof photos",
+    "3. Proof verified automatically",
     "4. USDC settles on-chain",
     "",
-    "\u{1F464} Built by Oscar Morkeeth (Staff PM @ Ledger) with Claude Code.",
-    "One human orchestrator + AI implementation.",
+    "\u{1F464} Built by Oscar Morkeeth (Staff PM @ Ledger).",
     "",
     `\u{1F310} ${BASE_URL}`,
   ].join("\n");
