@@ -6,6 +6,9 @@ import { Feed } from "@/components/Feed";
 
 type VerificationLevel = "orb" | "device" | "wallet" | "dev" | null;
 
+const ESCROW_ADDRESS = "0xc976e463bD209E09cb15a168A275890b872AA1F0";
+const WORLDSCAN_ADDR = "https://worldscan.org/address";
+
 export default function Home() {
   const [userId, setUserId] = useState<string | null>(null);
   const [verificationLevel, setVerificationLevel] = useState<VerificationLevel>(null);
@@ -21,6 +24,12 @@ export default function Home() {
     verificationResult?: { verdict: string; confidence: number };
     createdAt: string;
   } | null>(null);
+  const [networkStats, setNetworkStats] = useState<{
+    totalTasks: number; totalBounty: number; completedCount: number;
+  }>({ totalTasks: 0, totalBounty: 0, completedCount: 0 });
+  const [xmtpStatus, setXmtpStatus] = useState<{
+    connected: boolean; conversationCount: number; address: string | null;
+  }>({ connected: false, conversationCount: 0, address: null });
 
   useEffect(() => {
     setIsInWorldApp(MiniKit.isInstalled());
@@ -32,14 +41,24 @@ export default function Home() {
       setUserId(stored);
       setVerificationLevel(storedLevel);
     }
-    // Fetch most recent completed task for the homepage showcase
+    // Fetch most recent completed task + network stats for the homepage
     fetch("/api/tasks").then(r => r.json()).then(data => {
-      const completed = (data.tasks || [])
+      const tasks = data.tasks || [];
+      const completed = tasks
         .filter((t: Record<string, unknown>) => t.status === "completed")
         .sort((a: Record<string, unknown>, b: Record<string, unknown>) =>
           new Date(b.createdAt as string).getTime() - new Date(a.createdAt as string).getTime()
         );
       if (completed.length > 0) setCompletedTask(completed[0]);
+      setNetworkStats({
+        totalTasks: tasks.length,
+        totalBounty: tasks.reduce((sum: number, t: Record<string, unknown>) => sum + (Number(t.bountyUsdc) || 0), 0),
+        completedCount: completed.length,
+      });
+    }).catch(() => {});
+    // Fetch XMTP status
+    fetch("/api/xmtp-status").then(r => r.json()).then(data => {
+      setXmtpStatus({ connected: data.connected, conversationCount: data.conversationCount || 0, address: data.address || null });
     }).catch(() => {});
   }, []);
 
@@ -215,6 +234,59 @@ export default function Home() {
           {/* App URL */}
           <div className="bg-[#111] border border-white/[0.08] rounded-xl px-5 py-3">
             <p className="text-sm text-gray-300 font-mono tracking-wide">world-relay.vercel.app</p>
+          </div>
+
+          {/* Live System Status */}
+          <div className="w-full max-w-sm mt-2">
+            <div className="bg-[#0a0a0a] border border-white/[0.06] rounded-2xl p-4 space-y-3">
+              <div className="flex items-center gap-1.5 justify-center">
+                <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                <span className="text-[9px] text-gray-500 uppercase tracking-widest font-medium">Live Network</span>
+              </div>
+              <div className="grid grid-cols-4 gap-2 text-center">
+                <div className="bg-white/[0.03] rounded-xl py-2 px-1">
+                  <p className="text-sm font-bold text-white">{networkStats.totalTasks || "--"}</p>
+                  <p className="text-[8px] text-gray-500 mt-0.5">Tasks</p>
+                </div>
+                <div className="bg-white/[0.03] rounded-xl py-2 px-1">
+                  <p className="text-sm font-bold text-green-400">${networkStats.totalBounty ? networkStats.totalBounty.toFixed(2) : "0.00"}</p>
+                  <p className="text-[8px] text-gray-500 mt-0.5">USDC</p>
+                </div>
+                <div className="bg-white/[0.03] rounded-xl py-2 px-1">
+                  <p className="text-sm font-bold text-purple-400">{networkStats.completedCount || "--"}</p>
+                  <p className="text-[8px] text-gray-500 mt-0.5">Verified</p>
+                </div>
+                <div className="bg-white/[0.03] rounded-xl py-2 px-1">
+                  <p className="text-sm font-bold text-white">38M</p>
+                  <p className="text-[8px] text-gray-500 mt-0.5">World ID</p>
+                </div>
+              </div>
+              <div className="border-t border-white/[0.04] pt-2 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className={`w-1.5 h-1.5 rounded-full ${xmtpStatus.connected ? "bg-green-500" : "bg-yellow-500 animate-pulse"}`} />
+                    <span className="text-[10px] text-gray-400">World Chat (XMTP)</span>
+                  </div>
+                  <span className={`text-[10px] font-medium ${xmtpStatus.connected ? "text-green-400" : "text-yellow-400"}`}>
+                    {xmtpStatus.connected ? "Connected" : "Connecting..."}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                    <span className="text-[10px] text-gray-400">World Chain</span>
+                  </div>
+                  <a
+                    href={`${WORLDSCAN_ADDR}/${ESCROW_ADDRESS}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-[10px] text-blue-400 hover:text-blue-300 font-mono transition-colors"
+                  >
+                    {ESCROW_ADDRESS.slice(0, 6)}...{ESCROW_ADDRESS.slice(-4)} ↗
+                  </a>
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Demo mode link */}
@@ -411,32 +483,77 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Footer */}
+        {/* Live System Status Footer */}
         <div className="px-6 pb-6">
-          <div className="bg-[#111] border border-white/[0.06] rounded-2xl p-4">
-            <div className="grid grid-cols-3 gap-3 text-center">
-              <div>
-                <p className="text-lg font-bold text-white">38M</p>
-                <p className="text-[9px] text-gray-500">Verified Humans</p>
+          <div className="bg-[#0a0a0a] border border-white/[0.06] rounded-2xl p-4 space-y-3">
+            {/* Live stats row */}
+            <div className="flex items-center gap-1.5 justify-center mb-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+              <span className="text-[9px] text-gray-500 uppercase tracking-widest font-medium">System Status</span>
+            </div>
+            <div className="grid grid-cols-4 gap-2 text-center">
+              <div className="bg-white/[0.03] rounded-xl py-2 px-1">
+                <p className="text-sm font-bold text-white">{networkStats.totalTasks || "--"}</p>
+                <p className="text-[8px] text-gray-500 mt-0.5">Total Tasks</p>
               </div>
-              <div>
-                <p className="text-lg font-bold text-green-400">USDC</p>
-                <p className="text-[9px] text-gray-500">On-chain Settlement</p>
+              <div className="bg-white/[0.03] rounded-xl py-2 px-1">
+                <p className="text-sm font-bold text-green-400">${networkStats.totalBounty ? networkStats.totalBounty.toFixed(2) : "0.00"}</p>
+                <p className="text-[8px] text-gray-500 mt-0.5">USDC Bounties</p>
               </div>
-              <div>
-                <p className="text-lg font-bold text-purple-400">AI</p>
-                <p className="text-[9px] text-gray-500">Proof Verification</p>
+              <div className="bg-white/[0.03] rounded-xl py-2 px-1">
+                <p className="text-sm font-bold text-purple-400">{networkStats.completedCount || "--"}</p>
+                <p className="text-[8px] text-gray-500 mt-0.5">Verified</p>
               </div>
+              <div className="bg-white/[0.03] rounded-xl py-2 px-1">
+                <p className="text-sm font-bold text-white">38M</p>
+                <p className="text-[8px] text-gray-500 mt-0.5">World ID Users</p>
+              </div>
+            </div>
+
+            {/* Service status indicators */}
+            <div className="border-t border-white/[0.04] pt-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className={`w-1.5 h-1.5 rounded-full ${xmtpStatus.connected ? "bg-green-500" : "bg-yellow-500 animate-pulse"}`} />
+                  <span className="text-[10px] text-gray-400 font-medium">World Chat (XMTP)</span>
+                </div>
+                <span className={`text-[10px] font-medium ${xmtpStatus.connected ? "text-green-400" : "text-yellow-400"}`}>
+                  {xmtpStatus.connected ? "Connected" : "Connecting..."}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                  <span className="text-[10px] text-gray-400 font-medium">World Chain</span>
+                </div>
+                <a
+                  href={`${WORLDSCAN_ADDR}/${ESCROW_ADDRESS}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[10px] text-blue-400 hover:text-blue-300 font-mono transition-colors"
+                >
+                  {ESCROW_ADDRESS.slice(0, 6)}...{ESCROW_ADDRESS.slice(-4)} ↗
+                </a>
+              </div>
+              {xmtpStatus.connected && xmtpStatus.conversationCount > 0 && (
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                    <span className="text-[10px] text-gray-400 font-medium">Chat Threads</span>
+                  </div>
+                  <span className="text-[10px] text-blue-400 font-medium">{xmtpStatus.conversationCount} active</span>
+                </div>
+              )}
             </div>
           </div>
           <div className="flex items-center justify-center gap-4 mt-3">
-            <span className="text-[9px] text-gray-700">World ID</span>
+            <span className="text-[9px] text-gray-600">World ID</span>
             <span className="text-gray-800">·</span>
-            <span className="text-[9px] text-gray-700">World Chat</span>
+            <span className="text-[9px] text-gray-600">XMTP</span>
             <span className="text-gray-800">·</span>
-            <span className="text-[9px] text-gray-700">World Chain</span>
+            <span className="text-[9px] text-gray-600">World Chain</span>
             <span className="text-gray-800">·</span>
-            <span className="text-[9px] text-gray-700">Uniswap V3</span>
+            <span className="text-[9px] text-gray-600">Uniswap V3</span>
           </div>
         </div>
       </div>
