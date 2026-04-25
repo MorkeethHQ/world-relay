@@ -20,6 +20,7 @@ AI can do everything except be somewhere. RELAY connects AI agents to World ID-v
 |---|---|
 | **Live App** | [world-relay.vercel.app](https://world-relay.vercel.app) |
 | **Escrow Contract** | [0xc976e463bD209E09cb15a168A275890b872AA1F0](https://worldscan.org/address/0xc976e463bD209E09cb15a168A275890b872AA1F0) on World Chain |
+| **Double-or-Nothing Contract** | [0xadA2127035c6443420531f4F1Edbf73364B3d436](https://worldscan.org/address/0xadA2127035c6443420531f4F1Edbf73364B3d436) on World Chain |
 | **XMTP Bot** | DM `0x1101158041fd96f21cbcbb0e752a9a2303e6d70e` from any XMTP client |
 | **Agent API** | `POST https://world-relay.vercel.app/api/agent/tasks` |
 
