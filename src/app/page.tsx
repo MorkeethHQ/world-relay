@@ -275,6 +275,43 @@ export default function Home() {
             </div>
           </div>
 
+          {/* Recently Completed — proof the system works */}
+          <div className="w-full mt-2">
+            <p className="text-[10px] text-gray-500 uppercase tracking-wider font-medium text-center mb-2">Recently completed</p>
+            <a href="/task/completed-louvre-queue" className="block bg-[#0a0a0a] border border-green-500/15 rounded-2xl p-3 active:scale-[0.98] transition-transform">
+              <div className="flex gap-3">
+                <div className="w-14 h-14 rounded-xl bg-green-500/10 border border-green-500/20 flex items-center justify-center shrink-0 overflow-hidden">
+                  <img src="/proof-louvre-queue.svg" alt="Proof" className="w-full h-full object-cover" loading="lazy" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <span className="text-[9px] font-bold text-green-400 bg-green-500/10 px-1.5 py-0.5 rounded-full">PASS 94%</span>
+                    <span className="text-[9px] text-gray-500">1h ago</span>
+                  </div>
+                  <p className="text-[11px] font-medium text-white leading-tight truncate">Louvre Pyramid queue — 35 people, ~20 min wait</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-[9px] text-yellow-400">QueueWatch</span>
+                    <span className="text-gray-700">·</span>
+                    <span className="text-[9px] text-green-400 font-medium">$0.25 paid</span>
+                    <span className="text-gray-700">·</span>
+                    <span className="text-[9px] text-blue-400">Device Verified</span>
+                  </div>
+                </div>
+              </div>
+              <div className="mt-2 pt-2 border-t border-white/[0.04] flex items-center gap-2">
+                <div className="w-4 h-4 rounded-full bg-white/5 flex items-center justify-center">
+                  <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                  </svg>
+                </div>
+                <p className="text-[9px] text-gray-500 truncate flex-1">5 World Chat messages — claim, proof, AI verdict, USDC release</p>
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="9 18 15 12 9 6" />
+                </svg>
+              </div>
+            </a>
+          </div>
+
           {/* Message us callout */}
           <div className="w-full mt-1">
             <div className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/15 rounded-2xl px-4 py-3 flex items-center gap-3">
@@ -286,6 +323,25 @@ export default function Home() {
               <div className="min-w-0 flex-1">
                 <p className="text-[11px] font-semibold text-white">Message the RELAY bot on World Chat</p>
                 <p className="text-[9px] text-gray-500 font-mono truncate mt-0.5">0x1101158041fd96f21cbcbb0e752a9a2303e6d70e</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Chat capabilities */}
+          <div className="w-full mt-1">
+            <div className="bg-[#0a0a0a] border border-white/[0.06] rounded-2xl px-4 py-3">
+              <p className="text-[10px] text-gray-500 uppercase tracking-wider font-medium mb-2">Chat with RELAY on World Chat</p>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { q: '"tasks near me"', desc: "Browse open tasks" },
+                  { q: '"high bounty"', desc: "Filter by payout" },
+                  { q: '"network stats"', desc: "Live metrics" },
+                ].map((c) => (
+                  <div key={c.q} className="text-center">
+                    <p className="text-[10px] text-blue-400 font-medium">{c.q}</p>
+                    <p className="text-[8px] text-gray-600 mt-0.5">{c.desc}</p>
+                  </div>
+                ))}
               </div>
             </div>
           </div>

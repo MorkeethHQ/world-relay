@@ -747,7 +747,11 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
               <div
                 key={task.id}
                 style={{ animationDelay: `${i * 60}ms` }}
-                className="animate-[slideUp_0.3s_ease-out_both] rounded-2xl overflow-hidden bg-[#111] border border-white/[0.06] cursor-pointer active:scale-[0.98] transition-all"
+                className={`animate-[slideUp_0.3s_ease-out_both] rounded-2xl overflow-hidden bg-[#111] cursor-pointer active:scale-[0.98] transition-all ${
+                  task.status === "completed"
+                    ? "border border-green-500/20 shadow-[0_0_12px_rgba(34,197,94,0.06)]"
+                    : "border border-white/[0.06]"
+                }`}
                 onClick={() => { setSelectedTask(task); setView("detail"); }}
               >
                 {task.proofImageUrl && (
