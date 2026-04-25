@@ -2857,7 +2857,7 @@ function TaskDetail({
 
       {/* Chat input */}
       {isParticipant && currentTask.status !== "completed" && currentTask.status !== "failed" && (
-        <div className="sticky bottom-0 bg-[#050505] border-t border-white/5 px-4 py-3">
+        <div className="sticky bottom-14 bg-[#050505] border-t border-white/5 px-4 py-3">
           <div className="flex gap-2">
             <input
               type="text"

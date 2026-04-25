@@ -236,6 +236,25 @@ export default function Home() {
             <p className="text-sm text-gray-300 font-mono tracking-wide">world-relay.vercel.app</p>
           </div>
 
+          {/* Demo CTA */}
+          <a
+            href="/demo"
+            className="w-full max-w-sm bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded-2xl px-5 py-4 flex items-center gap-4 hover:border-blue-500/30 transition-all group"
+          >
+            <div className="w-10 h-10 rounded-xl bg-blue-500/15 border border-blue-500/20 flex items-center justify-center shrink-0">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="5 3 19 12 5 21 5 3" />
+              </svg>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-white">See RELAY in action</p>
+              <p className="text-[10px] text-gray-500 mt-0.5">Walk through the full task lifecycle — post, claim, verify, settle</p>
+            </div>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 group-hover:translate-x-0.5 transition-transform">
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
+          </a>
+
           {/* Live System Status */}
           <div className="w-full max-w-sm mt-2">
             <div className="bg-[#0a0a0a] border border-white/[0.06] rounded-2xl p-4 space-y-3">
@@ -429,11 +448,30 @@ export default function Home() {
             );
           })()}
 
+          {/* Demo CTA */}
+          <a
+            href="/demo"
+            className="w-full mt-1 bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 rounded-2xl px-4 py-3.5 flex items-center gap-3 active:scale-[0.98] transition-all"
+          >
+            <div className="w-9 h-9 rounded-xl bg-blue-500/15 border border-blue-500/20 flex items-center justify-center shrink-0">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="5 3 19 12 5 21 5 3" />
+              </svg>
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] font-semibold text-white">See RELAY in action</p>
+              <p className="text-[9px] text-gray-500 mt-0.5">Full lifecycle walkthrough — post, claim, verify, settle</p>
+            </div>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
+          </a>
+
           {/* Message us callout */}
           <div className="w-full mt-1">
-            <div className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/15 rounded-2xl px-4 py-3 flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-blue-500/15 border border-blue-500/20 flex items-center justify-center shrink-0">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <div className="bg-[#0a0a0a] border border-white/[0.06] rounded-2xl px-4 py-3 flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-indigo-500/15 border border-indigo-500/20 flex items-center justify-center shrink-0">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#818cf8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
                 </svg>
               </div>
