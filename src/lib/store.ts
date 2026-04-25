@@ -9,6 +9,11 @@ const TASK_LIST_KEY = "task_ids";
 const cache: Map<string, Task> = new Map();
 let cacheHydrated = false;
 
+export function resetCache(): void {
+  cache.clear();
+  cacheHydrated = false;
+}
+
 async function persistTask(task: Task): Promise<void> {
   const redis = getRedis();
   if (!redis) return;

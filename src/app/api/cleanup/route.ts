@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getRedis } from "@/lib/redis";
-import { listTasks } from "@/lib/store";
+import { listTasks, resetCache } from "@/lib/store";
 
 export async function POST(req: NextRequest) {
   const confirm = req.nextUrl.searchParams.get("confirm") === "true";
@@ -38,6 +38,8 @@ export async function POST(req: NextRequest) {
     await redis.srem("task_ids", t.id);
     await redis.del(`msgs:${t.id}`);
   }
+
+  resetCache();
 
   return NextResponse.json({
     deleted: toDelete.length,
