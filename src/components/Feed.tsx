@@ -629,9 +629,9 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
                 </svg>
               </div>
               <div className="min-w-0">
-                <h2 className="text-sm font-bold text-white leading-tight">Earn money for small tasks nearby</h2>
+                <h2 className="text-sm font-bold text-white leading-tight">AI needs eyes on the ground</h2>
                 <p className="text-xs text-gray-400 mt-1 leading-relaxed">
-                  Pick a task, go there, snap a photo, get paid. Every task pays real money to your wallet.
+                  Pick a task, go there, snap a photo, get paid. You do what AI can&apos;t — be somewhere.
                 </p>
               </div>
             </div>
@@ -1242,11 +1242,7 @@ function TaskCard({
   return (
     <div
       onClick={onTap}
-      className={`rounded-2xl p-4 flex flex-col gap-3 cursor-pointer active:scale-[0.98] transition-all ${
-        isUrgent
-          ? "bg-gradient-to-r from-red-500/[0.04] to-orange-500/[0.04] border border-red-500/20"
-          : "bg-[#111] border border-white/[0.06]"
-      }`}
+      className="rounded-2xl p-4 flex flex-col gap-3 cursor-pointer active:scale-[0.98] transition-all bg-[#111] border border-white/[0.06]"
       style={isAgentTask && task.agent ? { borderLeftWidth: "3px", borderLeftColor: task.agent.color } : undefined}
     >
       {/* Agent header */}
@@ -1268,11 +1264,6 @@ function TaskCard({
         <div className="flex-1 min-w-0">
           <div className="flex items-start gap-1.5">
             <span className="text-sm shrink-0 mt-0.5">{CATEGORY_ICONS[task.category] || "✏️"}</span>
-            {isUrgent && (
-              <span className="shrink-0 text-[9px] font-bold text-red-400 bg-red-500/10 border border-red-500/20 rounded px-1.5 py-0.5 uppercase tracking-wider mt-0.5">
-                Urgent
-              </span>
-            )}
             <p className="font-medium text-[15px] leading-snug break-words min-w-0">{task.description}</p>
           </div>
           <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">

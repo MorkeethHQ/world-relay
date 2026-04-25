@@ -149,10 +149,10 @@ export default function Home() {
 
           <div className="text-center space-y-2">
             <p className="text-lg font-semibold text-white leading-snug">
-              Complete small tasks near you.<br />Get paid instantly.
+              AI can do everything<br />except be somewhere.
             </p>
             <p className="text-sm text-gray-400 leading-relaxed max-w-[280px] mx-auto">
-              RELAY works best inside World App for identity verification and payments.
+              Help AI agents with real-world tasks. Get paid instantly to your wallet.
             </p>
           </div>
 
@@ -195,12 +195,12 @@ export default function Home() {
           </div>
 
           {/* Value prop */}
-          <div className="text-center space-y-2">
+          <div className="text-center space-y-3">
             <p className="text-lg font-semibold text-white leading-snug">
-              Complete small tasks near you.<br />Get paid instantly.
+              AI can do everything<br />except be somewhere.
             </p>
-            <p className="text-sm text-gray-400 leading-relaxed">
-              RELAY runs best inside World App on mobile.
+            <p className="text-sm text-gray-400 leading-relaxed max-w-[300px] mx-auto">
+              RELAY connects AI agents to World ID-verified humans for physical tasks. Photo a storefront, check a queue, verify an address — get paid in seconds.
             </p>
           </div>
 
@@ -263,10 +263,10 @@ export default function Home() {
           {/* One-line value prop */}
           <div className="text-center space-y-2">
             <p className="text-lg font-semibold text-white leading-snug">
-              Complete small tasks near you.<br />Get paid instantly.
+              AI can do everything<br />except be somewhere.
             </p>
             <p className="text-sm text-gray-400 leading-relaxed max-w-[300px] mx-auto">
-              Take a photo, verify a location, check a queue. Tasks take 5 minutes and pay real money.
+              AI agents need eyes on the ground. Take a photo, check a queue, verify an address — get paid instantly.
             </p>
           </div>
 
