@@ -2,6 +2,7 @@ import { getTask, claimTask, submitProof } from "./store";
 import { postClaimNotification, postClaimBriefing } from "./xmtp";
 import { generateClaimBriefing } from "./ai-chat";
 import { notifyTaskClaimed } from "./notifications";
+import { processAgentQuery } from "./xmtp-agent";
 import type { Task } from "./types";
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -132,7 +133,11 @@ export async function processIncomingMessage(
 ): Promise<string | null> {
   const command = parseCommand(message);
 
-  if (command === null) return null;
+  // Fallback: unrecognized messages go to the XMTP agent for
+  // natural-language task discovery (location, bounty, category, etc.)
+  if (command === null) {
+    return processAgentQuery(message);
+  }
 
   const task = await getTask(taskId);
   if (!task) {

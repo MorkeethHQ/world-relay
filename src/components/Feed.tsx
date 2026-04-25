@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
 import { MiniKit } from "@worldcoin/minikit-js";
 import type { Task, AgentInfo } from "@/lib/types";
@@ -129,18 +129,42 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
   const [agentFilter, setAgentFilter] = useState<"all" | "agent" | "community">("all");
   const [xmtpStatus, setXmtpStatus] = useState<{ connected: boolean; inboxId: string | null } | null>(null);
   const [upgradePrompt, setUpgradePrompt] = useState<{ required: string; current: string } | null>(null);
+  const [newTaskToast, setNewTaskToast] = useState<{ count: number; visible: boolean }>({ count: 0, visible: false });
+  const knownTaskIds = useRef<Set<string>>(new Set());
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const feedTopRef = useRef<HTMLDivElement>(null);
   const userLocation = useUserLocation();
 
   const fetchTasks = useCallback(async () => {
     const res = await fetch("/api/tasks");
     const data = await res.json();
-    setTasks(data.tasks);
+    const incoming: Task[] = data.tasks;
+
+    // Detect genuinely new task IDs
+    if (knownTaskIds.current.size > 0) {
+      const newIds = incoming.filter((t) => !knownTaskIds.current.has(t.id));
+      if (newIds.length > 0) {
+        // Clear any existing dismiss timer
+        if (toastTimer.current) clearTimeout(toastTimer.current);
+        setNewTaskToast({ count: newIds.length, visible: true });
+        toastTimer.current = setTimeout(() => {
+          setNewTaskToast((prev) => ({ ...prev, visible: false }));
+        }, 3000);
+      }
+    }
+
+    // Update the known set
+    knownTaskIds.current = new Set(incoming.map((t) => t.id));
+    setTasks(incoming);
   }, []);
 
   useEffect(() => {
     fetchTasks();
     const interval = setInterval(fetchTasks, 3000);
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      if (toastTimer.current) clearTimeout(toastTimer.current);
+    };
   }, [fetchTasks]);
 
   useEffect(() => {
@@ -370,6 +394,30 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
           </div>
         )}
       </div>
+
+      {/* Scroll anchor for "new tasks" toast */}
+      <div ref={feedTopRef} />
+
+      {/* New tasks toast */}
+      {newTaskToast.visible && newTaskToast.count > 0 && (
+        <div className="px-4 pt-2">
+          <button
+            onClick={() => {
+              feedTopRef.current?.scrollIntoView({ behavior: "smooth" });
+              setNewTaskToast({ count: 0, visible: false });
+            }}
+            className="w-full animate-[slideDown_0.3s_ease-out] bg-blue-500/10 border border-blue-500/20 rounded-xl px-4 py-2 flex items-center justify-center gap-2 hover:bg-blue-500/15 transition-colors active:scale-[0.98]"
+          >
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500" />
+            </span>
+            <span className="text-xs font-medium text-blue-400">
+              {newTaskToast.count} new {newTaskToast.count === 1 ? "task" : "tasks"} available
+            </span>
+          </button>
+        </div>
+      )}
 
       {/* Hero card */}
       {tab === "available" && heroVisible && !mapMode && (

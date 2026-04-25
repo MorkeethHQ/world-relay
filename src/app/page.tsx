@@ -11,9 +11,11 @@ export default function Home() {
   const [verificationLevel, setVerificationLevel] = useState<VerificationLevel>(null);
   const [isVerifying, setIsVerifying] = useState(false);
   const [isInWorldApp, setIsInWorldApp] = useState(false);
+  const [miniKitChecked, setMiniKitChecked] = useState(false);
 
   useEffect(() => {
     setIsInWorldApp(MiniKit.isInstalled());
+    setMiniKitChecked(true);
     const stored = localStorage.getItem("relay_user_id");
     const storedLevel = localStorage.getItem("relay_verification_level") as VerificationLevel;
     if (stored) {
@@ -21,6 +23,20 @@ export default function Home() {
       setVerificationLevel(storedLevel);
     }
   }, []);
+
+  const handleDemoMode = async () => {
+    const devId = `demo_${crypto.randomUUID().slice(0, 8)}`;
+    setUserId(devId);
+    setVerificationLevel("dev");
+    localStorage.setItem("relay_user_id", devId);
+    localStorage.setItem("relay_verification_level", "dev");
+
+    await fetch("/api/verify-identity", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ address: devId }),
+    });
+  };
 
   const handleVerify = async () => {
     setIsVerifying(true);
@@ -83,6 +99,57 @@ export default function Home() {
     setUserId(null);
     setVerificationLevel(null);
   };
+
+  // Desktop / non-World App fallback
+  if (!userId && miniKitChecked && !isInWorldApp) {
+    return (
+      <div className="flex flex-col min-h-screen max-w-lg mx-auto w-full items-center justify-center px-6">
+        {/* Logo */}
+        <div className="flex flex-col items-center gap-6">
+          <div className="w-20 h-20 rounded-2xl bg-white flex items-center justify-center shadow-[0_0_60px_rgba(255,255,255,0.06)]">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 2L2 7l10 5 10-5-10-5z" />
+              <path d="M2 17l10 5 10-5" />
+              <path d="M2 12l10 5 10-5" />
+            </svg>
+          </div>
+
+          <h1 className="text-4xl font-bold tracking-tight">RELAY</h1>
+
+          {/* Phone icon */}
+          <div className="w-16 h-24 rounded-xl border-2 border-white/20 flex items-center justify-center relative">
+            <div className="absolute top-1.5 w-6 h-1 rounded-full bg-white/20" />
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="opacity-60">
+              <circle cx="12" cy="12" r="10" />
+              <path d="M12 8v4l2 2" />
+            </svg>
+            <div className="absolute bottom-1.5 w-4 h-4 rounded-full border border-white/20" />
+          </div>
+
+          {/* Message */}
+          <div className="text-center space-y-3">
+            <h2 className="text-2xl font-semibold">Open in World App</h2>
+            <p className="text-gray-400 text-sm max-w-[300px] leading-relaxed">
+              RELAY runs inside World App. Scan the QR code or search for RELAY in World App.
+            </p>
+          </div>
+
+          {/* App URL */}
+          <div className="bg-[#111] border border-white/[0.08] rounded-xl px-5 py-3">
+            <p className="text-sm text-gray-300 font-mono tracking-wide">world-relay.vercel.app</p>
+          </div>
+
+          {/* Demo mode link */}
+          <button
+            onClick={handleDemoMode}
+            className="text-gray-600 hover:text-gray-400 text-xs underline underline-offset-4 transition-colors mt-4"
+          >
+            Continue anyway (demo mode)
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (!userId) {
     return (
