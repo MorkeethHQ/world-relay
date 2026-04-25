@@ -301,7 +301,7 @@ async function handleProof(
     ...(proofNote ? [`Note: "${proofNote}"`] : []),
     ``,
     `AI verification will begin shortly.`,
-    `Powered by Claude Vision on World Chain.`,
+    `Verification runs on World Chain.`,
     ``,
     `Send STATUS to track the result.`,
   ].join("\n");
