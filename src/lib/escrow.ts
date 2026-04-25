@@ -215,6 +215,48 @@ export async function createEscrowTask(
   }
 }
 
+// ── Double-or-Nothing resolution ────────────────────────────────
+
+const DON_ADDRESS = (process.env.NEXT_PUBLIC_DON_ADDRESS || "") as `0x${string}`;
+
+const DON_RESOLVE_ABI = [
+  {
+    name: "resolve",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "_taskId", type: "uint256" },
+      { name: "_verified", type: "bool" },
+    ],
+    outputs: [],
+  },
+] as const;
+
+export async function resolveDon(donOnChainId: number, verified: boolean): Promise<string | null> {
+  if (!DON_ADDRESS) return null;
+  const wallet = getWalletClient();
+  if (!wallet) {
+    console.error("[DoN] No signer key — cannot resolve");
+    return null;
+  }
+
+  try {
+    const pub = getPublicClient();
+    const hash = await wallet.client.writeContract({
+      address: DON_ADDRESS,
+      abi: DON_RESOLVE_ABI,
+      functionName: "resolve",
+      args: [BigInt(donOnChainId), verified],
+    });
+    await pub.waitForTransactionReceipt({ hash });
+    console.log(`[DoN] Resolved task ${donOnChainId} (verified=${verified}): ${hash}`);
+    return hash;
+  } catch (err) {
+    console.error(`[DoN] Failed to resolve task ${donOnChainId}:`, err);
+    return null;
+  }
+}
+
 export async function getEscrowState(): Promise<{
   taskCount: number;
   escrowBalance: string;

@@ -12,7 +12,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { poster, category, description, location, lat, lng, bountyUsdc, deadlineHours, onChainId, escrowTxHash } = body;
+  const { poster, category, description, location, lat, lng, bountyUsdc, deadlineHours, onChainId, escrowTxHash, taskType, donOnChainId } = body;
 
   if (!poster || !description || !location || !bountyUsdc) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -29,6 +29,8 @@ export async function POST(req: NextRequest) {
     deadlineHours: Number(deadlineHours) || 24,
     onChainId: onChainId != null ? Number(onChainId) : null,
     escrowTxHash: escrowTxHash || null,
+    taskType: taskType || "standard",
+    donOnChainId: donOnChainId != null ? Number(donOnChainId) : null,
   });
 
   // Post task creation to XMTP thread

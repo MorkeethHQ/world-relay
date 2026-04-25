@@ -2,6 +2,8 @@ export type TaskStatus = "open" | "claimed" | "completed" | "failed" | "expired"
 
 export type TaskCategory = "photo" | "delivery" | "check-in" | "custom";
 
+export type TaskType = "standard" | "double-or-nothing";
+
 export type ModelVerdict = {
   name: string;
   verdict: "pass" | "flag" | "fail";
@@ -63,6 +65,9 @@ export type Task = {
   onChainId: number | null;
   escrowTxHash: string | null;
   claimCode: string | null;
+  taskType: TaskType;
+  donOnChainId: number | null;
+  donStakeTxHash: string | null;
   claimantVerification?: "orb" | "device" | "wallet" | null;
   createdAt: string;
 };

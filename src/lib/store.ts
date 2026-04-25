@@ -1,4 +1,4 @@
-import type { Task, TaskStatus, TaskCategory, AiFollowUp, RecurringConfig } from "./types";
+import type { Task, TaskStatus, TaskCategory, TaskType, AiFollowUp, RecurringConfig } from "./types";
 import { getRedis } from "./redis";
 import { getAgent } from "./agents";
 export type { Task, TaskStatus, TaskCategory };
@@ -55,6 +55,15 @@ async function hydrateCache(): Promise<void> {
       if ((task as any).claimantVerification === undefined) {
         (task as any).claimantVerification = null;
       }
+      if ((task as any).taskType === undefined) {
+        (task as any).taskType = "standard";
+      }
+      if ((task as any).donOnChainId === undefined) {
+        (task as any).donOnChainId = null;
+      }
+      if ((task as any).donStakeTxHash === undefined) {
+        (task as any).donStakeTxHash = null;
+      }
       cache.set(task.id, task);
     }
   } catch (err) {
@@ -78,6 +87,8 @@ export function createTask(input: {
   onChainId?: number | null;
   escrowTxHash?: string | null;
   claimCode?: string | null;
+  taskType?: TaskType;
+  donOnChainId?: number | null;
 }): Task {
   const id = crypto.randomUUID();
   const agent = input.agentId ? getAgent(input.agentId) : null;
@@ -113,6 +124,9 @@ export function createTask(input: {
     onChainId: input.onChainId ?? null,
     escrowTxHash: input.escrowTxHash ?? null,
     claimCode: input.claimCode ?? null,
+    taskType: input.taskType || "standard",
+    donOnChainId: input.donOnChainId ?? null,
+    donStakeTxHash: null,
     claimantVerification: null,
     createdAt: new Date().toISOString(),
   };
@@ -244,6 +258,14 @@ export async function setOnChainId(id: string, onChainId: number, escrowTxHash: 
   if (!task) return null;
   task.onChainId = onChainId;
   task.escrowTxHash = escrowTxHash;
+  persistTask(task).catch(console.error);
+  return task;
+}
+
+export async function setDonStakeTxHash(id: string, txHash: string): Promise<Task | null> {
+  const task = await getTask(id);
+  if (!task) return null;
+  task.donStakeTxHash = txHash;
   persistTask(task).catch(console.error);
   return task;
 }

@@ -194,6 +194,9 @@ export async function POST(req: NextRequest) {
       onChainId: 5 + ci,
       escrowTxHash: completedExample.escrowTxHash,
       claimCode: null,
+      taskType: "standard",
+      donOnChainId: null,
+      donStakeTxHash: null,
       claimantVerification: completedExample.claimantVerificationLevel as "orb" | "device",
       createdAt: new Date(Date.now() - (ci + 1) * 3 * 3600_000).toISOString(),
     };
@@ -214,6 +217,19 @@ export async function POST(req: NextRequest) {
       completedExample.claimantVerificationLevel,
     );
   }
+
+  // Seed a Double-or-Nothing showcase task
+  const donTask = createTask({
+    poster: "agent_pricehawk",
+    category: "photo",
+    description: "Double-or-Nothing: Photograph the most expensive item on any store shelf near you. Stake $2 USDC to claim, win $4 if verified.",
+    location: "Any retail store",
+    bountyUsdc: 2,
+    deadlineHours: 48,
+    agentId: "pricehawk",
+    taskType: "double-or-nothing",
+  });
+  results.push({ id: donTask.id, description: "DoN showcase task", onChainId: null, escrowTxHash: null });
 
   const escrowState = await getEscrowState().catch(() => null);
 

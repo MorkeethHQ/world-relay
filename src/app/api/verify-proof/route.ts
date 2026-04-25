@@ -9,7 +9,7 @@ import { postAttestation } from "@/lib/attestation";
 import { recordCompletion, recordFailure, getReputation, getTrustScore, getVerificationMultiplier } from "@/lib/reputation";
 import { getRedis } from "@/lib/redis";
 import { fireWebhook } from "@/lib/webhooks";
-import { releaseEscrow } from "@/lib/escrow";
+import { releaseEscrow, resolveDon } from "@/lib/escrow";
 import { broadcastEvent } from "@/lib/sse";
 
 const RATE_LIMIT_KEY = "ratelimit:verify";
@@ -196,6 +196,21 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // Auto-resolve Double-or-Nothing when task has DON on-chain ID
+  let donResolveTxHash: string | null = null;
+  if (task.taskType === "double-or-nothing" && task.donOnChainId !== null) {
+    const verified = result.verdict === "pass";
+    donResolveTxHash = await resolveDon(task.donOnChainId, verified).catch((err) => {
+      console.error("[DoN] Auto-resolve failed:", err);
+      return null;
+    });
+    if (donResolveTxHash) {
+      const winner = verified ? "runner" : "poster";
+      console.log(`[DoN] Resolved task ${taskId} (${winner} wins $${task.bountyUsdc * 2}): ${donResolveTxHash}`);
+      postSettlementConfirmation(taskId, task.bountyUsdc * 2, donResolveTxHash).catch(console.error);
+    }
+  }
+
   // Spawn next recurring task if applicable
   let nextRecurringTaskId: string | null = null;
   if (result.verdict === "pass") {
@@ -237,6 +252,7 @@ export async function POST(req: NextRequest) {
       : null,
     attestationTxHash,
     escrowReleaseTxHash,
+    donResolveTxHash,
     locationVerified,
     distanceKm: distanceKm !== null ? Math.round(distanceKm * 100) / 100 : null,
     nextRecurringTaskId,

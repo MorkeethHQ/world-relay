@@ -5,7 +5,7 @@ import dynamic from "next/dynamic";
 import { MiniKit } from "@worldcoin/minikit-js";
 import type { Task, AgentInfo } from "@/lib/types";
 import { VerificationBadge, RequiredTierBadge } from "@/components/VerificationBadge";
-import { encodeCreateTask, encodeClaimTask, encodeReleasePayment, encodeUniswapSwap, readTaskCount, RELAY_ESCROW_ADDRESS, type SwapToken } from "@/lib/contracts";
+import { encodeCreateTask, encodeClaimTask, encodeReleasePayment, encodeUniswapSwap, readTaskCount, RELAY_ESCROW_ADDRESS, DOUBLE_OR_NOTHING_ADDRESS, encodeCreateDoubleOrNothing, encodeStakeAndClaimWithApproval, readDonTaskCount, type SwapToken } from "@/lib/contracts";
 import { hapticSuccess, hapticError, hapticTap, hapticHeavy, hapticMedium, hapticSelection, shareTask } from "@/lib/minikit-helpers";
 import { TASK_TEMPLATES } from "@/lib/agents";
 import { Button as WorldButton, Chip as WorldChip, LiveFeedback } from "@worldcoin/mini-apps-ui-kit-react";
@@ -156,7 +156,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [tab, setTab] = useState<Tab>("available");
   const [mapMode, setMapMode] = useState(false);
-  const [agentFilter, setAgentFilter] = useState<"all" | "agent" | "community">("all");
+  const [agentFilter, setAgentFilter] = useState<"all" | "agent" | "community" | "don">("all");
   const [xmtpStatus, setXmtpStatus] = useState<{ connected: boolean; inboxId: string | null } | null>(null);
   const [botAddrCopied, setBotAddrCopied] = useState(false);
   const [upgradePrompt, setUpgradePrompt] = useState<{ required: string; current: string } | null>(null);
@@ -391,6 +391,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
       if (t.status !== "open") return false;
       if (agentFilter === "agent") return !!(t.agent || t.poster?.startsWith("agent_"));
       if (agentFilter === "community") return !t.agent && !t.poster?.startsWith("agent_");
+      if (agentFilter === "don") return t.taskType === "double-or-nothing";
       return true;
     }
     if (tab === "mine") return t.poster === userId || t.claimant === userId;
@@ -526,6 +527,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
               { key: "all" as const, label: "All" },
               { key: "agent" as const, label: "Agent" },
               { key: "community" as const, label: "Community" },
+              { key: "don" as const, label: "2x Stakes" },
             ]).map((f) => (
               <button
                 key={f.key}
@@ -999,7 +1001,34 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
                     setClaimTxSuccess(null);
 
                     const attemptClaim = async () => {
-                      if (MiniKit.isInstalled() && RELAY_ESCROW_ADDRESS && task.onChainId !== null) {
+                      // Double-or-Nothing: stake matching USDC via DON contract
+                      if (task.taskType === "double-or-nothing" && MiniKit.isInstalled() && DOUBLE_OR_NOTHING_ADDRESS && task.donOnChainId !== null) {
+                        const txPayload = encodeStakeAndClaimWithApproval(task.donOnChainId, task.bountyUsdc);
+                        if (txPayload) {
+                          try {
+                            const txResult = await MiniKit.sendTransaction(txPayload);
+                            if (!txResult) {
+                              hapticError();
+                              setClaimTxError({ message: `Staking $${task.bountyUsdc} USDC failed. Please try again.`, taskId: task.id, retry: attemptClaim });
+                              return;
+                            }
+                            const hash = typeof txResult === "object" && txResult !== null && "transactionHash" in txResult
+                              ? String((txResult as Record<string, unknown>).transactionHash)
+                              : null;
+                            if (hash) {
+                              hapticSuccess();
+                              setClaimTxSuccess({ hash, taskId: task.id });
+                              setTimeout(() => setClaimTxSuccess(null), 6000);
+                            }
+                          } catch {
+                            hapticError();
+                            setClaimTxError({ message: "Stake transaction rejected by wallet.", taskId: task.id, retry: attemptClaim });
+                            return;
+                          }
+                        }
+                      }
+                      // Standard: claim via escrow contract
+                      else if (MiniKit.isInstalled() && RELAY_ESCROW_ADDRESS && task.onChainId !== null) {
                         const txPayload = encodeClaimTask(task.onChainId);
                         if (txPayload) {
                           try {
@@ -1017,7 +1046,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
                               setClaimTxSuccess({ hash, taskId: task.id });
                               setTimeout(() => setClaimTxSuccess(null), 6000);
                             }
-                          } catch (err) {
+                          } catch {
                             hapticError();
                             setClaimTxError({ message: "Transaction rejected by wallet.", taskId: task.id, retry: attemptClaim });
                             return;
@@ -1336,10 +1365,17 @@ function TaskCard({
           )}
         </div>
         <div className="text-right shrink-0 flex flex-col items-end gap-1">
-          <div className="bg-green-500/10 border border-green-500/20 rounded-xl px-3 py-1.5">
-            <p className="font-bold text-green-400 text-sm leading-none">${task.bountyUsdc}</p>
-            <p className="text-[9px] text-green-500/60 mt-0.5">payout</p>
-          </div>
+          {task.taskType === "double-or-nothing" ? (
+            <div className="bg-amber-500/10 border border-amber-500/25 rounded-xl px-3 py-1.5">
+              <p className="font-bold text-amber-400 text-sm leading-none">${task.bountyUsdc * 2}</p>
+              <p className="text-[9px] text-amber-500/60 mt-0.5">2x payout</p>
+            </div>
+          ) : (
+            <div className="bg-green-500/10 border border-green-500/20 rounded-xl px-3 py-1.5">
+              <p className="font-bold text-green-400 text-sm leading-none">${task.bountyUsdc}</p>
+              <p className="text-[9px] text-green-500/60 mt-0.5">payout</p>
+            </div>
+          )}
           <RequiredTierBadge bountyUsdc={task.bountyUsdc} />
         </div>
       </div>
@@ -1363,6 +1399,11 @@ function TaskCard({
                 </span>
               )}
             </>
+          )}
+          {task.taskType === "double-or-nothing" && (
+            <span className="flex items-center gap-0.5 text-[9px] text-amber-400 font-bold bg-amber-500/10 border border-amber-500/20 rounded-full px-1.5 py-0.5">
+              &#x1f3b2; 2x
+            </span>
           )}
           {task.recurring && (
             <span className="flex items-center gap-0.5 text-[9px] text-orange-400/70 font-medium">
@@ -1408,7 +1449,11 @@ function TaskCard({
           fullWidth
           className="min-h-[44px]"
         >
-          {task.claimCode ? "🔒 Claim (Code Required)" : "Claim"}
+          {task.claimCode
+            ? "Claim (Code Required)"
+            : task.taskType === "double-or-nothing"
+              ? `Stake $${task.bountyUsdc} & Claim`
+              : "Claim"}
         </WorldButton>
       )}
 
@@ -1507,6 +1552,7 @@ function PostTask({
   onCancel: () => void;
 }) {
   const [category, setCategory] = useState<"photo" | "delivery" | "check-in" | "custom">("photo");
+  const [taskType, setTaskType] = useState<"standard" | "double-or-nothing">("standard");
   const [description, setDescription] = useState("");
   const [location, setLocation] = useState("");
   const [bounty, setBounty] = useState("");
@@ -1556,26 +1602,50 @@ function PostTask({
 
     let onChainId: number | null = null;
     let escrowTxHash: string | null = null;
+    let donOnChainId: number | null = null;
 
-    if (MiniKit.isInstalled() && RELAY_ESCROW_ADDRESS) {
-      const txPayload = encodeCreateTask(description, parseFloat(bounty), 24);
-      if (txPayload) {
-        try {
-          const countBefore = await readTaskCount().catch(() => 0);
-          const txResult = await MiniKit.sendTransaction(txPayload);
-          if (txResult) {
-            onChainId = countBefore;
-            escrowTxHash = typeof txResult === "object" && txResult !== null && "transactionHash" in txResult
-              ? String((txResult as Record<string, unknown>).transactionHash)
-              : null;
-            if (escrowTxHash) {
-              hapticSuccess();
-              setEscrowSuccess(escrowTxHash);
+    const isDoN = taskType === "double-or-nothing";
+
+    if (MiniKit.isInstalled()) {
+      if (isDoN && DOUBLE_OR_NOTHING_ADDRESS) {
+        const txPayload = encodeCreateDoubleOrNothing(description, parseFloat(bounty), 24);
+        if (txPayload) {
+          try {
+            const countBefore = await readDonTaskCount().catch(() => 0);
+            const txResult = await MiniKit.sendTransaction(txPayload);
+            if (txResult) {
+              donOnChainId = countBefore;
+              escrowTxHash = typeof txResult === "object" && txResult !== null && "transactionHash" in txResult
+                ? String((txResult as Record<string, unknown>).transactionHash)
+                : null;
+              if (escrowTxHash) {
+                hapticSuccess();
+                setEscrowSuccess(escrowTxHash);
+              }
             }
+          } catch {
+            console.warn("[PostTask] DoN transaction failed, creating task without on-chain backing");
           }
-        } catch {
-          // Escrow failed — still create the task without on-chain backing
-          console.warn("[PostTask] Escrow transaction failed, creating task without on-chain escrow");
+        }
+      } else if (RELAY_ESCROW_ADDRESS) {
+        const txPayload = encodeCreateTask(description, parseFloat(bounty), 24);
+        if (txPayload) {
+          try {
+            const countBefore = await readTaskCount().catch(() => 0);
+            const txResult = await MiniKit.sendTransaction(txPayload);
+            if (txResult) {
+              onChainId = countBefore;
+              escrowTxHash = typeof txResult === "object" && txResult !== null && "transactionHash" in txResult
+                ? String((txResult as Record<string, unknown>).transactionHash)
+                : null;
+              if (escrowTxHash) {
+                hapticSuccess();
+                setEscrowSuccess(escrowTxHash);
+              }
+            }
+          } catch {
+            console.warn("[PostTask] Escrow transaction failed, creating task without on-chain escrow");
+          }
         }
       }
     }
@@ -1595,6 +1665,8 @@ function PostTask({
           deadlineHours: 24,
           onChainId,
           escrowTxHash,
+          taskType,
+          donOnChainId,
         }),
       });
       hapticSuccess();
@@ -1616,6 +1688,64 @@ function PostTask({
       </div>
 
       <div className="flex-1 px-4 py-5 flex flex-col gap-5">
+        {/* AI Suggested tasks */}
+        <div>
+          <div className="flex items-center gap-1.5 mb-2">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#a855f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+            </svg>
+            <label className="text-[11px] text-gray-500 uppercase tracking-wider font-medium">
+              {coords ? "Suggested for your area" : "Popular requests"}
+            </label>
+            <span className="text-[9px] text-purple-400/70 bg-purple-500/10 rounded-full px-1.5 py-0.5 font-medium">AI suggested</span>
+          </div>
+          {coords && (
+            <p className="text-[10px] text-gray-600 mb-2 flex items-center gap-1">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                <circle cx="12" cy="10" r="3" />
+              </svg>
+              Based on your location
+            </p>
+          )}
+          <div className="flex flex-col gap-2">
+            {(() => {
+              // Score templates by relevance: prefer check-in/photo when we have coords, otherwise rank by bounty value
+              const scored = TASK_TEMPLATES.map((t) => {
+                let score = 0;
+                if (coords) {
+                  // With location, prioritize tasks that benefit from being nearby
+                  if (t.category === "check-in") score += 3;
+                  if (t.category === "photo") score += 2;
+                } else {
+                  // Without location, prioritize by bounty (higher = more popular)
+                  score += t.bounty;
+                }
+                return { ...t, score };
+              });
+              scored.sort((a, b) => b.score - a.score);
+              return scored.slice(0, 3);
+            })().map((t) => (
+              <button
+                key={`suggested-${t.label}`}
+                onClick={() => {
+                  setCategory(t.category);
+                  setDescription(t.description);
+                  setBounty(String(t.bounty));
+                }}
+                className="flex items-center gap-3 bg-[#111] border border-purple-500/10 rounded-2xl px-4 py-3 min-h-[52px] text-left hover:border-purple-500/25 hover:bg-purple-500/[0.03] transition-all active:scale-[0.98] group"
+              >
+                <span className="text-lg shrink-0">{t.icon}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-gray-200 font-medium group-hover:text-white transition-colors">{t.label}</p>
+                  <p className="text-[11px] text-gray-500 truncate">{t.description.replace(/ $/, "...")}</p>
+                </div>
+                <span className="text-xs text-green-400/80 font-semibold shrink-0">${t.bounty}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Quick templates */}
         <div>
           <label className="text-[11px] text-gray-500 uppercase tracking-wider font-medium block mb-2">Quick Start</label>
@@ -1661,6 +1791,40 @@ function PostTask({
               </button>
             ))}
           </div>
+        </div>
+
+        {/* Task type selector */}
+        <div>
+          <label className="text-[11px] text-gray-500 uppercase tracking-wider font-medium block mb-2">Task Type</label>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setTaskType("standard")}
+              className={`flex-1 flex flex-col items-center justify-center gap-1 min-h-[56px] py-2.5 rounded-xl text-xs font-medium transition-all ${
+                taskType === "standard"
+                  ? "bg-white text-black"
+                  : "bg-[#111] text-gray-400 border border-white/[0.06]"
+              }`}
+            >
+              <span className="text-base">&#x1f4b0;</span>
+              Standard
+            </button>
+            <button
+              onClick={() => setTaskType("double-or-nothing")}
+              className={`flex-1 flex flex-col items-center justify-center gap-1 min-h-[56px] py-2.5 rounded-xl text-xs font-medium transition-all ${
+                taskType === "double-or-nothing"
+                  ? "bg-gradient-to-br from-amber-500 to-orange-600 text-white"
+                  : "bg-[#111] text-gray-400 border border-white/[0.06]"
+              }`}
+            >
+              <span className="text-base">&#x1f3b2;</span>
+              Double or Nothing
+            </button>
+          </div>
+          {taskType === "double-or-nothing" && (
+            <p className="text-[10px] text-amber-400/70 mt-1.5 leading-snug">
+              Runner must stake ${bounty || "0"} USDC to claim. Verified = runner gets 2x. Failed = you keep both.
+            </p>
+          )}
         </div>
 
         <div>
@@ -1771,7 +1935,9 @@ function PostTask({
             fullWidth
             className="min-h-[48px]"
           >
-            {`Post Request${bounty ? ` — $${bounty} USDC` : ""}`}
+            {taskType === "double-or-nothing"
+              ? `Post Double-or-Nothing${bounty ? ` — $${bounty} USDC` : ""}`
+              : `Post Request${bounty ? ` — $${bounty} USDC` : ""}`}
           </WorldButton>
         </LiveFeedback>
       </div>
@@ -2013,7 +2179,7 @@ function SubmitProof({
                   <circle cx="11" cy="11" r="8" />
                   <line x1="21" y1="21" x2="16.65" y2="16.65" />
                 </svg>
-                Quick check
+                Pre-check with AI
                 <span className="text-[10px] text-gray-500 ml-1">optional</span>
               </button>
             )}
@@ -2058,10 +2224,10 @@ function SubmitProof({
                       : "text-red-400"
                   }`}>
                     {preCheck.likely === "pass"
-                      ? "Looks good — likely to pass"
+                      ? "Looks good — likely to pass verification"
                       : preCheck.likely === "marginal"
-                      ? "Might need a better angle"
-                      : "Consider retaking"}
+                      ? "Marginal — consider adding more detail or another angle"
+                      : "This may not pass — consider retaking the photo"}
                   </span>
                 </div>
                 <p className="text-xs text-gray-400 leading-relaxed">{preCheck.assessment}</p>

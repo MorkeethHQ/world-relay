@@ -275,10 +275,111 @@ function ProofImage({ url }: { url: string }) {
 // AI Verdict Card (enhanced with expandable reasoning)
 // ---------------------------------------------------------------------------
 
+function VerdictIcon({ verdict, size = 16 }: { verdict: string; size?: number }) {
+  if (verdict === "pass") {
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="20 6 9 17 4 12" />
+      </svg>
+    );
+  }
+  if (verdict === "flag") {
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+        <line x1="12" y1="9" x2="12" y2="13" />
+        <line x1="12" y1="17" x2="12.01" y2="17" />
+      </svg>
+    );
+  }
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="18" y1="6" x2="6" y2="18" />
+      <line x1="6" y1="6" x2="18" y2="18" />
+    </svg>
+  );
+}
+
+function ConfidenceRing({ pct, verdict, size = 48 }: { pct: number; verdict: string; size?: number }) {
+  const r = size * 0.417; // radius proportional to size
+  const circumference = 2 * Math.PI * r;
+  const strokeColor = verdict === "pass" ? "#4ade80" : verdict === "flag" ? "#fbbf24" : "#f87171";
+
+  return (
+    <div className="relative" style={{ width: size, height: size }}>
+      <svg className="-rotate-90" width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+        <circle
+          cx={size / 2} cy={size / 2} r={r}
+          fill="none"
+          stroke="rgba(255,255,255,0.05)"
+          strokeWidth={size * 0.083}
+        />
+        <circle
+          cx={size / 2} cy={size / 2} r={r}
+          fill="none"
+          stroke={strokeColor}
+          strokeWidth={size * 0.083}
+          strokeLinecap="round"
+          strokeDasharray={`${(pct / 100) * circumference} ${circumference - (pct / 100) * circumference}`}
+          className="transition-all duration-1000"
+        />
+      </svg>
+      <span className={`absolute inset-0 flex items-center justify-center font-bold ${verdictColor(verdict)}`} style={{ fontSize: size * 0.23 }}>
+        {pct}%
+      </span>
+    </div>
+  );
+}
+
+function ConsensusLine({ models, consensusMethod, overallVerdict }: { models: import("@/lib/types").ModelVerdict[]; consensusMethod?: "majority" | "unanimous"; overallVerdict: string }) {
+  const passCount = models.filter((m) => m.verdict === "pass").length;
+  const flagCount = models.filter((m) => m.verdict === "flag").length;
+  const failCount = models.filter((m) => m.verdict === "fail").length;
+  const total = models.length;
+  const allAgree = passCount === total || failCount === total || flagCount === total;
+
+  let label: string;
+  let sublabel: string;
+
+  if (allAgree && overallVerdict === "pass") {
+    label = "Consensus: Verified";
+    sublabel = `${total}/${total} agree`;
+  } else if (allAgree && overallVerdict === "fail") {
+    label = "Consensus: Rejected";
+    sublabel = `${total}/${total} agree`;
+  } else if (allAgree && overallVerdict === "flag") {
+    label = "Consensus: Flagged";
+    sublabel = `${total}/${total} agree`;
+  } else if (consensusMethod === "unanimous") {
+    label = "Consensus: Flagged";
+    sublabel = "models disagree";
+  } else {
+    // majority
+    const majorityVerdict = passCount >= flagCount && passCount >= failCount ? "pass" : failCount >= passCount && failCount >= flagCount ? "fail" : "flag";
+    const majorityCount = Math.max(passCount, flagCount, failCount);
+    const majorityLabel = majorityVerdict === "pass" ? "Pass" : majorityVerdict === "fail" ? "Fail" : "Flag";
+    label = `Majority verdict: ${majorityLabel}`;
+    sublabel = `${majorityCount}/${total}`;
+  }
+
+  return (
+    <div className={`flex items-center gap-3 px-4 py-3 rounded-xl border ${verdictBorder(overallVerdict)} ${verdictBgLight(overallVerdict)}`}>
+      <div className={`w-6 h-6 rounded-lg flex items-center justify-center ${verdictBg(overallVerdict)}`}>
+        <VerdictIcon verdict={overallVerdict} size={12} />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className={`text-xs font-bold ${verdictColor(overallVerdict)}`}>{label}</p>
+      </div>
+      <span className="text-[10px] text-gray-400 font-mono shrink-0">({sublabel})</span>
+    </div>
+  );
+}
+
 function AiVerdictCard({ result }: { result: VerificationResult }) {
   const [expanded, setExpanded] = useState(false);
   const pct = Math.round(result.confidence * 100);
   const verdictLabel = result.verdict.toUpperCase();
+  const hasModels = result.models && result.models.length > 0;
 
   return (
     <div className={`border rounded-2xl overflow-hidden ${verdictBorder(result.verdict)} ${verdictBgLight(result.verdict)}`}>
@@ -287,60 +388,28 @@ function AiVerdictCard({ result }: { result: VerificationResult }) {
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2.5">
             <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${verdictBg(result.verdict)}`}>
-              {result.verdict === "pass" ? (
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="20 6 9 17 4 12" />
-                </svg>
-              ) : result.verdict === "flag" ? (
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-                  <line x1="12" y1="9" x2="12" y2="13" />
-                  <line x1="12" y1="17" x2="12.01" y2="17" />
-                </svg>
-              ) : (
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
-              )}
+              <VerdictIcon verdict={result.verdict} />
             </div>
             <div>
               <p className={`text-sm font-bold ${verdictColor(result.verdict)}`}>
                 {verdictLabel}
               </p>
-              <p className="text-[10px] text-gray-500">Verification</p>
+              <p className="text-[10px] text-gray-500">
+                {hasModels ? `${result.models!.length}-Model Panel` : "Verification"}
+              </p>
             </div>
           </div>
 
           {/* Confidence ring */}
-          <div className="relative w-12 h-12">
-            <svg className="w-12 h-12 -rotate-90" viewBox="0 0 48 48">
-              <circle
-                cx="24" cy="24" r="20"
-                fill="none"
-                stroke="rgba(255,255,255,0.05)"
-                strokeWidth="4"
-              />
-              <circle
-                cx="24" cy="24" r="20"
-                fill="none"
-                stroke={result.verdict === "pass" ? "#4ade80" : result.verdict === "flag" ? "#fbbf24" : "#f87171"}
-                strokeWidth="4"
-                strokeLinecap="round"
-                strokeDasharray={`${pct * 1.257} ${125.7 - pct * 1.257}`}
-                className="transition-all duration-1000"
-              />
-            </svg>
-            <span className={`absolute inset-0 flex items-center justify-center text-[11px] font-bold ${verdictColor(result.verdict)}`}>
-              {pct}%
-            </span>
-          </div>
+          <ConfidenceRing pct={pct} verdict={result.verdict} size={48} />
         </div>
 
         {/* Confidence bar */}
         <div className="mb-1">
           <div className="flex items-center justify-between mb-1.5">
-            <span className="text-[10px] text-gray-500 uppercase tracking-wider">Confidence</span>
+            <span className="text-[10px] text-gray-500 uppercase tracking-wider">
+              {hasModels ? "Aggregate Confidence" : "Confidence"}
+            </span>
             <span className={`text-[10px] font-semibold ${verdictColor(result.verdict)}`}>
               {pct}%
             </span>
@@ -354,13 +423,120 @@ function AiVerdictCard({ result }: { result: VerificationResult }) {
         </div>
       </div>
 
+      {/* ===== Multi-model panel (always visible when models exist) ===== */}
+      {hasModels && (
+        <div className="px-4 pb-4">
+          {/* Section label */}
+          <div className="flex items-center gap-2 mb-3 pt-3 border-t border-white/[0.06]">
+            <div className="w-4 h-4 rounded bg-indigo-500/20 flex items-center justify-center">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#818cf8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                <circle cx="9" cy="7" r="4" />
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+              </svg>
+            </div>
+            <span className="text-[10px] text-gray-500 uppercase tracking-wider font-medium">
+              AI Judge Panel
+            </span>
+            <span className="ml-auto text-[9px] text-gray-600 font-mono">
+              {result.consensusMethod === "unanimous" ? "Unanimous" : "Majority"} rule
+            </span>
+          </div>
+
+          {/* Individual model verdicts */}
+          <div className="flex flex-col gap-2 mb-3">
+            {result.models!.map((m, i) => {
+              const mPct = Math.round(m.confidence * 100);
+              return (
+                <div
+                  key={i}
+                  className={`relative bg-[#0a0a0a] border rounded-xl px-3 py-2.5 transition-all ${
+                    m.verdict === "pass"
+                      ? "border-green-500/15"
+                      : m.verdict === "flag"
+                      ? "border-amber-500/15"
+                      : "border-red-500/15"
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    {/* Model verdict icon */}
+                    <div
+                      className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
+                        m.verdict === "pass"
+                          ? "bg-green-500/15"
+                          : m.verdict === "flag"
+                          ? "bg-amber-500/15"
+                          : "bg-red-500/15"
+                      }`}
+                    >
+                      {m.verdict === "pass" ? (
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                      ) : m.verdict === "flag" ? (
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                          <line x1="12" y1="9" x2="12" y2="13" />
+                          <line x1="12" y1="17" x2="12.01" y2="17" />
+                        </svg>
+                      ) : (
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#f87171" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                          <line x1="18" y1="6" x2="6" y2="18" />
+                          <line x1="6" y1="6" x2="18" y2="18" />
+                        </svg>
+                      )}
+                    </div>
+
+                    {/* Model name + verdict */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-white truncate">{m.name}</p>
+                      <p className={`text-[10px] font-medium ${verdictColor(m.verdict)}`}>
+                        {m.verdict.toUpperCase()}
+                      </p>
+                    </div>
+
+                    {/* Mini confidence ring */}
+                    <ConfidenceRing pct={mPct} verdict={m.verdict} size={36} />
+                  </div>
+
+                  {/* Per-model confidence bar */}
+                  <div className="mt-2">
+                    <div className="h-1 bg-white/5 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-1000 ease-out ${verdictBg(m.verdict)}`}
+                        style={{ width: `${mPct}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Reasoning snippet */}
+                  {m.reasoning && (
+                    <p className="text-[10px] text-gray-500 mt-1.5 leading-relaxed line-clamp-2 italic">
+                      {m.reasoning}
+                    </p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Consensus summary line */}
+          <ConsensusLine
+            models={result.models!}
+            consensusMethod={result.consensusMethod}
+            overallVerdict={result.verdict}
+          />
+        </div>
+      )}
+
       {/* Expandable reasoning */}
       <button
         onClick={() => setExpanded(!expanded)}
         className="w-full px-4 py-2.5 border-t border-white/[0.06] flex items-center justify-between hover:bg-white/[0.02] transition-colors"
       >
         <span className="text-[10px] text-gray-500 uppercase tracking-wider font-medium">
-          Reasoning
+          {hasModels ? "Overall Reasoning" : "Reasoning"}
         </span>
         <svg
           width="14"
@@ -382,24 +558,6 @@ function AiVerdictCard({ result }: { result: VerificationResult }) {
           <p className="text-xs text-gray-300 italic leading-relaxed pt-3">
             &ldquo;{result.reasoning}&rdquo;
           </p>
-          {result.models && result.models.length > 0 && (
-            <div className="mt-3 pt-3 border-t border-white/[0.04]">
-              <p className="text-[9px] text-gray-500 uppercase tracking-wider font-medium mb-2">
-                {result.consensusMethod === "unanimous" ? "Unanimous" : "Majority"} consensus — {result.models.length} models
-              </p>
-              <div className="flex flex-col gap-1.5">
-                {result.models.map((m, i) => (
-                  <div key={i} className="flex items-center gap-2 bg-white/[0.02] rounded-lg px-2.5 py-1.5">
-                    <span className={`w-1.5 h-1.5 rounded-full ${m.verdict === "pass" ? "bg-green-500" : m.verdict === "flag" ? "bg-yellow-500" : "bg-red-500"}`} />
-                    <span className="text-[10px] text-gray-400 flex-1 truncate">{m.name}</span>
-                    <span className={`text-[10px] font-semibold ${m.verdict === "pass" ? "text-green-400" : m.verdict === "flag" ? "text-yellow-400" : "text-red-400"}`}>
-                      {m.verdict.toUpperCase()} {Math.round(m.confidence * 100)}%
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
           <div className="flex items-center gap-1.5 mt-3 pt-2 border-t border-white/[0.04]">
             <div className="w-4 h-4 rounded bg-indigo-500/20 flex items-center justify-center">
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#818cf8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -407,7 +565,7 @@ function AiVerdictCard({ result }: { result: VerificationResult }) {
               </svg>
             </div>
             <span className="text-[9px] text-gray-500 font-medium">
-              {result.models && result.models.length > 0 ? `${result.models.length}-model consensus` : "Verified automatically"}
+              {hasModels ? `${result.models!.length}-model consensus verification` : "Verified automatically"}
             </span>
           </div>
         </div>
@@ -1039,6 +1197,11 @@ export default function TaskDetailPage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <StatusBadge status={task.status} />
+              {task.taskType === "double-or-nothing" && (
+                <span className="flex items-center gap-0.5 text-[9px] text-amber-400 font-bold bg-amber-500/10 border border-amber-500/20 rounded-full px-1.5 py-0.5">
+                  &#x1f3b2; Double-or-Nothing
+                </span>
+              )}
               {task.status === "completed" && (
                 <span className="text-[10px] text-green-400 font-medium">
                   Task Complete
@@ -1101,10 +1264,23 @@ export default function TaskDetailPage() {
               <p className="text-xs text-gray-300 mt-0.5">{task.location}</p>
             </div>
             <div>
-              <p className="text-[10px] text-gray-500 uppercase tracking-wider">Bounty</p>
-              <p className="text-sm text-green-400 font-bold mt-0.5">
-                ${task.bountyUsdc} USDC
+              <p className="text-[10px] text-gray-500 uppercase tracking-wider">
+                {task.taskType === "double-or-nothing" ? "Double-or-Nothing" : "Bounty"}
               </p>
+              {task.taskType === "double-or-nothing" ? (
+                <>
+                  <p className="text-sm text-amber-400 font-bold mt-0.5">
+                    ${task.bountyUsdc * 2} USDC
+                  </p>
+                  <p className="text-[9px] text-amber-500/60">
+                    ${task.bountyUsdc} poster + ${task.bountyUsdc} runner stake
+                  </p>
+                </>
+              ) : (
+                <p className="text-sm text-green-400 font-bold mt-0.5">
+                  ${task.bountyUsdc} USDC
+                </p>
+              )}
               <RequiredTierBadge bountyUsdc={task.bountyUsdc} />
             </div>
             <div>
