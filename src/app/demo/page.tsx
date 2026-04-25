@@ -51,8 +51,8 @@ const STEP_META: Record<
     color: "#8b5cf6",
   },
   4: {
-    title: "AI Verifies",
-    shortTitle: "AI Verify",
+    title: "Proof Verified",
+    shortTitle: "Verified",
     color: "#22c55e",
   },
   5: {
@@ -218,7 +218,7 @@ export default function DemoPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to claim");
       setTask(data.task);
-      await new Promise((r) => setTimeout(r, 3000));
+      await new Promise((r) => setTimeout(r, 800));
       await refreshMessages();
       setStep(3);
     } catch (err: unknown) {
@@ -340,7 +340,7 @@ export default function DemoPage() {
           {!isSystem && (
             <div className="flex items-center gap-2 mb-1">
               <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">
-                {isBot ? "RELAY AI" : truncAddr(msg.sender)}
+                {isBot ? "RELAY Bot" : truncAddr(msg.sender)}
               </span>
               <span className="text-[9px] text-gray-700">
                 {timeAgo(msg.timestamp)}
@@ -456,7 +456,7 @@ export default function DemoPage() {
               {/* Briefing preview */}
               <div className="bg-[#0a0a0a] rounded-lg border border-white/5 p-2 animate-[fadeIn_0.4s_ease-out_0.4s_both]">
                 <p className="text-[8px] text-gray-500 mb-1">
-                  AI Briefing Preview:
+                  Briefing Preview:
                 </p>
                 <p className="text-[8px] text-gray-400 italic leading-relaxed">
                   &ldquo;Head to the glass pyramid entrance. Capture the queue
@@ -526,7 +526,7 @@ export default function DemoPage() {
                       Photo captured + optional note
                     </p>
                     <p className="text-[8px] text-purple-300/40">
-                      Sent to Claude Sonnet Vision for analysis
+                      Sent for visual verification
                     </p>
                   </div>
                 </div>
@@ -544,7 +544,7 @@ export default function DemoPage() {
                   <span className="text-[8px]">{"\u{1F9E0}"}</span>
                 </div>
                 <span className="text-[10px] font-bold text-gray-400">
-                  AI Verification
+                  Verification
                 </span>
               </div>
             </div>
@@ -554,7 +554,7 @@ export default function DemoPage() {
                 <div className="flex items-center gap-2 mb-2">
                   <div className="w-4 h-4 border-2 border-green-500/40 border-t-green-500 rounded-full animate-spin" />
                   <span className="text-[9px] text-green-400 font-medium">
-                    Claude Sonnet analyzing...
+                    Analyzing proof...
                   </span>
                 </div>
                 <div className="space-y-1.5">
@@ -787,8 +787,7 @@ export default function DemoPage() {
                 Step 3 of 5
               </p>
               <p className="text-xs text-gray-300 leading-relaxed">
-                Upload a photo as proof. <span className="text-purple-400 font-medium">Claude Sonnet</span> analyzes it via vision
-                AI. In demo mode, it triggers a follow-up question.
+                Upload a photo as proof. The verification system analyzes it via vision and may ask a follow-up question for higher confidence.
               </p>
             </div>
 
@@ -863,8 +862,7 @@ export default function DemoPage() {
                 Step 4 of 5
               </p>
               <p className="text-xs text-gray-300 leading-relaxed">
-                <span className="text-green-400 font-medium">Claude Sonnet Vision</span> analyzes the proof photo, checking location,
-                content, and task requirements. It may ask a follow-up question for higher confidence.
+                The proof photo is analyzed for location, content, and task requirements. A follow-up question may be asked for higher confidence.
               </p>
             </div>
 
@@ -872,7 +870,7 @@ export default function DemoPage() {
               <>
                 <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3">
                   <p className="text-[10px] text-amber-400 uppercase tracking-wider font-medium mb-1">
-                    AI Follow-Up Question
+                    Follow-Up Question
                   </p>
                   <p className="text-xs text-amber-200/70 italic">
                     &ldquo;{task.aiFollowUp.question}&rdquo;

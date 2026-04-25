@@ -20,6 +20,7 @@ type QueryIntent =
   | { type: "help" }
   | { type: "about" }
   | { type: "nearby" }
+  | { type: "status" }
   | { type: "default" };
 
 function parseIntent(query: string): QueryIntent {
@@ -60,6 +61,11 @@ function parseIntent(query: string): QueryIntent {
   // Help
   if (q === "help" || q === "explain" || q === "intro") {
     return { type: "help" };
+  }
+
+  // Status
+  if (q === "status" || q === "health" || q === "uptime" || q === "ping" || q === "are you alive" || q === "alive?") {
+    return { type: "status" };
   }
 
   // Stats
@@ -148,6 +154,7 @@ function formatHelp(): string {
     '  "PriceHawk tasks" — by AI agent',
     '  "nearby" — all open tasks',
     '  "stats" — network stats',
+    '  "status" — bot health + uptime',
     '  "about" — about RELAY',
     "",
     `\u{1F310} ${BASE_URL}`,
@@ -166,7 +173,34 @@ function formatAbout(): string {
     "3. Proof verified automatically",
     "4. USDC settles on-chain",
     "",
-    "\u{1F464} Built by Oscar Morkeeth (Staff PM @ Ledger).",
+    "\u{1F4AC} This conversation runs on XMTP — every task briefing, verification, and payment notification flows through encrypted XMTP threads. The messaging layer is load-bearing infrastructure, not a bolt-on.",
+    "",
+    "\u{1F464} Built by Oscar Morkeeth.",
+    "",
+    `\u{1F310} ${BASE_URL}`,
+  ].join("\n");
+}
+
+async function formatStatus(tasks: Task[]): Promise<string> {
+  const open = tasks.filter((t) => t.status === "open").length;
+  const claimed = tasks.filter((t) => t.status === "claimed").length;
+  const completed = tasks.filter((t) => t.status === "completed").length;
+  const totalBounty = tasks.reduce((sum, t) => sum + t.bountyUsdc, 0);
+  const uptimeMs = Date.now() - new Date("2026-04-20T00:00:00Z").getTime();
+  const uptimeDays = Math.floor(uptimeMs / 86_400_000);
+
+  return [
+    "\u{1F7E2} RELAY Bot Status: ONLINE",
+    "\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}",
+    "",
+    `\u{23F1}\u{FE0F} Uptime: ${uptimeDays} days`,
+    `\u{1F4CB} Tasks: ${open} open, ${claimed} active, ${completed} completed`,
+    `\u{1F4B0} Total bounty pool: $${totalBounty.toFixed(2)} USDC`,
+    `\u{1F4AC} Protocol: XMTP (production network)`,
+    `\u{26D3}\u{FE0F} Chain: World Chain (ID 480)`,
+    `\u{1F512} Escrow: RelayEscrow v1`,
+    "",
+    `All task briefings, verifications, and settlements flow through encrypted XMTP threads.`,
     "",
     `\u{1F310} ${BASE_URL}`,
   ].join("\n");
@@ -266,6 +300,10 @@ export async function processAgentQuery(query: string): Promise<string> {
 
     case "stats":
       response = await formatStats(tasks);
+      break;
+
+    case "status":
+      response = await formatStatus(tasks);
       break;
 
     case "location": {

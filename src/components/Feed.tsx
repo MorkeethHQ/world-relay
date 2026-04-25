@@ -467,79 +467,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
             </div>
           </div>
           {userId && (
-            <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide -mr-4 pr-4">
-              <a
-                href="/gallery"
-                className="shrink-0 min-w-[44px] h-11 px-2.5 rounded-full font-semibold text-[11px] border border-white/10 text-gray-400 hover:text-white hover:border-white/20 transition-all flex items-center justify-center gap-1"
-                title="Proof Gallery"
-                aria-label="Proof Gallery"
-              >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" />
-                </svg>
-              </a>
-              <a
-                href="/leaderboard"
-                className="shrink-0 min-w-[44px] h-11 px-2.5 rounded-full font-semibold text-[11px] border border-white/10 text-gray-400 hover:text-white hover:border-white/20 transition-all flex items-center justify-center gap-1"
-                title="Leaderboard"
-                aria-label="Leaderboard"
-              >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-                </svg>
-              </a>
-              <a
-                href="/dashboard"
-                className="shrink-0 min-w-[44px] h-11 px-2.5 rounded-full font-semibold text-[11px] border border-white/10 text-gray-400 hover:text-white hover:border-white/20 transition-all flex items-center justify-center gap-1"
-                title="Agent Dashboard"
-                aria-label="Agent Dashboard"
-              >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" />
-                </svg>
-              </a>
-              <a
-                href="/agents"
-                className="shrink-0 h-11 px-3 rounded-full font-semibold text-[11px] border border-white/10 text-gray-400 hover:text-white hover:border-white/20 transition-all flex items-center gap-1.5"
-              >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 9h18" /><path d="M9 21V9" />
-                </svg>
-                API
-              </a>
-              <a
-                href="/xmtp"
-                className="shrink-0 h-11 px-3 rounded-full font-semibold text-[11px] border border-indigo-500/30 text-indigo-400 hover:text-indigo-300 hover:border-indigo-500/50 transition-all flex items-center gap-1.5 bg-indigo-500/5"
-                title="XMTP Deep Dive"
-              >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                </svg>
-                XMTP
-              </a>
-              <a
-                href="/live"
-                className="shrink-0 h-11 px-3 rounded-full font-semibold text-[11px] border border-green-500/30 text-green-400 hover:text-green-300 hover:border-green-500/50 transition-all flex items-center gap-1.5 bg-green-500/5"
-                title="Live Mission Control"
-              >
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-                </span>
-                Live
-              </a>
-              <a
-                href="/map"
-                className="shrink-0 h-11 px-3 rounded-full font-semibold text-[11px] border border-purple-500/30 text-purple-400 hover:text-purple-300 hover:border-purple-500/50 transition-all flex items-center gap-1.5 bg-purple-500/5"
-                title="Task Map"
-              >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6" />
-                  <line x1="8" y1="2" x2="8" y2="18" />
-                  <line x1="16" y1="6" x2="16" y2="22" />
-                </svg>
-                Map
-              </a>
+            <div className="flex items-center gap-2 mt-0.5">
               <WorldButton
                 onClick={() => setView("post")}
                 variant="primary"
@@ -592,16 +520,16 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
 
         {/* Agent / Community filter */}
         {tab === "available" && (
-          <div className="flex px-4 pb-2 pt-1 gap-1.5">
+          <div className="flex px-4 pb-3 pt-1 gap-2">
             {([
               { key: "all" as const, label: "All" },
-              { key: "agent" as const, label: "Agent Bounties" },
+              { key: "agent" as const, label: "Agent" },
               { key: "community" as const, label: "Community" },
             ]).map((f) => (
               <button
                 key={f.key}
                 onClick={() => setAgentFilter(f.key)}
-                className={`text-[10px] font-medium px-3 py-2 min-h-[44px] rounded-full transition-all flex items-center ${
+                className={`text-xs font-medium px-4 py-2 min-h-[36px] rounded-full transition-all flex items-center ${
                   agentFilter === f.key
                     ? "bg-white/10 text-white border border-white/20"
                     : "text-gray-500 border border-white/[0.06] hover:text-gray-300 hover:border-white/10"

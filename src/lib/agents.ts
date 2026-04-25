@@ -415,8 +415,8 @@ export const COMPLETED_TASK_EXAMPLES = [
     lng: 2.3376,
     bountyUsdc: 0.25,
     status: "completed",
-    claimant: "0x7a3b...demo",
-    claimantVerificationLevel: "device",
+    claimant: "0x4b2e8F3a91c7De82a",
+    claimantVerificationLevel: "orb",
     proofImageUrl: "/proof-louvre-queue.svg",
     verificationResult: {
       verdict: "pass" as const,
@@ -450,8 +450,218 @@ export const COMPLETED_TASK_EXAMPLES = [
       },
       {
         sender: "relay-bot",
-        text: "✅ AI VERDICT: PASS (94% confidence)\nThe queue photo clearly shows ~35-40 people. Wait time estimated at 20-25 minutes. $0.25 USDC released to your wallet.",
+        text: "✅ VERDICT: PASS (94% confidence)\nThe queue photo clearly shows ~35-40 people. Wait time estimated at 20-25 minutes. $0.25 USDC released to your wallet.",
         timestamp: -3700000,
+      },
+    ],
+  },
+  {
+    agentId: "pricehawk",
+    category: "photo" as TaskCategory,
+    description:
+      "Photograph the full menu board and prices at Café de Flore. Include daily specials if visible.",
+    location: "Saint-Germain-des-Prés, Paris 6e",
+    lat: 48.854,
+    lng: 2.3325,
+    bountyUsdc: 0.5,
+    status: "completed",
+    claimant: "0x9f1cD7e2b84b3F19",
+    claimantVerificationLevel: "orb",
+    proofImageUrl: "/proof-louvre-queue.svg",
+    verificationResult: {
+      verdict: "pass" as const,
+      confidence: 0.91,
+      reasoning:
+        "Menu board is fully visible with legible prices in euros. Daily specials section shows 'Plat du jour: Croque Monsieur €14.50'. All items readable. Photo taken at eye level with good lighting. Café de Flore branding confirmed on the board.",
+    },
+    escrowTxHash:
+      "0x32af60ab66a0c10dd032c779512dd75ea8f6d43e8e17944d54d487834a64f48c",
+    completedAt: new Date(Date.now() - 7200_000).toISOString(),
+    worldChatMessages: [
+      {
+        sender: "relay-bot",
+        text: "🏷️ PriceHawk posted a task: Photo the menu at Café de Flore. $0.50 USDC bounty.",
+        timestamp: -10800000,
+      },
+      {
+        sender: "claimant",
+        text: "I'm near Saint-Germain, I'll grab it",
+        timestamp: -9000000,
+      },
+      {
+        sender: "relay-bot",
+        text: "BRIEFING: Capture the full menu board at eye level. Make sure prices are legible. Include any daily specials.",
+        timestamp: -8900000,
+      },
+      {
+        sender: "claimant",
+        text: "got it, menu is huge but I got the whole thing",
+        timestamp: -7500000,
+      },
+      {
+        sender: "relay-bot",
+        text: "✅ VERDICT: PASS (91% confidence)\nMenu is fully legible with all prices visible. Daily specials confirmed. $0.50 USDC released.",
+        timestamp: -7400000,
+      },
+    ],
+  },
+  {
+    agentId: "accessmap",
+    category: "check-in" as TaskCategory,
+    description:
+      "Survey wheelchair accessibility at Métro Châtelet–Les Halles. Photo elevator status, ramp conditions, tactile paving.",
+    location: "Châtelet–Les Halles, Paris 1er",
+    lat: 48.8621,
+    lng: 2.3467,
+    bountyUsdc: 1.0,
+    status: "completed",
+    claimant: "0x2a8bE4f1c6d73e52",
+    claimantVerificationLevel: "device",
+    proofImageUrl: "/proof-louvre-queue.svg",
+    verificationResult: {
+      verdict: "flag" as const,
+      confidence: 0.72,
+      reasoning:
+        "Photos show elevator and ramp at Châtelet–Les Halles station. Elevator appears functional with green indicator light. However, tactile paving photo is partially obscured by foot traffic. Ramp condition is documented but angle suggests potential non-compliance with slope standards. Flagged for manual review of ramp gradient.",
+    },
+    escrowTxHash:
+      "0x935f1279c7e9240b78f36441a6d73d064dfc3e8e85fff43c8fa178797c19486d",
+    completedAt: new Date(Date.now() - 14400_000).toISOString(),
+    worldChatMessages: [
+      {
+        sender: "relay-bot",
+        text: "♿ AccessMap needs a survey at Châtelet–Les Halles. $1.00 USDC bounty.",
+        timestamp: -18000000,
+      },
+      {
+        sender: "claimant",
+        text: "claiming, I pass through there every day",
+        timestamp: -16200000,
+      },
+      {
+        sender: "relay-bot",
+        text: "BRIEFING: Document elevator status, ramp conditions, and tactile paving. Get close-up shots of each.",
+        timestamp: -16100000,
+      },
+      {
+        sender: "claimant",
+        text: "uploaded 3 photos — elevator, ramp, and paving. The ramp looks steep to me honestly",
+        timestamp: -14500000,
+      },
+      {
+        sender: "relay-bot",
+        text: "FOLLOW-UP: Can you estimate the ramp's incline? Does it have handrails on both sides?",
+        timestamp: -14400000,
+      },
+      {
+        sender: "claimant",
+        text: "handrails on one side only, incline feels like maybe 10-12 degrees",
+        timestamp: -14300000,
+      },
+      {
+        sender: "relay-bot",
+        text: "⚠️ VERDICT: FLAG (72% confidence)\nElevator and tactile paving documented. Ramp flagged — single handrail and estimated 10-12° incline may exceed accessibility standards. Escalated for poster review. $1.00 USDC held pending confirmation.",
+        timestamp: -14200000,
+      },
+    ],
+  },
+  {
+    agentId: "freshmap",
+    category: "photo" as TaskCategory,
+    description:
+      "Walk Broadway between W 28th and W 32nd. Photo every storefront. Note new openings and closures.",
+    location: "NoMad, New York",
+    lat: 40.7465,
+    lng: -73.9883,
+    bountyUsdc: 1.5,
+    status: "completed",
+    claimant: "0x6e3fA8c2d51b9E07",
+    claimantVerificationLevel: "orb",
+    proofImageUrl: "/proof-louvre-queue.svg",
+    verificationResult: {
+      verdict: "pass" as const,
+      confidence: 0.88,
+      reasoning:
+        "Series of storefront photos covers the requested 4-block stretch. 22 storefronts documented. Two 'for lease' signs identified at W 29th and W 31st. One new opening noted (tea shop at W 30th with 'Grand Opening' banner). Photos are sequential and geotagged within the target area.",
+    },
+    escrowTxHash:
+      "0x90217ddc54fd6eda2dcb8c0863bcdde4899f43dc2c0b8b0707a63859fa3f0f41",
+    completedAt: new Date(Date.now() - 21600_000).toISOString(),
+    worldChatMessages: [
+      {
+        sender: "relay-bot",
+        text: "🗺️ FreshMap survey: Photo storefronts on Broadway, W 28th–32nd. $1.50 USDC bounty.",
+        timestamp: -25200000,
+      },
+      {
+        sender: "claimant",
+        text: "perfect, I work in NoMad. will do it on my lunch break",
+        timestamp: -23400000,
+      },
+      {
+        sender: "relay-bot",
+        text: "BRIEFING: Walk north from W 28th to W 32nd. Capture every storefront — both sides if possible. Note any 'for lease' signs or new openings.",
+        timestamp: -23300000,
+      },
+      {
+        sender: "claimant",
+        text: "done, 22 photos uploaded. spotted 2 vacancies and one new tea shop",
+        timestamp: -21800000,
+      },
+      {
+        sender: "relay-bot",
+        text: "✅ VERDICT: PASS (88% confidence)\nFull coverage of the 4-block stretch. 22 storefronts documented with 2 vacancies and 1 new opening identified. $1.50 USDC released.",
+        timestamp: -21700000,
+      },
+    ],
+  },
+  {
+    agentId: "claimseye",
+    category: "photo" as TaskCategory,
+    description:
+      "Photograph exterior condition of building at 22 Rue de Rivoli. Capture full facade, any visible damage, and street context.",
+    location: "Rue de Rivoli, Paris 4e",
+    lat: 48.8558,
+    lng: 2.358,
+    bountyUsdc: 1.5,
+    status: "completed",
+    claimant: "0xd41b7E9f3c8A2e60",
+    claimantVerificationLevel: "orb",
+    proofImageUrl: "/proof-louvre-queue.svg",
+    verificationResult: {
+      verdict: "pass" as const,
+      confidence: 0.96,
+      reasoning:
+        "Full facade captured from across the street showing all 6 floors. No visible structural damage. Windows intact, no cracks in facade. Street context includes adjacent buildings and road. Address number 22 partially visible above the entrance. Building appears well-maintained with recent exterior cleaning.",
+    },
+    escrowTxHash:
+      "0x7ac150ffacfcf801034b0918c7711782500ef74f95d63c3cfe48ed925af27af4",
+    completedAt: new Date(Date.now() - 28800_000).toISOString(),
+    worldChatMessages: [
+      {
+        sender: "relay-bot",
+        text: "🏢 ClaimsEye inspection: Photo the building at 22 Rue de Rivoli. $1.50 USDC bounty.",
+        timestamp: -32400000,
+      },
+      {
+        sender: "claimant",
+        text: "I'm in the 4th, on my way",
+        timestamp: -30600000,
+      },
+      {
+        sender: "relay-bot",
+        text: "BRIEFING: Capture the full facade from across the street. Note any damage to windows, walls, or roof. Include surrounding street context.",
+        timestamp: -30500000,
+      },
+      {
+        sender: "claimant",
+        text: "photo submitted, building looks good actually. no damage that I could see",
+        timestamp: -29000000,
+      },
+      {
+        sender: "relay-bot",
+        text: "✅ VERDICT: PASS (96% confidence)\nFull facade documented. No structural damage detected. Windows intact, exterior recently cleaned. $1.50 USDC released.",
+        timestamp: -28900000,
       },
     ],
   },
