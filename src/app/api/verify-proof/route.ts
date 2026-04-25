@@ -101,9 +101,6 @@ export async function POST(req: NextRequest) {
     result = verifyProofStub(task.description, proofImages[0]);
   }
 
-  if (demoMode && useRealVerification) {
-    result = { ...result, verdict: "flag" as const, confidence: 0.72 };
-  }
 
   // Append claimant verification level and trust score to reasoning
   if (task.claimant) {

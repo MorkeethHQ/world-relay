@@ -435,7 +435,7 @@ function ChatBubble({
     ? agent
       ? agent.name
       : msg.sender === "relay-bot"
-      ? "RELAY AI"
+      ? "RELAY Bot"
       : msg.sender.replace("agent_", "").replace(/^\w/, (c) => c.toUpperCase())
     : "Runner";
   const agentIcon = isSystem ? (agent ? agent.icon : "\u{1F916}") : null;
