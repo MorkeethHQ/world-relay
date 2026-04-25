@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
 
   // Fire-and-forget AI scout briefing (with agent personality if available)
   generateLocationBriefing(task, agentId || undefined).then(briefing => {
-    if (briefing) addMessage(task.id, "relay-bot", "🗺️ AI SCOUT BRIEFING\n━━━━━━━━━━━━━━━━━━\n" + briefing + "\n\nThis briefing was auto-generated for potential claimants.");
+    if (briefing) addMessage(task.id, "relay-bot", briefing);
   }).catch(console.error);
 
   broadcastEvent("task:created", {

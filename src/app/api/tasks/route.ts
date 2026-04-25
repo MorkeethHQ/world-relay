@@ -5,23 +5,8 @@ import { addMessage } from "@/lib/messages";
 import { postTaskCreated } from "@/lib/xmtp";
 import { broadcastEvent } from "@/lib/sse";
 
-let autoSeedTriggered = false;
-
 export async function GET() {
   const tasks = await listTasks();
-  if (tasks.length === 0 && !autoSeedTriggered) {
-    autoSeedTriggered = true;
-    try {
-      const origin = process.env.VERCEL_URL
-        ? `https://${process.env.VERCEL_URL}`
-        : "http://localhost:3000";
-      await fetch(`${origin}/api/seed`, { method: "POST" });
-      const seeded = await listTasks();
-      return NextResponse.json({ tasks: seeded });
-    } catch {
-      return NextResponse.json({ tasks: [] });
-    }
-  }
   return NextResponse.json({ tasks });
 }
 
@@ -51,7 +36,7 @@ export async function POST(req: NextRequest) {
 
   // Fire-and-forget AI scout briefing (with agent personality if available)
   generateLocationBriefing(task, task.agent?.id || undefined).then(briefing => {
-    if (briefing) addMessage(task.id, "relay-bot", "🗺️ SCOUT BRIEFING\n━━━━━━━━━━━━━━━━━━\n" + briefing);
+    if (briefing) addMessage(task.id, "relay-bot", briefing);
   }).catch(console.error);
 
   broadcastEvent("task:created", {

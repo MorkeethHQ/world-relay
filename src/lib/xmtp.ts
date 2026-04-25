@@ -208,41 +208,18 @@ export async function getThread(taskId: string): Promise<XmtpThreadInfo | undefi
 }
 
 export async function postTaskCreated(task: Task): Promise<void> {
-  const agentLine = task.agent ? `🤖 ${task.agent.name}: "${task.agent.id}"` : `👤 Posted by ${task.poster.startsWith("0x") ? `${task.poster.slice(0, 6)}...${task.poster.slice(-4)}` : task.poster}`;
-  await addMessage(task.id, "relay-bot", [
-    `📋 NEW TASK POSTED`,
-    `━━━━━━━━━━━━━━━━━━`,
-    `"${task.description}"`,
-    `📍 ${task.location}`,
-    `💰 $${task.bountyUsdc} USDC`,
-    agentLine,
-    ``,
-    `Waiting for a verified human to claim this task.`,
-  ].join("\n"));
+  const who = task.agent ? task.agent.name : (task.poster.startsWith("0x") ? `${task.poster.slice(0, 6)}...${task.poster.slice(-4)}` : task.poster);
+  await addMessage(task.id, "relay-bot", `New task posted by ${who}\n${task.description}\n📍 ${task.location} · $${task.bountyUsdc} USDC`);
 }
 
 export async function postClaimNotification(task: Task, claimantAddress: string): Promise<void> {
   await createTaskThread(task, claimantAddress);
-  await postToThread(task.id, [
-    `📋 TASK CLAIMED`,
-    `━━━━━━━━━━━━━━━━━━`,
-    `"${task.description}"`,
-    `📍 ${task.location}`,
-    `💰 $${task.bountyUsdc} USDC bounty`,
-    `👤 Claimed by ${claimantAddress.startsWith("0x") ? `${claimantAddress.slice(0, 6)}...${claimantAddress.slice(-4)}` : claimantAddress}`,
-    ``,
-    `Next step: Submit a proof photo showing task completion.`,
-    `Both sides verified human via World ID.`,
-  ].join("\n"));
+  const short = claimantAddress.startsWith("0x") ? `${claimantAddress.slice(0, 6)}...${claimantAddress.slice(-4)}` : claimantAddress;
+  await postToThread(task.id, `Claimed by ${short}\n${task.description}\n📍 ${task.location} · $${task.bountyUsdc} USDC\n\nSubmit a proof photo when ready.`);
 }
 
 export async function postProofSubmitted(taskId: string, proofNote?: string | null): Promise<void> {
-  await postToThread(taskId, [
-    `📸 PROOF SUBMITTED`,
-    `━━━━━━━━━━━━━━━━━━`,
-    ...(proofNote ? [`Note: "${proofNote}"`] : []),
-    `Verification in progress...`,
-  ].join("\n"));
+  await postToThread(taskId, `Proof submitted${proofNote ? `: "${proofNote}"` : ""}\nVerifying...`);
 }
 
 export async function postVerificationResult(
@@ -252,36 +229,13 @@ export async function postVerificationResult(
   bountyUsdc: number,
   confidence?: number
 ): Promise<void> {
+  const pct = confidence ? ` (${Math.round(confidence * 100)}%)` : "";
   if (verdict === "pass") {
-    await postToThread(taskId, [
-      `✅ VERIFIED — APPROVED`,
-      `━━━━━━━━━━━━━━━━━━`,
-      `Reasoning: ${reasoning}`,
-      ...(confidence ? [`Confidence: ${Math.round(confidence * 100)}%`] : []),
-      ``,
-      `💸 PAYMENT RELEASING`,
-      `$${bountyUsdc} USDC → runner`,
-      `Payment on World Chain.`,
-    ].join("\n"));
+    await postToThread(taskId, `✅ Verified${pct}\n${reasoning}\n\n$${bountyUsdc} USDC releasing to runner.`);
   } else if (verdict === "flag") {
-    await postToThread(taskId, [
-      `⚠️ FLAGGED — NEEDS HUMAN REVIEW`,
-      `━━━━━━━━━━━━━━━━━━`,
-      `Reasoning: ${reasoning}`,
-      ...(confidence ? [`Confidence: ${Math.round(confidence * 100)}%`] : []),
-      ``,
-      `Poster: approve or reject this proof.`,
-      `$${bountyUsdc} USDC held until resolved.`,
-    ].join("\n"));
+    await postToThread(taskId, `⚠️ Flagged for review${pct}\n${reasoning}\n\n$${bountyUsdc} held until resolved.`);
   } else {
-    await postToThread(taskId, [
-      `❌ REJECTED — PROOF INSUFFICIENT`,
-      `━━━━━━━━━━━━━━━━━━`,
-      `Reasoning: ${reasoning}`,
-      ``,
-      `Task reopened for new claims.`,
-      `$${bountyUsdc} USDC returned to poster.`,
-    ].join("\n"));
+    await postToThread(taskId, `❌ Rejected\n${reasoning}\n\nTask reopened. $${bountyUsdc} USDC returned.`);
   }
 }
 
@@ -290,37 +244,15 @@ export async function postSettlementConfirmation(
   bountyUsdc: number,
   txHash?: string
 ): Promise<void> {
-  await postToThread(taskId, [
-    `🔗 PAYMENT CONFIRMED`,
-    `━━━━━━━━━━━━━━━━━━`,
-    `$${bountyUsdc} USDC released on World Chain`,
-    ...(txHash ? [`Tx: ${txHash}`] : []),
-    ``,
-    `Task complete. Both parties verified human via World ID.`,
-    `Proof verified by AI. Payment on-chain. Chat via XMTP.`,
-  ].join("\n"));
+  await postToThread(taskId, `Payment confirmed — $${bountyUsdc} USDC released on World Chain${txHash ? `\nTx: ${txHash}` : ""}`);
 }
 
 export async function postClaimBriefing(taskId: string, briefing: string): Promise<void> {
-  await postToThread(taskId, [
-    `📝 BRIEFING`,
-    `━━━━━━━━━━━━━━━━━━`,
-    briefing,
-    ``,
-    `Submit your proof photo when ready. Good luck!`,
-  ].join("\n"));
+  await postToThread(taskId, `${briefing}\n\nSubmit your proof photo when ready.`);
 }
 
 export async function postFollowUpQuestion(taskId: string, question: string, confidence: number): Promise<void> {
-  await postToThread(taskId, [
-    `🔍 FOLLOW-UP`,
-    `━━━━━━━━━━━━━━━━━━`,
-    `Confidence: ${Math.round(confidence * 100)}% — not enough to auto-verify.`,
-    ``,
-    question,
-    ``,
-    `Reply in this thread, then tap "Re-evaluate" for a new verdict.`,
-  ].join("\n"));
+  await postToThread(taskId, `Confidence ${Math.round(confidence * 100)}% — need more info.\n\n${question}\n\nReply here, then tap "Re-evaluate".`);
 }
 
 export async function postReEvaluationResult(
@@ -331,23 +263,13 @@ export async function postReEvaluationResult(
   confidence?: number
 ): Promise<void> {
   const icon = verdict === "pass" ? "✅" : verdict === "flag" ? "⚠️" : "❌";
-  const label = verdict === "pass" ? "VERIFIED (after follow-up)" : verdict === "flag" ? "STILL FLAGGED" : "REJECTED (after follow-up)";
-  await postToThread(taskId, [
-    `${icon} RE-EVALUATION: ${label}`,
-    `━━━━━━━━━━━━━━━━━━`,
-    `Reasoning: ${reasoning}`,
-    ...(confidence ? [`Confidence: ${Math.round(confidence * 100)}%`] : []),
-    ``,
-    ...(verdict === "pass" ? [
-      `💸 PAYMENT RELEASING`,
-      `$${bountyUsdc} USDC → runner`,
-      `Payment on World Chain.`,
-    ] : verdict === "flag" ? [
-      `Poster: approve or reject this proof manually.`,
-    ] : [
-      `Task reopened for new claims.`,
-    ]),
-  ].join("\n"));
+  const label = verdict === "pass" ? "Verified after follow-up" : verdict === "flag" ? "Still flagged" : "Rejected after follow-up";
+  const pct = confidence ? ` (${Math.round(confidence * 100)}%)` : "";
+  await postToThread(taskId, `${icon} ${label}${pct}\n${reasoning}${
+    verdict === "pass" ? `\n\n$${bountyUsdc} USDC → runner. Payment releasing.` :
+    verdict === "flag" ? `\n\nApprove or reject this proof manually.` :
+    `\n\nTask reopened. $${bountyUsdc} USDC returned.`
+  }`);
 }
 
 export async function postDisputeVerdict(
@@ -357,20 +279,11 @@ export async function postDisputeVerdict(
   bountyUsdc: number,
   confidence: number
 ): Promise<void> {
-  await postToThread(taskId, [
-    `⚖️ AI DISPUTE RESOLUTION`,
-    `━━━━━━━━━━━━━━━━━━`,
-    `After reviewing all evidence and conversation:`,
-    ``,
-    `Reasoning: ${reasoning}`,
-    `Confidence: ${Math.round(confidence * 100)}%`,
-    ``,
-    approved
-      ? `✅ VERDICT: APPROVED\n$${bountyUsdc} USDC → runner. Payment released.`
-      : `❌ VERDICT: REJECTED\nTask reopened. $${bountyUsdc} USDC returned to poster.`,
-    ``,
-    `This verdict was rendered by AI after analyzing the proof photo, initial verification, and the full XMTP thread.`,
-  ].join("\n"));
+  const pct = Math.round(confidence * 100);
+  await postToThread(taskId, approved
+    ? `✅ Dispute resolved — approved (${pct}%)\n${reasoning}\n\n$${bountyUsdc} USDC → runner.`
+    : `❌ Dispute resolved — rejected (${pct}%)\n${reasoning}\n\nTask reopened. $${bountyUsdc} USDC returned.`
+  );
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

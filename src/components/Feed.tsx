@@ -1561,47 +1561,46 @@ function PostTask({
       const txPayload = encodeCreateTask(description, parseFloat(bounty), 24);
       if (txPayload) {
         try {
-          const countBefore = await readTaskCount();
+          const countBefore = await readTaskCount().catch(() => 0);
           const txResult = await MiniKit.sendTransaction(txPayload);
-          if (!txResult) {
-            hapticError();
-            alert("Escrow deposit failed. Task not created.");
-            setSubmitting(false);
-            return;
+          if (txResult) {
+            onChainId = countBefore;
+            escrowTxHash = typeof txResult === "object" && txResult !== null && "transactionHash" in txResult
+              ? String((txResult as Record<string, unknown>).transactionHash)
+              : null;
+            if (escrowTxHash) {
+              hapticSuccess();
+              setEscrowSuccess(escrowTxHash);
+            }
           }
-          onChainId = countBefore;
-          escrowTxHash = typeof txResult === "object" && txResult !== null && "transactionHash" in txResult
-            ? String((txResult as Record<string, unknown>).transactionHash)
-            : null;
-          if (escrowTxHash) {
-            hapticSuccess();
-            setEscrowSuccess(escrowTxHash);
-          }
-        } catch (err) {
-          hapticError();
-          alert("Escrow transaction rejected. USDC deposit required to post a task.");
-          setSubmitting(false);
-          return;
+        } catch {
+          // Escrow failed — still create the task without on-chain backing
+          console.warn("[PostTask] Escrow transaction failed, creating task without on-chain escrow");
         }
       }
     }
 
-    await fetch("/api/tasks", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        poster: userId,
-        category,
-        description,
-        location,
-        lat: coords?.lat || null,
-        lng: coords?.lng || null,
-        bountyUsdc: parseFloat(bounty),
-        deadlineHours: 24,
-        onChainId,
-        escrowTxHash,
-      }),
-    });
+    try {
+      await fetch("/api/tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          poster: userId,
+          category,
+          description,
+          location,
+          lat: coords?.lat || null,
+          lng: coords?.lng || null,
+          bountyUsdc: parseFloat(bounty),
+          deadlineHours: 24,
+          onChainId,
+          escrowTxHash,
+        }),
+      });
+      hapticSuccess();
+    } catch {
+      hapticError();
+    }
     onDone();
   };
 
@@ -1745,7 +1744,7 @@ function PostTask({
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
               </svg>
-              <span className="text-[11px] text-green-400 font-medium">USDC escrowed on World Chain</span>
+              <span className="text-[11px] text-green-400 font-medium">Payment deposited on World Chain</span>
               <span className="text-[9px] text-gray-600 bg-white/[0.04] border border-white/[0.06] rounded px-1.5 py-0.5 ml-auto">Powered by World Chain</span>
             </div>
             <div className="flex items-center justify-between mt-1.5">
