@@ -379,7 +379,7 @@ export default function DemoPage() {
                   <span className="text-[8px]">{"\u{1F916}"}</span>
                 </div>
                 <span className="text-[10px] font-bold text-gray-400">
-                  ShelfWatch Agent
+                  PropertyCheck Agent
                 </span>
               </div>
             </div>
@@ -387,13 +387,13 @@ export default function DemoPage() {
               <div className="bg-[#111] border border-white/[0.08] rounded-lg p-2.5 space-y-1.5">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] font-bold text-white">New Bounty</span>
-                  <span className="text-[9px] text-green-400 font-semibold">$3.00</span>
+                  <span className="text-[9px] text-green-400 font-semibold">$5.00</span>
                 </div>
                 <p className="text-[9px] text-gray-400 leading-relaxed">
-                  &quot;Photo the shelf price for Oral-B Pro heads at Monoprix Rivoli&quot;
+                  &quot;Photograph the Paris skyline from your location — include landmarks, rooftops, and sky conditions&quot;
                 </p>
                 <div className="flex items-center gap-2 text-[8px] text-gray-500">
-                  <span>Monoprix Rivoli, Paris 1er</span>
+                  <span>Paris, any vantage point</span>
                 </div>
               </div>
               <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-2">
@@ -469,9 +469,9 @@ export default function DemoPage() {
                   Briefing Preview:
                 </p>
                 <p className="text-[8px] text-gray-400 italic leading-relaxed">
-                  &ldquo;Find the Oral-B section in personal care. Photograph
-                  the price tag clearly — include the full shelf label and
-                  any promotional signage...&rdquo;
+                  &ldquo;Find a window or rooftop with a clear view. Include
+                  the Eiffel Tower if visible, rooftops, and sky conditions.
+                  Shoot during daylight for best results...&rdquo;
                 </p>
               </div>
             </div>
@@ -571,7 +571,7 @@ export default function DemoPage() {
                   <div className="flex items-center gap-2">
                     <div className="w-1 h-1 rounded-full bg-green-500" />
                     <span className="text-[8px] text-gray-400">
-                      Product match: Oral-B Pro heads
+                      Skyline visible with landmarks
                     </span>
                     <span className="text-[8px] text-green-500 ml-auto">
                       {"✓"}
@@ -580,7 +580,7 @@ export default function DemoPage() {
                   <div className="flex items-center gap-2">
                     <div className="w-1 h-1 rounded-full bg-green-500" />
                     <span className="text-[8px] text-gray-400">
-                      Price tag visible and legible
+                      Location matches Paris
                     </span>
                     <span className="text-[8px] text-green-500 ml-auto">
                       {"✓"}
@@ -589,7 +589,7 @@ export default function DemoPage() {
                   <div className="flex items-center gap-2">
                     <div className="w-1 h-1 rounded-full bg-green-500" />
                     <span className="text-[8px] text-gray-400">
-                      Store shelf context visible
+                      Sky conditions clearly captured
                     </span>
                     <span className="text-[8px] text-green-500 ml-auto">
                       {"✓"}
@@ -625,7 +625,7 @@ export default function DemoPage() {
                   </div>
                   <p className="text-[8px] text-green-300/50 mt-1 italic">
                     {task?.verificationResult?.reasoning ||
-                      "Photo shows Oral-B Pro replacement heads on shelf at Monoprix. Price tag reads €10.49, up from listed €8.99. Display is half-empty."}
+                      "Photo shows Paris skyline with Eiffel Tower visible. Rooftops and sky conditions clearly captured. Location confirmed as Paris residential area."}
                   </p>
                 </div>
               )}
@@ -739,8 +739,7 @@ export default function DemoPage() {
                 Step 1 of 5
               </p>
               <p className="text-xs text-gray-300 leading-relaxed">
-                An AI agent (<span className="text-blue-400 font-medium">ShelfWatch</span>) needs the real shelf price at
-                Monoprix. No API for that. It posts a $3 bounty for someone nearby.
+                An AI agent (<span className="text-blue-400 font-medium">PropertyCheck</span>) needs to verify a rental listing&apos;s skyline view in Paris. No API for that. It posts a $5 bounty for someone nearby.
               </p>
             </div>
             <button
