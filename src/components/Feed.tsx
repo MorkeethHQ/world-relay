@@ -619,7 +619,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
       {/* Hero card */}
       {tab === "available" && heroVisible && !mapMode && (
         <div className="px-4 pt-3">
-          <div className="relative bg-gradient-to-br from-white/[0.04] to-white/[0.02] border border-white/[0.08] rounded-2xl p-4 sm:p-5">
+          <div className="relative bg-[#111] border border-white/[0.08] rounded-2xl p-4 sm:p-5">
             <button
               onClick={() => setHeroVisible(false)}
               className="absolute top-3 right-3 w-7 h-7 flex items-center justify-center rounded-full text-gray-600 hover:text-gray-400 hover:bg-white/5 transition-colors"
@@ -627,7 +627,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
             <div className="flex items-start gap-3 mb-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-white/10 flex items-center justify-center shrink-0">
+              <div className="w-10 h-10 rounded-xl bg-white/[0.06] border border-white/10 flex items-center justify-center shrink-0">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M12 2L2 7l10 5 10-5-10-5z" /><path d="M2 17l10 5 10-5" /><path d="M2 12l10 5 10-5" />
                 </svg>
@@ -678,10 +678,10 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
         {tab === "mine" && (
           <div className="mb-4 flex flex-col gap-3">
             {/* Identity card */}
-            <div className="bg-gradient-to-r from-white/[0.03] to-white/[0.06] border border-white/[0.08] rounded-2xl p-4">
+            <div className="bg-[#111] border border-white/[0.08] rounded-2xl p-4">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-white/10 flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-full bg-white/[0.06] border border-white/10 flex items-center justify-center">
                     <span className="text-sm font-bold text-white">{userId?.slice(-2).toUpperCase()}</span>
                   </div>
                   <div>
@@ -804,7 +804,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
         ) : loading ? (
           <div className="flex flex-col gap-2.5">
             {[0, 1, 2, 3].map((i) => (
-              <div key={i} style={{ animationDelay: `${i * 80}ms` }} className="animate-[fadeIn_0.3s_ease-out_both]">
+              <div key={i}>
                 <SkeletonCard />
               </div>
             ))}
@@ -856,9 +856,9 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
               <div
                 key={task.id}
                 style={{ animationDelay: `${i * 60}ms` }}
-                className={`animate-[slideUp_0.3s_ease-out_both] rounded-2xl overflow-hidden bg-[#111] cursor-pointer active:scale-[0.98] transition-all ${
+                className={`rounded-2xl overflow-hidden bg-[#111] cursor-pointer active:scale-[0.98] transition-all ${
                   task.status === "completed"
-                    ? "border border-green-500/20 shadow-[0_0_12px_rgba(34,197,94,0.06)]"
+                    ? "border border-green-500/20"
                     : "border border-white/[0.06]"
                 }`}
                 onClick={() => { setSelectedTask(task); setView("detail"); }}
@@ -866,7 +866,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
                 {task.proofImageUrl && (
                   <div className="relative">
                     <img src={task.proofImageUrl} alt="Proof" className="w-full h-48 object-cover" loading="lazy" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-[#111] via-transparent to-transparent" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-[#111] to-transparent opacity-60" />
                     <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between">
                       <div className="bg-green-500/20 backdrop-blur-sm border border-green-500/30 rounded-lg px-2.5 py-1 flex items-center gap-1.5">
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -967,7 +967,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
               <div
                 key={task.id}
                 style={{ animationDelay: `${i * 50}ms` }}
-                className={`animate-[slideUp_0.3s_ease-out_both] rounded-2xl transition-shadow duration-500 ${changedTaskIds.has(task.id) ? "animate-[statusFlash_1.5s_ease-out] ring-1 ring-yellow-400/40" : ""}`}
+                className="rounded-2xl"
               >
                 <TaskCard
                   task={task}
@@ -1080,7 +1080,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
 
       {/* Claim transaction success banner */}
       {claimTxSuccess && (
-        <div className="mx-4 mb-2 bg-green-500/8 border border-green-500/15 rounded-xl p-3 flex items-center gap-2.5 animate-[fadeIn_0.3s_ease-out]">
+        <div className="mx-4 mb-2 bg-green-500/8 border border-green-500/15 rounded-xl p-3 flex items-center gap-2.5">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
           </svg>
@@ -1110,7 +1110,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
 
       {/* Claim transaction error banner */}
       {claimTxError && (
-        <div className="mx-4 mb-2 bg-red-500/8 border border-red-500/15 rounded-xl p-3 flex items-center gap-2.5 animate-[fadeIn_0.3s_ease-out]">
+        <div className="mx-4 mb-2 bg-red-500/8 border border-red-500/15 rounded-xl p-3 flex items-center gap-2.5">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" />
           </svg>
@@ -1263,30 +1263,55 @@ function TaskCard({
   return (
     <div
       onClick={onTap}
-      className="rounded-2xl p-4 flex flex-col gap-3 cursor-pointer active:scale-[0.98] transition-all bg-[#111] border border-white/[0.06]"
-      style={isAgentTask && task.agent ? { borderLeftWidth: "3px", borderLeftColor: task.agent.color } : undefined}
+      className="rounded-2xl p-4 flex flex-col gap-2.5 cursor-pointer active:scale-[0.98] transition-all bg-[#111] border border-white/[0.06]"
     >
-      {/* Agent header */}
-      {isAgentTask && task.agent && (
-        <div className="flex flex-col gap-1.5">
+      {/* Agent as main character */}
+      {isAgentTask && task.agent ? (
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="text-base">{task.agent.icon}</span>
-            <span className="text-sm font-bold" style={{ color: task.agent.color }}>{task.agent.name}</span>
-            <span className="text-[9px] font-medium text-gray-400 bg-gray-800 border border-white/[0.06] rounded-full px-1.5 py-0.5 leading-none">AI</span>
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center text-lg border" style={{ backgroundColor: `${task.agent.color}15`, borderColor: `${task.agent.color}30` }}>
+              {task.agent.icon}
+            </div>
+            <div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-sm font-bold" style={{ color: task.agent.color }}>{task.agent.name}</span>
+                <span className="text-[8px] font-medium text-gray-500 bg-white/[0.04] border border-white/[0.06] rounded px-1 py-px">AGENT</span>
+              </div>
+              <p className="text-[10px] text-gray-500">{getAgentReason(task.agent.id)}</p>
+            </div>
           </div>
-          {task.agent.personality && (
-            <p className="text-[11px] text-gray-500 italic leading-snug">{task.agent.personality}</p>
+          {task.taskType === "double-or-nothing" ? (
+            <div className="text-right">
+              <p className="font-bold text-amber-400 text-sm">${task.bountyUsdc * 2}</p>
+              <p className="text-[8px] text-amber-500/60">2x payout</p>
+            </div>
+          ) : (
+            <div className="text-right">
+              <p className="font-bold text-green-400 text-sm">${task.bountyUsdc}</p>
+              <p className="text-[8px] text-green-500/60">payout</p>
+            </div>
           )}
-          <p className="text-[11px] text-gray-400 leading-snug">{getAgentReason(task.agent.id)}</p>
+        </div>
+      ) : (
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] text-gray-500">Community request</span>
+          {task.taskType === "double-or-nothing" ? (
+            <div className="text-right">
+              <p className="font-bold text-amber-400 text-sm">${task.bountyUsdc * 2}</p>
+              <p className="text-[8px] text-amber-500/60">2x payout</p>
+            </div>
+          ) : (
+            <div className="text-right">
+              <p className="font-bold text-green-400 text-sm">${task.bountyUsdc}</p>
+              <p className="text-[8px] text-green-500/60">payout</p>
+            </div>
+          )}
         </div>
       )}
 
       <div className="flex justify-between items-start gap-3">
         <div className="flex-1 min-w-0">
-          <div className="flex items-start gap-1.5">
-            <span className="text-sm shrink-0 mt-0.5">{CATEGORY_ICONS[task.category] || "✏️"}</span>
-            <p className="font-medium text-[15px] leading-snug break-words min-w-0">{task.description}</p>
-          </div>
+          <p className="text-[13px] leading-snug break-words text-gray-200">{task.description}</p>
           <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
             <svg className="shrink-0" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
@@ -1324,18 +1349,7 @@ function TaskCard({
             </div>
           )}
         </div>
-        <div className="text-right shrink-0 flex flex-col items-end gap-1">
-          {task.taskType === "double-or-nothing" ? (
-            <div className="bg-amber-500/10 border border-amber-500/25 rounded-xl px-3 py-1.5">
-              <p className="font-bold text-amber-400 text-sm leading-none">${task.bountyUsdc * 2}</p>
-              <p className="text-[9px] text-amber-500/60 mt-0.5">2x payout</p>
-            </div>
-          ) : (
-            <div className="bg-green-500/10 border border-green-500/20 rounded-xl px-3 py-1.5">
-              <p className="font-bold text-green-400 text-sm leading-none">${task.bountyUsdc}</p>
-              <p className="text-[9px] text-green-500/60 mt-0.5">payout</p>
-            </div>
-          )}
+        <div className="shrink-0">
           <RequiredTierBadge bountyUsdc={task.bountyUsdc} />
         </div>
       </div>
@@ -1343,22 +1357,10 @@ function TaskCard({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <StatusBadge status={task.status} />
-          {task.agent ? (
-            <AgentBadge agent={task.agent} />
-          ) : (
-            <>
-              {isOwnTask && <span className="text-[10px] text-gray-600">You posted</span>}
-              {isClaimant && task.status === "claimed" && <span className="text-[10px] text-gray-600">You claimed</span>}
-              {task.claimant && task.claimantVerification && (
-                <VerificationBadge level={task.claimantVerification} size="sm" />
-              )}
-              {!task.claimant && (
-                <span className="flex items-center gap-0.5 text-[9px] text-cyan-500/60">
-                  <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
-                  World ID
-                </span>
-              )}
-            </>
+          {isOwnTask && <span className="text-[10px] text-gray-600">You posted</span>}
+          {isClaimant && task.status === "claimed" && <span className="text-[10px] text-gray-600">You claimed</span>}
+          {task.claimant && task.claimantVerification && (
+            <VerificationBadge level={task.claimantVerification} size="sm" />
           )}
           {task.escrowTxHash && (
             <span className="flex items-center gap-0.5 text-[9px] text-green-400 font-bold bg-green-500/10 border border-green-500/20 rounded-full px-1.5 py-0.5">
@@ -1796,7 +1798,7 @@ function PostTask({
           <div className="flex items-center justify-between mb-2">
             <label className="text-[11px] text-gray-500 uppercase tracking-wider font-medium">What do you need?</label>
             {enhanced && (
-              <span className="text-[10px] text-green-400 font-medium animate-[fadeIn_0.2s_ease-out]">
+              <span className="text-[10px] text-green-400 font-medium">
                 Enhanced
               </span>
             )}
@@ -1870,7 +1872,7 @@ function PostTask({
 
       <div className="px-4 pb-8 pt-2">
         {escrowSuccess && (
-          <div className="mb-3 bg-green-500/8 border border-green-500/15 rounded-xl p-3 animate-[fadeIn_0.3s_ease-out]">
+          <div className="mb-3 bg-green-500/8 border border-green-500/15 rounded-xl p-3">
             <div className="flex items-center gap-2">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
@@ -2182,7 +2184,7 @@ function SubmitProof({
             )}
 
             {preCheck && (
-              <div className={`p-3.5 rounded-xl border text-sm animate-[fadeIn_0.3s_ease-out] ${
+              <div className={`p-3.5 rounded-xl border text-sm ${
                 preCheck.likely === "pass"
                   ? "bg-green-500/8 border-green-500/20"
                   : preCheck.likely === "marginal"
@@ -2242,7 +2244,7 @@ function SubmitProof({
 
         {/* Verdict result */}
         {result && (
-          <div className={`p-5 rounded-2xl text-sm border animate-[fadeIn_0.3s_ease-out] ${
+          <div className={`p-5 rounded-2xl text-sm border ${
             result.verdict === "pass" ? "bg-green-500/8 border-green-500/20" :
             result.verdict === "flag" ? "bg-yellow-500/8 border-yellow-500/20" :
             "bg-red-500/8 border-red-500/20"
@@ -2544,7 +2546,7 @@ function TaskDetail({
 
         {/* Transaction success banner */}
         {txSuccess && (
-          <div className="bg-green-500/8 border border-green-500/15 rounded-xl p-3 animate-[fadeIn_0.3s_ease-out]">
+          <div className="bg-green-500/8 border border-green-500/15 rounded-xl p-3">
             <div className="flex items-center gap-2.5">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
@@ -2652,7 +2654,7 @@ function TaskDetail({
               {showProofImage ? "Hide proof photo" : "View proof photo"}
             </button>
             {showProofImage && (
-              <div className="mt-2 rounded-2xl overflow-hidden border border-white/[0.06] animate-[fadeIn_0.2s_ease-out]">
+              <div className="mt-2 rounded-2xl overflow-hidden border border-white/[0.06]">
                 <img src={currentTask.proofImageUrl} alt="Proof" className="w-full max-h-80 object-cover" loading="lazy" />
                 {currentTask.proofNote && (
                   <div className="bg-[#111] px-4 py-2 border-t border-white/[0.06]">
