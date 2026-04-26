@@ -4,6 +4,10 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
 import { MiniKit } from "@worldcoin/minikit-js";
 import type { Task, AgentInfo } from "@/lib/types";
+
+function isMiniKit(): boolean {
+  try { return typeof window !== "undefined" && isMiniKit(); } catch { return false; }
+}
 import { VerificationBadge, RequiredTierBadge } from "@/components/VerificationBadge";
 import { encodeCreateTask, encodeClaimTask, encodeReleasePayment, encodeUniswapSwap, readTaskCount, RELAY_ESCROW_ADDRESS, DOUBLE_OR_NOTHING_ADDRESS, encodeCreateDoubleOrNothing, encodeStakeAndClaimWithApproval, readDonTaskCount, type SwapToken } from "@/lib/contracts";
 import { hapticSuccess, hapticError, hapticTap, hapticHeavy, hapticMedium, hapticSelection, shareTask } from "@/lib/minikit-helpers";
@@ -328,7 +332,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
       .then((data) => setXmtpStatus({ connected: data.connected, inboxId: data.inboxId }))
       .catch(() => setXmtpStatus({ connected: false, inboxId: null }));
 
-    if (MiniKit.isInstalled()) {
+    if (isMiniKit()) {
       setNotificationsEnabled(true);
     }
   }, []);
@@ -988,93 +992,64 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
                     setView("detail");
                   }}
                   onClaim={async () => {
-                    hapticTap();
-                    let claimCode: string | undefined;
-                    if (task.claimCode) {
-                      const code = prompt("This bounty requires an access code:");
-                      if (!code) return;
-                      claimCode = code;
-                    }
+                    try {
+                      hapticTap();
+                      let claimCode: string | undefined;
+                      if (task.claimCode) {
+                        const code = prompt("This bounty requires an access code:");
+                        if (!code) return;
+                        claimCode = code;
+                      }
 
-                    setClaimTxError(null);
-                    setClaimTxSuccess(null);
+                      setClaimTxError(null);
+                      setClaimTxSuccess(null);
 
-                    const attemptClaim = async () => {
-                      // Double-or-Nothing: stake matching USDC via DON contract
-                      if (task.taskType === "double-or-nothing" && MiniKit.isInstalled() && DOUBLE_OR_NOTHING_ADDRESS && task.donOnChainId !== null) {
-                        const txPayload = encodeStakeAndClaimWithApproval(task.donOnChainId, task.bountyUsdc);
-                        if (txPayload) {
-                          try {
+                      try {
+                        if (task.taskType === "double-or-nothing" && isMiniKit() && DOUBLE_OR_NOTHING_ADDRESS && task.donOnChainId !== null) {
+                          const txPayload = encodeStakeAndClaimWithApproval(task.donOnChainId, task.bountyUsdc);
+                          if (txPayload) {
                             const txResult = await MiniKit.sendTransaction(txPayload);
                             if (!txResult) {
-                              hapticError();
-                              setClaimTxError({ message: `Staking $${task.bountyUsdc} USDC failed. Please try again.`, taskId: task.id, retry: attemptClaim });
+                              setClaimTxError({ message: `Staking $${task.bountyUsdc} USDC failed.`, taskId: task.id, retry: () => {} });
                               return;
                             }
-                            const hash = typeof txResult === "object" && txResult !== null && "transactionHash" in txResult
-                              ? String((txResult as Record<string, unknown>).transactionHash)
-                              : null;
-                            if (hash) {
-                              hapticSuccess();
-                              setClaimTxSuccess({ hash, taskId: task.id });
-                              setTimeout(() => setClaimTxSuccess(null), 6000);
-                            }
-                          } catch {
-                            hapticError();
-                            setClaimTxError({ message: "Stake transaction rejected by wallet.", taskId: task.id, retry: attemptClaim });
-                            return;
                           }
-                        }
-                      }
-                      // Standard: claim via escrow contract
-                      else if (MiniKit.isInstalled() && RELAY_ESCROW_ADDRESS && task.onChainId !== null) {
-                        const txPayload = encodeClaimTask(task.onChainId);
-                        if (txPayload) {
-                          try {
+                        } else if (isMiniKit() && RELAY_ESCROW_ADDRESS && task.onChainId !== null) {
+                          const txPayload = encodeClaimTask(task.onChainId);
+                          if (txPayload) {
                             const txResult = await MiniKit.sendTransaction(txPayload);
                             if (!txResult) {
-                              hapticError();
-                              setClaimTxError({ message: "On-chain claim failed. Please try again.", taskId: task.id, retry: attemptClaim });
+                              setClaimTxError({ message: "On-chain claim failed.", taskId: task.id, retry: () => {} });
                               return;
                             }
-                            const hash = typeof txResult === "object" && txResult !== null && "transactionHash" in txResult
-                              ? String((txResult as Record<string, unknown>).transactionHash)
-                              : null;
-                            if (hash) {
-                              hapticSuccess();
-                              setClaimTxSuccess({ hash, taskId: task.id });
-                              setTimeout(() => setClaimTxSuccess(null), 6000);
-                            }
-                          } catch {
-                            hapticError();
-                            setClaimTxError({ message: "Transaction rejected by wallet.", taskId: task.id, retry: attemptClaim });
-                            return;
                           }
                         }
+                      } catch {
+                        // MiniKit not available outside World App — continue with API claim
                       }
+
                       const res = await fetch(`/api/tasks/${task.id}/claim`, {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify({ claimant: userId, claimCode }),
                       });
                       if (!res.ok) {
-                        const err = await res.json();
+                        const err = await res.json().catch(() => ({}));
                         if (err.requiresCode) {
-                          hapticError();
-                          setClaimTxError({ message: "Wrong access code. Try again.", taskId: task.id, retry: attemptClaim });
+                          setClaimTxError({ message: "Wrong access code. Try again.", taskId: task.id, retry: () => {} });
                           return;
                         }
                         if (err.required) {
-                          hapticError();
                           setUpgradePrompt({ required: err.required, current: err.current });
                           return;
                         }
+                        return;
                       }
                       hapticSuccess();
                       fetchTasks();
-                    };
-
-                    await attemptClaim();
+                    } catch {
+                      // Silently handle any unexpected errors
+                    }
                   }}
                   onSubmitProof={() => {
                     setSelectedTask(task);
@@ -1582,7 +1557,7 @@ function PostTask({
 
     const isDoN = taskType === "double-or-nothing";
 
-    if (MiniKit.isInstalled()) {
+    if (isMiniKit()) {
       if (isDoN && DOUBLE_OR_NOTHING_ADDRESS) {
         const txPayload = encodeCreateDoubleOrNothing(description, parseFloat(bounty), 24);
         if (txPayload) {
@@ -2740,7 +2715,7 @@ function TaskDetail({
         )}
 
         {/* On-chain release -- poster confirms settlement */}
-        {currentTask.status === "completed" && isPoster && MiniKit.isInstalled() && RELAY_ESCROW_ADDRESS && currentTask.onChainId !== null && (
+        {currentTask.status === "completed" && isPoster && isMiniKit() && RELAY_ESCROW_ADDRESS && currentTask.onChainId !== null && (
           <button
             onClick={async () => {
               const txPayload = encodeReleasePayment(currentTask.onChainId!);
@@ -2773,7 +2748,7 @@ function TaskDetail({
         )}
 
         {/* Uniswap swap — claimant can convert received USDC */}
-        {currentTask.status === "completed" && isClaimant && MiniKit.isInstalled() && (
+        {currentTask.status === "completed" && isClaimant && isMiniKit() && (
           <div className="bg-[#111] border border-white/[0.06] rounded-2xl p-4">
             <div className="flex items-center gap-2 mb-3">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f472b6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
