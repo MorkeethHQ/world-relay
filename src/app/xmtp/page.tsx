@@ -49,7 +49,7 @@ export default function XmtpPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       role: "bot",
-      text: "Hey! I'm the RELAY bot. Ask me about tasks, locations, bounties, or how the network works. Try tapping a suggestion below.",
+      text: "Hey! I'm the RELAY FAVOURS bot. Ask me about tasks, locations, bounties, or how the network works. Try tapping a suggestion below.",
       timestamp: Date.now(),
     },
   ]);
@@ -122,7 +122,7 @@ export default function XmtpPage() {
               </svg>
             </div>
             <div>
-              <span className="text-sm font-bold text-white">RELAY Bot</span>
+              <span className="text-sm font-bold text-white">RELAY FAVOURS Bot</span>
               <div className="flex items-center gap-1">
                 {statusConnected === null ? (
                   <span className="w-1.5 h-1.5 rounded-full bg-gray-600 animate-pulse" />
@@ -209,7 +209,7 @@ export default function XmtpPage() {
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask the RELAY bot..."
+            placeholder="Ask the RELAY FAVOURS bot..."
             disabled={sending}
             className="flex-1 bg-white/[0.04] border border-white/[0.08] rounded-lg px-4 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-white/20 disabled:opacity-50"
           />

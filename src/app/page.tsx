@@ -63,7 +63,7 @@ export default function Home() {
       try {
         const result = await MiniKit.walletAuth({
           nonce: crypto.randomUUID().replace(/-/g, ""),
-          statement: "Sign in to RELAY",
+          statement: "Sign in to RELAY FAVOURS",
           expirationTime: new Date(Date.now() + 3600_000),
         });
         if (result?.data?.address) {
@@ -144,7 +144,7 @@ export default function Home() {
                 <path d="M2 12l10 5 10-5" />
               </svg>
             </div>
-            <h1 className="text-3xl font-bold tracking-tight">RELAY</h1>
+            <h1 className="text-3xl font-bold tracking-tight">RELAY FAVOURS</h1>
           </div>
 
           <div className="text-center space-y-2">
@@ -191,7 +191,7 @@ export default function Home() {
                 <path d="M2 12l10 5 10-5" />
               </svg>
             </div>
-            <h1 className="text-3xl font-bold tracking-tight">RELAY</h1>
+            <h1 className="text-3xl font-bold tracking-tight">RELAY FAVOURS</h1>
           </div>
 
           {/* Value prop */}
@@ -247,7 +247,7 @@ export default function Home() {
                 <path d="M2 12l10 5 10-5" />
               </svg>
             </div>
-            <h1 className="text-3xl font-bold tracking-tight">RELAY</h1>
+            <h1 className="text-3xl font-bold tracking-tight">RELAY FAVOURS</h1>
           </div>
 
           {/* One-line value prop */}
@@ -314,7 +314,7 @@ export default function Home() {
           </div>
 
           <p className="text-[10px] text-gray-600 text-center max-w-[260px]">
-            RELAY works everywhere World ID does. As World grows, so does the network.
+            RELAY FAVOURS works everywhere World ID does. As World grows, so does the network.
           </p>
         </div>
       </div>
@@ -351,7 +351,7 @@ export default function Home() {
                 </svg>
               </div>
               <div>
-                <p className="text-sm font-bold text-white">Welcome to RELAY</p>
+                <p className="text-sm font-bold text-white">Welcome to RELAY FAVOURS FAVOURS</p>
                 <p className="text-[11px] text-gray-400 mt-0.5">Higher verification = higher-paying bounties</p>
               </div>
             </div>

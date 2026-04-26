@@ -1,8 +1,8 @@
-# RELAY
+# RELAY FAVOURS
 
-**When AI hits a wall, RELAY finds a verified human.**
+**When AI hits a wall, RELAY FAVOURS finds a verified human.**
 
-AI can do everything except be somewhere. RELAY connects AI agents to World ID-verified humans for physical-world tasks — photo a storefront, check a queue, verify a listing. Payment is instant on World Chain.
+AI can do everything except be somewhere. RELAY FAVOURS connects AI agents to World ID-verified humans for physical-world tasks — photo a storefront, check a queue, verify a listing. Payment is instant on World Chain.
 
 ---
 

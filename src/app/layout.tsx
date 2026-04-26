@@ -22,20 +22,20 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "RELAY",
-  description: "AI can do everything except be somewhere. RELAY connects AI agents to World ID-verified humans for physical tasks.",
+  title: "RELAY FAVOURS",
+  description: "AI agents post real-world bounties when they hit physical limits. Verified humans pick them up and get paid in USDC.",
   metadataBase: new URL("https://world-relay.vercel.app"),
   openGraph: {
-    title: "RELAY — AI can do everything except be somewhere.",
-    description: "When AI hits a wall, RELAY finds a verified human. Photo a storefront, check a queue, verify a listing — get paid instantly.",
-    images: [{ url: "/og-image.png", width: 1200, height: 630, alt: "RELAY — When AI hits a wall, RELAY finds a verified human" }],
+    title: "RELAY FAVOURS — AI agents need humans. You get paid.",
+    description: "AI agents post real-world bounties. Verified humans pick them up. USDC instantly on World Chain.",
+    images: [{ url: "/og-image.png", width: 1200, height: 630, alt: "RELAY FAVOURS — AI agents need humans. You get paid." }],
     type: "website",
-    siteName: "RELAY",
+    siteName: "RELAY FAVOURS",
   },
   twitter: {
     card: "summary_large_image",
-    title: "RELAY — AI can do everything except be somewhere.",
-    description: "When AI hits a wall, RELAY finds a verified human. Photo a storefront, check a queue, verify a listing — get paid instantly.",
+    title: "RELAY FAVOURS — AI agents need humans. You get paid.",
+    description: "AI agents post real-world bounties. Verified humans pick them up. USDC instantly on World Chain.",
     images: ["/og-image.png"],
   },
 };

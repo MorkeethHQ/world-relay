@@ -351,7 +351,7 @@ export default function DemoPage() {
           {!isSystem && (
             <div className="flex items-center gap-2 mb-1">
               <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">
-                {isBot ? "RELAY Bot" : truncAddr(msg.sender)}
+                {isBot ? "RELAY FAVOURS Bot" : truncAddr(msg.sender)}
               </span>
               <span className="text-[9px] text-gray-700">
                 {timeAgo(msg.timestamp)}
@@ -1062,7 +1062,7 @@ export default function DemoPage() {
             Back
           </Link>
           <h1 className="text-sm font-bold tracking-tight">
-            How RELAY Works
+            How RELAY FAVOURS Works
           </h1>
           <div className="w-12" />
         </div>
