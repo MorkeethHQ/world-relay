@@ -1039,9 +1039,9 @@ export default function DemoPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white flex flex-col max-w-lg mx-auto">
+    <div className="h-[100dvh] bg-[#050505] text-white flex flex-col max-w-lg mx-auto overflow-hidden">
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-[#050505]/90 backdrop-blur-xl border-b border-white/5">
+      <div className="shrink-0 bg-[#050505] border-b border-white/5">
         <div className="flex items-center justify-between px-4 py-3">
           <Link
             href="/"
@@ -1066,9 +1066,6 @@ export default function DemoPage() {
           </h1>
           <div className="w-12" />
         </div>
-        <p className="text-[11px] text-gray-500 text-center px-6 -mt-1 mb-1">
-          AI agents post tasks they can&apos;t do remotely. Verified humans complete them. Payment is instant.
-        </p>
 
         {/* Step progress bar */}
         <div className="flex items-center gap-1 px-4 pb-3">
@@ -1106,40 +1103,43 @@ export default function DemoPage() {
         </div>
       </div>
 
-      {/* Step title */}
-      <div className="px-4 pt-4 pb-2 animate-[fadeIn_0.3s_ease-out]">
-        <div className="flex items-center gap-2">
-          <span
-            className="text-[10px] font-bold px-2 py-0.5 rounded-full"
-            style={{
-              backgroundColor: `${STEP_META[step].color}15`,
-              color: STEP_META[step].color,
-            }}
-          >
-            {step}/5
-          </span>
-          <h2 className="text-sm font-bold">{STEP_META[step].title}</h2>
-        </div>
-      </div>
-
-      {/* Visual mockup */}
-      <div className="px-4 py-3">{renderStepVisual()}</div>
-
-      {/* Chat messages (if any) */}
-      {messages.length > 0 && (
-        <div className="px-4 py-2">
-          <p className="text-[10px] uppercase tracking-wider text-gray-600 font-medium mb-2">
-            Task Chat
-          </p>
-          <div className="flex flex-col gap-2 max-h-[200px] overflow-y-auto rounded-xl bg-[#0a0a0a] border border-white/[0.04] p-3">
-            {messages.map(renderMessage)}
-            <div ref={chatEndRef} />
+      {/* Scrollable content area */}
+      <div className="flex-1 overflow-y-auto min-h-0">
+        {/* Step title */}
+        <div className="px-4 pt-3 pb-2 animate-[fadeIn_0.3s_ease-out]">
+          <div className="flex items-center gap-2">
+            <span
+              className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+              style={{
+                backgroundColor: `${STEP_META[step].color}15`,
+                color: STEP_META[step].color,
+              }}
+            >
+              {step}/5
+            </span>
+            <h2 className="text-sm font-bold">{STEP_META[step].title}</h2>
           </div>
         </div>
-      )}
 
-      {/* Bottom action panel */}
-      <div className="mt-auto sticky bottom-0 bg-[#0a0a0a] border-t border-white/5 px-4 py-4">
+        {/* Visual mockup */}
+        <div className="px-4 py-2">{renderStepVisual()}</div>
+
+        {/* Chat messages (if any) */}
+        {messages.length > 0 && (
+          <div className="px-4 py-2">
+            <p className="text-[10px] uppercase tracking-wider text-gray-600 font-medium mb-2">
+              Task Chat
+            </p>
+            <div className="flex flex-col gap-2 max-h-[200px] overflow-y-auto rounded-xl bg-[#0a0a0a] border border-white/[0.04] p-3">
+              {messages.map(renderMessage)}
+              <div ref={chatEndRef} />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Bottom action panel — always visible */}
+      <div className="shrink-0 bg-[#0a0a0a] border-t border-white/5 px-4 py-4">
         {error && (
           <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 mb-3">
             <p className="text-xs text-red-400">{error}</p>

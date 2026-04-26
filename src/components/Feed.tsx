@@ -405,6 +405,9 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
       const aUrgent = aHoursLeft < 4 || a.bountyUsdc >= 15;
       const bUrgent = bHoursLeft < 4 || b.bountyUsdc >= 15;
       if (aUrgent !== bUrgent) return aUrgent ? -1 : 1;
+      const aFunded = !!a.escrowTxHash;
+      const bFunded = !!b.escrowTxHash;
+      if (aFunded !== bFunded) return aFunded ? -1 : 1;
       if (userLocation && a.lat && a.lng && b.lat && b.lng) {
         return haversineKm(userLocation.lat, userLocation.lng, a.lat, a.lng)
              - haversineKm(userLocation.lat, userLocation.lng, b.lat, b.lng);
@@ -650,6 +653,16 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
                 {new Set(tasks.map(t => t.location.split(",").pop()?.trim()).filter(Boolean)).size} cities
               </span>
             </div>
+            <a
+              href="/xmtp"
+              className="mt-2 flex items-center gap-2 bg-blue-500/8 border border-blue-500/15 rounded-xl px-3 py-2 hover:bg-blue-500/12 transition-all active:scale-[0.98]"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+              </svg>
+              <span className="text-[11px] text-blue-400 font-medium">DM the RELAY bot</span>
+              <span className="text-[9px] text-gray-600 font-mono ml-auto">via XMTP</span>
+            </a>
           </div>
         </div>
       )}
@@ -1387,6 +1400,16 @@ function TaskCard({
                 </span>
               )}
             </>
+          )}
+          {task.escrowTxHash && (
+            <span className="flex items-center gap-0.5 text-[9px] text-green-400 font-bold bg-green-500/10 border border-green-500/20 rounded-full px-1.5 py-0.5">
+              &#x26d3; On-chain
+            </span>
+          )}
+          {isUrgent && (
+            <span className="flex items-center gap-0.5 text-[9px] text-red-400 font-bold bg-red-500/10 border border-red-500/20 rounded-full px-1.5 py-0.5">
+              &#x26a1; Urgent
+            </span>
           )}
           {task.taskType === "double-or-nothing" && (
             <span className="flex items-center gap-0.5 text-[9px] text-amber-400 font-bold bg-amber-500/10 border border-amber-500/20 rounded-full px-1.5 py-0.5">
