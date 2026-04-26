@@ -2,12 +2,6 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import {
-  TopBar as WorldTopBar,
-  Typography as WorldTypography,
-  Progress as WorldProgress,
-  Spinner as WorldSpinner,
-} from "@worldcoin/mini-apps-ui-kit-react";
 import type { Task } from "@/lib/types";
 
 const ESCROW_ADDRESS = "0xc976e463bD209E09cb15a168A275890b872AA1F0";
@@ -79,6 +73,17 @@ function RankBadge({ rank }: { rank: number }) {
   );
 }
 
+function ProgressBar({ value, color }: { value: number; color: string }) {
+  return (
+    <div className="h-2 bg-white/[0.06] rounded-full overflow-hidden">
+      <div
+        className="h-full rounded-full transition-all duration-500"
+        style={{ width: `${Math.min(100, Math.max(0, value))}%`, backgroundColor: color }}
+      />
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
@@ -111,7 +116,6 @@ export default function DashboardPage() {
 
   const agentStats = computeAgentStats(tasks);
 
-  // Network-wide stats
   const totalTasks = tasks.length;
   const openTasks = tasks.filter(t => t.status === "open").length;
   const completedTasks = tasks.filter(t => t.status === "completed").length;
@@ -124,7 +128,6 @@ export default function DashboardPage() {
   const cityCount = cities.size;
   const onChainCount = tasks.filter(t => t.onChainId !== null && t.onChainId !== undefined).length;
 
-  // World ID verification breakdown: count unique claimants by verification level
   const claimantVerificationMap = new Map<string, string>();
   for (const t of tasks) {
     if (t.claimant && !claimantVerificationMap.has(t.claimant)) {
@@ -136,7 +139,6 @@ export default function DashboardPage() {
   const walletCount = Array.from(claimantVerificationMap.values()).filter(v => v !== "orb" && v !== "device").length;
   const totalVerified = orbCount + deviceCount + walletCount;
 
-  // City breakdown: group tasks by city with completion rates
   const cityBreakdown = (() => {
     const cityMap = new Map<string, { total: number; completed: number; bounty: number }>();
     for (const t of tasks) {
@@ -159,7 +161,6 @@ export default function DashboardPage() {
       .sort((a, b) => b.total - a.total);
   })();
 
-  // Bounty economics
   const totalPostedUsdc = totalBounty;
   const totalPaidUsdc = settledUsdc;
   const avgBounty = totalTasks > 0 ? totalBounty / totalTasks : 0;
@@ -169,10 +170,9 @@ export default function DashboardPage() {
       .filter(t => t.createdAt)
       .map(t => {
         const created = new Date(t.createdAt).getTime();
-        // Use completedAt if available, otherwise estimate from deadline
         const completed = (t as Record<string, unknown>).completedAt
           ? new Date((t as Record<string, unknown>).completedAt as string).getTime()
-          : new Date(t.deadline).getTime() - 3600_000; // estimate: 1 hour before deadline
+          : new Date(t.deadline).getTime() - 3600_000;
         return Math.max(0, completed - created);
       });
     if (timeDiffs.length === 0) return 0;
@@ -188,12 +188,10 @@ export default function DashboardPage() {
     return `${mins}m`;
   }
 
-  // Escrow status: USDC locked in claimed-but-not-completed tasks
   const escrowLocked = tasks
     .filter(t => t.status === "claimed")
     .reduce((s, t) => s + t.bountyUsdc, 0);
 
-  // Leaderboard sorted by totalPosted desc
   const leaderboard = [...agentStats].sort((a, b) => {
     if (b.totalPosted !== a.totalPosted) return b.totalPosted - a.totalPosted;
     if (b.verificationPassRate !== a.verificationPassRate) return b.verificationPassRate - a.verificationPassRate;
@@ -202,43 +200,36 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-[#050505] text-white max-w-lg mx-auto">
-      {/* World TopBar */}
+      {/* TopBar */}
       <div className="sticky top-0 z-10 bg-[#050505]/90 backdrop-blur-xl border-b border-white/5">
-        <WorldTopBar
-          title="Network Stats"
-          startAdornment={
-            <Link href="/" className="flex items-center gap-1 text-sm text-gray-400 hover:text-white transition-colors">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="15 18 9 12 15 6" />
-              </svg>
-            </Link>
-          }
-          className="!bg-transparent !text-white [&_p]:!text-white"
-        />
+        <div className="flex items-center justify-between px-4 py-3">
+          <Link href="/" className="flex items-center gap-1 text-sm text-gray-400 hover:text-white transition-colors">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="15 18 9 12 15 6" />
+            </svg>
+          </Link>
+          <span className="text-sm font-bold">Network Stats</span>
+          <div className="w-8" />
+        </div>
       </div>
 
       {loading ? (
         <div className="flex flex-col items-center justify-center py-20 gap-4">
-          <WorldSpinner className="!text-white" />
-          <WorldTypography variant="body" level={3} className="!text-gray-500">
-            Loading network data...
-          </WorldTypography>
+          <div className="w-6 h-6 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+          <p className="text-sm text-gray-500">Loading network data...</p>
         </div>
       ) : (
         <>
           {/* Live Network Stats */}
           <div className="px-4 pt-4 pb-2">
             <div className="relative overflow-hidden rounded-2xl border border-white/[0.06]">
-              {/* Gradient background with subtle shimmer */}
               <div className="absolute inset-0 bg-gradient-to-br from-blue-500/10 via-purple-500/5 to-emerald-500/8" />
               <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(59,130,246,0.08),transparent_50%)]" />
 
               <div className="relative p-4">
                 <div className="flex items-center gap-2 mb-4">
                   <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse shadow-[0_0_6px_rgba(74,222,128,0.5)]" />
-                  <WorldTypography variant="label" level={2} as="span" className="!text-gray-400 !text-[10px] uppercase tracking-wider">
-                    Live Network
-                  </WorldTypography>
+                  <span className="text-gray-400 text-[10px] uppercase tracking-wider">Live Network</span>
                 </div>
 
                 <div className="grid grid-cols-4 gap-1.5 sm:gap-3 text-center">
@@ -250,21 +241,15 @@ export default function DashboardPage() {
 
                 <div className="mt-3 pt-3 border-t border-white/[0.06] grid grid-cols-3 gap-2 text-center">
                   <div>
-                    <WorldTypography variant="number" level={5} as="span" className="!text-green-400 !font-bold">
-                      ${totalBounty.toFixed(0)}
-                    </WorldTypography>
+                    <span className="text-green-400 font-bold">${totalBounty.toFixed(0)}</span>
                     <p className="text-[9px] text-gray-600 mt-0.5">Available</p>
                   </div>
                   <div>
-                    <WorldTypography variant="number" level={5} as="span" className="!text-emerald-400 !font-bold">
-                      ${settledUsdc.toFixed(0)}
-                    </WorldTypography>
+                    <span className="text-emerald-400 font-bold">${settledUsdc.toFixed(0)}</span>
                     <p className="text-[9px] text-gray-600 mt-0.5">Paid Out</p>
                   </div>
                   <div>
-                    <WorldTypography variant="number" level={5} as="span" className="!text-orange-400 !font-bold">
-                      {cityCount}
-                    </WorldTypography>
+                    <span className="text-orange-400 font-bold">{cityCount}</span>
                     <p className="text-[9px] text-gray-600 mt-0.5">{cityCount === 1 ? "City" : "Cities"}</p>
                   </div>
                 </div>
@@ -286,9 +271,7 @@ export default function DashboardPage() {
                         <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" fill="currentColor" opacity="0.6" />
                         <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
                       </svg>
-                      <WorldTypography variant="label" level={2} as="span" className="!text-gray-400 !text-[10px] uppercase tracking-wider">
-                        Network Insight
-                      </WorldTypography>
+                      <span className="text-gray-400 text-[10px] uppercase tracking-wider">Network Insight</span>
                     </div>
                     <button
                       onClick={() => fetchInsight(true)}
@@ -315,7 +298,7 @@ export default function DashboardPage() {
 
                   {insightLoading && !insight ? (
                     <div className="flex items-center justify-center py-6 gap-3">
-                      <WorldSpinner className="!text-purple-400 !w-4 !h-4" />
+                      <div className="w-4 h-4 border-2 border-purple-400/20 border-t-purple-400 rounded-full animate-spin" />
                       <span className="text-xs text-gray-500">Analyzing network...</span>
                     </div>
                   ) : insight ? (
@@ -347,9 +330,7 @@ export default function DashboardPage() {
               <div className="relative">
                 <div className="flex items-center gap-2 mb-3">
                   <div className="w-1.5 h-1.5 rounded-full bg-blue-400" />
-                  <WorldTypography variant="label" level={2} as="span" className="!text-gray-400 !text-[10px] uppercase tracking-wider">
-                    Payment Contract
-                  </WorldTypography>
+                  <span className="text-gray-400 text-[10px] uppercase tracking-wider">Payment Contract</span>
                 </div>
 
                 <div className="flex items-center justify-between mb-3">
@@ -360,18 +341,14 @@ export default function DashboardPage() {
                       </svg>
                     </div>
                     <div>
-                      <WorldTypography variant="subtitle" level={3} as="span" className="!text-white !font-semibold">
-                        Payment Contract
-                      </WorldTypography>
+                      <span className="text-white font-semibold text-sm">Payment Contract</span>
                       <p className="text-[10px] text-gray-600 font-mono mt-0.5">
                         {ESCROW_ADDRESS.slice(0, 6)}...{ESCROW_ADDRESS.slice(-4)}
                       </p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <WorldTypography variant="number" level={4} as="span" className="!text-blue-400">
-                      {onChainCount}
-                    </WorldTypography>
+                    <span className="text-lg font-bold text-blue-400">{onChainCount}</span>
                     <p className="text-[8px] text-gray-600">Tasks funded</p>
                   </div>
                 </div>
@@ -400,20 +377,15 @@ export default function DashboardPage() {
               <div className="relative">
                 <div className="flex items-center gap-2 mb-3">
                   <div className="w-1.5 h-1.5 rounded-full bg-[#22c55e]" />
-                  <WorldTypography variant="label" level={2} as="span" className="!text-gray-400 !text-[10px] uppercase tracking-wider">
-                    World ID Verification
-                  </WorldTypography>
+                  <span className="text-gray-400 text-[10px] uppercase tracking-wider">World ID Verification</span>
                 </div>
 
                 {totalVerified === 0 ? (
                   <div className="text-center py-6">
-                    <WorldTypography variant="body" level={3} className="!text-gray-500">
-                      No verified runners yet
-                    </WorldTypography>
+                    <p className="text-sm text-gray-500">No verified runners yet</p>
                   </div>
                 ) : (
                   <>
-                    {/* Counts */}
                     <div className="grid grid-cols-3 gap-2 mb-4">
                       <div className="bg-[#22c55e]/8 border border-[#22c55e]/15 rounded-xl p-3 text-center">
                         <p className="text-lg font-bold text-[#22c55e]">{orbCount}</p>
@@ -429,7 +401,6 @@ export default function DashboardPage() {
                       </div>
                     </div>
 
-                    {/* Stacked progress bar */}
                     <div>
                       <div className="flex items-center justify-between mb-1.5">
                         <span className="text-[10px] text-gray-500">Verification distribution</span>
@@ -458,7 +429,6 @@ export default function DashboardPage() {
                           />
                         )}
                       </div>
-                      {/* Legend */}
                       <div className="flex items-center gap-3 mt-2 flex-wrap">
                         <div className="flex items-center gap-1">
                           <div className="w-2 h-2 rounded-full bg-[#22c55e]" />
@@ -487,9 +457,7 @@ export default function DashboardPage() {
               <div className="relative">
                 <div className="flex items-center gap-2 mb-3">
                   <div className="w-1.5 h-1.5 rounded-full bg-purple-400" />
-                  <WorldTypography variant="label" level={2} as="span" className="!text-gray-400 !text-[10px] uppercase tracking-wider">
-                    City Breakdown
-                  </WorldTypography>
+                  <span className="text-gray-400 text-[10px] uppercase tracking-wider">City Breakdown</span>
                 </div>
 
                 {cityBreakdown.length === 0 ? (
@@ -553,18 +521,14 @@ export default function DashboardPage() {
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
                     <div className="w-1.5 h-1.5 rounded-full bg-yellow-400" />
-                    <WorldTypography variant="label" level={2} as="span" className="!text-gray-400 !text-[10px] uppercase tracking-wider">
-                      Agent Leaderboard
-                    </WorldTypography>
+                    <span className="text-gray-400 text-[10px] uppercase tracking-wider">Agent Leaderboard</span>
                   </div>
                   <span className="text-[10px] text-gray-600 font-mono">{leaderboard.length} agents</span>
                 </div>
 
                 {leaderboard.length === 0 ? (
                   <div className="text-center py-8">
-                    <WorldTypography variant="body" level={3} className="!text-gray-500">
-                      No agent tasks yet
-                    </WorldTypography>
+                    <p className="text-sm text-gray-500">No agent tasks yet</p>
                   </div>
                 ) : (
                   <div className="flex flex-col gap-1.5">
@@ -582,12 +546,10 @@ export default function DashboardPage() {
                             : "bg-white/[0.02] border border-white/[0.03] hover:bg-white/[0.04]"
                         }`}
                       >
-                        {/* Rank */}
                         <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0">
                           <RankBadge rank={i + 1} />
                         </div>
 
-                        {/* Agent icon + name */}
                         <div
                           className="w-9 h-9 rounded-xl flex items-center justify-center text-base shrink-0 border"
                           style={{
@@ -599,9 +561,9 @@ export default function DashboardPage() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1.5">
-                            <WorldTypography variant="subtitle" level={3} as="span" className="!font-bold truncate" style={{ color: agent.color }}>
+                            <span className="font-bold truncate" style={{ color: agent.color }}>
                               {agent.name}
-                            </WorldTypography>
+                            </span>
                           </div>
                           <div className="flex items-center gap-2 mt-0.5">
                             <span className="text-[9px] text-gray-500">{agent.totalPosted} tasks</span>
@@ -616,11 +578,8 @@ export default function DashboardPage() {
                           </div>
                         </div>
 
-                        {/* Amount */}
                         <div className="text-right shrink-0">
-                          <WorldTypography variant="number" level={5} as="span" className="!text-green-400">
-                            ${agent.totalBounty}
-                          </WorldTypography>
+                          <span className="text-green-400 font-bold">${agent.totalBounty}</span>
                           <p className="text-[8px] text-gray-600">posted</p>
                         </div>
                       </div>
@@ -635,16 +594,12 @@ export default function DashboardPage() {
           <div className="px-4 pb-8 flex flex-col gap-3">
             <div className="flex items-center gap-2 mt-2">
               <div className="w-1.5 h-1.5 rounded-full bg-purple-400" />
-              <WorldTypography variant="label" level={2} as="span" className="!text-gray-400 !text-[10px] uppercase tracking-wider">
-                Agent Details
-              </WorldTypography>
+              <span className="text-gray-400 text-[10px] uppercase tracking-wider">Agent Details</span>
             </div>
 
             {agentStats.length === 0 ? (
               <div className="text-center py-16">
-                <WorldTypography variant="body" level={3} className="!text-gray-500">
-                  No agent tasks yet
-                </WorldTypography>
+                <p className="text-sm text-gray-500">No agent tasks yet</p>
               </div>
             ) : (
               agentStats.map((agent, i) => (
@@ -653,14 +608,12 @@ export default function DashboardPage() {
                   style={{ animationDelay: `${i * 60}ms` }}
                   className="animate-[slideUp_0.3s_ease-out_both] relative overflow-hidden rounded-2xl border border-white/[0.06] bg-[#0a0a0a]"
                 >
-                  {/* Subtle color glow */}
                   <div
                     className="absolute top-0 right-0 w-40 h-40 rounded-full blur-3xl -mr-20 -mt-20 opacity-[0.07]"
                     style={{ backgroundColor: agent.color }}
                   />
 
                   <div className="relative p-4">
-                    {/* Agent header */}
                     <div className="flex items-center gap-2.5 sm:gap-3 mb-4">
                       <div
                         className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl flex items-center justify-center text-lg sm:text-xl shrink-0 border"
@@ -673,9 +626,9 @@ export default function DashboardPage() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <WorldTypography variant="subtitle" level={2} as="span" className="!font-bold truncate" style={{ color: agent.color }}>
+                          <span className="text-base font-bold truncate" style={{ color: agent.color }}>
                             {agent.name}
-                          </WorldTypography>
+                          </span>
                           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={agent.color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 opacity-60">
                             <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
                           </svg>
@@ -683,14 +636,11 @@ export default function DashboardPage() {
                         <p className="text-[10px] text-gray-500 mt-0.5">{agent.totalPosted} tasks posted</p>
                       </div>
                       <div className="text-right">
-                        <WorldTypography variant="number" level={5} as="span" className="!text-green-400">
-                          ${agent.totalBounty}
-                        </WorldTypography>
+                        <span className="text-green-400 font-bold">${agent.totalBounty}</span>
                         <p className="text-[9px] text-gray-600">total posted</p>
                       </div>
                     </div>
 
-                    {/* Stats grid */}
                     <div className="grid grid-cols-4 gap-1.5 sm:gap-2 mb-4">
                       {[
                         { value: agent.open, label: "Open", color: "text-blue-400" },
@@ -705,7 +655,6 @@ export default function DashboardPage() {
                       ))}
                     </div>
 
-                    {/* Verification pass rate - using World Progress */}
                     {agent.completed > 0 && (
                       <div className="mb-3">
                         <div className="flex items-center justify-between mb-1.5">
@@ -717,17 +666,16 @@ export default function DashboardPage() {
                             {Math.round(agent.verificationPassRate * 100)}%
                           </span>
                         </div>
-                        <WorldProgress
+                        <ProgressBar
                           value={Math.round(agent.verificationPassRate * 100)}
-                          className={`!bg-white/[0.06] ${
-                            agent.verificationPassRate >= 0.8 ? "!text-green-400" :
-                            agent.verificationPassRate >= 0.5 ? "!text-yellow-400" : "!text-red-400"
-                          }`}
+                          color={
+                            agent.verificationPassRate >= 0.8 ? "#4ade80" :
+                            agent.verificationPassRate >= 0.5 ? "#facc15" : "#f87171"
+                          }
                         />
                       </div>
                     )}
 
-                    {/* Confidence bar - using World Progress */}
                     {agent.avgConfidence > 0 && (
                       <div>
                         <div className="flex items-center justify-between mb-1.5">
@@ -736,12 +684,10 @@ export default function DashboardPage() {
                             {Math.round(agent.avgConfidence * 100)}%
                           </span>
                         </div>
-                        <div style={{ color: agent.color }}>
-                          <WorldProgress
-                            value={Math.round(agent.avgConfidence * 100)}
-                            className="!bg-white/[0.06]"
-                          />
-                        </div>
+                        <ProgressBar
+                          value={Math.round(agent.avgConfidence * 100)}
+                          color={agent.color}
+                        />
                       </div>
                     )}
                   </div>
@@ -756,11 +702,11 @@ export default function DashboardPage() {
       <div className="mt-10 mb-6 flex items-center justify-center gap-3 text-[10px] text-gray-600">
         <span>Built with</span>
         <span className="font-medium text-gray-500">World ID</span>
-        <span className="text-gray-700">·</span>
+        <span className="text-gray-700">&middot;</span>
         <span className="font-medium text-gray-500">World Chain</span>
-        <span className="text-gray-700">·</span>
+        <span className="text-gray-700">&middot;</span>
         <span className="font-medium text-gray-500">XMTP</span>
-        <span className="text-gray-700">·</span>
+        <span className="text-gray-700">&middot;</span>
         <span className="font-medium text-gray-500">MiniKit</span>
       </div>
     </div>
@@ -770,9 +716,7 @@ export default function DashboardPage() {
 function StatBlock({ value, label, color }: { value: number; label: string; color?: string }) {
   return (
     <div>
-      <WorldTypography variant="number" level={4} as="span" className={`${color || "!text-white"}`}>
-        {value}
-      </WorldTypography>
+      <span className={`text-lg font-bold ${color || "text-white"}`}>{value}</span>
       <p className="text-[8px] sm:text-[9px] text-gray-500 mt-0.5">{label}</p>
     </div>
   );

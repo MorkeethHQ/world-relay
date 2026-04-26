@@ -68,17 +68,13 @@ const ALL_STEPS: DemoStep[] = [1, 2, 3, 4, 5];
 
 function PhoneFrame({ children }: { children: React.ReactNode }) {
   return (
-    <div className="relative mx-auto w-[260px] animate-[fadeIn_0.5s_ease-out]">
-      {/* Phone bezel */}
-      <div className="rounded-[28px] border-2 border-white/10 bg-[#0a0a0a] p-2 shadow-[0_0_40px_rgba(0,0,0,0.5)]">
-        {/* Notch */}
-        <div className="mx-auto mb-2 h-5 w-24 rounded-full bg-[#050505] border border-white/5" />
-        {/* Screen */}
-        <div className="rounded-[20px] bg-[#050505] overflow-hidden min-h-[340px] flex flex-col">
+    <div className="relative mx-auto w-[220px] animate-[fadeIn_0.5s_ease-out]">
+      <div className="rounded-[24px] border-2 border-white/10 bg-[#0a0a0a] p-1.5 shadow-[0_0_40px_rgba(0,0,0,0.5)]">
+        <div className="mx-auto mb-1 h-4 w-20 rounded-full bg-[#050505] border border-white/5" />
+        <div className="rounded-[18px] bg-[#050505] overflow-hidden flex flex-col">
           {children}
         </div>
-        {/* Home bar */}
-        <div className="mx-auto mt-2 h-1 w-20 rounded-full bg-white/10" />
+        <div className="mx-auto mt-1 h-1 w-16 rounded-full bg-white/10" />
       </div>
     </div>
   );
@@ -245,13 +241,25 @@ export default function DemoPage() {
     setLoading(true);
     setError(null);
     try {
-      const reader = new FileReader();
       const base64 = await new Promise<string>((resolve) => {
-        reader.onload = () => {
-          const result = reader.result as string;
-          resolve(result.split(",")[1]);
+        const img = new Image();
+        img.onload = () => {
+          const MAX_DIM = 1200;
+          let w = img.width, h = img.height;
+          if (w > MAX_DIM || h > MAX_DIM) {
+            const scale = MAX_DIM / Math.max(w, h);
+            w = Math.round(w * scale);
+            h = Math.round(h * scale);
+          }
+          const canvas = document.createElement("canvas");
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext("2d");
+          if (ctx) ctx.drawImage(img, 0, 0, w, h);
+          const dataUrl = canvas.toDataURL("image/jpeg", 0.8);
+          resolve(dataUrl.split(",")[1]);
         };
-        reader.readAsDataURL(proofFile);
+        img.src = URL.createObjectURL(proofFile);
       });
 
       const res = await fetch(`/api/verify-proof?demo=true`, {
@@ -263,8 +271,11 @@ export default function DemoPage() {
           proofNote: proofNote || undefined,
         }),
       });
+      if (!res.ok) {
+        const text = await res.text().catch(() => "Upload failed");
+        throw new Error(text.slice(0, 100));
+      }
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Verification failed");
 
       await new Promise((r) => setTimeout(r, 2000));
       await refreshMessages();
@@ -1039,7 +1050,7 @@ export default function DemoPage() {
   }
 
   return (
-    <div className="h-[100dvh] bg-[#050505] text-white flex flex-col max-w-lg mx-auto overflow-hidden">
+    <div className="h-[calc(100dvh-4rem)] bg-[#050505] text-white flex flex-col max-w-lg mx-auto overflow-hidden">
       {/* Header */}
       <div className="shrink-0 bg-[#050505] border-b border-white/5">
         <div className="flex items-center justify-between px-4 py-3">

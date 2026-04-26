@@ -8,7 +8,7 @@ import { VerificationBadge, RequiredTierBadge } from "@/components/VerificationB
 import { encodeCreateTask, encodeClaimTask, encodeReleasePayment, encodeUniswapSwap, readTaskCount, RELAY_ESCROW_ADDRESS, DOUBLE_OR_NOTHING_ADDRESS, encodeCreateDoubleOrNothing, encodeStakeAndClaimWithApproval, readDonTaskCount, type SwapToken } from "@/lib/contracts";
 import { hapticSuccess, hapticError, hapticTap, hapticHeavy, hapticMedium, hapticSelection, shareTask } from "@/lib/minikit-helpers";
 import { TASK_TEMPLATES } from "@/lib/agents";
-import { Button as WorldButton, Chip as WorldChip, LiveFeedback } from "@worldcoin/mini-apps-ui-kit-react";
+// Plain Tailwind buttons — @worldcoin/mini-apps-ui-kit-react causes hydration crashes
 
 const TaskMap = dynamic(() => import("./TaskMap").then((m) => m.TaskMap), { ssr: false });
 
@@ -473,14 +473,12 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
           </div>
           {userId && (
             <div className="flex items-center gap-2 mt-0.5">
-              <WorldButton
+              <button
                 onClick={() => { hapticTap(); setView("post"); }}
-                variant="primary"
-                size="sm"
-                className="shrink-0"
+                className="shrink-0 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-xl px-4 py-2 transition-colors active:scale-[0.97]"
               >
                 + Request
-              </WorldButton>
+              </button>
             </div>
           )}
         </div>
@@ -1454,29 +1452,25 @@ function TaskCard({
       )}
 
       {task.status === "open" && userId && !isOwnTask && (
-        <WorldButton
+        <button
           onClick={(e) => { e.stopPropagation(); onClaim(); }}
-          variant="primary"
-          fullWidth
-          className="min-h-[44px]"
+          className="w-full bg-blue-500 hover:bg-blue-600 text-white font-medium rounded-xl px-4 py-3 min-h-[44px] transition-colors active:scale-[0.98]"
         >
           {task.claimCode
             ? "Claim (Code Required)"
             : task.taskType === "double-or-nothing"
               ? `Stake $${task.bountyUsdc} & Claim`
               : "Claim"}
-        </WorldButton>
+        </button>
       )}
 
       {task.status === "claimed" && isClaimant && (
-        <WorldButton
+        <button
           onClick={(e) => { e.stopPropagation(); onSubmitProof(); }}
-          variant="secondary"
-          fullWidth
-          className="min-h-[44px]"
+          className="w-full bg-white/10 hover:bg-white/15 text-white font-medium rounded-xl px-4 py-3 min-h-[44px] transition-colors active:scale-[0.98] border border-white/10"
         >
           Submit Proof
-        </WorldButton>
+        </button>
       )}
 
       {task.status === "completed" && task.verificationResult?.verdict === "pass" && (
@@ -1508,12 +1502,12 @@ function TaskCard({
 }
 
 function StatusBadge({ status }: { status: string }) {
-  const chipVariant: Record<string, "default" | "success" | "warning" | "error"> = {
-    open: "default",
-    claimed: "warning",
-    completed: "success",
-    failed: "error",
-    expired: "default",
+  const styles: Record<string, string> = {
+    open: "bg-blue-500/10 text-blue-400 border-blue-500/20",
+    claimed: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20",
+    completed: "bg-green-500/10 text-green-400 border-green-500/20",
+    failed: "bg-red-500/10 text-red-400 border-red-500/20",
+    expired: "bg-gray-500/10 text-gray-400 border-gray-500/20",
   };
   const labels: Record<string, string> = {
     open: "Open",
@@ -1524,10 +1518,9 @@ function StatusBadge({ status }: { status: string }) {
   };
 
   return (
-    <WorldChip
-      variant={chipVariant[status] || "default"}
-      label={labels[status] || status}
-    />
+    <span className={`inline-flex items-center text-[10px] font-medium rounded-full px-2 py-0.5 border ${styles[status] || styles.expired}`}>
+      {labels[status] || status}
+    </span>
   );
 }
 
@@ -1937,22 +1930,18 @@ function PostTask({
             </div>
           </div>
         )}
-        <LiveFeedback
-          state={submitting ? "pending" : undefined}
-          label={{ pending: "Posting...", success: "Posted!", failed: "Failed" }}
+        <button
+          onClick={handleSubmit}
+          disabled={!isValid || submitting}
+          className="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-blue-500/40 disabled:cursor-not-allowed text-white font-medium rounded-xl px-4 py-3 min-h-[48px] transition-colors active:scale-[0.98] flex items-center justify-center gap-2"
         >
-          <WorldButton
-            onClick={handleSubmit}
-            disabled={!isValid || submitting}
-            variant="primary"
-            fullWidth
-            className="min-h-[48px]"
-          >
-            {taskType === "double-or-nothing"
+          {submitting && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+          {submitting
+            ? "Posting..."
+            : taskType === "double-or-nothing"
               ? `Post Double-or-Nothing${bounty ? ` — $${bounty} USDC` : ""}`
               : `Post Request${bounty ? ` — $${bounty} USDC` : ""}`}
-          </WorldButton>
-        </LiveFeedback>
+        </button>
       </div>
     </div>
   );
@@ -2377,15 +2366,13 @@ function SubmitProof({
 
       {!result && !submitting && (
         <div className="px-4 pb-8 pt-2">
-          <WorldButton
+          <button
             onClick={handleSubmit}
             disabled={images.length === 0}
-            variant="primary"
-            fullWidth
-            className="min-h-[48px]"
+            className="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-blue-500/40 disabled:cursor-not-allowed text-white font-medium rounded-xl px-4 py-3 min-h-[48px] transition-colors active:scale-[0.98]"
           >
             Submit for Verification
-          </WorldButton>
+          </button>
         </div>
       )}
     </div>
@@ -2878,14 +2865,12 @@ function TaskDetail({
 
         {/* Action buttons */}
         {currentTask.status === "claimed" && isClaimant && !isFlagged && !hasFollowUp && (
-          <WorldButton
+          <button
             onClick={onSubmitProof}
-            variant="primary"
-            fullWidth
-            className="min-h-[44px]"
+            className="w-full bg-blue-500 hover:bg-blue-600 text-white font-medium rounded-xl px-4 py-3 min-h-[44px] transition-colors active:scale-[0.98]"
           >
             Submit Proof
-          </WorldButton>
+          </button>
         )}
 
         {/* AI Follow-up: claimant can respond and request re-evaluation */}
