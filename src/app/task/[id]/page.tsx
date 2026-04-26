@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import type { Task, VerificationResult, AiFollowUp } from "@/lib/types";
 import { VerificationBadge, RequiredTierBadge } from "@/components/VerificationBadge";
-import { Button as WorldButton, Chip as WorldChip } from "@worldcoin/mini-apps-ui-kit-react";
+// Using plain Tailwind instead of @worldcoin/mini-apps-ui-kit-react to avoid hydration crashes
 import { hapticTap, hapticSuccess, shareTask } from "@/lib/minikit-helpers";
 
 // ---------------------------------------------------------------------------
@@ -112,7 +112,11 @@ const STATUS_CHIP_VARIANT: Record<string, "default" | "success" | "warning" | "e
 function StatusBadge({ status }: { status: string }) {
   const s = STATUS_STYLES[status] || STATUS_STYLES.open;
   const chipVariant = STATUS_CHIP_VARIANT[status] || "default";
-  return <WorldChip variant={chipVariant} label={s.label} />;
+  return (
+    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold ${s.bg} ${s.text}`}>
+      {s.label}
+    </span>
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -779,32 +783,29 @@ function WorldChatThread({
               className="flex-1 bg-white/[0.04] border border-white/[0.08] rounded-xl px-3 py-2 text-xs text-gray-200 placeholder-gray-600 outline-none focus:border-indigo-500/40 transition-colors min-h-[40px]"
               disabled={sending}
             />
-            <WorldButton
+            <button
               type="submit"
-              variant="primary"
-              size="sm"
               disabled={!draft.trim() || sending}
-              className="shrink-0 !w-9 !h-9 !min-h-0 !p-0 !rounded-xl"
+              className="shrink-0 w-9 h-9 rounded-xl bg-white flex items-center justify-center disabled:opacity-40 active:scale-95 transition-all"
             >
               {sending ? (
-                <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                <div className="w-3.5 h-3.5 border-2 border-black/30 border-t-black rounded-full animate-spin" />
               ) : (
                 <svg
                   width="16"
                   height="16"
                   viewBox="0 0 24 24"
                   fill="none"
-                  stroke="currentColor"
+                  stroke="black"
                   strokeWidth="2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  className="text-white"
                 >
                   <line x1="22" y1="2" x2="11" y2="13" />
                   <polygon points="22 2 15 22 11 13 2 9 22 2" />
                 </svg>
               )}
-            </WorldButton>
+            </button>
           </form>
         </div>
       )}
@@ -1000,9 +1001,9 @@ export default function TaskDetailPage() {
         </div>
         <p className="text-sm text-red-400 font-medium">{error}</p>
         <Link href="/">
-          <WorldButton variant="tertiary" size="sm">
+          <span className="text-sm text-gray-400 hover:text-white transition-colors">
             Back to feed
-          </WorldButton>
+          </span>
         </Link>
       </div>
     );

@@ -2002,12 +2002,24 @@ function SubmitProof({
         console.error("Failed to extract video frame");
       }
     } else {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const dataUrl = reader.result as string;
+      const img = new Image();
+      img.onload = () => {
+        const MAX_DIM = 1200;
+        let w = img.width, h = img.height;
+        if (w > MAX_DIM || h > MAX_DIM) {
+          const scale = MAX_DIM / Math.max(w, h);
+          w = Math.round(w * scale);
+          h = Math.round(h * scale);
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        if (ctx) ctx.drawImage(img, 0, 0, w, h);
+        const dataUrl = canvas.toDataURL("image/jpeg", 0.8);
         setImages((prev) => [...prev, { base64: dataUrl.split(",")[1], preview: dataUrl, isVideo: false }]);
       };
-      reader.readAsDataURL(file);
+      img.src = URL.createObjectURL(file);
     }
   };
 
@@ -2022,34 +2034,48 @@ function SubmitProof({
 
     const proofImages = images.map((img) => img.base64);
 
-    const res = await fetch("/api/verify-proof", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        taskId: task.id,
-        proofImageBase64: proofImages[0],
-        proofImages,
-        proofNote: proofNote || null,
-        lat: proofCoords?.lat || null,
-        lng: proofCoords?.lng || null,
-      }),
-    });
+    try {
+      const res = await fetch("/api/verify-proof", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          taskId: task.id,
+          proofImageBase64: proofImages[0],
+          proofImages,
+          proofNote: proofNote || null,
+          lat: proofCoords?.lat || null,
+          lng: proofCoords?.lng || null,
+        }),
+      });
 
-    const data = await res.json();
-    setResult({
-      ...data.verification,
-      locationVerified: data.locationVerified,
-      distanceKm: data.distanceKm,
-    });
-    setSubmitting(false);
+      if (!res.ok) {
+        const text = await res.text().catch(() => "Upload failed");
+        setResult({ verdict: "fail", reasoning: `Server error: ${text.slice(0, 100)}` });
+        setSubmitting(false);
+        hapticError();
+        return;
+      }
 
-    if (data.verification.verdict === "pass") {
-      hapticSuccess();
-      setTimeout(onDone, 2500);
-    } else if (data.verification.verdict === "fail") {
+      const data = await res.json();
+      setResult({
+        ...data.verification,
+        locationVerified: data.locationVerified,
+        distanceKm: data.distanceKm,
+      });
+      setSubmitting(false);
+
+      if (data.verification.verdict === "pass") {
+        hapticSuccess();
+        setTimeout(onDone, 2500);
+      } else if (data.verification.verdict === "fail") {
+        hapticError();
+      } else {
+        hapticSelection();
+      }
+    } catch {
+      setResult({ verdict: "fail", reasoning: "Network error — please try again" });
+      setSubmitting(false);
       hapticError();
-    } else {
-      hapticSelection();
     }
   };
 
@@ -2155,6 +2181,7 @@ function SubmitProof({
                         taskDescription: task.description,
                       }),
                     });
+                    if (!res.ok) throw new Error("precheck failed");
                     const data = await res.json();
                     setPreCheck({ assessment: data.assessment, likely: data.likely });
                   } catch {
