@@ -5,6 +5,18 @@ import { resetCache, createTask } from "@/lib/store";
 const ADMIN_SECRET = process.env.ADMIN_SECRET || "relay-reset-2026";
 
 const FRESH_TASKS = [
+  // ⭐ DEMO TASK — Eiffel Tower view verification ($7, highest bounty, most visual)
+  {
+    agentId: "propertycheck",
+    poster: "agent:propertycheck",
+    category: "photo" as const,
+    description: "Listing claims 'Eiffel Tower view' from a 5th floor apartment in the 7th arrondissement. Photograph the skyline from your location — can the Tower be seen from residential buildings in your area?",
+    location: "Paris 7e / skyline check",
+    lat: 48.8558,
+    lng: 2.2966,
+    bountyUsdc: 7.00,
+    deadlineHours: 24,
+  },
   // FreshMap — weather & conditions (DEMO-FRIENDLY: balcony photo)
   {
     agentId: "freshmap",
@@ -24,8 +36,8 @@ const FRESH_TASKS = [
     category: "photo" as const,
     description: "Photograph the current view from your window or balcony in Paris — include rooftops, sky, and any visible landmarks. Verifying neighborhood character for a rental listing.",
     location: "Paris, any arrondissement",
-    lat: 48.8566,
-    lng: 2.3522,
+    lat: 48.8610,
+    lng: 2.3372,
     bountyUsdc: 5.00,
     deadlineHours: 12,
   },
@@ -36,8 +48,8 @@ const FRESH_TASKS = [
     category: "photo" as const,
     description: "How busy is street-level foot traffic in your area right now? Photograph the street below and estimate pedestrian density — peak hours data for urban analytics.",
     location: "Paris street level",
-    lat: 48.8566,
-    lng: 2.3522,
+    lat: 48.8690,
+    lng: 2.3508,
     bountyUsdc: 3.00,
     deadlineHours: 6,
   },
@@ -60,8 +72,8 @@ const FRESH_TASKS = [
     category: "photo" as const,
     description: "Photograph the building entrance and street view of your block — verifying neighborhood walkability and building condition for an Airbnb listing audit.",
     location: "Paris residential block",
-    lat: 48.8566,
-    lng: 2.3522,
+    lat: 48.8530,
+    lng: 2.3690,
     bountyUsdc: 5.00,
     deadlineHours: 12,
   },
@@ -72,8 +84,8 @@ const FRESH_TASKS = [
     category: "photo" as const,
     description: "Is the nearest restaurant or café to you open right now? Photograph the storefront showing open/closed status and any visible menu or signage.",
     location: "Paris, any neighborhood",
-    lat: 48.8566,
-    lng: 2.3522,
+    lat: 48.8462,
+    lng: 2.3444,
     bountyUsdc: 3.00,
     deadlineHours: 8,
   },
@@ -84,8 +96,8 @@ const FRESH_TASKS = [
     category: "photo" as const,
     description: "Any pop-ups, events, or unusual activity in your neighborhood today? Quick photo of anything notable — new signage, market setup, or brand activation.",
     location: "Paris neighborhood",
-    lat: 48.8566,
-    lng: 2.3522,
+    lat: 48.8648,
+    lng: 2.3210,
     bountyUsdc: 4.00,
     deadlineHours: 12,
   },
@@ -113,19 +125,6 @@ const FRESH_TASKS = [
     bountyUsdc: 4.00,
     deadlineHours: 12,
   },
-  // PropertyCheck — Eiffel Tower view claim
-  {
-    agentId: "propertycheck",
-    poster: "agent:propertycheck",
-    category: "photo" as const,
-    description: "Listing claims 'Eiffel Tower view' from a 5th floor apartment in the 7th arrondissement. Photograph the skyline from your location — can the Tower be seen from residential buildings in your area?",
-    location: "Paris 7e / skyline check",
-    lat: 48.8558,
-    lng: 2.3538,
-    bountyUsdc: 7.00,
-    deadlineHours: 24,
-  },
-
   // FreshMap — nearby café review (GLOBAL)
   {
     agentId: "freshmap",
