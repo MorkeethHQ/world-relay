@@ -1,145 +1,24 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
-
-/* ── Types ─────────────────────────────────────────────── */
-
-type XmtpStatus = {
-  connected: boolean;
-  inboxId: string | null;
-  address: string | null;
-  error: string | null;
-  lastSync: string | null;
-  conversationCount: number;
-};
-
-type DmMessage = {
-  sender: string;
-  text: string;
-  timestamp: string;
-};
-
-type DmConversation = {
-  conversationId: string;
-  messages: DmMessage[];
-  lastActivity: string;
-};
-
-type DmData = {
-  conversations: DmConversation[];
-  totalDmCount: number;
-};
-
-/* ── Constants ─────────────────────────────────────────── */
 
 const BOT_ADDRESS = "0x1101158041fd96f21cbcbb0e752a9a2303e6d70e";
 
-const LIFECYCLE_STEPS = [
-  {
-    step: "1",
-    title: "Task Claimed → Thread Created",
-    desc: "The moment someone claims a task, RELAY creates an encrypted XMTP group. This thread becomes the workspace.",
-    color: "#818cf8",
-  },
-  {
-    step: "2",
-    title: "Briefing Delivered in Thread",
-    desc: "The bot posts task-specific instructions: what to photograph, where to stand, what details matter. The runner reads it in-thread.",
-    color: "#60a5fa",
-  },
-  {
-    step: "3",
-    title: "Proof Submitted in Thread",
-    desc: "The runner replies with their photo and notes — directly in the XMTP conversation. No separate upload flow.",
-    color: "#a78bfa",
-  },
-  {
-    step: "4",
-    title: "Verdict Returned in Thread",
-    desc: "Verification runs automatically. The result — approved, rejected, or follow-up question — posts back to the same thread.",
-    color: "#c084fc",
-  },
-  {
-    step: "5",
-    title: "Payment Confirmed in Thread",
-    desc: "Once approved, the payment releases on World Chain and the confirmation (amount + tx link) appears in the thread. Done.",
-    color: "#8b5cf6",
-  },
+type ChatMessage = {
+  role: "user" | "bot";
+  text: string;
+  timestamp: number;
+};
+
+const SUGGESTED_QUERIES = [
+  "nearby tasks",
+  "high payout",
+  "stats",
+  "help",
+  "what is relay",
+  "who built this",
 ];
-
-/* ── Example Thread Messages ───────────────────────────── */
-
-const THREAD_MESSAGES: { sender: "bot" | "claimant" | "poster"; label: string; text: string; step: string }[] = [
-  {
-    sender: "bot",
-    label: "RELAY Bot",
-    step: "1. Task Posted",
-    text: `📋 TASK CLAIMED
-━━━━━━━━━━━━━━━━━━
-"How long is the queue at the Louvre Pyramid?"
-📍 Musee du Louvre, Paris 1er
-💰 $0.25 payout
-👤 Claimed by 0x7a3b...demo`,
-  },
-  {
-    sender: "bot",
-    label: "RELAY Bot",
-    step: "2. Briefing",
-    text: `📝 BRIEFING
-━━━━━━━━━━━━━━━━━━
-Stand at the back of the queue facing the Pyramid. Include the full length of the line in frame. A wide-angle shot works best — try to capture the barriers and the Pyramid in the same photo.
-
-Submit your proof photo when ready. Good luck!`,
-  },
-  {
-    sender: "claimant",
-    label: "0x7a3b...demo",
-    step: "3. Proof Submitted",
-    text: "Here's the queue photo. About 35 people, roughly 20 min wait.",
-  },
-  {
-    sender: "bot",
-    label: "RELAY Bot",
-    step: "4. Verified",
-    text: `✅ VERIFIED — APPROVED
-━━━━━━━━━━━━━━━━━━
-Reasoning: Photo clearly shows the Louvre Pyramid entrance queue from behind. Approximately 35-40 people visible.
-Confidence: 94%`,
-  },
-  {
-    sender: "bot",
-    label: "RELAY Bot",
-    step: "5. Follow-up (if needed)",
-    text: `🔍 FOLLOW-UP
-━━━━━━━━━━━━━━━━━━
-Confidence: 72% — not enough to auto-verify.
-
-Can you confirm the photo was taken today? The lighting seems inconsistent with current weather.
-
-Reply in this thread, then tap "Re-evaluate" for a new verdict.`,
-  },
-  {
-    sender: "claimant",
-    label: "0x7a3b...demo",
-    step: "6. Claimant Response",
-    text: "Yes, taken 10 minutes ago. It's overcast today which makes it look darker.",
-  },
-  {
-    sender: "bot",
-    label: "RELAY Bot",
-    step: "7. Payment",
-    text: `💸 PAYMENT CONFIRMED
-━━━━━━━━━━━━━━━━━━
-$0.25 released on World Chain
-Tx: 0xdbd446...5f6b406
-
-Task complete. Both parties verified via World ID.
-Proof verified. Payment released. All in one thread.`,
-  },
-];
-
-/* ── Helpers ───────────────────────────────────────────── */
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
@@ -151,11 +30,7 @@ function CopyButton({ text }: { text: string }) {
   }, [text]);
 
   return (
-    <button
-      onClick={handleCopy}
-      className="ml-2 shrink-0 text-gray-600 hover:text-gray-400 transition-colors"
-      title="Copy"
-    >
+    <button onClick={handleCopy} className="ml-2 shrink-0 text-gray-600 hover:text-gray-400 transition-colors" title="Copy">
       {copied ? (
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
           <polyline points="20 6 9 17 4 12" />
@@ -170,497 +45,204 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
-function timeAgo(iso: string): string {
-  const ms = Date.now() - new Date(iso).getTime();
-  const s = Math.floor(ms / 1000);
-  if (s < 60) return `${s}s ago`;
-  const m = Math.floor(s / 60);
-  if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  return `${Math.floor(h / 24)}d ago`;
-}
-
-/* ── Page Component ────────────────────────────────────── */
-
 export default function XmtpPage() {
-  const [status, setStatus] = useState<XmtpStatus | null>(null);
-  const [dmData, setDmData] = useState<DmData | null>(null);
-  const [statusLoading, setStatusLoading] = useState(true);
-  const [dmLoading, setDmLoading] = useState(true);
-  const [now, setNow] = useState(Date.now());
+  const [messages, setMessages] = useState<ChatMessage[]>([
+    {
+      role: "bot",
+      text: "Hey! I'm the RELAY bot. Ask me about tasks, locations, bounties, or how the network works. Try tapping a suggestion below.",
+      timestamp: Date.now(),
+    },
+  ]);
+  const [input, setInput] = useState("");
+  const [sending, setSending] = useState(false);
+  const [statusConnected, setStatusConnected] = useState<boolean | null>(null);
+  const [conversationCount, setConversationCount] = useState<number | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  // Fetch XMTP status
   useEffect(() => {
-    const fetchStatus = () => {
-      fetch("/api/xmtp-status")
-        .then((r) => r.json())
-        .then((d) => {
-          setStatus(d);
-          setStatusLoading(false);
-        })
-        .catch(() => setStatusLoading(false));
-    };
-    fetchStatus();
-    const interval = setInterval(fetchStatus, 15000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // Fetch DM history
-  useEffect(() => {
-    fetch("/api/xmtp-dm-history")
+    fetch("/api/xmtp-status")
       .then((r) => r.json())
       .then((d) => {
-        setDmData(d);
-        setDmLoading(false);
+        setStatusConnected(d.connected ?? false);
+        setConversationCount(d.conversationCount ?? 0);
       })
-      .catch(() => setDmLoading(false));
+      .catch(() => setStatusConnected(false));
   }, []);
 
-  // Live clock for "last sync" ticker
   useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(t);
-  }, []);
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
-  const lastSyncAgo = status?.lastSync
-    ? `${Math.max(0, Math.round((now - new Date(status.lastSync).getTime()) / 1000))}s ago`
-    : "--";
+  const sendMessage = async (text: string) => {
+    if (!text.trim() || sending) return;
+    const userMsg: ChatMessage = { role: "user", text: text.trim(), timestamp: Date.now() };
+    setMessages((prev) => [...prev, userMsg]);
+    setInput("");
+    setSending(true);
+
+    try {
+      const res = await fetch("/api/xmtp-agent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: text.trim() }),
+      });
+      if (!res.ok) throw new Error("Failed");
+      const data = await res.json();
+      setMessages((prev) => [
+        ...prev,
+        { role: "bot", text: data.response || "No response", timestamp: Date.now() },
+      ]);
+    } catch {
+      setMessages((prev) => [
+        ...prev,
+        { role: "bot", text: "Sorry, I couldn't process that. Try again.", timestamp: Date.now() },
+      ]);
+    } finally {
+      setSending(false);
+      setTimeout(() => inputRef.current?.focus(), 100);
+    }
+  };
 
   return (
-    <div className="flex flex-col min-h-screen max-w-lg mx-auto w-full bg-[#050505]">
-      {/* ── Sticky Header ──────────────────────────────── */}
-      <div className="sticky top-0 z-10 bg-[#050505]/90 backdrop-blur-xl border-b border-white/5">
+    <div className="flex flex-col h-[calc(100dvh-4rem)] max-w-lg mx-auto w-full bg-[#050505]">
+      {/* Header */}
+      <div className="shrink-0 bg-[#050505]/90 backdrop-blur-xl border-b border-white/5">
         <div className="flex items-center justify-between px-4 py-3">
-          <Link
-            href="/"
-            className="flex items-center gap-1 text-sm text-gray-400 hover:text-white transition-colors"
-          >
+          <Link href="/" className="flex items-center gap-1 text-sm text-gray-400 hover:text-white transition-colors">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="15 18 9 12 15 6" />
             </svg>
-            Feed
           </Link>
-          <span className="text-[10px] text-gray-600 uppercase tracking-wider font-medium">
-            How Tasks Work
-          </span>
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 rounded-lg bg-indigo-500/20 flex items-center justify-center">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#818cf8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+              </svg>
+            </div>
+            <div>
+              <span className="text-sm font-bold text-white">RELAY Bot</span>
+              <div className="flex items-center gap-1">
+                {statusConnected === null ? (
+                  <span className="w-1.5 h-1.5 rounded-full bg-gray-600 animate-pulse" />
+                ) : statusConnected ? (
+                  <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                ) : (
+                  <span className="w-1.5 h-1.5 rounded-full bg-yellow-500" />
+                )}
+                <span className="text-[9px] text-gray-500">
+                  {statusConnected ? "XMTP Production" : "In-app mode"}
+                  {conversationCount !== null && ` · ${conversationCount} convos`}
+                </span>
+              </div>
+            </div>
+          </div>
+          <div className="w-8" />
         </div>
       </div>
 
-      <div className="flex-1 px-4 py-6 flex flex-col gap-8">
-        {/* ════════════════════════════════════════════════
-            1. HERO SECTION
-        ════════════════════════════════════════════════ */}
-        <div className="text-center">
-          {/* XMTP brand icon */}
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border border-indigo-500/20 mb-4">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="url(#xmtp-grad)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <defs>
-                <linearGradient id="xmtp-grad" x1="0" y1="0" x2="24" y2="24">
-                  <stop offset="0%" stopColor="#818cf8" />
-                  <stop offset="100%" stopColor="#c084fc" />
-                </linearGradient>
-              </defs>
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-            </svg>
-          </div>
-
-          <h1 className="text-2xl font-bold tracking-tight mb-2 bg-gradient-to-r from-indigo-400 via-purple-400 to-violet-400 bg-clip-text text-transparent">
-            XMTP is the coordination layer.
-          </h1>
-          <p className="text-sm text-gray-400 leading-relaxed max-w-sm mx-auto">
-            XMTP isn&apos;t a feature we added — it&apos;s{" "}
-            <span className="text-white font-medium">how RELAY works</span>.{" "}
-            Every task runs inside an encrypted XMTP thread: briefing, proof, verdict, payment. Remove XMTP and there is no RELAY.
-          </p>
+      {/* Bot address bar */}
+      <div className="shrink-0 px-4 py-2 border-b border-white/[0.04] bg-indigo-500/[0.03]">
+        <div className="flex items-center gap-2">
+          <span className="text-[9px] text-gray-500">Bot:</span>
+          <span className="text-[10px] text-indigo-400 font-mono truncate flex-1">{BOT_ADDRESS}</span>
+          <CopyButton text={BOT_ADDRESS} />
         </div>
+      </div>
 
-        {/* ════════════════════════════════════════════════
-            2. LIVE STATUS CARD
-        ════════════════════════════════════════════════ */}
-        <div className="bg-[#0a0a0a] border border-indigo-500/15 rounded-2xl overflow-hidden">
-          <div className="px-4 py-3 border-b border-white/[0.04] flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              {statusLoading ? (
-                <span className="w-2 h-2 rounded-full bg-gray-600 animate-pulse" />
-              ) : status?.connected ? (
-                <span className="w-2 h-2 rounded-full bg-green-500 animate-[pulse-dot_2s_ease-in-out_infinite]" />
-              ) : (
-                <span className="w-2 h-2 rounded-full bg-red-500" />
-              )}
-              <span className="text-xs font-semibold text-white">
-                {statusLoading
-                  ? "Connecting..."
-                  : status?.connected
-                  ? "Connected to XMTP Production Network"
-                  : "Disconnected"}
-              </span>
-            </div>
-            <span className="text-[9px] text-gray-600 font-mono">live</span>
-          </div>
-
-          <div className="px-4 py-3 flex flex-col gap-2.5">
-            {/* Inbox ID */}
-            <div>
-              <p className="text-[9px] text-gray-600 uppercase tracking-wider font-medium mb-1">Inbox ID</p>
-              <div className="flex items-center">
-                <p className="text-[11px] text-gray-300 font-mono truncate flex-1">
-                  {statusLoading ? "..." : status?.inboxId || "unavailable"}
-                </p>
-                {status?.inboxId && <CopyButton text={status.inboxId} />}
-              </div>
-            </div>
-
-            {/* Bot Address */}
-            <div>
-              <p className="text-[9px] text-gray-600 uppercase tracking-wider font-medium mb-1">Bot Address</p>
-              <div className="flex items-center">
-                <p className="text-[11px] text-indigo-400 font-mono truncate flex-1">{BOT_ADDRESS}</p>
-                <CopyButton text={BOT_ADDRESS} />
-              </div>
-            </div>
-
-            {/* Stats row */}
-            <div className="flex items-center gap-3 pt-2 border-t border-white/[0.04]">
-              <div className="flex-1 text-center">
-                <p className="text-lg font-bold text-white">
-                  {statusLoading ? "--" : status?.conversationCount ?? 0}
-                </p>
-                <p className="text-[8px] text-gray-500">Conversations</p>
-              </div>
-              <div className="w-px h-8 bg-white/[0.06]" />
-              <div className="flex-1 text-center">
-                <p className="text-lg font-bold text-indigo-400">{lastSyncAgo}</p>
-                <p className="text-[8px] text-gray-500">Last Sync</p>
-              </div>
-              <div className="w-px h-8 bg-white/[0.06]" />
-              <div className="flex-1 text-center">
-                <p className="text-lg font-bold text-purple-400">prod</p>
-                <p className="text-[8px] text-gray-500">Network</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* ════════════════════════════════════════════════
-            3. TASK LIFECYCLE — every step through XMTP
-        ════════════════════════════════════════════════ */}
-        <div>
-          <p className="text-[11px] text-gray-500 uppercase tracking-wider font-medium mb-1">
-            The Task Lifecycle
-          </p>
-          <p className="text-[10px] text-gray-600 mb-3">
-            Every step happens inside one encrypted XMTP thread
-          </p>
-          <div className="flex flex-col gap-0">
-            {LIFECYCLE_STEPS.map((step, i) => (
-              <div key={i} className="flex gap-3">
-                {/* Vertical line + dot */}
-                <div className="flex flex-col items-center">
-                  <div
-                    className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-[11px] font-bold border"
-                    style={{ color: step.color, borderColor: `${step.color}40`, backgroundColor: `${step.color}10` }}
-                  >
-                    {step.step}
-                  </div>
-                  {i < LIFECYCLE_STEPS.length - 1 && (
-                    <div className="w-px flex-1 min-h-[24px] bg-gradient-to-b" style={{ backgroundImage: `linear-gradient(to bottom, ${step.color}30, ${LIFECYCLE_STEPS[i+1].color}30)` }} />
-                  )}
-                </div>
-                {/* Content */}
-                <div className="pb-5 flex-1">
-                  <p className="text-xs font-bold text-white">{step.title}</p>
-                  <p className="text-[11px] text-gray-400 mt-0.5 leading-relaxed">{step.desc}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* ════════════════════════════════════════════════
-            4. DM ACTIVITY
-        ════════════════════════════════════════════════ */}
-        <div>
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-[11px] text-gray-500 uppercase tracking-wider font-medium">
-              DM Activity
-            </p>
-            {dmData && dmData.totalDmCount > 0 && (
-              <span className="text-[10px] text-indigo-400 font-medium bg-indigo-500/10 px-2 py-0.5 rounded-full">
-                {dmData.totalDmCount} DMs answered
-              </span>
-            )}
-          </div>
-
-          <div className="bg-[#0a0a0a] border border-white/[0.06] rounded-2xl overflow-hidden">
-            {dmLoading ? (
-              <div className="px-4 py-8 text-center">
-                <div className="w-5 h-5 border-2 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin mx-auto mb-2" />
-                <p className="text-[11px] text-gray-500">Loading DM history...</p>
-              </div>
-            ) : dmData && dmData.conversations.length > 0 ? (
-              <div className="flex flex-col divide-y divide-white/[0.04]">
-                {dmData.conversations.slice(0, 5).map((conv) => (
-                  <div key={conv.conversationId} className="px-4 py-3">
-                    {conv.messages.slice(-4).map((msg, mi) => (
-                      <div key={mi} className={`flex gap-2 ${mi > 0 ? "mt-2" : ""}`}>
-                        <div
-                          className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
-                            msg.sender === "relay-bot"
-                              ? "bg-indigo-500/15"
-                              : "bg-white/5"
-                          }`}
-                        >
-                          {msg.sender === "relay-bot" ? (
-                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#818cf8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                            </svg>
-                          ) : (
-                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                              <circle cx="12" cy="7" r="4" />
-                            </svg>
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p
-                            className={`text-[10px] leading-relaxed ${
-                              msg.sender === "relay-bot" ? "text-gray-300" : "text-gray-500"
-                            }`}
-                          >
-                            {msg.text.length > 200
-                              ? msg.text.slice(0, 200) + "..."
-                              : msg.text}
-                          </p>
-                          <p className="text-[8px] text-gray-700 mt-0.5">
-                            {timeAgo(msg.timestamp)}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              /* No DMs yet — show example queries */
-              <div className="px-4 py-5">
-                <p className="text-[11px] text-gray-500 text-center mb-3">
-                  No DMs yet. Try messaging the bot via XMTP:
-                </p>
-                <div className="flex flex-col gap-2">
-                  {[
-                    { query: "nearby tasks", desc: "Browse tasks near your location" },
-                    { query: "high payout", desc: "Filter by highest-paying tasks" },
-                    { query: "who built relay", desc: "Learn about the team" },
-                    { query: "network stats", desc: "Live metrics and activity" },
-                  ].map((ex) => (
-                    <div
-                      key={ex.query}
-                      className="flex items-center gap-3 bg-white/[0.02] border border-white/[0.04] rounded-xl px-3 py-2.5"
-                    >
-                      <span className="text-[11px] text-indigo-400 font-mono font-medium">
-                        &quot;{ex.query}&quot;
-                      </span>
-                      <span className="text-[9px] text-gray-600 ml-auto">{ex.desc}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* ════════════════════════════════════════════════
-            5. EXAMPLE THREAD — Full XMTP Lifecycle
-        ════════════════════════════════════════════════ */}
-        <div>
-          <p className="text-[11px] text-gray-500 uppercase tracking-wider font-medium mb-1">
-            A Real Task, One Thread
-          </p>
-          <p className="text-[10px] text-gray-600 mb-3">
-            &quot;How long is the Louvre queue?&quot; — claimed, briefed, proved, verified, paid. 7 messages.
-          </p>
-
-          <div className="bg-[#0a0a0a] border border-indigo-500/10 rounded-2xl overflow-hidden">
-            {/* Thread header */}
-            <div className="px-4 py-3 border-b border-white/[0.04] flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-indigo-500/15 flex items-center justify-center">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#818cf8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto min-h-0 px-4 py-4 flex flex-col gap-3">
+        {messages.map((msg, i) => (
+          <div key={i} className={`flex gap-2 ${msg.role === "user" ? "flex-row-reverse" : ""}`}>
+            {msg.role === "bot" && (
+              <div className="w-7 h-7 rounded-full bg-indigo-500/15 flex items-center justify-center shrink-0 mt-0.5">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#818cf8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
                 </svg>
               </div>
-              <div className="flex-1">
-                <p className="text-[11px] font-semibold text-white">RELAY: Louvre Pyramid queue...</p>
-                <p className="text-[8px] text-gray-600">Task t_louvre01 · $0.25 · Musee du Louvre</p>
-              </div>
-              <div className="flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                <span className="text-[8px] text-green-400">Encrypted</span>
-              </div>
-            </div>
-
-            {/* Messages */}
-            <div className="px-3 py-3 flex flex-col gap-3">
-              {THREAD_MESSAGES.map((msg, i) => {
-                const isBot = msg.sender === "bot";
-                const isPoster = msg.sender === "poster";
-                return (
-                  <div key={i}>
-                    {/* Step label */}
-                    <p className="text-[8px] text-gray-700 uppercase tracking-wider font-medium mb-1.5 px-1">
-                      {msg.step}
-                    </p>
-                    <div
-                      className={`rounded-xl px-3 py-2.5 ${
-                        isBot
-                          ? "bg-gradient-to-br from-indigo-500/8 to-purple-500/8 border border-indigo-500/10 ml-0 mr-6"
-                          : isPoster
-                          ? "bg-yellow-500/5 border border-yellow-500/10 ml-6 mr-0"
-                          : "bg-white/[0.03] border border-white/[0.06] ml-6 mr-0"
-                      }`}
-                    >
-                      <div className="flex items-center gap-1.5 mb-1">
-                        {isBot ? (
-                          <div className="w-4 h-4 rounded-full bg-indigo-500/20 flex items-center justify-center">
-                            <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#818cf8" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                            </svg>
-                          </div>
-                        ) : (
-                          <div className="w-4 h-4 rounded-full bg-white/10 flex items-center justify-center">
-                            <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                              <circle cx="12" cy="7" r="4" />
-                              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                            </svg>
-                          </div>
-                        )}
-                        <span
-                          className={`text-[9px] font-bold ${
-                            isBot ? "text-indigo-400" : "text-gray-500"
-                          }`}
-                        >
-                          {msg.label}
-                        </span>
-                      </div>
-                      <p className="text-[10px] text-gray-300 leading-relaxed whitespace-pre-line">
-                        {msg.text}
-                      </p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Thread footer */}
-            <div className="px-4 py-2.5 border-t border-white/[0.04] flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-[8px] text-gray-600">7 messages</span>
-                <span className="text-gray-800">|</span>
-                <span className="text-[8px] text-green-400">$0.25 paid</span>
-              </div>
-              <span className="text-[8px] text-gray-700">End-to-end encrypted via XMTP</span>
+            )}
+            <div
+              className={`max-w-[80%] rounded-2xl px-3.5 py-2.5 ${
+                msg.role === "user"
+                  ? "bg-blue-500 text-white rounded-br-md"
+                  : "bg-[#0a0a0a] border border-white/[0.06] text-gray-300 rounded-bl-md"
+              }`}
+            >
+              <p className="text-[12px] leading-relaxed whitespace-pre-line">{msg.text}</p>
+              <p className={`text-[8px] mt-1 ${msg.role === "user" ? "text-blue-200/50" : "text-gray-600"}`}>
+                {new Date(msg.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+              </p>
             </div>
           </div>
-        </div>
+        ))}
 
-        {/* ════════════════════════════════════════════════
-            6. WHY XMTP — architectural justification
-        ════════════════════════════════════════════════ */}
-        <div>
-          <p className="text-[11px] text-gray-500 uppercase tracking-wider font-medium mb-3">
-            Why XMTP Is Load-Bearing
-          </p>
-
-          <div className="bg-[#0a0a0a] border border-white/[0.06] rounded-2xl overflow-hidden">
-            <div className="flex flex-col divide-y divide-white/[0.04]">
-              <div className="px-4 py-3 flex items-start gap-3">
-                <span className="w-2 h-2 rounded-full bg-green-500 mt-1.5 shrink-0" />
-                <div>
-                  <p className="text-[11px] text-white font-medium">Production network — not a testnet demo</p>
-                  <p className="text-[10px] text-gray-500">Real encrypted messaging between real wallets, right now</p>
-                </div>
-              </div>
-              <div className="px-4 py-3 flex items-start gap-3">
-                <span className="w-2 h-2 rounded-full bg-indigo-500 mt-1.5 shrink-0" />
-                <div>
-                  <p className="text-[11px] text-white font-medium">No XMTP = no coordination</p>
-                  <p className="text-[10px] text-gray-500">Briefing, proof submission, verification, and payment all happen in-thread. Remove XMTP and the task can&apos;t execute.</p>
-                </div>
-              </div>
-              <div className="px-4 py-3 flex items-start gap-3">
-                <span className="w-2 h-2 rounded-full bg-purple-500 mt-1.5 shrink-0" />
-                <div>
-                  <p className="text-[11px] text-white font-medium">One encrypted thread per task</p>
-                  <p className="text-[10px] text-gray-500">Automatically created on claim. All participants, all messages, one workspace — private by default.</p>
-                </div>
-              </div>
-              <div className="px-4 py-3 flex items-start gap-3">
-                <span className="w-2 h-2 rounded-full bg-blue-500 mt-1.5 shrink-0" />
-                <div>
-                  <p className="text-[11px] text-white font-medium">Works outside the web app</p>
-                  <p className="text-[10px] text-gray-500">DM the bot from any XMTP client to browse tasks, check stats, or get help — no browser required</p>
-                </div>
+        {sending && (
+          <div className="flex gap-2">
+            <div className="w-7 h-7 rounded-full bg-indigo-500/15 flex items-center justify-center shrink-0">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#818cf8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+              </svg>
+            </div>
+            <div className="bg-[#0a0a0a] border border-white/[0.06] rounded-2xl rounded-bl-md px-4 py-3">
+              <div className="flex gap-1">
+                <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: "0ms" }} />
+                <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: "150ms" }} />
+                <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: "300ms" }} />
               </div>
             </div>
           </div>
-        </div>
+        )}
 
-        {/* ════════════════════════════════════════════════
-            7. "TRY IT" CTA
-        ════════════════════════════════════════════════ */}
-        <div className="bg-gradient-to-b from-indigo-500/[0.06] to-purple-500/[0.03] border border-indigo-500/15 rounded-2xl p-5 text-center">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border border-indigo-500/20 mb-3">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="url(#cta-grad)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <defs>
-                <linearGradient id="cta-grad" x1="0" y1="0" x2="24" y2="24">
-                  <stop offset="0%" stopColor="#818cf8" />
-                  <stop offset="100%" stopColor="#c084fc" />
-                </linearGradient>
-              </defs>
-              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-            </svg>
-          </div>
+        <div ref={messagesEndRef} />
+      </div>
 
-          <p className="text-lg font-bold text-white mb-1">Message the Bot</p>
-          <p className="text-[11px] text-gray-500 leading-relaxed mb-4 max-w-xs mx-auto">
-            Open any XMTP client and DM this address. Browse tasks, ask questions, or check your stats — the bot responds in seconds.
-          </p>
-
-          <div className="bg-black/30 border border-white/[0.06] rounded-xl px-4 py-3 flex items-center gap-2 mb-4">
-            <p className="text-[11px] text-indigo-400 font-mono truncate flex-1">{BOT_ADDRESS}</p>
-            <CopyButton text={BOT_ADDRESS} />
-          </div>
-
-          <div className="flex flex-wrap justify-center gap-2">
-            {["nearby tasks", "high payout", "stats", "help"].map((q) => (
-              <span
+      {/* Suggestions (show when few messages) */}
+      {messages.length <= 2 && !sending && (
+        <div className="shrink-0 px-4 pb-2">
+          <p className="text-[9px] text-gray-600 mb-1.5">Try asking:</p>
+          <div className="flex flex-wrap gap-1.5">
+            {SUGGESTED_QUERIES.map((q) => (
+              <button
                 key={q}
-                className="text-[10px] text-indigo-300 bg-indigo-500/10 border border-indigo-500/15 px-2.5 py-1 rounded-full"
+                onClick={() => sendMessage(q)}
+                className="text-[10px] text-indigo-300 bg-indigo-500/10 border border-indigo-500/15 px-2.5 py-1.5 rounded-full hover:bg-indigo-500/20 transition-colors active:scale-95"
               >
-                &quot;{q}&quot;
-              </span>
+                {q}
+              </button>
             ))}
           </div>
         </div>
+      )}
 
-        {/* ── Tech stack badges ────────────────────────── */}
-        <div className="flex items-center justify-center gap-3 py-2 flex-wrap">
-          {[
-            { label: "XMTP", color: "#818cf8" },
-            { label: "World ID", color: "#4ade80" },
-            { label: "World Chain", color: "#a78bfa" },
-            { label: "MiniKit", color: "#60a5fa" },
-          ].map((tech, i) => (
-            <span key={tech.label} className="flex items-center gap-1.5">
-              {i > 0 && <span className="text-gray-800 mr-1.5">·</span>}
-              <span className="w-1 h-1 rounded-full" style={{ backgroundColor: tech.color }} />
-              <span className="text-[10px] text-gray-600">{tech.label}</span>
-            </span>
-          ))}
-        </div>
-
-        {/* Bottom spacer */}
-        <div className="h-4" />
+      {/* Input */}
+      <div className="shrink-0 px-4 py-3 border-t border-white/[0.06] bg-[#0a0a0a]">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            sendMessage(input);
+          }}
+          className="flex items-center gap-2"
+        >
+          <input
+            ref={inputRef}
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="Ask the RELAY bot..."
+            disabled={sending}
+            className="flex-1 bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500/30 focus:ring-1 focus:ring-indigo-500/20 disabled:opacity-50"
+          />
+          <button
+            type="submit"
+            disabled={!input.trim() || sending}
+            className="w-10 h-10 rounded-xl bg-indigo-500 hover:bg-indigo-600 disabled:bg-indigo-500/30 flex items-center justify-center transition-colors active:scale-95 shrink-0"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="22" y1="2" x2="11" y2="13" />
+              <polygon points="22 2 15 22 11 13 2 9 22 2" />
+            </svg>
+          </button>
+        </form>
       </div>
     </div>
   );
