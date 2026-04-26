@@ -916,7 +916,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
                   </div>
                   {task.verificationResult && (
                     <div className="mt-3 pt-3 border-t border-white/[0.04] min-w-0">
-                      <p className="text-xs text-gray-400 leading-relaxed italic break-words">&ldquo;{task.verificationResult.reasoning}&rdquo;</p>
+                      <p className="text-xs text-gray-400 leading-relaxed italic break-words">&ldquo;{String(task.verificationResult.reasoning)}&rdquo;</p>
                       <div className="flex items-center gap-2 mt-2 flex-wrap">
                         <span className="text-[10px] text-gray-600 flex items-center gap-1 truncate max-w-full">
                           {shortId(task.poster)} → {task.claimant ? shortId(task.claimant) : "?"}
@@ -1403,7 +1403,7 @@ function TaskCard({
               <span className="text-[9px] text-gray-500">{Math.round(task.verificationResult.confidence * 100)}% confidence</span>
             )}
           </div>
-          <span className="opacity-80 mt-1 block">{task.verificationResult.reasoning}</span>
+          <span className="opacity-80 mt-1 block">{String(task.verificationResult.reasoning)}</span>
         </div>
       )}
 
@@ -2023,8 +2023,10 @@ function SubmitProof({
       }
 
       const data = await res.json();
+      const v = data.verification || {};
       setResult({
-        ...data.verification,
+        verdict: String(v.verdict || "fail"),
+        reasoning: String(v.reasoning || "No reasoning provided"),
         locationVerified: data.locationVerified,
         distanceKm: data.distanceKm,
       });
@@ -2267,7 +2269,7 @@ function SubmitProof({
                 {result.verdict === "pass" ? "VERIFIED" : result.verdict === "flag" ? "FLAGGED" : "REJECTED"}
               </span>
             </div>
-            <p className="text-xs text-gray-400 leading-relaxed">{result.reasoning}</p>
+            <p className="text-xs text-gray-400 leading-relaxed">{String(result.reasoning)}</p>
             {result.locationVerified !== undefined && result.locationVerified !== null && (
               <div className="flex items-center gap-1.5 mt-2">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={result.locationVerified ? "#4ade80" : "#f59e0b"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -2699,7 +2701,7 @@ function TaskDetail({
                 <span className="text-[10px] text-gray-500 ml-auto">{Math.round(currentTask.verificationResult.confidence * 100)}% confidence</span>
               )}
             </div>
-            <p className="text-xs text-gray-400 leading-relaxed break-words">{currentTask.verificationResult.reasoning}</p>
+            <p className="text-xs text-gray-400 leading-relaxed break-words">{String(currentTask.verificationResult.reasoning)}</p>
             {currentTask.verificationResult.verdict === "pass" && (
               <div className="mt-2 pt-2 border-t border-green-500/15">
                 <p className="text-xs text-green-400 font-semibold">${currentTask.bountyUsdc} USDC released</p>
@@ -2991,7 +2993,7 @@ function TaskDetail({
                       {new Date(msg.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                     </span>
                   </div>
-                  <p className="text-xs text-gray-300 whitespace-pre-line leading-relaxed break-words">{msg.text}</p>
+                  <p className="text-xs text-gray-300 whitespace-pre-line leading-relaxed break-words">{typeof msg.text === "string" ? msg.text : String(msg.text)}</p>
                 </div>
               );
             })

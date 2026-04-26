@@ -174,12 +174,12 @@ export default function DemoPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          agent_id: "shelfwatch",
+          agent_id: "propertycheck",
           description:
-            "Photograph the shelf price for Oral-B Pro replacement heads at Monoprix Rivoli — client reports price increased but online still shows €8.99",
-          location: "Monoprix Rivoli, Paris 1er",
-          bounty_usdc: 3,
-          deadline_hours: 8,
+            "Photograph the current Paris skyline from your location — include any visible landmarks, rooftops, and sky conditions. Verifying neighborhood views for a rental listing.",
+          location: "Paris, any vantage point",
+          bounty_usdc: 5,
+          deadline_hours: 24,
         }),
       });
       const data = await res.json();

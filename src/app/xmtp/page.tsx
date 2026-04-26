@@ -89,9 +89,10 @@ export default function XmtpPage() {
       });
       if (!res.ok) throw new Error("Failed");
       const data = await res.json();
+      const responseText = typeof data.response === "string" ? data.response : String(data.response || "No response");
       setMessages((prev) => [
         ...prev,
-        { role: "bot", text: data.response || "No response", timestamp: Date.now() },
+        { role: "bot", text: responseText, timestamp: Date.now() },
       ]);
     } catch {
       setMessages((prev) => [

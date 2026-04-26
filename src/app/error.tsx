@@ -9,7 +9,9 @@ export default function ErrorPage({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
-  console.error("[ErrorBoundary]", error.message, error.stack);
+  const errorMsg = typeof error?.message === "string" ? error.message : String(error?.message ?? error?.digest ?? "Unknown error");
+  const errorStack = typeof error?.stack === "string" ? error.stack : "";
+  console.error("[ErrorBoundary]", errorMsg, errorStack);
   return (
     <div className="flex flex-col min-h-screen items-center justify-center px-6 bg-[#050505]">
       <div className="flex flex-col items-center gap-6 max-w-lg mx-auto text-center">
@@ -34,9 +36,15 @@ export default function ErrorPage({
           <h1 className="text-3xl font-bold tracking-tight text-white">
             Something went wrong
           </h1>
-          <p className="text-gray-600 text-xs font-mono">
-            {error.message || error.digest || "Unknown error"}
+          <p className="text-gray-600 text-xs font-mono break-all max-w-xs">
+            {errorMsg}
           </p>
+          {errorStack && (
+            <details className="text-left">
+              <summary className="text-[10px] text-gray-700 cursor-pointer">Stack trace</summary>
+              <pre className="text-[8px] text-gray-700 mt-1 max-h-32 overflow-auto whitespace-pre-wrap break-all">{errorStack}</pre>
+            </details>
+          )}
         </div>
 
         <div className="flex flex-col items-center gap-3">
