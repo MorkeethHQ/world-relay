@@ -6,7 +6,7 @@ import { MiniKit } from "@worldcoin/minikit-js";
 import type { Task, AgentInfo } from "@/lib/types";
 
 function isMiniKit(): boolean {
-  try { return typeof window !== "undefined" && isMiniKit(); } catch { return false; }
+  try { return typeof window !== "undefined" && MiniKit.isInstalled(); } catch { return false; }
 }
 import { VerificationBadge, RequiredTierBadge } from "@/components/VerificationBadge";
 import { encodeCreateTask, encodeClaimTask, encodeReleasePayment, encodeUniswapSwap, readTaskCount, RELAY_ESCROW_ADDRESS, DOUBLE_OR_NOTHING_ADDRESS, encodeCreateDoubleOrNothing, encodeStakeAndClaimWithApproval, readDonTaskCount, type SwapToken } from "@/lib/contracts";
@@ -800,14 +800,23 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
 
         {/* Map view */}
         {mapMode && tab === "available" ? (
-          <TaskMap
-            tasks={tasks.filter(t => t.status === "open")}
-            userLocation={userLocation}
-            onSelectTask={(task) => {
-              setSelectedTask(task);
-              setView("detail");
-            }}
-          />
+          <div className="relative">
+            <TaskMap
+              tasks={tasks.filter(t => t.status === "open")}
+              userLocation={userLocation}
+              onSelectTask={(task) => {
+                setSelectedTask(task);
+                setView("detail");
+              }}
+            />
+            <button
+              onClick={() => setMapMode(false)}
+              className="absolute top-3 right-3 z-[1000] bg-black/80 backdrop-blur-sm text-white px-3 py-2 rounded-xl text-xs font-semibold border border-white/10 active:scale-95 transition-transform flex items-center gap-1.5"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+              Close map
+            </button>
+          </div>
         ) : loading ? (
           <div className="flex flex-col gap-2.5">
             {[0, 1, 2, 3].map((i) => (
