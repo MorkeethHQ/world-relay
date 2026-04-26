@@ -146,22 +146,15 @@ export default function XmtpPage() {
       <div className="flex-1 overflow-y-auto min-h-0 px-4 py-4 flex flex-col gap-3">
         {messages.map((msg, i) => (
           <div key={i} className={`flex gap-2 ${msg.role === "user" ? "flex-row-reverse" : ""}`}>
-            {msg.role === "bot" && (
-              <div className="w-7 h-7 rounded-full bg-indigo-500/15 flex items-center justify-center shrink-0 mt-0.5">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#818cf8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                </svg>
-              </div>
-            )}
             <div
-              className={`max-w-[80%] rounded-2xl px-3.5 py-2.5 ${
+              className={`max-w-[85%] px-3.5 py-2.5 ${
                 msg.role === "user"
-                  ? "bg-blue-500 text-white rounded-br-md"
-                  : "bg-[#0a0a0a] border border-white/[0.06] text-gray-300 rounded-bl-md"
+                  ? "bg-blue-500 text-white rounded-xl rounded-br-sm"
+                  : "bg-[#111] border border-white/[0.06] text-gray-300 rounded-xl rounded-bl-sm"
               }`}
             >
-              <p className="text-[12px] leading-relaxed whitespace-pre-line">{msg.text}</p>
-              <p className={`text-[8px] mt-1 ${msg.role === "user" ? "text-blue-200/50" : "text-gray-600"}`}>
+              <p className="text-[13px] leading-relaxed whitespace-pre-line">{msg.text}</p>
+              <p className={`text-[9px] mt-1 ${msg.role === "user" ? "text-blue-200/50" : "text-gray-600"}`}>
                 {new Date(msg.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
               </p>
             </div>
@@ -170,12 +163,7 @@ export default function XmtpPage() {
 
         {sending && (
           <div className="flex gap-2">
-            <div className="w-7 h-7 rounded-full bg-indigo-500/15 flex items-center justify-center shrink-0">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#818cf8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-              </svg>
-            </div>
-            <div className="bg-[#0a0a0a] border border-white/[0.06] rounded-2xl rounded-bl-md px-4 py-3">
+            <div className="bg-[#111] border border-white/[0.06] rounded-xl rounded-bl-sm px-4 py-3">
               <div className="flex gap-1">
                 <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: "0ms" }} />
                 <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: "150ms" }} />
@@ -197,7 +185,7 @@ export default function XmtpPage() {
               <button
                 key={q}
                 onClick={() => sendMessage(q)}
-                className="text-[10px] text-indigo-300 bg-indigo-500/10 border border-indigo-500/15 px-2.5 py-1.5 rounded-full hover:bg-indigo-500/20 transition-colors active:scale-95"
+                className="text-[11px] text-gray-300 bg-white/[0.04] border border-white/[0.08] px-3 py-1.5 rounded-lg hover:bg-white/[0.08] transition-colors active:scale-95"
               >
                 {q}
               </button>
@@ -222,7 +210,7 @@ export default function XmtpPage() {
             onChange={(e) => setInput(e.target.value)}
             placeholder="Ask the RELAY bot..."
             disabled={sending}
-            className="flex-1 bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500/30 focus:ring-1 focus:ring-indigo-500/20 disabled:opacity-50"
+            className="flex-1 bg-white/[0.04] border border-white/[0.08] rounded-lg px-4 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-white/20 disabled:opacity-50"
           />
           <button
             type="submit"

@@ -53,17 +53,17 @@ const FRESH_TASKS = [
     bountyUsdc: 3.00,
     deadlineHours: 6,
   },
-  // ShelfWatch — retail price check
+  // FreshMap — sunset/golden hour check (DEMO-FRIENDLY)
   {
-    agentId: "shelfwatch",
-    poster: "agent:shelfwatch",
+    agentId: "freshmap",
+    poster: "agent:freshmap",
     category: "photo" as const,
-    description: "Photograph the shelf price for Oral-B Pro replacement heads at Monoprix — client reports price increased but online still shows €8.99",
-    location: "Monoprix, Paris",
-    lat: 48.8566,
-    lng: 2.3453,
-    bountyUsdc: 3.00,
-    deadlineHours: 8,
+    description: "What does the light look like in Paris right now? Photograph the sky and any visible landmarks — golden hour reference imagery for content platforms.",
+    location: "Paris, any vantage point",
+    lat: 48.8606,
+    lng: 2.3376,
+    bountyUsdc: 4.00,
+    deadlineHours: 6,
   },
   // PropertyCheck — building entrance verification
   {

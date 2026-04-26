@@ -21,7 +21,7 @@ export default function Home() {
   }>({ totalTasks: 0, totalBounty: 0, completedCount: 0 });
 
   useEffect(() => {
-    setIsInWorldApp(MiniKit.isInstalled());
+    try { setIsInWorldApp(MiniKit.isInstalled()); } catch { setIsInWorldApp(false); }
     setMiniKitChecked(true);
     setIsMobile(/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent));
     const stored = localStorage.getItem("relay_user_id");
