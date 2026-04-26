@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
   if (!task) {
     return NextResponse.json({ error: "Task not found" }, { status: 404 });
   }
-  if (task.status !== "claimed") {
+  if (task.status !== "claimed" && !demoMode) {
     return NextResponse.json({ error: "Task not in claimed state" }, { status: 400 });
   }
 

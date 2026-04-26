@@ -337,25 +337,6 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
     }
   }, []);
 
-  if (view === "post") {
-    return <PostTask userId={userId} onDone={() => { setView("board"); fetchTasks(); }} onCancel={() => setView("board")} />;
-  }
-
-  if (view === "proof" && selectedTask) {
-    return <SubmitProof task={selectedTask} onDone={() => { setView("board"); fetchTasks(); }} onCancel={() => setView("board")} />;
-  }
-
-  if (view === "detail" && selectedTask) {
-    return (
-      <TaskDetail
-        task={selectedTask}
-        userId={userId}
-        onBack={() => { setView("board"); fetchTasks(); }}
-        onSubmitProof={() => setView("proof")}
-      />
-    );
-  }
-
   const PULL_THRESHOLD = 60;
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
@@ -429,6 +410,25 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
   const totalEarned = completedByClaiming.reduce((sum, t) => sum + t.bountyUsdc, 0);
   const totalPosted = tasks.filter(t => t.poster === userId).length;
   const totalClaimed = tasks.filter(t => t.claimant === userId).length;
+
+  if (view === "post") {
+    return <PostTask userId={userId} onDone={() => { setView("board"); fetchTasks(); }} onCancel={() => setView("board")} />;
+  }
+
+  if (view === "proof" && selectedTask) {
+    return <SubmitProof task={selectedTask} onDone={() => { setView("board"); fetchTasks(); }} onCancel={() => setView("board")} />;
+  }
+
+  if (view === "detail" && selectedTask) {
+    return (
+      <TaskDetail
+        task={selectedTask}
+        userId={userId}
+        onBack={() => { setView("board"); fetchTasks(); }}
+        onSubmitProof={() => setView("proof")}
+      />
+    );
+  }
 
   return (
     <div

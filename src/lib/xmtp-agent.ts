@@ -1,3 +1,4 @@
+import Anthropic from "@anthropic-ai/sdk";
 import { listTasks } from "./store";
 import type { Task, TaskCategory } from "./types";
 import { AGENT_REGISTRY } from "./agents";
@@ -278,6 +279,49 @@ function truncateResponse(text: string, maxLen = 1000): string {
   return text.slice(0, maxLen - suffix.length) + suffix;
 }
 
+async function generateAIResponse(query: string, tasks: Task[], openTasks: Task[]): Promise<string> {
+  if (!process.env.ANTHROPIC_API_KEY) {
+    const sorted = [...openTasks].sort((a, b) => b.bountyUsdc - a.bountyUsdc);
+    const list = sorted.slice(0, 3).map((t, i) => formatTask(t, i + 1)).join("\n\n");
+    return `I'm not sure how to answer that yet. Here are top bounties:\n\n${list}\n\nSend "help" for commands.`;
+  }
+
+  const client = new Anthropic();
+  const open = openTasks.length;
+  const completed = tasks.filter(t => t.status === "completed").length;
+  const totalBounty = openTasks.reduce((sum, t) => sum + t.bountyUsdc, 0);
+  const topTasks = [...openTasks].sort((a, b) => b.bountyUsdc - a.bountyUsdc).slice(0, 5);
+  const taskSummary = topTasks.map(t => `- "${t.description.slice(0, 60)}" at ${t.location} ($${t.bountyUsdc} USDC)`).join("\n");
+
+  try {
+    const res = await client.messages.create({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 300,
+      system: `You are RELAY Bot, a conversational assistant for the RELAY network. RELAY is a protocol where AI agents post micro-bounties for real-world tasks (photos, check-ins, deliveries) and World ID-verified humans complete them for USDC on World Chain.
+
+Current network state:
+- ${open} open tasks, ${completed} completed
+- $${totalBounty.toFixed(0)} USDC in available bounties
+- Top tasks:\n${taskSummary}
+
+Rules:
+- Be conversational, friendly, and concise (under 150 words)
+- If someone asks about payment: bounties pay in USDC on World Chain, released automatically when proof is AI-verified
+- If someone asks how to earn: claim a task, complete it, submit photo proof, get paid
+- If someone asks something unrelated to RELAY, gently redirect to RELAY topics
+- Reference specific tasks when relevant
+- Never make up information about the protocol
+- End with a suggestion of what they can ask next
+- URL: ${BASE_URL}`,
+      messages: [{ role: "user", content: query }],
+    });
+    const text = res.content[0].type === "text" ? res.content[0].text : "";
+    return text || `I'm not sure how to answer that. Send "help" to see what I can do.`;
+  } catch {
+    return `I'm having trouble processing that right now. Try "help" to see available commands, or browse tasks at ${BASE_URL}`;
+  }
+}
+
 export async function processAgentQuery(query: string): Promise<string> {
   const tasks = await listTasks();
   const openTasks = tasks.filter((t) => t.status === "open");
@@ -403,20 +447,7 @@ export async function processAgentQuery(query: string): Promise<string> {
     }
 
     case "default": {
-      if (openTasks.length === 0) {
-        response = `No open tasks right now. Check back soon or browse ${BASE_URL}`;
-        break;
-      }
-      const sorted = [...openTasks].sort((a, b) => b.bountyUsdc - a.bountyUsdc);
-      const list = sorted.slice(0, 5).map((t, i) => formatTask(t, i + 1)).join("\n\n");
-      response = [
-        `Top open tasks by bounty:`,
-        "",
-        list,
-        openTasks.length > 5 ? `\n${openTasks.length - 5} more available. Browse all: ${BASE_URL}` : "",
-        "",
-        'Send "help" to learn more about RELAY.',
-      ].join("\n");
+      response = await generateAIResponse(query, tasks, openTasks);
       break;
     }
   }
