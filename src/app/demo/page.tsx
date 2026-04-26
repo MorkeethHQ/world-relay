@@ -1050,7 +1050,7 @@ export default function DemoPage() {
   }
 
   return (
-    <div className="h-[calc(100dvh-4rem)] bg-[#050505] text-white flex flex-col max-w-lg mx-auto overflow-hidden">
+    <div className="h-[calc(100dvh-3.5rem)] bg-[#050505] text-white flex flex-col max-w-lg mx-auto overflow-hidden -mb-16">
       {/* Header */}
       <div className="shrink-0 bg-[#050505] border-b border-white/5">
         <div className="flex items-center justify-between px-4 py-3">

@@ -22,20 +22,22 @@ export type ConsensusResult = {
   consensusMethod: "majority" | "unanimous";
 };
 
-const SYSTEM_PROMPT = `You are a proof verification agent for RELAY, an errand network.
-Your job: determine if submitted proof photos plausibly prove that a real-world task was completed.
+const SYSTEM_PROMPT = `You are a proof verification agent for RELAY, a real-world micro-task network.
+Your job: determine if submitted proof plausibly demonstrates that a task was completed.
 
-You will receive:
+Tasks may require photos, text reports, price checks, reviews, or research. You will receive:
 - A task description (what was requested)
-- One or more proof photos (submitted by the person who claims to have done it)
+- Proof: one or more photos AND/OR a written text response
 
-You may receive multiple proof photos from different angles. Consider ALL photos together when evaluating.
-
-Evaluate whether the photos are plausible proof the task was done. Consider:
+For PHOTO proofs, evaluate:
 - Do the photos show what the task asked for?
 - Are they clearly real photos (not screenshots, stock images, or AI-generated)?
-- Do they contain relevant context (location cues, timestamps, objects mentioned in the task)?
-- Do multiple angles/photos corroborate each other?
+- Do they contain relevant context (location cues, timestamps, objects mentioned)?
+
+For TEXT proofs (no photos), evaluate:
+- Does the response answer what the task asked?
+- Is it specific enough to be credible (names, numbers, details)?
+- Does it seem like firsthand observation vs. generic info?
 
 Respond with JSON only:
 {
@@ -44,9 +46,9 @@ Respond with JSON only:
   "confidence": 0.0-1.0
 }
 
-- "pass": The photos clearly show the task was completed
+- "pass": The proof clearly demonstrates the task was completed
 - "flag": Ambiguous — could be valid but needs human review
-- "fail": The photos clearly do not match the task
+- "fail": The proof clearly does not match the task
 
 Be strict but fair. When in doubt, flag rather than fail.`;
 
@@ -93,27 +95,27 @@ export async function verifyProof(
 
   const systemPrompt = SYSTEM_PROMPT + agentSection;
 
-  const userContent: Array<{ type: "text"; text: string } | { type: "image"; source: { type: "base64"; media_type: "image/jpeg" | "image/png" | "image/gif" | "image/webp"; data: string } }> = [
-    {
+  const hasImages = images.length > 0 && images[0].length > 10;
+  const userContent: Array<{ type: "text"; text: string } | { type: "image"; source: { type: "base64"; media_type: "image/jpeg" | "image/png" | "image/gif" | "image/webp"; data: string } }> = [];
+
+  if (hasImages) {
+    userContent.push({
       type: "text" as const,
       text: `Task description: "${taskDescription}"${categoryHint ? `\nCategory: ${categoryHint}` : ""}${proofNote ? `\nClaimant's note: "${proofNote}"` : ""}\n\nVerify the following proof photo${images.length > 1 ? "s" : ""}:`,
-    },
-  ];
-
-  for (let i = 0; i < images.length; i++) {
-    if (images.length > 1) {
+    });
+    for (let i = 0; i < images.length; i++) {
+      if (images.length > 1) {
+        userContent.push({ type: "text" as const, text: `Photo ${i + 1} of ${images.length}:` });
+      }
       userContent.push({
-        type: "text" as const,
-        text: `Photo ${i + 1} of ${images.length}:`,
+        type: "image" as const,
+        source: { type: "base64" as const, media_type: detectMediaType(images[i]), data: images[i] },
       });
     }
+  } else {
     userContent.push({
-      type: "image" as const,
-      source: {
-        type: "base64" as const,
-        media_type: detectMediaType(images[i]),
-        data: images[i],
-      },
+      type: "text" as const,
+      text: `Task description: "${taskDescription}"${categoryHint ? `\nCategory: ${categoryHint}` : ""}\n\nThis is a TEXT-ONLY proof submission (no photos). The claimant's response:\n\n"${proofNote || "(empty)"}"`,
     });
   }
 
@@ -325,7 +327,7 @@ export async function verifyProofConsensus(
   category?: string,
   agentId?: string
 ): Promise<ConsensusResult> {
-  const images = Array.isArray(proofImages) ? proofImages : [proofImages];
+  const images = Array.isArray(proofImages) ? proofImages.filter(i => i && i.length > 10) : (proofImages && proofImages.length > 10 ? [proofImages] : []);
   const categoryHint = category ? CATEGORY_HINTS[category] || "" : "";
 
   let agentSection = "";
@@ -337,7 +339,11 @@ export async function verifyProofConsensus(
   }
 
   const systemPrompt = SYSTEM_PROMPT + agentSection;
-  const userText = `Task description: "${taskDescription}"${categoryHint ? `\nCategory: ${categoryHint}` : ""}${proofNote ? `\nClaimant's note: "${proofNote}"` : ""}\n\nVerify the following proof photo${images.length > 1 ? "s" : ""}:`;
+  const hasImages = images.length > 0;
+  const userText = hasImages
+    ? `Task description: "${taskDescription}"${categoryHint ? `\nCategory: ${categoryHint}` : ""}${proofNote ? `\nClaimant's note: "${proofNote}"` : ""}\n\nVerify the following proof photo${images.length > 1 ? "s" : ""}:`
+    : `Task description: "${taskDescription}"${categoryHint ? `\nCategory: ${categoryHint}` : ""}\n\nThis is a TEXT-ONLY proof submission (no photos). The claimant's response:\n\n"${proofNote || "(empty)"}"`;
+
 
   // Launch all 3 models in parallel with individual error handling
   const modelPromises: Promise<ModelResult>[] = [

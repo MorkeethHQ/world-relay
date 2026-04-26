@@ -56,8 +56,8 @@ export async function POST(req: NextRequest) {
   // Limit to max 3 images
   proofImages = proofImages.slice(0, 3);
 
-  if (!taskId || proofImages.length === 0) {
-    return NextResponse.json({ error: "Missing taskId or proof image" }, { status: 400 });
+  if (!taskId || (proofImages.length === 0 && !proofNote)) {
+    return NextResponse.json({ error: "Missing taskId or proof (image or note)" }, { status: 400 });
   }
 
   const task = await getTask(taskId);
@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
   }
 
   const proofImageUrls = proofImages.map((img: string) => `data:image/jpeg;base64,${img}`);
-  await submitProof(taskId, proofImageUrls[0], proofNote || null, proofImageUrls);
+  await submitProof(taskId, proofImageUrls[0] || null, proofNote || null, proofImageUrls.length > 0 ? proofImageUrls : null);
   await postProofSubmitted(taskId, proofNote);
 
   broadcastEvent("task:proof", {

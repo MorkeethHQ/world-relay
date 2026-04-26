@@ -141,14 +141,6 @@ export default function XmtpPage() {
         </div>
       </div>
 
-      {/* Bot address bar */}
-      <div className="shrink-0 px-4 py-2 border-b border-white/[0.04] bg-indigo-500/[0.03]">
-        <div className="flex items-center gap-2">
-          <span className="text-[9px] text-gray-500">Bot:</span>
-          <span className="text-[10px] text-indigo-400 font-mono truncate flex-1">{BOT_ADDRESS}</span>
-          <CopyButton text={BOT_ADDRESS} />
-        </div>
-      </div>
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto min-h-0 px-4 py-4 flex flex-col gap-3">

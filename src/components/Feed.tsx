@@ -651,16 +651,6 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
                 {new Set(tasks.map(t => t.location.split(",").pop()?.trim()).filter(Boolean)).size} cities
               </span>
             </div>
-            <a
-              href="/xmtp"
-              className="mt-2 flex items-center gap-2 bg-blue-500/8 border border-blue-500/15 rounded-xl px-3 py-2 hover:bg-blue-500/12 transition-all active:scale-[0.98]"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-              </svg>
-              <span className="text-[11px] text-blue-400 font-medium">DM the RELAY bot</span>
-              <span className="text-[9px] text-gray-600 font-mono ml-auto">via XMTP</span>
-            </a>
           </div>
         </div>
       )}
@@ -1166,35 +1156,6 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
             </div>
           )
         )}
-        {/* DM the RELAY Bot card */}
-        <div className="mb-3">
-          <button
-            onClick={() => {
-              navigator.clipboard.writeText(RELAY_BOT_ADDRESS).then(() => {
-                setBotAddrCopied(true);
-                setTimeout(() => setBotAddrCopied(false), 2000);
-              });
-            }}
-            className="group w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl border border-white/[0.06] bg-white/[0.02] hover:border-indigo-500/20 hover:bg-indigo-500/[0.03] transition-all"
-          >
-            <div className="w-7 h-7 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center shrink-0">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#818cf8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-              </svg>
-            </div>
-            <div className="flex-1 min-w-0 text-left">
-              <p className="text-[11px] font-medium text-white/70 leading-tight">DM the RELAY bot</p>
-              <p className="text-[9px] text-gray-600 font-mono truncate mt-0.5">{RELAY_BOT_ADDRESS}</p>
-            </div>
-            <span className={`shrink-0 text-[9px] font-mono uppercase px-1.5 py-0.5 rounded border transition-all ${
-              botAddrCopied
-                ? "text-green-400 border-green-500/30 bg-green-500/10"
-                : "text-gray-500 border-white/[0.06] bg-white/[0.03] group-hover:text-indigo-400 group-hover:border-indigo-500/20"
-            }`}>
-              {botAddrCopied ? "copied" : "copy"}
-            </span>
-          </button>
-        </div>
         <div className="flex items-center justify-center gap-3 sm:gap-4 flex-wrap">
           <div className="flex items-center gap-1.5">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
@@ -2040,7 +2001,7 @@ function SubmitProof({
   };
 
   const handleSubmit = async () => {
-    if (images.length === 0) return;
+    if (images.length === 0 && !proofNote.trim()) return;
     hapticMedium();
     setSubmitting(true);
 
@@ -2052,8 +2013,8 @@ function SubmitProof({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           taskId: task.id,
-          proofImageBase64: proofImages[0],
-          proofImages,
+          proofImageBase64: proofImages[0] || null,
+          proofImages: proofImages.length > 0 ? proofImages : [],
           proofNote: proofNote || null,
           lat: proofCoords?.lat || null,
           lng: proofCoords?.lng || null,
@@ -2368,10 +2329,10 @@ function SubmitProof({
         <div className="px-4 pb-8 pt-2">
           <button
             onClick={handleSubmit}
-            disabled={images.length === 0}
+            disabled={images.length === 0 && !proofNote.trim()}
             className="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-blue-500/40 disabled:cursor-not-allowed text-white font-medium rounded-xl px-4 py-3 min-h-[48px] transition-colors active:scale-[0.98]"
           >
-            Submit for Verification
+            {images.length > 0 ? "Submit for Verification" : "Submit Text Report"}
           </button>
         </div>
       )}

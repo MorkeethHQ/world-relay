@@ -224,14 +224,14 @@ export async function claimTask(
 
 export async function submitProof(
   id: string,
-  proofImageUrl: string,
+  proofImageUrl: string | null,
   proofNote: string | null,
-  proofImages?: string[]
+  proofImages?: string[] | null
 ): Promise<Task | null> {
   const task = await getTask(id);
   if (!task || task.status !== "claimed") return null;
   task.proofImageUrl = proofImageUrl;
-  task.proofImages = proofImages && proofImages.length > 0 ? proofImages : [proofImageUrl];
+  task.proofImages = proofImages && proofImages.length > 0 ? proofImages : proofImageUrl ? [proofImageUrl] : null;
   task.proofNote = proofNote;
   persistTask(task).catch(console.error);
   return task;
