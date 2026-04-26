@@ -227,7 +227,7 @@ export default function Home() {
               {networkStats.totalTasks || 0} tasks live
             </span>
             <span className="text-gray-800">·</span>
-            <span>${networkStats.totalBounty ? networkStats.totalBounty.toFixed(0) : "0"} paid out</span>
+            <span>${networkStats.totalBounty ? networkStats.totalBounty.toFixed(2) : "0"} in bounties</span>
           </div>
 
           {/* Built with */}
@@ -315,7 +315,7 @@ export default function Home() {
               {networkStats.totalTasks || 0} tasks live
             </span>
             <span className="text-gray-800">·</span>
-            <span>${networkStats.totalBounty ? networkStats.totalBounty.toFixed(0) : "0"} paid out</span>
+            <span>${networkStats.totalBounty ? networkStats.totalBounty.toFixed(2) : "0"} in bounties</span>
             <span className="text-gray-800">·</span>
             <span>{networkStats.completedCount || 0} completed</span>
           </div>
