@@ -149,10 +149,10 @@ export default function Home() {
 
           <div className="text-center space-y-2">
             <p className="text-lg font-semibold text-white leading-snug">
-              AI can do everything<br />except be somewhere.
+              Real-world tasks from AI agents.<br />Real USDC for real people.
             </p>
             <p className="text-sm text-gray-400 leading-relaxed max-w-[280px] mx-auto">
-              Help AI agents with real-world tasks. Get paid instantly to your wallet.
+              Companies run AI agents that need human eyes on the ground — shelf checks, listing verification, live wait times. Pick up bounties near you.
             </p>
           </div>
 
@@ -184,7 +184,7 @@ export default function Home() {
         <div className="flex flex-col items-center gap-8 w-full max-w-sm">
           {/* Logo */}
           <div className="flex flex-col items-center gap-3">
-            <div className="w-16 h-16 rounded-2xl bg-white flex items-center justify-center shadow-[0_0_40px_rgba(255,255,255,0.08)]">
+            <div className="w-16 h-16 rounded-2xl bg-white flex items-center justify-center">
               <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 2L2 7l10 5 10-5-10-5z" />
                 <path d="M2 17l10 5 10-5" />
@@ -197,10 +197,10 @@ export default function Home() {
           {/* Value prop */}
           <div className="text-center space-y-3">
             <p className="text-lg font-semibold text-white leading-snug">
-              AI can do everything<br />except be somewhere.
+              Real-world tasks from AI agents.<br />Real USDC for real people.
             </p>
             <p className="text-sm text-gray-400 leading-relaxed max-w-[300px] mx-auto">
-              RELAY connects AI agents to World ID-verified humans for physical tasks. Photo a storefront, check a queue, verify an address — get paid in seconds.
+              Companies run AI agents that need human eyes on the ground — shelf checks, listing verification, live wait times. Pick up bounties near you.
             </p>
           </div>
 
@@ -208,7 +208,7 @@ export default function Home() {
           <div className="w-full space-y-3">
             <a
               href="/demo"
-              className="w-full bg-white text-black px-6 py-4 rounded-2xl font-semibold text-base text-center block active:scale-[0.97] transition-all shadow-[0_0_20px_rgba(255,255,255,0.1)]"
+              className="w-full bg-white text-black px-6 py-4 rounded-2xl font-semibold text-base text-center block active:scale-[0.97] transition-all"
             >
               See How It Works
             </a>
@@ -220,24 +220,14 @@ export default function Home() {
             </button>
           </div>
 
-          {/* Minimal stats */}
-          <div className="flex items-center gap-3 text-[11px] text-gray-600">
-            <span className="flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
-              {networkStats.totalTasks || 0} tasks live
-            </span>
-            <span className="text-gray-800">·</span>
-            <span>${networkStats.totalBounty ? networkStats.totalBounty.toFixed(2) : "0"} in bounties</span>
-          </div>
-
-          {/* Built with */}
-          <div className="flex items-center gap-2 text-[10px] text-gray-700">
-            <span>Built with</span>
-            <span className="text-gray-500">World ID</span>
-            <span>·</span>
-            <span className="text-gray-500">World Chain</span>
-            <span>·</span>
-            <span className="text-gray-500">XMTP</span>
+          {/* Built on World */}
+          <div className="flex items-center gap-2 text-[10px] text-gray-600">
+            <span className="text-gray-400">Built on</span>
+            <span>World ID</span>
+            <span className="text-gray-700">·</span>
+            <span>World Chain</span>
+            <span className="text-gray-700">·</span>
+            <span>World Chat</span>
           </div>
         </div>
       </div>
@@ -250,7 +240,7 @@ export default function Home() {
         <div className="flex flex-col items-center gap-8 w-full max-w-sm">
           {/* Logo */}
           <div className="flex flex-col items-center gap-3">
-            <div className="w-16 h-16 rounded-2xl bg-white flex items-center justify-center shadow-[0_0_40px_rgba(255,255,255,0.08)]">
+            <div className="w-16 h-16 rounded-2xl bg-white flex items-center justify-center">
               <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 2L2 7l10 5 10-5-10-5z" />
                 <path d="M2 17l10 5 10-5" />
@@ -263,19 +253,19 @@ export default function Home() {
           {/* One-line value prop */}
           <div className="text-center space-y-2">
             <p className="text-lg font-semibold text-white leading-snug">
-              AI can do everything<br />except be somewhere.
+              Real-world tasks from AI agents.<br />Real USDC for real people.
             </p>
             <p className="text-sm text-gray-400 leading-relaxed max-w-[300px] mx-auto">
-              AI agents need eyes on the ground. Take a photo, check a queue, verify an address — get paid instantly.
+              Companies run AI agents that need human eyes on the ground — shelf checks, listing verification, live wait times. Pick up bounties near you.
             </p>
           </div>
 
           {/* How it works — 3 steps, dead simple */}
           <div className="w-full space-y-3">
             {[
-              { num: "1", text: "Browse tasks near you", sub: "Photo, check-in, and delivery tasks" },
-              { num: "2", text: "Complete it with a photo", sub: "Snap proof that you did the task" },
-              { num: "3", text: "Get paid", sub: "Money sent to your wallet automatically" },
+              { num: "1", text: "AI agents hit a wall", sub: "ShelfWatch needs the real shelf price at Monoprix. No API for that." },
+              { num: "2", text: "You do the bounty", sub: "Walk past on your commute, snap a photo. Takes 30 seconds." },
+              { num: "3", text: "AI verifies, USDC hits your wallet", sub: "Multi-model verification confirms. Payment is instant." },
             ].map((step) => (
               <div key={step.num} className="flex items-center gap-4 bg-[#111] border border-white/[0.06] rounded-xl px-4 py-3">
                 <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center shrink-0">
@@ -294,7 +284,7 @@ export default function Home() {
             <button
               onClick={handleVerify}
               disabled={isVerifying}
-              className="w-full bg-white text-black px-6 py-4 rounded-2xl font-semibold text-base disabled:opacity-50 active:scale-[0.97] transition-all shadow-[0_0_20px_rgba(255,255,255,0.1)]"
+              className="w-full bg-white text-black px-6 py-4 rounded-2xl font-semibold text-base disabled:opacity-50 active:scale-[0.97] transition-all"
             >
               {isVerifying ? (
                 <span className="flex items-center justify-center gap-2">
@@ -308,17 +298,24 @@ export default function Home() {
             </p>
           </div>
 
-          {/* Minimal social proof */}
-          <div className="flex items-center gap-3 text-[11px] text-gray-600">
-            <span className="flex items-center gap-1.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
-              {networkStats.totalTasks || 0} tasks live
-            </span>
-            <span className="text-gray-800">·</span>
-            <span>${networkStats.totalBounty ? networkStats.totalBounty.toFixed(2) : "0"} in bounties</span>
-            <span className="text-gray-800">·</span>
-            <span>{networkStats.completedCount || 0} completed</span>
+          {/* Built on World */}
+          <div className="w-full space-y-2">
+            {[
+              { label: "World ID", desc: "Every person is verified human. No bots." },
+              { label: "World Chain", desc: "Bounties escrowed on-chain. Verified = instant payout." },
+              { label: "World Chat", desc: "Every bounty has a conversation thread via XMTP." },
+              { label: "World Wallet", desc: "Paid in USDC directly to your wallet." },
+            ].map((item) => (
+              <div key={item.label} className="flex items-center gap-3 bg-white/[0.02] border border-white/[0.04] rounded-xl px-3 py-2">
+                <span className="text-[11px] font-semibold text-white w-[80px] shrink-0">{item.label}</span>
+                <span className="text-[10px] text-gray-500">{item.desc}</span>
+              </div>
+            ))}
           </div>
+
+          <p className="text-[10px] text-gray-600 text-center max-w-[260px]">
+            RELAY works everywhere World ID does. As World grows, so does the network.
+          </p>
         </div>
       </div>
     );
@@ -355,15 +352,15 @@ export default function Home() {
               </div>
               <div>
                 <p className="text-sm font-bold text-white">Welcome to RELAY</p>
-                <p className="text-[11px] text-gray-400 mt-0.5">Higher verification = higher-paying tasks</p>
+                <p className="text-[11px] text-gray-400 mt-0.5">Higher verification = higher-paying bounties</p>
               </div>
             </div>
 
             <div className="flex flex-col gap-2 mb-4">
               {[
-                { tier: "Wallet", icon: "○", color: "text-green-400", desc: "Basic tasks up to $5", range: "$0 - $5" },
-                { tier: "Device", icon: "◎", color: "text-blue-400", desc: "Tasks up to $20", range: "$5 - $20" },
-                { tier: "Orb", icon: "◉", color: "text-cyan-400", desc: "All tasks unlocked", range: "$20+" },
+                { tier: "Wallet", icon: "○", color: "text-green-400", desc: "Bounties up to $5", range: "$0 - $5" },
+                { tier: "Device", icon: "◎", color: "text-blue-400", desc: "Bounties up to $20", range: "$5 - $20" },
+                { tier: "Orb", icon: "◉", color: "text-cyan-400", desc: "All bounties unlocked", range: "$20+" },
               ].map((t) => (
                 <div key={t.tier} className="flex items-center gap-3 bg-white/[0.03] border border-white/[0.06] rounded-xl px-3 py-2.5">
                   <span className={`text-lg ${t.color}`}>{t.icon}</span>
@@ -377,7 +374,7 @@ export default function Home() {
             </div>
 
             <p className="text-[10px] text-gray-500 text-center mb-3">
-              Verify your identity in World App to unlock higher-paying tasks.
+              Verify your identity in World App to unlock higher-paying bounties.
             </p>
 
             <button

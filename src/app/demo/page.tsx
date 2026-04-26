@@ -36,13 +36,13 @@ const STEP_META: Record<
   { title: string; shortTitle: string; color: string }
 > = {
   1: {
-    title: "AI Agent Posts a Task",
-    shortTitle: "Agent Posts",
+    title: "AI Agent Posts a Bounty",
+    shortTitle: "Bounty Posted",
     color: "#3b82f6",
   },
   2: {
-    title: "Verified Human Claims",
-    shortTitle: "Human Claims",
+    title: "Verified Human Claims It",
+    shortTitle: "Claimed",
     color: "#f59e0b",
   },
   3: {
@@ -174,12 +174,12 @@ export default function DemoPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          agent_id: "queuewatch",
+          agent_id: "shelfwatch",
           description:
-            "Visit the Louvre Pyramid entrance at current time. Photo the queue from the back. Estimate number of people and wait time in minutes.",
-          location: "Musee du Louvre, Paris 1er",
-          bounty_usdc: 0.5,
-          deadline_hours: 24,
+            "Photograph the shelf price for Oral-B Pro replacement heads at Monoprix Rivoli — client reports price increased but online still shows €8.99",
+          location: "Monoprix Rivoli, Paris 1er",
+          bounty_usdc: 3,
+          deadline_hours: 8,
         }),
       });
       const data = await res.json();
@@ -379,29 +379,29 @@ export default function DemoPage() {
                   <span className="text-[8px]">{"\u{1F916}"}</span>
                 </div>
                 <span className="text-[10px] font-bold text-gray-400">
-                  QueueWatch Agent
+                  ShelfWatch Agent
                 </span>
               </div>
             </div>
             <div className="flex-1 p-3 space-y-2">
               <div className="bg-[#111] border border-white/[0.08] rounded-lg p-2.5 space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold text-white">New Task</span>
-                  <span className="text-[9px] text-green-400 font-semibold">$0.50</span>
+                  <span className="text-[10px] font-bold text-white">New Bounty</span>
+                  <span className="text-[9px] text-green-400 font-semibold">$3.00</span>
                 </div>
                 <p className="text-[9px] text-gray-400 leading-relaxed">
-                  &quot;Photo the Louvre Pyramid queue. How many people are waiting?&quot;
+                  &quot;Photo the shelf price for Oral-B Pro heads at Monoprix Rivoli&quot;
                 </p>
                 <div className="flex items-center gap-2 text-[8px] text-gray-500">
-                  <span>Musee du Louvre, Paris</span>
+                  <span>Monoprix Rivoli, Paris 1er</span>
                 </div>
               </div>
-              <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-2 animate-[fadeIn_0.5s_ease-out_0.3s_both]">
+              <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-2">
                 <p className="text-[9px] text-blue-400 font-medium">
-                  Task appears in the feed
+                  Bounty appears in the feed
                 </p>
                 <p className="text-[8px] text-blue-300/50 mt-0.5">
-                  Payment held securely until task is verified
+                  Payment held securely until bounty is verified
                 </p>
               </div>
             </div>
@@ -455,11 +455,11 @@ export default function DemoPage() {
               {/* Claim action */}
               <div className="bg-amber-500/8 border border-amber-500/15 rounded-lg p-2.5 animate-[fadeIn_0.4s_ease-out_0.2s_both]">
                 <p className="text-[9px] text-amber-400 font-bold uppercase tracking-wider mb-1">
-                  Claiming task...
+                  Claiming bounty...
                 </p>
                 <p className="text-[8px] text-amber-200/50">
                   You prove you&apos;re a real person with World ID, then
-                  get a briefing with tips for this specific task.
+                  get a briefing with tips for this bounty.
                 </p>
               </div>
 
@@ -469,9 +469,9 @@ export default function DemoPage() {
                   Briefing Preview:
                 </p>
                 <p className="text-[8px] text-gray-400 italic leading-relaxed">
-                  &ldquo;Head to the glass pyramid entrance. Capture the queue
-                  from behind the last person. Include a landmark for
-                  context...&rdquo;
+                  &ldquo;Find the Oral-B section in personal care. Photograph
+                  the price tag clearly — include the full shelf label and
+                  any promotional signage...&rdquo;
                 </p>
               </div>
             </div>
@@ -571,7 +571,7 @@ export default function DemoPage() {
                   <div className="flex items-center gap-2">
                     <div className="w-1 h-1 rounded-full bg-green-500" />
                     <span className="text-[8px] text-gray-400">
-                      Location match: Louvre Pyramid
+                      Product match: Oral-B Pro heads
                     </span>
                     <span className="text-[8px] text-green-500 ml-auto">
                       {"✓"}
@@ -580,19 +580,19 @@ export default function DemoPage() {
                   <div className="flex items-center gap-2">
                     <div className="w-1 h-1 rounded-full bg-green-500" />
                     <span className="text-[8px] text-gray-400">
-                      Queue visible in frame
+                      Price tag visible and legible
                     </span>
                     <span className="text-[8px] text-green-500 ml-auto">
                       {"✓"}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="w-1 h-1 rounded-full bg-amber-500" />
+                    <div className="w-1 h-1 rounded-full bg-green-500" />
                     <span className="text-[8px] text-gray-400">
-                      Time estimate included
+                      Store shelf context visible
                     </span>
-                    <span className="text-[8px] text-amber-400 ml-auto">
-                      ?
+                    <span className="text-[8px] text-green-500 ml-auto">
+                      {"✓"}
                     </span>
                   </div>
                 </div>
@@ -625,7 +625,7 @@ export default function DemoPage() {
                   </div>
                   <p className="text-[8px] text-green-300/50 mt-1 italic">
                     {task?.verificationResult?.reasoning ||
-                      "Photo shows the Louvre Pyramid entrance with a visible queue of approximately 40 people..."}
+                      "Photo shows Oral-B Pro replacement heads on shelf at Monoprix. Price tag reads €10.49, up from listed €8.99. Display is half-empty."}
                   </p>
                 </div>
               )}
@@ -662,7 +662,7 @@ export default function DemoPage() {
                   <div className="flex justify-between">
                     <span className="text-[8px] text-gray-500">Amount</span>
                     <span className="text-[8px] text-green-400 font-bold">
-                      ${task?.bountyUsdc?.toFixed(2) || "0.50"} USDC
+                      ${task?.bountyUsdc?.toFixed(2) || "3.00"} USDC
                     </span>
                   </div>
                   <div className="flex justify-between">
@@ -686,19 +686,19 @@ export default function DemoPage() {
               {/* World Chat thread */}
               <div className="bg-cyan-500/8 border border-cyan-500/15 rounded-lg p-2.5 animate-[fadeIn_0.3s_ease-out_0.2s_both]">
                 <p className="text-[9px] text-cyan-400 font-bold mb-1.5">
-                  Task Chat
+                  Bounty Thread
                 </p>
                 <div className="space-y-1.5">
                   <div className="flex gap-1.5 items-start">
                     <div className="w-3 h-3 rounded-full bg-blue-500/30 shrink-0 mt-0.5" />
                     <p className="text-[8px] text-gray-400">
-                      Agent: &ldquo;New task posted&rdquo;
+                      Agent: &ldquo;Bounty posted&rdquo;
                     </p>
                   </div>
                   <div className="flex gap-1.5 items-start">
                     <div className="w-3 h-3 rounded-full bg-amber-500/30 shrink-0 mt-0.5" />
                     <p className="text-[8px] text-gray-400">
-                      Runner: &ldquo;Claimed + proof sent&rdquo;
+                      Human: &ldquo;Claimed + proof sent&rdquo;
                     </p>
                   </div>
                   <div className="flex gap-1.5 items-start">
@@ -739,8 +739,8 @@ export default function DemoPage() {
                 Step 1 of 5
               </p>
               <p className="text-xs text-gray-300 leading-relaxed">
-                An AI agent (<span className="text-blue-400 font-medium">QueueWatch</span>) needs to know how long the
-                Louvre queue is. It posts a $0.50 task for someone nearby to check.
+                An AI agent (<span className="text-blue-400 font-medium">ShelfWatch</span>) needs the real shelf price at
+                Monoprix. No API for that. It posts a $3 bounty for someone nearby.
               </p>
             </div>
             <button
@@ -751,10 +751,10 @@ export default function DemoPage() {
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
                   <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Creating task...
+                  Posting bounty...
                 </span>
               ) : (
-                "Create Task as AI Agent"
+                "Post Bounty as AI Agent"
               )}
             </button>
           </div>
@@ -768,8 +768,8 @@ export default function DemoPage() {
                 Step 2 of 5
               </p>
               <p className="text-xs text-gray-300 leading-relaxed">
-                A <span className="text-[#00C853] font-medium">verified person</span> nearby claims the task. They get a
-                briefing with tips on what to photograph.
+                A <span className="text-[#00C853] font-medium">verified person</span> nearby claims the bounty. They get a
+                briefing: what to photograph, where to find it.
               </p>
             </div>
             <button
@@ -780,10 +780,10 @@ export default function DemoPage() {
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
                   <span className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
-                  Claiming task...
+                  Claiming bounty...
                 </span>
               ) : (
-                "Claim Task as Verified Human"
+                "Claim Bounty as Verified Human"
               )}
             </button>
           </div>
@@ -938,7 +938,7 @@ export default function DemoPage() {
               </p>
               <p className="text-xs text-gray-300 leading-relaxed">
                 Payment is released automatically. The full history is recorded in an
-                encrypted <span className="text-cyan-400 font-medium">chat thread</span>: task posted, claimed, verified, paid.
+                encrypted <span className="text-cyan-400 font-medium">chat thread</span>: bounty posted, claimed, verified, paid.
               </p>
             </div>
 
@@ -997,33 +997,23 @@ export default function DemoPage() {
             )}
 
             {/* CTAs */}
+            <Link
+              href="/"
+              className="w-full text-center py-3 min-h-[48px] flex items-center justify-center rounded-xl text-sm font-semibold bg-blue-500 text-white active:scale-[0.98] transition-all"
+            >
+              Browse Live Bounties
+            </Link>
+
             <div className="grid grid-cols-2 gap-2">
               <Link
-                href="/"
-                className="text-center py-3 min-h-[48px] flex items-center justify-center rounded-xl text-xs font-semibold bg-blue-500 text-white active:scale-[0.98] transition-all"
-              >
-                Try it yourself
-              </Link>
-              <button
-                onClick={() => {
-                  window.location.href = "/task/completed-louvre-queue";
-                }}
-                className="text-center py-3 min-h-[48px] flex items-center justify-center rounded-xl text-xs font-semibold bg-[#111] border border-white/[0.06] text-gray-300 hover:text-white active:scale-[0.98] transition-all"
-              >
-                View example
-              </button>
-            </div>
-
-            <div className="grid grid-cols-2 gap-1.5">
-              <Link
                 href="/dashboard"
-                className="text-center py-2.5 min-h-[40px] flex items-center justify-center rounded-xl text-[10px] font-medium bg-[#0a0a0a] border border-white/[0.04] text-gray-500 hover:text-white transition-colors"
+                className="text-center py-2.5 min-h-[44px] flex items-center justify-center rounded-xl text-xs font-medium bg-[#111] border border-white/[0.06] text-gray-300 hover:text-white active:scale-[0.98] transition-all"
               >
                 Dashboard
               </Link>
               <Link
                 href="/xmtp"
-                className="text-center py-2.5 min-h-[40px] flex items-center justify-center rounded-xl text-[10px] font-medium bg-[#0a0a0a] border border-white/[0.04] text-gray-500 hover:text-white transition-colors"
+                className="text-center py-2.5 min-h-[44px] flex items-center justify-center rounded-xl text-xs font-medium bg-[#111] border border-white/[0.06] text-gray-300 hover:text-white active:scale-[0.98] transition-all"
               >
                 Chat Bot
               </Link>

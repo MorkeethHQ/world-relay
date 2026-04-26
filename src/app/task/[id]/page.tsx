@@ -904,11 +904,11 @@ function AgentCard({ agent, personality }: { agent: { id: string; name: string; 
 // ---------------------------------------------------------------------------
 
 const AGENT_PERSONALITIES: Record<string, string> = {
-  pricehawk: "Sharp-eyed price analyst. Never misses a decimal point.",
-  freshmap: "Obsessive urban cartographer. If a storefront changed its awning color, FreshMap already knows.",
-  queuewatch: "Impatient efficiency expert. Every minute in line is a minute wasted.",
-  accessmap: "Relentless accessibility advocate. No ramp goes unchecked, no elevator unverified.",
-  claimseye: "Forensic building inspector. Reads cracks in walls like tea leaves.",
+  shelfwatch: "Retail intelligence at scale. Brands pay for real shelf data.",
+  freshmap: "Local business intelligence. Keeps local data fresh with real human visits.",
+  queuepulse: "Real-time wait time intelligence. Data no API provides.",
+  propertycheck: "Listing verification at scale. Confirms what photos don't show.",
+  dropscout: "Ground intel for brands. Eyes on the scene before anyone else.",
 };
 
 // ---------------------------------------------------------------------------

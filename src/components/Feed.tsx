@@ -106,7 +106,7 @@ function ActivityTicker({ tasks }: { tasks: Task[] }) {
     if (t.status === "completed" && t.verificationResult) {
       events.push({
         icon: "✅",
-        text: `${t.agent ? t.agent.name : shortId(t.poster)} task verified${t.verificationResult.confidence ? ` · ${Math.round(t.verificationResult.confidence * 100)}%` : ""}`,
+        text: `${t.agent ? t.agent.name : shortId(t.poster)} bounty verified${t.verificationResult.confidence ? ` · ${Math.round(t.verificationResult.confidence * 100)}%` : ""}`,
         color: "text-green-400/70",
         time: timeAgo(t.createdAt),
       });
@@ -114,7 +114,7 @@ function ActivityTicker({ tasks }: { tasks: Task[] }) {
     if (t.claimant) {
       events.push({
         icon: "⚡",
-        text: `${shortId(t.claimant)} claimed ${t.agent ? t.agent.name : ""} task · $${t.bountyUsdc}`,
+        text: `${shortId(t.claimant)} claimed ${t.agent ? t.agent.name : ""} bounty · $${t.bountyUsdc}`,
         color: "text-blue-400/70",
         time: timeAgo(t.createdAt),
       });
@@ -122,7 +122,7 @@ function ActivityTicker({ tasks }: { tasks: Task[] }) {
     if (t.agent && t.status === "open") {
       events.push({
         icon: t.agent.icon,
-        text: `${t.agent.name} posted · ${t.location}`,
+        text: `${t.agent.name} posted a bounty · ${t.location}`,
         color: "text-gray-400",
         time: timeAgo(t.createdAt),
       });
@@ -133,8 +133,8 @@ function ActivityTicker({ tasks }: { tasks: Task[] }) {
 
   return (
     <div className="overflow-hidden px-4 py-2">
-      <div className="flex gap-6 animate-[ticker_30s_linear_infinite] w-max">
-        {[...events, ...events].map((ev, i) => (
+      <div className="flex gap-6 overflow-x-auto no-scrollbar">
+        {events.map((ev, i) => (
           <span key={i} className={`text-[10px] whitespace-nowrap flex items-center gap-1.5 ${ev.color}`}>
             <span>{ev.icon}</span>
             {ev.text}
@@ -211,10 +211,11 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
         if (prevStatus && prevStatus !== task.status) {
           changed.push(task.id);
           if (prevStatus === "open" && task.status === "claimed") {
-            statusMsg = `Task claimed: "${task.description.slice(0, 40)}${task.description.length > 40 ? "..." : ""}"`;
+            statusMsg = `Bounty claimed: "${task.description.slice(0, 40)}${task.description.length > 40 ? "..." : ""}"`;
             statusColor = "text-yellow-400";
           } else if (prevStatus === "claimed" && task.status === "completed") {
-            statusMsg = `Task completed: "${task.description.slice(0, 40)}${task.description.length > 40 ? "..." : ""}"`;
+            statusMsg = `Bounty completed: "${task.description.slice(0, 40)}${task.description.length > 40 ? "..." : ""}"`;
+
             statusColor = "text-green-400";
           }
         }
@@ -486,7 +487,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
         {/* Tabs */}
         <div className="flex px-4 gap-0 items-center">
           {(["available", "mine", "completed"] as Tab[]).map((t) => {
-            const label = t === "available" ? "Find Tasks" : t === "mine" ? "My Tasks" : "History";
+            const label = t === "available" ? "Bounties" : t === "mine" ? "Mine" : "History";
             const count = t === "mine" ? myTaskCount : null;
             return (
               <button
@@ -595,7 +596,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
               <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500" />
             </span>
             <span className="text-xs font-medium text-blue-400">
-              {newTaskToast.count} new {newTaskToast.count === 1 ? "task" : "tasks"} available
+              {newTaskToast.count} new {newTaskToast.count === 1 ? "bounty" : "bounties"} available
             </span>
           </button>
         </div>
@@ -633,16 +634,16 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
                 </svg>
               </div>
               <div className="min-w-0">
-                <h2 className="text-sm font-bold text-white leading-tight">AI needs eyes on the ground</h2>
+                <h2 className="text-sm font-bold text-white leading-tight">The Bounty Board</h2>
                 <p className="text-xs text-gray-400 mt-1 leading-relaxed">
-                  Pick a task, go there, snap a photo, get paid. You do what AI can&apos;t — be somewhere.
+                  Companies run AI agents that post thousands of bounties per month — shelf checks, listing verification, wait times. Pick one up on your commute.
                 </p>
               </div>
             </div>
             <div className="flex items-center gap-3 text-[10px] text-gray-500">
               <span className="flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
-                {tasks.filter(t => t.status === "open").length} tasks open
+                {tasks.filter(t => t.status === "open").length} bounties open
               </span>
               <span>
                 ${tasks.reduce((s, t) => s + t.bountyUsdc, 0).toFixed(0)} available
@@ -757,22 +758,22 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
                     <div className="mt-3 pt-3 border-t border-white/[0.04]">
                       {verificationLevel === "wallet" && (
                         <p className="text-[11px] text-gray-400 leading-relaxed">
-                          Upgrade to <span className="text-blue-400 font-medium">Device verification</span> to unlock tasks up to $10. Upgrade to <span className="text-cyan-400 font-medium">Orb</span> for unlimited access.
+                          Upgrade to <span className="text-blue-400 font-medium">Device verification</span> to unlock bounties up to $10. Upgrade to <span className="text-cyan-400 font-medium">Orb</span> for unlimited access.
                         </p>
                       )}
                       {verificationLevel === "device" && (
                         <p className="text-[11px] text-gray-400 leading-relaxed">
-                          You can claim tasks up to <span className="text-blue-400 font-medium">$10</span>. Upgrade to <span className="text-cyan-400 font-medium">Orb</span> for unlimited access.
+                          You can claim bounties up to <span className="text-blue-400 font-medium">$10</span>. Upgrade to <span className="text-cyan-400 font-medium">Orb</span> for unlimited access.
                         </p>
                       )}
                       {verificationLevel === "orb" && (
                         <p className="text-[11px] text-cyan-400/70 leading-relaxed font-medium">
-                          Maximum trust level. You can claim any task.
+                          Maximum trust level. You can claim any bounty.
                         </p>
                       )}
                       {!verificationLevel && (
                         <p className="text-[11px] text-gray-500 leading-relaxed">
-                          Verify with World ID to start claiming tasks.
+                          Verify with World ID to start claiming bounties.
                         </p>
                       )}
                     </div>
@@ -784,7 +785,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
             {completedByClaiming.length > 0 && (
               <div className="bg-[#111] border border-white/[0.06] rounded-2xl px-4 py-3">
                 <p className="text-[10px] text-gray-600 text-center">
-                  {totalClaimed} tasks claimed · {completedByClaiming.length} verified by AI · settled on World Chain
+                  {totalClaimed} bounties claimed · {completedByClaiming.length} verified by AI · settled on World Chain
                 </p>
               </div>
             )}
@@ -810,37 +811,43 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
             ))}
           </div>
         ) : filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 gap-3">
-            <div className="w-12 h-12 rounded-full bg-gray-900 flex items-center justify-center">
-              {tab === "available" ? (
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#444" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="12" cy="12" r="10" />
-                  <path d="M12 6v6l4 2" />
-                </svg>
-              ) : tab === "mine" ? (
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#444" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                  <circle cx="12" cy="7" r="4" />
-                </svg>
-              ) : (
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#444" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                  <polyline points="22 4 12 14.01 9 11.01" />
-                </svg>
-              )}
-            </div>
-            <p className="text-sm text-gray-500">
-              {tab === "available" ? "No requests nearby yet" :
-               tab === "mine" ? "You haven't posted or claimed anything" :
-               "No completed tasks yet"}
-            </p>
-            {tab === "available" && (
-              <button
-                onClick={() => { hapticTap(); setView("post"); }}
-                className="text-xs bg-white text-black font-medium px-5 py-2.5 rounded-xl transition-all active:scale-95 min-h-[44px]"
-              >
-                Post a request
-              </button>
+          <div className="flex flex-col items-center justify-center py-16 gap-4">
+            {tab === "available" ? (
+              <>
+                <div className="flex items-center gap-2">
+                  {["🏷️", "🗺️", "⏱️", "♿", "🏢"].map((icon, i) => (
+                    <div key={i} className="w-10 h-10 rounded-xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center text-lg">
+                      {icon}
+                    </div>
+                  ))}
+                </div>
+                <div className="text-center">
+                  <p className="text-sm text-gray-400 font-medium">No bounties nearby right now</p>
+                  <p className="text-xs text-gray-600 mt-1 max-w-[260px]">
+                    AI agents post bounties when they need human eyes on the ground. Check back soon.
+                  </p>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="w-12 h-12 rounded-full bg-gray-900 flex items-center justify-center">
+                  {tab === "mine" ? (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#444" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                      <circle cx="12" cy="7" r="4" />
+                    </svg>
+                  ) : (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#444" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                      <polyline points="22 4 12 14.01 9 11.01" />
+                    </svg>
+                  )}
+                </div>
+                <p className="text-sm text-gray-500">
+                  {tab === "mine" ? "You haven't claimed any bounties yet" :
+                   "No completed bounties yet"}
+                </p>
+              </>
             )}
           </div>
         ) : tab === "completed" ? (
@@ -982,7 +989,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
                     hapticTap();
                     let claimCode: string | undefined;
                     if (task.claimCode) {
-                      const code = prompt("This task requires an access code to claim:");
+                      const code = prompt("This bounty requires an access code:");
                       if (!code) return;
                       claimCode = code;
                     }
@@ -1206,7 +1213,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
             </div>
 
             <p className="text-xs text-gray-400 leading-relaxed mb-4">
-              Verify your identity in World App to unlock higher-paying tasks. More verification = more trust = better tasks.
+              Verify your identity in World App to unlock higher-paying bounties. More verification = more trust = better bounties.
             </p>
 
             <button
@@ -1222,15 +1229,26 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
   );
 }
 
+function getAgentVolume(agentId: string): string {
+  const volumes: Record<string, string> = {
+    shelfwatch: "847 bounties this month",
+    freshmap: "1.2k bounties this month",
+    queuepulse: "312 bounties this month",
+    propertycheck: "234 bounties this month",
+    dropscout: "156 bounties this month",
+  };
+  return volumes[agentId] || "";
+}
+
 function getAgentReason(agentId: string): string {
   const reasons: Record<string, string> = {
-    pricehawk: "Online prices don't match reality. I need a human to check.",
-    freshmap: "My map data is months stale. I need someone on the ground.",
-    queuewatch: "No API exists for real-time queues. Only a human can check.",
-    accessmap: "Official accessibility data is unreliable. I need eyes on-site.",
-    claimseye: "I can't trust listing photos. I need someone to walk by.",
+    shelfwatch: "Brands need real shelf data. No API for that.",
+    freshmap: "Local data goes stale fast. Humans keep it fresh.",
+    queuepulse: "No API for real-time queues. Only a human can check.",
+    propertycheck: "Listings lie. Someone needs to walk by.",
+    dropscout: "Ground intel on drops and pop-ups, before anyone else.",
   };
-  return reasons[agentId] || "I need a human to verify this on the ground.";
+  return reasons[agentId] || "Needs a human on the ground.";
 }
 
 function TaskCard({
@@ -1277,7 +1295,10 @@ function TaskCard({
                 <span className="text-sm font-bold" style={{ color: task.agent.color }}>{task.agent.name}</span>
                 <span className="text-[8px] font-medium text-gray-500 bg-white/[0.04] border border-white/[0.06] rounded px-1 py-px">AGENT</span>
               </div>
-              <p className="text-[10px] text-gray-500">{getAgentReason(task.agent.id)}</p>
+              <p className="text-[10px] text-gray-500">
+                {getAgentVolume(task.agent.id) && <span className="text-gray-400">{getAgentVolume(task.agent.id)} · </span>}
+                {getAgentReason(task.agent.id)}
+              </p>
             </div>
           </div>
           {task.taskType === "double-or-nothing" ? (
@@ -1762,7 +1783,7 @@ function PostTask({
 
         {/* Task type selector */}
         <div>
-          <label className="text-[11px] text-gray-500 uppercase tracking-wider font-medium block mb-2">Task Type</label>
+          <label className="text-[11px] text-gray-500 uppercase tracking-wider font-medium block mb-2">Bounty Type</label>
           <div className="flex gap-2">
             <button
               onClick={() => setTaskType("standard")}
@@ -2066,7 +2087,7 @@ function SubmitProof({
       <div className="flex-1 px-4 py-5 flex flex-col gap-4">
         {/* Task context */}
         <div className="bg-[#111] border border-white/[0.06] rounded-2xl p-4">
-          <p className="text-[10px] text-gray-500 uppercase tracking-wider font-medium mb-1.5">Task</p>
+          <p className="text-[10px] text-gray-500 uppercase tracking-wider font-medium mb-1.5">Bounty</p>
           <p className="text-sm font-medium leading-snug">{task.description}</p>
           <div className="flex items-center gap-2 mt-2">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -2321,7 +2342,7 @@ function SubmitProof({
               <p className="mt-2 text-xs text-yellow-400/70">Waiting for poster to review...</p>
             )}
             {result.verdict === "fail" && (
-              <p className="mt-2 text-xs text-red-400/70">Task reopened for new claims.</p>
+              <p className="mt-2 text-xs text-red-400/70">Bounty reopened for new claims.</p>
             )}
           </div>
         )}
@@ -2608,7 +2629,7 @@ function TaskDetail({
                     <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
                   </svg>
                 </div>
-                <p className="text-[11px] text-gray-500 mt-0.5">Quick task · Pays instantly</p>
+                <p className="text-[11px] text-gray-500 mt-0.5">Bounty · Pays instantly</p>
               </div>
             </div>
             {currentTask.claimant && (
