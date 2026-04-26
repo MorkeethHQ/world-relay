@@ -1612,7 +1612,6 @@ function PostTask({
               }
             }
           } catch {
-            console.warn("[PostTask] DoN transaction failed, creating task without on-chain backing");
           }
         }
       } else if (RELAY_ESCROW_ADDRESS) {
@@ -1632,7 +1631,6 @@ function PostTask({
               }
             }
           } catch {
-            console.warn("[PostTask] Escrow transaction failed, creating task without on-chain escrow");
           }
         }
       }

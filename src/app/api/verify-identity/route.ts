@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getRedis } from "@/lib/redis";
 
 const VERIFIED_PREFIX = "verified:";
+const NULLIFIER_PREFIX = "nullifier:";
 
 const localCache = new Map<string, {
   nullifier: string;
@@ -9,11 +10,23 @@ const localCache = new Map<string, {
   verifiedAt: string;
 }>();
 
+async function checkNullifierUnique(nullifier: string, address: string): Promise<boolean> {
+  if (nullifier === "unknown" || nullifier === address) return true;
+  const redis = getRedis();
+  if (!redis) return true;
+  const existing = await redis.get(`${NULLIFIER_PREFIX}${nullifier}`);
+  if (existing && existing !== address) return false;
+  return true;
+}
+
 async function saveVerifiedUser(address: string, data: { nullifier: string; verificationLevel: string; verifiedAt: string }) {
   localCache.set(address, data);
   const redis = getRedis();
   if (redis) {
-    await redis.set(`${VERIFIED_PREFIX}${address}`, JSON.stringify(data)).catch(console.error);
+    await redis.set(`${VERIFIED_PREFIX}${address}`, JSON.stringify(data)).catch(() => {});
+    if (data.nullifier !== "unknown" && data.nullifier !== address) {
+      await redis.set(`${NULLIFIER_PREFIX}${data.nullifier}`, address).catch(() => {});
+    }
   }
 }
 
@@ -63,8 +76,14 @@ export async function POST(req: NextRequest) {
     const result = await response.json();
     const nullifier = idkitResponse.responses?.[0]?.nullifier || "unknown";
     const identifier = idkitResponse.responses?.[0]?.identifier || "orb";
+    const address = body.address || nullifier;
 
-    await saveVerifiedUser(body.address || nullifier, {
+    const isUnique = await checkNullifierUnique(nullifier, address);
+    if (!isUnique) {
+      return NextResponse.json({ error: "This human is already verified with a different address" }, { status: 409 });
+    }
+
+    await saveVerifiedUser(address, {
       nullifier,
       verificationLevel: identifier,
       verifiedAt: new Date().toISOString(),

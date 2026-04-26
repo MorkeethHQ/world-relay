@@ -69,7 +69,7 @@ export async function POST(
 
     if (task.onChainId !== null) {
       releaseEscrow(task.onChainId).then((releaseTx) => {
-        if (releaseTx) console.log(`[Escrow] Auto-released after follow-up for task ${id}: ${releaseTx}`);
+        void releaseTx;
       }).catch(console.error);
     }
   } else if (result.verdict === "flag") {

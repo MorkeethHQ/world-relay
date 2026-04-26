@@ -121,7 +121,6 @@ export async function releaseEscrow(onChainId: number): Promise<string | null> {
 
     // Status 1 = Claimed (required for release)
     if (onChainTask.status !== 1) {
-      console.log(`[Escrow] Task ${onChainId} status is ${onChainTask.status}, not Claimed (1) — skipping release`);
       return null;
     }
 
@@ -138,7 +137,6 @@ export async function releaseEscrow(onChainId: number): Promise<string | null> {
     });
 
     await pub.waitForTransactionReceipt({ hash });
-    console.log(`[Escrow] Released payment for task ${onChainId}: ${hash}`);
     return hash;
   } catch (err) {
     console.error(`[Escrow] Failed to release task ${onChainId}:`, err);
@@ -187,7 +185,6 @@ export async function createEscrowTask(
         args: [ESCROW_ADDRESS, parseUnits("100", 6)],
       });
       await pub.waitForTransactionReceipt({ hash: approveTx });
-      console.log(`[Escrow] USDC approved: ${approveTx}`);
     }
 
     // Read current count to know our task ID
@@ -206,7 +203,6 @@ export async function createEscrowTask(
     });
 
     await pub.waitForTransactionReceipt({ hash: txHash });
-    console.log(`[Escrow] Task created on-chain: ID=${Number(countBefore)}, TX=${txHash}`);
 
     return { onChainId: Number(countBefore), txHash };
   } catch (err) {
@@ -249,7 +245,6 @@ export async function resolveDon(donOnChainId: number, verified: boolean): Promi
       args: [BigInt(donOnChainId), verified],
     });
     await pub.waitForTransactionReceipt({ hash });
-    console.log(`[DoN] Resolved task ${donOnChainId} (verified=${verified}): ${hash}`);
     return hash;
   } catch (err) {
     console.error(`[DoN] Failed to resolve task ${donOnChainId}:`, err);

@@ -191,7 +191,6 @@ export async function POST(req: NextRequest) {
       return null;
     });
     if (escrowReleaseTxHash) {
-      console.log(`[Escrow] Auto-released $${task.bountyUsdc} USDC for task ${taskId}: ${escrowReleaseTxHash}`);
       postSettlementConfirmation(taskId, task.bountyUsdc, escrowReleaseTxHash).catch(console.error);
     }
   }
@@ -206,7 +205,6 @@ export async function POST(req: NextRequest) {
     });
     if (donResolveTxHash) {
       const winner = verified ? "runner" : "poster";
-      console.log(`[DoN] Resolved task ${taskId} (${winner} wins $${task.bountyUsdc * 2}): ${donResolveTxHash}`);
       postSettlementConfirmation(taskId, task.bountyUsdc * 2, donResolveTxHash).catch(console.error);
     }
   }

@@ -9,7 +9,6 @@ export function getRedis(): Redis | null {
   const token = process.env.KV_REST_API_TOKEN;
 
   if (!url || !token) {
-    console.warn("[Redis] KV_REST_API_URL or KV_REST_API_TOKEN not set — falling back to in-memory");
     return null;
   }
 

@@ -54,14 +54,11 @@ async function getXmtpClient() {
 
       xmtpClient = client;
       lastInitError = null;
-      console.log("[XMTP] Client initialized. Inbox:", client.inboxId);
 
       // Revoke old installations to avoid hitting the 10/10 limit on serverless
       try {
         await client.revokeAllOtherInstallations();
-        console.log("[XMTP] Revoked stale installations");
       } catch (revokeErr) {
-        console.warn("[XMTP] Could not revoke old installations:", revokeErr);
       }
 
       return client;
@@ -96,7 +93,6 @@ async function sendXmtpMessage(thread: XmtpThreadInfo, message: string): Promise
     const group = conversations.find((c: any) => c.id === thread.groupId);
     if (group) {
       await group.sendText(message);
-      console.log(`[XMTP] Sent to group ${thread.groupId}: ${message.slice(0, 60)}...`);
       return true;
     }
   } catch (err) {
@@ -124,7 +120,6 @@ export async function createTaskThread(
         groupDescription: `Task ${task.id} — $${task.bountyUsdc} USDC at ${task.location}`,
       });
       thread.groupId = group.id;
-      console.log(`[XMTP] Created group ${group.id} for task ${task.id}`);
 
       // Store group-to-task mapping in Redis for sync lookup
       const redis = getRedis();
@@ -177,13 +172,11 @@ export async function postToThread(
 
   const thread = await resolveThread(taskId);
   if (!thread) {
-    console.log(`[XMTP] No thread for task ${taskId}, message stored in Redis only`);
     return true;
   }
 
   const sent = await sendXmtpMessage(thread, message);
   if (!sent) {
-    console.log(`[XMTP] XMTP send failed for task ${taskId}, message stored in Redis`);
   }
   return true;
 }
@@ -299,13 +292,11 @@ export async function syncAndProcessMessages(): Promise<{
 }> {
   const client = await getXmtpClient();
   if (!client) {
-    console.warn("[XMTP Sync] Client not available, skipping sync");
     return { messagesProcessed: 0, conversations: 0 };
   }
 
   const redis = getRedis();
   if (!redis) {
-    console.warn("[XMTP Sync] Redis not available, skipping sync");
     return { messagesProcessed: 0, conversations: 0 };
   }
 
@@ -370,16 +361,10 @@ export async function syncAndProcessMessages(): Promise<{
 
         if (!taskId) {
           // No task mapping — this is a DM to the bot. Route through the agent query processor.
-          console.log(
-            `[XMTP Sync] DM received in conversation ${conversation.id} from ${msg.senderInboxId}: "${messageText.slice(0, 60)}"`
-          );
           try {
             const dmResponse = await processAgentQuery(messageText);
             if (dmResponse) {
               await conversation.send(dmResponse);
-              console.log(
-                `[XMTP Sync] Sent DM response to conversation ${conversation.id}`
-              );
 
               // Store both the incoming message and bot response in Redis DM history
               const dmKey = `xmtp:dm:${conversation.id}`;
@@ -432,9 +417,6 @@ export async function syncAndProcessMessages(): Promise<{
 
         // Use sender inbox ID as the sender identifier
         const sender = msg.senderInboxId;
-        console.log(
-          `[XMTP Sync] Processing message for task ${taskId} from ${sender}: "${messageText.slice(0, 60)}"`
-        );
 
         // Store the incoming message in the UI message history
         await addMessage(taskId, sender, messageText);
@@ -481,9 +463,6 @@ export async function syncAndProcessMessages(): Promise<{
     .set("xmtp:last_sync_at", new Date().toISOString())
     .catch(console.error);
 
-  console.log(
-    `[XMTP Sync] Done. ${conversations.length} conversations, ${messagesProcessed} new messages processed.`
-  );
   return { messagesProcessed, conversations: conversations.length };
 }
 

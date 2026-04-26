@@ -30,7 +30,6 @@ export async function postAttestation(
 ): Promise<string | null> {
   const privateKey = process.env.RP_SIGNING_KEY;
   if (!privateKey) {
-    console.log("[Attestation] No signing key, skipping on-chain attestation");
     return null;
   }
 
@@ -64,7 +63,6 @@ export async function postAttestation(
       data: toHex(payload) as Hex,
     });
 
-    console.log(`[Attestation] Posted on-chain: ${hash}`);
     return hash;
   } catch (err) {
     console.error("[Attestation] Failed:", err);

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getRedis } from "@/lib/redis";
 import { resetCache, createTask } from "@/lib/store";
 
-const ADMIN_SECRET = process.env.ADMIN_SECRET || "relay-reset-2026";
+const ADMIN_SECRET = process.env.ADMIN_SECRET ?? "";
 
 const FRESH_TASKS = [
   // ShelfWatch — retail price & stock monitoring

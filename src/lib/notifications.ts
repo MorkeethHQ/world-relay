@@ -35,7 +35,6 @@ async function sendNotification(
       return false;
     }
 
-    console.log("[Notify] Sent to", validAddresses.length, "addresses");
     return true;
   } catch (err) {
     console.error("[Notify] Error:", err);
