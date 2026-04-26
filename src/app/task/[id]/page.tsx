@@ -633,22 +633,22 @@ function ChatBubble({
         </div>
       )}
       <div
-        className={`max-w-[78%] rounded-2xl px-3.5 py-2.5 ${
+        className={`max-w-[80%] rounded-xl px-3 py-2 ${
           isSystem
             ? "bg-white/[0.04] border border-white/[0.08] rounded-tl-sm"
             : "bg-indigo-600/20 border border-indigo-500/20 rounded-tr-sm"
         }`}
       >
         <p
-          className="text-[10px] font-bold mb-0.5 uppercase tracking-wide"
+          className="text-[8px] font-bold mb-0.5 uppercase tracking-wide"
           style={isSystem && agentColor ? { color: agentColor } : undefined}
         >
           <span className={isSystem ? "" : "text-indigo-400"}>{senderLabel}</span>
         </p>
-        <p className="text-[13px] text-gray-200 leading-relaxed whitespace-pre-wrap">
+        <p className="text-[11px] text-gray-200 leading-relaxed whitespace-pre-wrap">
           {msg.text}
         </p>
-        <p className="text-[9px] text-gray-600 mt-1.5 font-mono text-right">
+        <p className="text-[8px] text-gray-600 mt-1 font-mono text-right">
           {formatTimestamp(msg.timestamp)} &middot; {timeAgo(msg.timestamp)}
         </p>
       </div>

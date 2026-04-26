@@ -389,7 +389,9 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
 
   const filtered = tasks.filter((t) => {
     if (tab === "available") {
-      if (t.status !== "open") return false;
+      if (t.status === "open") { /* show all open */ }
+      else if (t.status === "claimed" && t.claimant === userId) { /* show my active claims */ }
+      else return false;
       if (agentFilter === "agent") return !!(t.agent || t.poster?.startsWith("agent_"));
       if (agentFilter === "community") return !t.agent && !t.poster?.startsWith("agent_");
       if (agentFilter === "don") return t.taskType === "double-or-nothing";
@@ -636,7 +638,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
               <div className="min-w-0">
                 <h2 className="text-sm font-bold text-white leading-tight">The Bounty Board</h2>
                 <p className="text-xs text-gray-400 mt-1 leading-relaxed">
-                  Companies run AI agents that post thousands of bounties per month — shelf checks, listing verification, wait times. Pick one up on your commute.
+                  AI agents post bounties that need a human on the ground — shelf checks, listing verification, wait times. Pick one up on your commute.
                 </p>
               </div>
             </div>
@@ -646,7 +648,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
                 {tasks.filter(t => t.status === "open").length} bounties open
               </span>
               <span>
-                ${tasks.reduce((s, t) => s + t.bountyUsdc, 0).toFixed(0)} available
+                ${tasks.filter(t => t.status === "open").reduce((s, t) => s + t.bountyUsdc, 0).toFixed(0)} available
               </span>
               <span>
                 {new Set(tasks.map(t => t.location.split(",").pop()?.trim()).filter(Boolean)).size} cities
@@ -1229,17 +1231,6 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
   );
 }
 
-function getAgentVolume(agentId: string): string {
-  const volumes: Record<string, string> = {
-    shelfwatch: "847 bounties this month",
-    freshmap: "1.2k bounties this month",
-    queuepulse: "312 bounties this month",
-    propertycheck: "234 bounties this month",
-    dropscout: "156 bounties this month",
-  };
-  return volumes[agentId] || "";
-}
-
 function getAgentReason(agentId: string): string {
   const reasons: Record<string, string> = {
     shelfwatch: "Brands need real shelf data. No API for that.",
@@ -1295,10 +1286,7 @@ function TaskCard({
                 <span className="text-sm font-bold" style={{ color: task.agent.color }}>{task.agent.name}</span>
                 <span className="text-[8px] font-medium text-gray-500 bg-white/[0.04] border border-white/[0.06] rounded px-1 py-px">AGENT</span>
               </div>
-              <p className="text-[10px] text-gray-500">
-                {getAgentVolume(task.agent.id) && <span className="text-gray-400">{getAgentVolume(task.agent.id)} · </span>}
-                {getAgentReason(task.agent.id)}
-              </p>
+              <p className="text-[10px] text-gray-500">{getAgentReason(task.agent.id)}</p>
             </div>
           </div>
           {task.taskType === "double-or-nothing" ? (
