@@ -19,7 +19,7 @@ export default function MapPage() {
       <header className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
         <Link href="/" className="flex items-center gap-2">
           <span className="text-white font-bold text-sm tracking-tight">
-            RELAY
+            RELAY FAVOURS
           </span>
           <span className="text-[10px] text-gray-500 font-mono">MAP</span>
         </Link>

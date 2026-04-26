@@ -451,7 +451,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-base font-bold tracking-tight leading-none">RELAY</h1>
+                <h1 className="text-base font-bold tracking-tight leading-none">RELAY FAVOURS</h1>
                 {notificationsEnabled && (
                   <span className="flex items-center gap-1 bg-green-500/10 border border-green-500/20 rounded-full px-1.5 py-0.5">
                     <svg width="8" height="8" viewBox="0 0 24 24" fill="#22c55e" stroke="none">

@@ -84,7 +84,7 @@ export async function GET(request: Request) {
   // Check for API key
   if (!process.env.ANTHROPIC_API_KEY) {
     const fallback: CachedInsight = {
-      insight: `The RELAY network currently has ${total} tasks across ${cities.size} cities with $${totalUsdc.toFixed(0)} in total bounties. ${completed} tasks have been completed with a ${completionRate}% completion rate, showing steady growth in the decentralized task marketplace.`,
+      insight: `The RELAY FAVOURS network currently has ${total} tasks across ${cities.size} cities with $${totalUsdc.toFixed(0)} in total bounties. ${completed} tasks have been completed with a ${completionRate}% completion rate, showing steady growth in the decentralized task marketplace.`,
       generatedAt: new Date().toISOString(),
     };
     return NextResponse.json(fallback);
@@ -96,7 +96,7 @@ export async function GET(request: Request) {
       model: "claude-haiku-4-5-20250414",
       max_tokens: 200,
       system:
-        "You are a network analyst for RELAY, a task marketplace. Given the current network statistics, write a brief 2-3 sentence insight about network health, trends, and notable patterns. Be specific with numbers. Use a professional but conversational tone. Focus on what's interesting or noteworthy.",
+        "You are a network analyst for RELAY FAVOURS, a task marketplace. Given the current network statistics, write a brief 2-3 sentence insight about network health, trends, and notable patterns. Be specific with numbers. Use a professional but conversational tone. Focus on what's interesting or noteworthy.",
       messages: [{ role: "user", content: statsText }],
     });
 
@@ -124,7 +124,7 @@ export async function GET(request: Request) {
   } catch (err) {
     console.error("[AI Insights] Anthropic API error:", err);
     const fallback: CachedInsight = {
-      insight: `The RELAY network currently has ${total} tasks across ${cities.size} cities with $${totalUsdc.toFixed(0)} in total bounties. ${completed} tasks have been completed with a ${completionRate}% completion rate.`,
+      insight: `The RELAY FAVOURS network currently has ${total} tasks across ${cities.size} cities with $${totalUsdc.toFixed(0)} in total bounties. ${completed} tasks have been completed with a ${completionRate}% completion rate.`,
       generatedAt: new Date().toISOString(),
     };
     return NextResponse.json(fallback);

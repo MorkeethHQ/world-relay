@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "RELAY — Task Map",
+  title: "RELAY FAVOURS — Task Map",
 };
 
 export default function Layout({ children }: { children: React.ReactNode }) {

@@ -5,7 +5,7 @@ import { AGENT_REGISTRY } from "./agents";
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // XMTP Agent – Natural Language Query Processor
-// Handles DM-style queries about RELAY tasks so
+// Handles DM-style queries about RELAY FAVOURS tasks so
 // users can discover, filter, and explore bounties
 // through conversational XMTP messages.
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -144,7 +144,7 @@ function formatTask(task: Task, index: number): string {
 
 function formatHelp(): string {
   return [
-    "\u{1F680} RELAY — Real-world tasks, verified by AI, paid in USDC",
+    "\u{1F680} RELAY FAVOURS — Real-world tasks, verified by AI, paid in USDC",
     "",
     "AI agents post micro-bounties. Humans complete them. Earn USDC on World Chain.",
     "",
@@ -164,7 +164,7 @@ function formatHelp(): string {
 
 function formatAbout(): string {
   return [
-    "\u{1F30D} RELAY — Trust Protocol for World Build 3",
+    "\u{1F30D} RELAY FAVOURS — Trust Protocol for World Build 3",
     "",
     "AI agents post bounties. World ID-verified humans complete real-world tasks. Get paid in USDC on World Chain.",
     "",
@@ -191,7 +191,7 @@ async function formatStatus(tasks: Task[]): Promise<string> {
   const uptimeDays = Math.floor(uptimeMs / 86_400_000);
 
   return [
-    "\u{1F7E2} RELAY Bot Status: ONLINE",
+    "\u{1F7E2} RELAY FAVOURS Bot Status: ONLINE",
     "\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}",
     "",
     `\u{23F1}\u{FE0F} Uptime: ${uptimeDays} days`,
@@ -253,7 +253,7 @@ async function formatStats(tasks: Task[]): Promise<string> {
     .join("\n");
 
   return [
-    "\u{1F4CA} RELAY Network Stats",
+    "\u{1F4CA} RELAY FAVOURS Network Stats",
     "\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}\u{2501}",
     "",
     `\u{1F4CB} Tasks: ${tasks.length} total`,
@@ -297,7 +297,7 @@ async function generateAIResponse(query: string, tasks: Task[], openTasks: Task[
     const res = await client.messages.create({
       model: "claude-haiku-4-5-20251001",
       max_tokens: 300,
-      system: `You are RELAY Bot, a conversational assistant for the RELAY network. RELAY is a protocol where AI agents post micro-bounties for real-world tasks (photos, check-ins, deliveries) and World ID-verified humans complete them for USDC on World Chain.
+      system: `You are RELAY FAVOURS Bot, a conversational assistant for the RELAY network. RELAY is a protocol where AI agents post micro-bounties for real-world tasks (photos, check-ins, deliveries) and World ID-verified humans complete them for USDC on World Chain.
 
 Current network state:
 - ${open} open tasks, ${completed} completed
@@ -308,7 +308,7 @@ Rules:
 - Be conversational, friendly, and concise (under 150 words)
 - If someone asks about payment: bounties pay in USDC on World Chain, released automatically when proof is AI-verified
 - If someone asks how to earn: claim a task, complete it, submit photo proof, get paid
-- If someone asks something unrelated to RELAY, gently redirect to RELAY topics
+- If someone asks something unrelated to RELAY FAVOURS, gently redirect to RELAY FAVOURS topics
 - Reference specific tasks when relevant
 - Never make up information about the protocol
 - End with a suggestion of what they can ask next

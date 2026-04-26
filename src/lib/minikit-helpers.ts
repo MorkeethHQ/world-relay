@@ -107,12 +107,12 @@ export async function shareTask(opts: ShareTaskOptions): Promise<boolean> {
   const { taskDescription, bountyUsdc, verdict, taskId } = opts;
 
   const title = verdict === "pass"
-    ? `Verified task on RELAY`
-    : `Task on RELAY`;
+    ? `Verified task on RELAY FAVOURS`
+    : `Task on RELAY FAVOURS`;
 
   const text = verdict === "pass"
-    ? `I just completed and verified a $${bountyUsdc} USDC task on RELAY: "${taskDescription.slice(0, 80)}${taskDescription.length > 80 ? "..." : ""}"`
-    : `Check out this $${bountyUsdc} USDC task on RELAY: "${taskDescription.slice(0, 80)}${taskDescription.length > 80 ? "..." : ""}"`;
+    ? `I just completed and verified a $${bountyUsdc} USDC task on RELAY FAVOURS: "${taskDescription.slice(0, 80)}${taskDescription.length > 80 ? "..." : ""}"`
+    : `Check out this $${bountyUsdc} USDC task on RELAY FAVOURS: "${taskDescription.slice(0, 80)}${taskDescription.length > 80 ? "..." : ""}"`;
 
   const url = typeof window !== "undefined"
     ? `${window.location.origin}/task/${taskId}`
