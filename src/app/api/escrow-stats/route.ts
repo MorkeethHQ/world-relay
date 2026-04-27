@@ -3,7 +3,7 @@ import { createPublicClient, http, formatUnits } from "viem";
 import { worldchain } from "viem/chains";
 
 const RPC_URL = "https://worldchain-mainnet.g.alchemy.com/public";
-const ESCROW_ADDRESS = (process.env.NEXT_PUBLIC_ESCROW_ADDRESS || "0xc976e463bD209E09cb15a168A275890b872AA1F0") as `0x${string}`;
+const ESCROW_ADDRESS = (process.env.NEXT_PUBLIC_ESCROW_ADDRESS?.trim() || "0xc976e463bD209E09cb15a168A275890b872AA1F0") as `0x${string}`;
 const USDC_ADDRESS = "0x79A02482A880bCE3F13e09Da970dC34db4CD24d1" as `0x${string}`;
 
 const STATUS_LABELS = ["open", "claimed", "completed", "failed", "expired"] as const;
