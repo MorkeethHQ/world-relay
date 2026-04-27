@@ -9,6 +9,8 @@ function isMiniKit(): boolean {
   try { return typeof window !== "undefined" && MiniKit.isInstalled(); } catch { return false; }
 }
 import { VerificationBadge, RequiredTierBadge } from "@/components/VerificationBadge";
+import { DailyChallenge } from "@/components/DailyChallenge";
+import { ProofOfFavourCard } from "@/components/ProofOfFavourCard";
 import { encodeCreateTask, encodeClaimTask, encodeReleasePayment, encodeUniswapSwap, readTaskCount, RELAY_ESCROW_ADDRESS, DOUBLE_OR_NOTHING_ADDRESS, encodeCreateDoubleOrNothing, encodeStakeAndClaimWithApproval, readDonTaskCount, type SwapToken } from "@/lib/contracts";
 import { hapticSuccess, hapticError, hapticTap, hapticHeavy, hapticMedium, hapticSelection, shareTask } from "@/lib/minikit-helpers";
 import { TASK_TEMPLATES } from "@/lib/agents";
@@ -720,6 +722,13 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
         </div>
       )}
 
+      {/* Daily Challenge */}
+      {tab === "available" && userId && !mapMode && (
+        <div className="px-4 pt-3">
+          <DailyChallenge address={userId} onComplete={fetchTasks} />
+        </div>
+      )}
+
       {/* Content */}
       <div className="flex-1 px-4 py-3">
         {/* Profile + Reputation for "Yours" tab */}
@@ -773,6 +782,9 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
                  verificationLevel === "wallet" ? "Up to $5" : "Verify to start"}
               </span>
             </div>
+
+            {/* Proof of Favour reputation */}
+            {userId && <ProofOfFavourCard address={userId} compact />}
 
             {/* Recent activity summary */}
             {completedByClaiming.length > 0 && (

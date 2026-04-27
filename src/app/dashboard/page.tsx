@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import type { Task } from "@/lib/types";
+import { ProofOfFavourCard } from "@/components/ProofOfFavourCard";
 
 type OnChainTask = {
   id: number;
@@ -155,6 +156,12 @@ export default function ProfilePage() {
               </div>
             </>
           )}
+
+          {/* Proof of Favour reputation */}
+          <div>
+            <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-2 px-1">Your reputation</p>
+            <ProofOfFavourCard address={typeof window !== "undefined" ? localStorage.getItem("relay_user_id") || "anonymous" : "anonymous"} />
+          </div>
 
           {/* App stats */}
           <div>

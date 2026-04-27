@@ -56,53 +56,53 @@ type LevelConfig = {
 const LEVEL_CONFIG: Record<string, LevelConfig> = {
   "New Runner": {
     key: "new",
-    gradient: "from-gray-800/60 to-gray-900/60",
-    compactGradient: "from-gray-800/40 to-gray-900/40",
-    badgeBg: "bg-gray-500/15",
-    badgeBorder: "border-gray-500/25",
-    textColor: "text-gray-300",
+    gradient: "from-gray-50 to-gray-100",
+    compactGradient: "from-gray-50 to-gray-100",
+    badgeBg: "bg-gray-100",
+    badgeBorder: "border-gray-200",
+    textColor: "text-gray-600",
     progressColor: "bg-gray-400",
-    progressBg: "bg-gray-800",
+    progressBg: "bg-gray-200",
   },
   "Local Runner": {
     key: "local",
-    gradient: "from-emerald-900/40 to-emerald-950/40",
-    compactGradient: "from-emerald-900/30 to-emerald-950/30",
-    badgeBg: "bg-emerald-500/15",
-    badgeBorder: "border-emerald-500/25",
-    textColor: "text-emerald-400",
+    gradient: "from-emerald-50 to-emerald-100/50",
+    compactGradient: "from-emerald-50 to-emerald-100/50",
+    badgeBg: "bg-emerald-50",
+    badgeBorder: "border-emerald-200",
+    textColor: "text-emerald-600",
     progressColor: "bg-emerald-500",
-    progressBg: "bg-emerald-900/40",
+    progressBg: "bg-emerald-100",
   },
   "Trusted Runner": {
     key: "trusted",
-    gradient: "from-blue-900/40 to-blue-950/40",
-    compactGradient: "from-blue-900/30 to-blue-950/30",
-    badgeBg: "bg-blue-500/15",
-    badgeBorder: "border-blue-500/25",
-    textColor: "text-blue-400",
+    gradient: "from-blue-50 to-blue-100/50",
+    compactGradient: "from-blue-50 to-blue-100/50",
+    badgeBg: "bg-blue-50",
+    badgeBorder: "border-blue-200",
+    textColor: "text-blue-600",
     progressColor: "bg-blue-500",
-    progressBg: "bg-blue-900/40",
+    progressBg: "bg-blue-100",
   },
   "Veteran Runner": {
     key: "veteran",
-    gradient: "from-purple-900/40 to-purple-950/40",
-    compactGradient: "from-purple-900/30 to-purple-950/30",
-    badgeBg: "bg-purple-500/15",
-    badgeBorder: "border-purple-500/25",
-    textColor: "text-purple-400",
+    gradient: "from-purple-50 to-purple-100/50",
+    compactGradient: "from-purple-50 to-purple-100/50",
+    badgeBg: "bg-purple-50",
+    badgeBorder: "border-purple-200",
+    textColor: "text-purple-600",
     progressColor: "bg-purple-500",
-    progressBg: "bg-purple-900/40",
+    progressBg: "bg-purple-100",
   },
   Legend: {
     key: "legend",
-    gradient: "from-amber-900/40 to-yellow-950/40",
-    compactGradient: "from-amber-900/30 to-yellow-950/30",
-    badgeBg: "bg-amber-500/15",
-    badgeBorder: "border-amber-500/25",
-    textColor: "text-amber-400",
+    gradient: "from-amber-50 to-yellow-100/50",
+    compactGradient: "from-amber-50 to-yellow-100/50",
+    badgeBg: "bg-amber-50",
+    badgeBorder: "border-amber-200",
+    textColor: "text-amber-600",
     progressColor: "bg-gradient-to-r from-amber-500 to-yellow-400",
-    progressBg: "bg-amber-900/40",
+    progressBg: "bg-amber-100",
   },
 };
 
@@ -305,11 +305,11 @@ function timeAgo(iso: string): string {
 // ---------------------------------------------------------------------------
 
 const shimmerBg =
-  "bg-[length:200%_100%] bg-gradient-to-r from-white/[0.04] via-white/[0.08] to-white/[0.04] animate-[shimmer_1.5s_infinite]";
+  "bg-[length:200%_100%] bg-gradient-to-r from-gray-100 via-gray-200 to-gray-100 animate-[shimmer_1.5s_infinite]";
 
 function CompactSkeleton() {
   return (
-    <div className="flex items-center gap-3 rounded-xl px-3 py-2.5 bg-[#111] border border-white/[0.06]">
+    <div className="flex items-center gap-3 rounded-xl px-3 py-2.5 bg-gray-50 border border-gray-200">
       <div className={`w-5 h-5 rounded-full shrink-0 ${shimmerBg}`} />
       <div className={`h-3 rounded-md w-16 ${shimmerBg}`} />
       <div className={`h-3 rounded-md w-12 ${shimmerBg}`} />
@@ -322,7 +322,7 @@ function CompactSkeleton() {
 
 function FullSkeleton() {
   return (
-    <div className="rounded-2xl p-5 flex flex-col gap-4 bg-[#111] border border-white/[0.06]">
+    <div className="rounded-2xl p-5 flex flex-col gap-4 bg-gray-50 border border-gray-200">
       <div className="flex items-center gap-3">
         <div className={`w-8 h-8 rounded-full shrink-0 ${shimmerBg}`} />
         <div className="flex-1 flex flex-col gap-1.5">
@@ -421,7 +421,7 @@ export function ProofOfFavourCard({ address, compact = false }: Props) {
   // Error state
   if (error || !data) {
     return (
-      <div className="rounded-xl px-3 py-2 bg-red-950/30 border border-red-800/30 text-red-400 text-xs">
+      <div className="rounded-xl px-3 py-2 bg-red-50 border border-red-200 text-red-600 text-xs">
         Failed to load profile{error ? `: ${error}` : ""}
       </div>
     );
@@ -477,7 +477,7 @@ function CompactCard({
       className={`
         flex items-center gap-2.5 rounded-xl px-3 py-2.5
         bg-gradient-to-r ${config.compactGradient}
-        border border-white/[0.06]
+        border border-gray-200
         transition-all duration-500
         ${appeared ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"}
       `}
@@ -491,10 +491,10 @@ function CompactCard({
       </span>
 
       {/* Divider */}
-      <span className="w-px h-3.5 bg-white/10 shrink-0" />
+      <span className="w-px h-3.5 bg-gray-300 shrink-0" />
 
       {/* Points */}
-      <span className="text-[11px] font-bold text-white tabular-nums shrink-0">
+      <span className="text-[11px] font-bold text-gray-900 tabular-nums shrink-0">
         {displayPoints.toLocaleString()} pts
       </span>
 
@@ -552,7 +552,7 @@ function FullCard({
       className={`
         rounded-2xl p-5 flex flex-col gap-4
         bg-gradient-to-br ${config.gradient}
-        border border-white/[0.08]
+        border border-gray-200
         transition-all duration-500
         ${appeared ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}
       `}
@@ -562,7 +562,7 @@ function FullCard({
         <div className="flex items-center gap-3">
           <LevelBadge level={profile.level} size="lg" />
           <div className="flex flex-col">
-            <span className="text-[10px] font-semibold uppercase tracking-[0.15em] text-white/40">
+            <span className="text-[10px] font-semibold uppercase tracking-[0.15em] text-gray-400">
               Proof of Favour
             </span>
             <span className={`text-lg font-bold ${config.textColor} leading-tight`}>
@@ -578,12 +578,12 @@ function FullCard({
       {/* Points + progress */}
       <div className="flex flex-col gap-2">
         <div className="flex items-baseline justify-between">
-          <span className="text-2xl font-black text-white tabular-nums">
+          <span className="text-2xl font-black text-gray-900 tabular-nums">
             {displayPoints.toLocaleString()}
-            <span className="text-sm font-semibold text-white/50 ml-1">pts</span>
+            <span className="text-sm font-semibold text-gray-400 ml-1">pts</span>
           </span>
           {!isMaxLevel && (
-            <span className="text-[11px] text-white/40 tabular-nums">
+            <span className="text-[11px] text-gray-400 tabular-nums">
               {nextLevel.pointsNeeded.toLocaleString()} to {nextLevel.nextLevel}
             </span>
           )}
@@ -630,22 +630,22 @@ function FullCard({
       {/* Recent points history */}
       {recentHistory.length > 0 && (
         <div className="flex flex-col gap-1.5">
-          <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-white/30">
+          <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-gray-400">
             Recent Activity
           </span>
           {recentHistory.map((entry, i) => (
             <div
               key={`${entry.timestamp}-${i}`}
-              className="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-white/[0.03]"
+              className="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-white/60"
             >
-              <span className="text-[11px] text-white/60">
+              <span className="text-[11px] text-gray-600">
                 {formatAction(entry.action)}
               </span>
               <div className="flex items-center gap-2">
                 <span className="text-[11px] font-bold text-emerald-400 tabular-nums">
                   +{entry.points}
                 </span>
-                <span className="text-[10px] text-white/25 tabular-nums">
+                <span className="text-[10px] text-gray-400 tabular-nums">
                   {timeAgo(entry.timestamp)}
                 </span>
               </div>
@@ -656,7 +656,7 @@ function FullCard({
 
       {/* Footer branding */}
       <div className="flex items-center justify-center pt-1">
-        <span className="text-[9px] font-semibold uppercase tracking-[0.2em] text-white/15">
+        <span className="text-[9px] font-semibold uppercase tracking-[0.2em] text-gray-300">
           RELAY FAVOURS
         </span>
       </div>
@@ -687,13 +687,13 @@ function StatBox({
         ${config.badgeBg} border ${config.badgeBorder}
       `}
     >
-      <span className="text-base font-bold text-white tabular-nums">
+      <span className="text-base font-bold text-gray-900 tabular-nums">
         {value}
         {suffix && (
-          <span className="text-[10px] font-semibold text-white/40">{suffix}</span>
+          <span className="text-[10px] font-semibold text-gray-400">{suffix}</span>
         )}
       </span>
-      <span className="text-[9px] font-medium text-white/40 text-center leading-tight">
+      <span className="text-[9px] font-medium text-gray-500 text-center leading-tight">
         {label}
       </span>
     </div>
