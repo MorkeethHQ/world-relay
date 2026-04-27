@@ -8,7 +8,8 @@ export type SSEEventType =
   | "task:verified"
   | "task:completed"
   | "task:failed"
-  | "task:expired";
+  | "task:expired"
+  | "task:disputed";
 
 export interface SSEEventPayload {
   taskId: string;

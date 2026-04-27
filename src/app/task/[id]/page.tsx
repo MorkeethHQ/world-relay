@@ -913,6 +913,243 @@ const AGENT_PERSONALITIES: Record<string, string> = {
 };
 
 // ---------------------------------------------------------------------------
+// Dispute Actions
+// ---------------------------------------------------------------------------
+
+type UmaState = {
+  umaEnabled: boolean;
+  dispute: {
+    assertionId: string;
+    status: string;
+    asserter: string;
+    disputer: string | null;
+    bondUsdc: number;
+    expirationTime: number;
+  } | null;
+};
+
+function DisputeActions({ task, onAction }: { task: Task; onAction: () => void }) {
+  const [acting, setActing] = useState<string | null>(null);
+  const [umaState, setUmaState] = useState<UmaState | null>(null);
+  const [result, setResult] = useState<{ type: "success" | "error"; message: string } | null>(null);
+
+  useEffect(() => {
+    fetch(`/api/tasks/${task.id}/escalate`)
+      .then((r) => r.json())
+      .then(setUmaState)
+      .catch(() => null);
+  }, [task.id]);
+
+  const handleConfirm = async (approved: boolean) => {
+    setActing(approved ? "approve" : "reject");
+    setResult(null);
+    try {
+      const res = await fetch(`/api/tasks/${task.id}/confirm`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ poster: task.poster, approved }),
+      });
+      if (res.ok) {
+        setResult({ type: "success", message: approved ? "Proof approved — USDC released" : "Proof rejected" });
+        onAction();
+      } else {
+        const data = await res.json();
+        setResult({ type: "error", message: data.error || "Failed" });
+      }
+    } catch {
+      setResult({ type: "error", message: "Network error" });
+    } finally {
+      setActing(null);
+    }
+  };
+
+  const handleMediation = async () => {
+    setActing("mediate");
+    setResult(null);
+    try {
+      const res = await fetch(`/api/tasks/${task.id}/dispute`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ poster: task.poster }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const verdict = data.dispute?.approved ? "Approved" : "Rejected";
+        setResult({ type: "success", message: `AI Mediation: ${verdict} (${Math.round((data.dispute?.confidence || 0) * 100)}% confidence)` });
+        onAction();
+      } else {
+        const data = await res.json();
+        setResult({ type: "error", message: data.error || "Mediation failed" });
+      }
+    } catch {
+      setResult({ type: "error", message: "Network error" });
+    } finally {
+      setActing(null);
+    }
+  };
+
+  const handleUmaEscalate = async () => {
+    if (!task.claimant) return;
+    setActing("uma");
+    setResult(null);
+    try {
+      const res = await fetch(`/api/tasks/${task.id}/escalate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "assert", address: task.claimant }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setResult({ type: "success", message: `Escalated to UMA Oracle. Challenge window: ${data.challengeWindow}` });
+        setUmaState((prev) => prev ? { ...prev, dispute: { assertionId: data.assertionId, status: "asserted", asserter: task.claimant!, disputer: null, bondUsdc: 5, expirationTime: Math.floor(Date.now() / 1000) + 7200 } } : prev);
+      } else {
+        const data = await res.json();
+        setResult({ type: "error", message: data.error || "Escalation failed" });
+      }
+    } catch {
+      setResult({ type: "error", message: "Network error" });
+    } finally {
+      setActing(null);
+    }
+  };
+
+  const confidence = task.verificationResult?.confidence || 0;
+  const pct = Math.round(confidence * 100);
+
+  return (
+    <div className="bg-amber-500/5 border border-amber-500/15 rounded-2xl overflow-hidden">
+      {/* Header */}
+      <div className="px-4 pt-4 pb-3">
+        <div className="flex items-center gap-2 mb-2">
+          <div className="w-6 h-6 rounded-lg bg-amber-500 flex items-center justify-center">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+              <line x1="12" y1="9" x2="12" y2="13" />
+              <line x1="12" y1="17" x2="12.01" y2="17" />
+            </svg>
+          </div>
+          <div>
+            <p className="text-sm font-bold text-amber-400">Proof Flagged</p>
+            <p className="text-[10px] text-gray-500">AI confidence: {pct}% — resolve this dispute</p>
+          </div>
+        </div>
+      </div>
+
+      {/* UMA Status (if active) */}
+      {umaState?.dispute && (
+        <div className="mx-4 mb-3 bg-indigo-500/5 border border-indigo-500/15 rounded-xl p-3">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider">UMA Oracle</span>
+            <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium ${
+              umaState.dispute.status === "asserted" ? "bg-blue-500/15 text-blue-400" :
+              umaState.dispute.status === "disputed" ? "bg-red-500/15 text-red-400" :
+              umaState.dispute.status === "settled_true" ? "bg-green-500/15 text-green-400" :
+              "bg-gray-500/15 text-gray-400"
+            }`}>
+              {umaState.dispute.status.replace("_", " ").toUpperCase()}
+            </span>
+          </div>
+          <p className="text-[10px] text-gray-500">Bond: ${umaState.dispute.bondUsdc} USDC</p>
+          {umaState.dispute.status === "asserted" && (
+            <p className="text-[10px] text-gray-500">
+              Challenge window ends: {new Date(umaState.dispute.expirationTime * 1000).toLocaleString()}
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Action Buttons */}
+      <div className="px-4 pb-4 flex flex-col gap-2">
+        {/* Poster actions: Approve / Reject */}
+        <div className="flex gap-2">
+          <button
+            onClick={() => handleConfirm(true)}
+            disabled={!!acting}
+            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-green-500 text-white text-xs font-semibold disabled:opacity-40 active:scale-[0.98] transition-all"
+          >
+            {acting === "approve" ? (
+              <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            ) : (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            )}
+            Approve
+          </button>
+          <button
+            onClick={() => handleConfirm(false)}
+            disabled={!!acting}
+            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-red-500 text-white text-xs font-semibold disabled:opacity-40 active:scale-[0.98] transition-all"
+          >
+            {acting === "reject" ? (
+              <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            ) : (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            )}
+            Reject
+          </button>
+        </div>
+
+        {/* AI Mediation */}
+        <button
+          onClick={handleMediation}
+          disabled={!!acting}
+          className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-semibold disabled:opacity-40 active:scale-[0.98] transition-all"
+        >
+          {acting === "mediate" ? (
+            <div className="w-3.5 h-3.5 border-2 border-indigo-300/30 border-t-indigo-400 rounded-full animate-spin" />
+          ) : (
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+            </svg>
+          )}
+          AI Mediation (Claude Opus)
+        </button>
+
+        {/* UMA Escalation */}
+        {umaState?.umaEnabled && !umaState.dispute && (
+          <button
+            onClick={handleUmaEscalate}
+            disabled={!!acting}
+            className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400 text-xs font-semibold disabled:opacity-40 active:scale-[0.98] transition-all"
+          >
+            {acting === "uma" ? (
+              <div className="w-3.5 h-3.5 border-2 border-purple-300/30 border-t-purple-400 rounded-full animate-spin" />
+            ) : (
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10" />
+                <path d="M8 14s1.5 2 4 2 4-2 4-2" />
+                <line x1="9" y1="9" x2="9.01" y2="9" />
+                <line x1="15" y1="9" x2="15.01" y2="9" />
+              </svg>
+            )}
+            Escalate to UMA Oracle ($5 bond)
+          </button>
+        )}
+
+        {/* Chainlink badge */}
+        <div className="flex items-center justify-center gap-2 pt-1">
+          <span className="text-[9px] text-gray-400">Dispute resolution powered by</span>
+          <span className="text-[9px] font-bold text-gray-500">AI + UMA + Chainlink</span>
+        </div>
+      </div>
+
+      {/* Result feedback */}
+      {result && (
+        <div className={`mx-4 mb-4 px-3 py-2 rounded-xl text-xs font-medium ${
+          result.type === "success" ? "bg-green-500/10 text-green-400 border border-green-500/20" : "bg-red-500/10 text-red-400 border border-red-500/20"
+        }`}>
+          {result.message}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Page
 // ---------------------------------------------------------------------------
 
@@ -1398,6 +1635,14 @@ export default function TaskDetailPage() {
 
         {/* ===== AI FOLLOW-UP ===== */}
         {task.aiFollowUp && <FollowUpCard followUp={task.aiFollowUp} />}
+
+        {/* ===== DISPUTE ACTIONS (flagged tasks) ===== */}
+        {task.verificationResult?.verdict === "flag" && task.status !== "completed" && task.status !== "failed" && (
+          <DisputeActions
+            task={task}
+            onAction={fetchData}
+          />
+        )}
 
         {/* ===== WORLD CHAT THREAD ===== */}
         <WorldChatThread
