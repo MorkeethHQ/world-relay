@@ -67,6 +67,7 @@ function mockTask(overrides?: Partial<Task>): Task {
     taskType: "standard",
     donOnChainId: null,
     donStakeTxHash: null,
+    requiresClaim: false,
     createdAt: new Date().toISOString(),
     ...overrides,
   };

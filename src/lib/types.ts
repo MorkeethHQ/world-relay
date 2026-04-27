@@ -69,5 +69,6 @@ export type Task = {
   donOnChainId: number | null;
   donStakeTxHash: string | null;
   claimantVerification?: "orb" | "device" | "wallet" | null;
+  requiresClaim: boolean;
   createdAt: string;
 };

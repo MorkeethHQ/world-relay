@@ -1,5 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
+import { getRedis } from "@/lib/redis";
+
+const RATE_KEY = "ratelimit:proof-precheck";
+const MAX_PER_HOUR = 30;
+
+async function checkRateLimit(): Promise<boolean> {
+  const redis = getRedis();
+  if (!redis) return true;
+  try {
+    const count = await redis.incr(RATE_KEY);
+    if (count === 1) await redis.expire(RATE_KEY, 3600);
+    return count <= MAX_PER_HOUR;
+  } catch {
+    return true;
+  }
+}
 
 const SYSTEM_PROMPT = `You are a quick photo quality checker. Given a task description and a photo, give a brief assessment of whether this photo will pass verification. Be encouraging but honest. Respond in 2-3 sentences max.
 
@@ -40,6 +56,10 @@ export async function POST(req: NextRequest) {
       assessment: "Looking good! Your photo appears to match the task description. Should pass verification.",
       likely: "pass",
     });
+  }
+
+  if (!(await checkRateLimit())) {
+    return NextResponse.json({ error: "Rate limit exceeded. Try again later." }, { status: 429 });
   }
 
   try {

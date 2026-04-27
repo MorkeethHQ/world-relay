@@ -10,7 +10,7 @@ function checkAuth(req: NextRequest): boolean {
   if (CRON_SECRET && auth === `Bearer ${CRON_SECRET}`) return true;
 
   // Allow AGENT_API_KEY auth
-  if (!AGENT_API_KEY) return true;
+  if (!AGENT_API_KEY) return false;
   if (!auth) return false;
   const token = auth.replace("Bearer ", "");
   return token === AGENT_API_KEY;

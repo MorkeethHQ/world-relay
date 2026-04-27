@@ -5,11 +5,25 @@ import { getRedis } from "@/lib/redis";
 
 const CACHE_KEY = "ai:insight:latest";
 const CACHE_TTL = 300; // 5 minutes
+const RATE_KEY = "ratelimit:ai-insights";
+const MAX_PER_HOUR = 60;
 
 type CachedInsight = {
   insight: string;
   generatedAt: string;
 };
+
+async function checkRateLimit(): Promise<boolean> {
+  const redis = getRedis();
+  if (!redis) return true;
+  try {
+    const count = await redis.incr(RATE_KEY);
+    if (count === 1) await redis.expire(RATE_KEY, 3600);
+    return count <= MAX_PER_HOUR;
+  } catch {
+    return true;
+  }
+}
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -80,6 +94,11 @@ export async function GET(request: Request) {
 - Top agents: ${topAgents || "None yet"}
 - Active cities: ${Array.from(cities).join(", ") || "None yet"}
 - Unique runners: ${new Set(tasks.filter((t) => t.claimant).map((t) => t.claimant)).size}`;
+
+  // Rate limit before calling Anthropic
+  if (!(await checkRateLimit())) {
+    return NextResponse.json({ error: "Rate limit exceeded. Try again later." }, { status: 429 });
+  }
 
   // Check for API key
   if (!process.env.ANTHROPIC_API_KEY) {

@@ -69,6 +69,9 @@ async function hydrateCache(): Promise<void> {
       if ((task as any).donStakeTxHash === undefined) {
         (task as any).donStakeTxHash = null;
       }
+      if ((task as any).requiresClaim === undefined) {
+        (task as any).requiresClaim = false;
+      }
       cache.set(task.id, task);
     }
   } catch (err) {
@@ -94,6 +97,7 @@ export function createTask(input: {
   claimCode?: string | null;
   taskType?: TaskType;
   donOnChainId?: number | null;
+  requiresClaim?: boolean;
 }): Task {
   const id = crypto.randomUUID();
   const agent = input.agentId ? getAgent(input.agentId) : null;
@@ -133,6 +137,7 @@ export function createTask(input: {
     donOnChainId: input.donOnChainId ?? null,
     donStakeTxHash: null,
     claimantVerification: null,
+    requiresClaim: input.requiresClaim ?? false,
     createdAt: new Date().toISOString(),
   };
   cache.set(id, task);

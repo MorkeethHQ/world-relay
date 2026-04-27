@@ -55,6 +55,11 @@ function formatDistance(km: number): string {
   return `${Math.round(km)}km away`;
 }
 
+function rewardLabel(task: Task): string {
+  if (task.escrowTxHash) return `$${task.bountyUsdc} USDC`;
+  return `${task.bountyUsdc * 10} pts`;
+}
+
 const CATEGORY_ICONS: Record<string, string> = {
   photo: "📸",
   delivery: "📦",
@@ -63,9 +68,9 @@ const CATEGORY_ICONS: Record<string, string> = {
 };
 
 function SkeletonCard() {
-  const shimmerBg = "bg-[length:200%_100%] bg-gradient-to-r from-white/[0.04] via-white/[0.08] to-white/[0.04] animate-[shimmer_1.5s_infinite]";
+  const shimmerBg = "bg-[length:200%_100%] bg-gradient-to-r from-gray-100 via-gray-200 to-gray-100 animate-[shimmer_1.5s_infinite]";
   return (
-    <div className="rounded-2xl p-4 flex flex-col gap-3 bg-[#111] border border-white/[0.06]">
+    <div className="rounded-2xl p-4 flex flex-col gap-3 bg-white border border-gray-100 shadow-sm">
       <div className="flex items-start gap-1.5">
         <div className={`w-5 h-5 rounded shrink-0 mt-0.5 ${shimmerBg}`} />
         <div className="flex-1 flex flex-col gap-1.5">
@@ -110,23 +115,23 @@ function ActivityTicker({ tasks }: { tasks: Task[] }) {
     if (t.status === "completed" && t.verificationResult) {
       events.push({
         icon: "✅",
-        text: `${t.agent ? t.agent.name : shortId(t.poster)} bounty verified${t.verificationResult.confidence ? ` · ${Math.round(t.verificationResult.confidence * 100)}%` : ""}`,
-        color: "text-green-400/70",
+        text: `${t.agent ? t.agent.name : shortId(t.poster)} favour verified${t.verificationResult.confidence ? ` · ${Math.round(t.verificationResult.confidence * 100)}%` : ""}`,
+        color: "text-green-600",
         time: timeAgo(t.createdAt),
       });
     }
     if (t.claimant) {
       events.push({
         icon: "⚡",
-        text: `${shortId(t.claimant)} claimed ${t.agent ? t.agent.name : ""} bounty · $${t.bountyUsdc}`,
-        color: "text-blue-400/70",
+        text: `${shortId(t.claimant)} claimed ${t.agent ? t.agent.name : ""} favour · $${t.bountyUsdc}`,
+        color: "text-blue-600",
         time: timeAgo(t.createdAt),
       });
     }
     if (t.agent && t.status === "open") {
       events.push({
         icon: t.agent.icon,
-        text: `${t.agent.name} posted a bounty · ${t.location}`,
+        text: `${t.agent.name} posted a favour · ${t.location}`,
         color: "text-gray-400",
         time: timeAgo(t.createdAt),
       });
@@ -160,9 +165,12 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [tab, setTab] = useState<Tab>("available");
   const [mapMode, setMapMode] = useState(false);
-  const [agentFilter, setAgentFilter] = useState<"all" | "agent" | "community" | "don">("all");
+  const [agentFilter] = useState<"all">("all");
   const [xmtpStatus, setXmtpStatus] = useState<{ connected: boolean; inboxId: string | null } | null>(null);
   const [botAddrCopied, setBotAddrCopied] = useState(false);
+  const [chatQuery, setChatQuery] = useState("");
+  const [chatReply, setChatReply] = useState("");
+  const [chatLoading, setChatLoading] = useState(false);
   const [upgradePrompt, setUpgradePrompt] = useState<{ required: string; current: string } | null>(null);
   const [claimTxSuccess, setClaimTxSuccess] = useState<{ hash: string; taskId: string } | null>(null);
   const [claimTxError, setClaimTxError] = useState<{ message: string; taskId: string; retry: () => void } | null>(null);
@@ -215,12 +223,12 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
         if (prevStatus && prevStatus !== task.status) {
           changed.push(task.id);
           if (prevStatus === "open" && task.status === "claimed") {
-            statusMsg = `Bounty claimed: "${task.description.slice(0, 40)}${task.description.length > 40 ? "..." : ""}"`;
-            statusColor = "text-yellow-400";
+            statusMsg = `Favour claimed: "${task.description.slice(0, 40)}${task.description.length > 40 ? "..." : ""}"`;
+            statusColor = "text-yellow-600";
           } else if (prevStatus === "claimed" && task.status === "completed") {
-            statusMsg = `Bounty completed: "${task.description.slice(0, 40)}${task.description.length > 40 ? "..." : ""}"`;
+            statusMsg = `Favour completed: "${task.description.slice(0, 40)}${task.description.length > 40 ? "..." : ""}"`;
 
-            statusColor = "text-green-400";
+            statusColor = "text-green-600";
           }
         }
       }
@@ -377,9 +385,6 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
       if (t.status === "open") { /* show all open */ }
       else if (t.status === "claimed" && t.claimant === userId) { /* show my active claims */ }
       else return false;
-      if (agentFilter === "agent") return !!(t.agent || t.poster?.startsWith("agent_"));
-      if (agentFilter === "community") return !t.agent && !t.poster?.startsWith("agent_");
-      if (agentFilter === "don") return t.taskType === "double-or-nothing";
       return true;
     }
     if (tab === "mine") return t.poster === userId || t.claimant === userId;
@@ -411,6 +416,24 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
   const totalPosted = tasks.filter(t => t.poster === userId).length;
   const totalClaimed = tasks.filter(t => t.claimant === userId).length;
 
+  async function handleChatQuery() {
+    if (!chatQuery.trim() || chatLoading) return;
+    setChatLoading(true);
+    setChatReply("");
+    try {
+      const res = await fetch("/api/xmtp-agent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: chatQuery }),
+      });
+      const data = await res.json();
+      setChatReply(data.response || "No response.");
+    } catch {
+      setChatReply("Something went wrong.");
+    }
+    setChatLoading(false);
+  }
+
   if (view === "post") {
     return <PostTask userId={userId} onDone={() => { setView("board"); fetchTasks(); }} onCancel={() => setView("board")} />;
   }
@@ -439,11 +462,11 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
       onTouchEnd={handleTouchEnd}
     >
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-[#050505]/90 backdrop-blur-xl border-b border-white/5">
+      <div className="sticky top-0 z-10 bg-white/90 backdrop-blur-xl border-b border-gray-100">
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="black" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <div className="w-8 h-8 rounded-lg bg-black flex items-center justify-center">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 2L2 7l10 5 10-5-10-5z" />
                 <path d="M2 17l10 5 10-5" />
                 <path d="M2 12l10 5 10-5" />
@@ -453,24 +476,24 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
               <div className="flex items-center gap-2">
                 <h1 className="text-base font-bold tracking-tight leading-none">RELAY FAVOURS</h1>
                 {notificationsEnabled && (
-                  <span className="flex items-center gap-1 bg-green-500/10 border border-green-500/20 rounded-full px-1.5 py-0.5">
+                  <span className="flex items-center gap-1 bg-green-50 border border-green-200 rounded-full px-1.5 py-0.5">
                     <svg width="8" height="8" viewBox="0 0 24 24" fill="#22c55e" stroke="none">
                       <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
                       <path d="M13.73 21a2 2 0 0 1-3.46 0" />
                     </svg>
-                    <span className="text-[8px] font-medium text-green-400">ON</span>
+                    <span className="text-[8px] font-medium text-green-600">ON</span>
                   </span>
                 )}
                 <span className="flex items-center gap-1 rounded-full px-1.5 py-0.5" title={sseConnected ? "Real-time updates active" : "Real-time updates disconnected"}>
                   <span className={`inline-flex rounded-full h-1.5 w-1.5 ${sseConnected ? "bg-green-500" : "bg-gray-600"}`} />
-                  <span className={`text-[8px] font-medium ${sseConnected ? "text-green-400/70" : "text-gray-600"}`}>
+                  <span className={`text-[8px] font-medium ${sseConnected ? "text-green-600" : "text-gray-600"}`}>
                     {sseConnected ? "Live" : ""}
                   </span>
                 </span>
               </div>
               {userId && (
                 <div className="flex items-center gap-1.5 mt-0.5">
-                  <button onClick={onLogout} className="text-[10px] text-gray-500 hover:text-gray-300 transition-colors leading-none min-h-[44px] flex items-center">
+                  <button onClick={onLogout} className="text-[10px] text-gray-500 hover:text-gray-900 transition-colors leading-none min-h-[44px] flex items-center">
                     {shortId(userId)}
                   </button>
                   <VerificationBadge level={verificationLevel} />
@@ -482,7 +505,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
             <div className="flex items-center gap-2 mt-0.5">
               <button
                 onClick={() => { hapticTap(); setView("post"); }}
-                className="shrink-0 bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium rounded-xl px-4 py-2 transition-colors active:scale-[0.97]"
+                className="shrink-0 bg-black hover:bg-gray-800 text-white text-sm font-medium rounded-xl px-4 py-2 transition-colors active:scale-[0.97]"
               >
                 + Request
               </button>
@@ -493,14 +516,14 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
         {/* Tabs */}
         <div className="flex px-4 gap-0 items-center">
           {(["available", "mine", "completed"] as Tab[]).map((t) => {
-            const label = t === "available" ? "Bounties" : t === "mine" ? "Mine" : "History";
+            const label = t === "available" ? "Favours" : t === "mine" ? "Mine" : "History";
             const count = t === "mine" ? myTaskCount : null;
             return (
               <button
                 key={t}
                 onClick={() => { hapticSelection(); setTab(t); }}
                 className={`flex-1 text-xs min-h-[44px] py-2.5 font-medium transition-all relative flex items-center justify-center ${
-                  tab === t ? "text-white" : "text-gray-500"
+                  tab === t ? "text-gray-900" : "text-gray-500"
                 }`}
               >
                 {label}
@@ -508,7 +531,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
                   <span className="ml-1 text-[10px] text-gray-500">{count}</span>
                 )}
                 {tab === t && (
-                  <span className="absolute bottom-0 left-1/4 right-1/4 h-0.5 bg-white rounded-full" />
+                  <span className="absolute bottom-0 left-1/4 right-1/4 h-0.5 bg-gray-900 rounded-full" />
                 )}
               </button>
             );
@@ -516,7 +539,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
           {tab === "available" && (
             <button
               onClick={() => setMapMode(!mapMode)}
-              className={`ml-1 min-w-[44px] min-h-[44px] p-2.5 rounded-lg transition-all flex items-center justify-center ${mapMode ? "bg-white/10 text-white" : "text-gray-500 hover:text-gray-300"}`}
+              className={`ml-1 min-w-[44px] min-h-[44px] p-2.5 rounded-lg transition-all flex items-center justify-center ${mapMode ? "bg-gray-100 text-gray-900" : "text-gray-500 hover:text-gray-900"}`}
               aria-label={mapMode ? "Switch to list view" : "Switch to map view"}
             >
               {mapMode ? (
@@ -528,29 +551,6 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
           )}
         </div>
 
-        {/* Agent / Community filter */}
-        {tab === "available" && (
-          <div className="flex px-4 pb-3 pt-1 gap-2">
-            {([
-              { key: "all" as const, label: "All" },
-              { key: "agent" as const, label: "Agent" },
-              { key: "community" as const, label: "Community" },
-              { key: "don" as const, label: "2x Stakes" },
-            ]).map((f) => (
-              <button
-                key={f.key}
-                onClick={() => setAgentFilter(f.key)}
-                className={`text-xs font-medium px-4 py-2 min-h-[36px] rounded-full transition-all flex items-center ${
-                  agentFilter === f.key
-                    ? "bg-white/10 text-white border border-white/20"
-                    : "text-gray-500 border border-white/[0.06] hover:text-gray-300 hover:border-white/10"
-                }`}
-              >
-                {f.label}
-              </button>
-            ))}
-          </div>
-        )}
       </div>
 
       {/* Pull-to-refresh indicator */}
@@ -595,14 +595,14 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
               feedTopRef.current?.scrollIntoView({ behavior: "smooth" });
               setNewTaskToast({ count: 0, visible: false });
             }}
-            className="w-full animate-[slideDown_0.3s_ease-out] bg-blue-500/10 border border-blue-500/20 rounded-xl px-4 py-2 flex items-center justify-center gap-2 hover:bg-blue-500/15 transition-colors active:scale-[0.98]"
+            className="w-full animate-[slideDown_0.3s_ease-out] bg-blue-50 border border-blue-200 rounded-xl px-4 py-2 flex items-center justify-center gap-2 hover:bg-blue-100 transition-colors active:scale-[0.98]"
           >
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75" />
               <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500" />
             </span>
-            <span className="text-xs font-medium text-blue-400">
-              {newTaskToast.count} new {newTaskToast.count === 1 ? "bounty" : "bounties"} available
+            <span className="text-xs font-medium text-blue-600">
+              {newTaskToast.count} new {newTaskToast.count === 1 ? "favour" : "favours"} available
             </span>
           </button>
         </div>
@@ -611,7 +611,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
       {/* Status change toast */}
       {statusToast.visible && statusToast.message && (
         <div className="px-4 pt-2">
-          <div className="w-full animate-[slideDown_0.3s_ease-out] bg-white/[0.04] border border-white/10 rounded-xl px-4 py-2.5 flex items-center gap-2">
+          <div className="w-full animate-[slideDown_0.3s_ease-out] bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 flex items-center gap-2">
             <span className="relative flex h-2 w-2 shrink-0">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75" />
               <span className="relative inline-flex rounded-full h-2 w-2 bg-yellow-500" />
@@ -626,37 +626,42 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
       {/* Hero card */}
       {tab === "available" && heroVisible && !mapMode && (
         <div className="px-4 pt-3">
-          <div className="relative bg-[#111] border border-white/[0.08] rounded-2xl p-4 sm:p-5">
+          <div className="relative bg-white border border-gray-200 rounded-2xl p-4 sm:p-5">
             <button
               onClick={() => setHeroVisible(false)}
-              className="absolute top-3 right-3 w-7 h-7 flex items-center justify-center rounded-full text-gray-600 hover:text-gray-400 hover:bg-white/5 transition-colors"
+              className="absolute top-3 right-3 w-7 h-7 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
             <div className="flex items-start gap-3 mb-3">
-              <div className="w-10 h-10 rounded-xl bg-white/[0.06] border border-white/10 flex items-center justify-center shrink-0">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <div className="w-10 h-10 rounded-xl bg-gray-100 border border-gray-200 flex items-center justify-center shrink-0">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1a1a1a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M12 2L2 7l10 5 10-5-10-5z" /><path d="M2 17l10 5 10-5" /><path d="M2 12l10 5 10-5" />
                 </svg>
               </div>
               <div className="min-w-0">
-                <h2 className="text-sm font-bold text-white leading-tight">The Bounty Board</h2>
+                <h2 className="text-sm font-bold text-gray-900 leading-tight">The Favour Board</h2>
                 <p className="text-xs text-gray-400 mt-1 leading-relaxed">
-                  AI agents post bounties that need a human on the ground — shelf checks, listing verification, wait times. Pick one up on your commute.
+                  Agents get stuck on physical-world verification. You close the loop — verify, confirm, inspect. 30 seconds.
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-3 text-[10px] text-gray-500">
-              <span className="flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
-                {tasks.filter(t => t.status === "open").length} bounties open
-              </span>
-              <span>
-                ${tasks.filter(t => t.status === "open").reduce((s, t) => s + t.bountyUsdc, 0).toFixed(0)} available
-              </span>
-              <span>
-                {new Set(tasks.map(t => t.location.split(",").pop()?.trim()).filter(Boolean)).size} cities
-              </span>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3 text-[10px] text-gray-500">
+                <span className="flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span>
+                  {tasks.filter(t => t.status === "open").length} favours open
+                </span>
+                <span>
+                  ${tasks.filter(t => t.status === "open" && t.escrowTxHash).reduce((s, t) => s + t.bountyUsdc, 0).toFixed(0)} USDC funded
+                </span>
+                <span>
+                  {new Set(tasks.map(t => t.location.split(",").pop()?.trim()).filter(Boolean)).size} cities
+                </span>
+              </div>
+              <a href="/demo" className="text-[10px] text-gray-400 hover:text-gray-600 transition-colors whitespace-nowrap">
+                How it works
+              </a>
             </div>
           </div>
         </div>
@@ -670,11 +675,47 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
             <span className="text-gray-700">·</span>
             <span>{tasks.filter(t => t.status === "completed").length} verified</span>
             <span className="text-gray-700">·</span>
-            <span className="text-green-500/70 font-medium">
-              ${tasks.filter(t => t.status === "completed").reduce((s, t) => s + t.bountyUsdc, 0).toFixed(0)} paid out
+            <span className="text-green-600 font-medium">
+              ${tasks.filter(t => t.status === "open" && t.escrowTxHash).reduce((s, t) => s + t.bountyUsdc, 0).toFixed(0)} USDC live
             </span>
             <span className="text-gray-700">·</span>
             <span>{new Set(tasks.filter(t => t.claimant).map(t => t.claimant)).size} {new Set(tasks.filter(t => t.claimant).map(t => t.claimant)).size === 1 ? "runner" : "runners"}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Inline XMTP chat prompt */}
+      {tab === "available" && !mapMode && (
+        <div className="px-4 pt-3">
+          <div className="bg-white border border-gray-200 rounded-xl p-3">
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={chatQuery}
+                onChange={(e) => setChatQuery(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") handleChatQuery(); }}
+                placeholder={'Ask RELAY — "what can I do nearby?"'}
+                className="flex-1 text-xs bg-transparent text-gray-900 placeholder-gray-400 outline-none min-w-0"
+              />
+              <button
+                onClick={handleChatQuery}
+                disabled={chatLoading || !chatQuery.trim()}
+                className="shrink-0 px-3 py-1.5 text-[10px] font-medium bg-gray-900 text-white rounded-lg disabled:opacity-30 transition-opacity"
+              >
+                {chatLoading ? "..." : "Ask"}
+              </button>
+            </div>
+            {chatReply && (
+              <div className="mt-2 pt-2 border-t border-gray-100">
+                <p className="text-xs text-gray-600 leading-relaxed whitespace-pre-wrap">{chatReply}</p>
+                <button
+                  onClick={() => { setChatReply(""); setChatQuery(""); }}
+                  className="text-[10px] text-gray-400 mt-1"
+                >
+                  Clear
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -685,114 +726,68 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
         {tab === "mine" && (
           <div className="mb-4 flex flex-col gap-3">
             {/* Identity card */}
-            <div className="bg-[#111] border border-white/[0.08] rounded-2xl p-4">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-white/[0.06] border border-white/10 flex items-center justify-center">
-                    <span className="text-sm font-bold text-white">{userId?.slice(-2).toUpperCase()}</span>
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold">{userId ? shortId(userId) : ""}</p>
-                    <VerificationBadge level={verificationLevel} size="md" />
-                  </div>
+            <div className="bg-white border border-gray-100 rounded-2xl p-5">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 rounded-full bg-gray-900 flex items-center justify-center">
+                  <span className="text-base font-bold text-white">{userId?.slice(-2).toUpperCase()}</span>
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-gray-900">{userId ? shortId(userId) : ""}</p>
+                  <VerificationBadge level={verificationLevel} size="md" />
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-3 text-center">
+              <div className="grid grid-cols-3 gap-3 text-center bg-gray-50 rounded-xl p-3">
                 <div>
-                  <p className="text-xl font-bold text-green-400">${totalEarned.toFixed(2)}</p>
-                  <p className="text-[10px] text-gray-500 mt-0.5">Earned</p>
+                  <p className="text-lg font-bold text-gray-900">${totalEarned.toFixed(2)}</p>
+                  <p className="text-[9px] text-gray-400 mt-0.5">Earned</p>
                 </div>
                 <div>
-                  <p className="text-xl font-bold text-white">{completedByClaiming.length}</p>
-                  <p className="text-[10px] text-gray-500 mt-0.5">Completed</p>
+                  <p className="text-lg font-bold text-gray-900">{completedByClaiming.length}</p>
+                  <p className="text-[9px] text-gray-400 mt-0.5">Completed</p>
                 </div>
                 <div>
-                  <p className="text-xl font-bold text-blue-400">{totalPosted}</p>
-                  <p className="text-[10px] text-gray-500 mt-0.5">Posted</p>
+                  <p className="text-lg font-bold text-gray-900">{totalPosted}</p>
+                  <p className="text-[9px] text-gray-400 mt-0.5">Posted</p>
                 </div>
               </div>
             </div>
 
-            {/* Trust tiers progression */}
-            <div className="bg-[#111] border border-white/[0.06] rounded-2xl p-4">
-              <p className="text-[10px] text-gray-500 uppercase tracking-wider font-medium mb-2.5">World ID Trust Tiers</p>
-              {(() => {
-                const tiers = [
-                  { level: "wallet", label: "Wallet Verified", limit: "$5 max", color: "text-green-400", bgActive: "bg-green-500/10 border-green-500/20", icon: "○", rank: 0 },
-                  { level: "device", label: "Device Verified", limit: "$10 max", color: "text-blue-400", bgActive: "bg-blue-500/10 border-blue-500/20", icon: "◎", rank: 1 },
-                  { level: "orb", label: "Orb Verified", limit: "No limit", color: "text-cyan-400", bgActive: "bg-cyan-500/10 border-cyan-500/20", icon: "◉", rank: 2 },
-                ];
-                const currentRank = tiers.findIndex(t => t.level === verificationLevel);
-                return (
-                  <>
-                    {/* Progress bar */}
-                    <div className="flex items-center gap-1 mb-3">
-                      {tiers.map((tier, i) => (
-                        <div key={tier.level} className="flex-1">
-                          <div className={`h-1.5 rounded-full ${i <= currentRank ? "bg-gradient-to-r from-green-500 via-blue-500 to-cyan-500" : "bg-white/[0.06]"}`} />
-                        </div>
-                      ))}
-                    </div>
-                    <div className="flex flex-col gap-2">
-                      {tiers.map((tier, i) => {
-                        const isCurrentTier = verificationLevel === tier.level;
-                        const isPassed = i < currentRank;
-                        const isLocked = i > currentRank;
-                        return (
-                          <div key={tier.level} className={`flex items-center justify-between rounded-xl px-3 py-2.5 border transition-all ${
-                            isCurrentTier ? `${tier.bgActive}` :
-                            isPassed ? "bg-white/[0.02] border-white/[0.04]" :
-                            "bg-transparent border-transparent opacity-40"
-                          }`}>
-                            <div className="flex items-center gap-2.5">
-                              <span className={`text-base ${isCurrentTier ? tier.color : isPassed ? "text-green-500/60" : "text-gray-600"}`}>
-                                {isPassed ? "✓" : tier.icon}
-                              </span>
-                              <div>
-                                <span className={`text-xs font-medium ${isCurrentTier ? "text-white" : isPassed ? "text-gray-400" : "text-gray-600"}`}>{tier.label}</span>
-                                {isCurrentTier && <span className="text-[9px] text-gray-400 ml-1.5 bg-white/[0.06] px-1.5 py-0.5 rounded-full">Current</span>}
-                                {isLocked && <span className="text-[9px] text-gray-700 ml-1.5">Locked</span>}
-                              </div>
-                            </div>
-                            <span className={`text-[10px] ${isCurrentTier ? "text-gray-300" : "text-gray-700"}`}>{tier.limit}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                    {/* Upgrade messaging */}
-                    <div className="mt-3 pt-3 border-t border-white/[0.04]">
-                      {verificationLevel === "wallet" && (
-                        <p className="text-[11px] text-gray-400 leading-relaxed">
-                          Upgrade to <span className="text-blue-400 font-medium">Device verification</span> to unlock bounties up to $10. Upgrade to <span className="text-cyan-400 font-medium">Orb</span> for unlimited access.
-                        </p>
-                      )}
-                      {verificationLevel === "device" && (
-                        <p className="text-[11px] text-gray-400 leading-relaxed">
-                          You can claim bounties up to <span className="text-blue-400 font-medium">$10</span>. Upgrade to <span className="text-cyan-400 font-medium">Orb</span> for unlimited access.
-                        </p>
-                      )}
-                      {verificationLevel === "orb" && (
-                        <p className="text-[11px] text-cyan-400/70 leading-relaxed font-medium">
-                          Maximum trust level. You can claim any bounty.
-                        </p>
-                      )}
-                      {!verificationLevel && (
-                        <p className="text-[11px] text-gray-500 leading-relaxed">
-                          Verify with World ID to start claiming bounties.
-                        </p>
-                      )}
-                    </div>
-                  </>
-                );
-              })()}
+            {/* Trust level — one line */}
+            <div className="bg-white border border-gray-100 rounded-2xl px-4 py-3 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] text-gray-400 uppercase tracking-wider font-medium">Trust</span>
+                <span className={`text-xs font-medium ${
+                  verificationLevel === "orb" ? "text-cyan-600" :
+                  verificationLevel === "device" ? "text-blue-600" :
+                  "text-gray-600"
+                }`}>
+                  {verificationLevel === "orb" ? "Orb Verified" :
+                   verificationLevel === "device" ? "Device Verified" :
+                   verificationLevel === "wallet" ? "Wallet" : "Not verified"}
+                </span>
+              </div>
+              <span className="text-[10px] text-gray-400">
+                {verificationLevel === "orb" ? "No limit" :
+                 verificationLevel === "device" ? "Up to $10" :
+                 verificationLevel === "wallet" ? "Up to $5" : "Verify to start"}
+              </span>
             </div>
 
+            {/* Recent activity summary */}
             {completedByClaiming.length > 0 && (
-              <div className="bg-[#111] border border-white/[0.06] rounded-2xl px-4 py-3">
-                <p className="text-[10px] text-gray-600 text-center">
-                  {totalClaimed} bounties claimed · {completedByClaiming.length} verified by AI · settled on World Chain
-                </p>
+              <div className="bg-white border border-gray-100 rounded-2xl p-4">
+                <p className="text-[10px] text-gray-400 uppercase tracking-wider font-medium mb-2">Recent</p>
+                <div className="flex flex-col gap-2">
+                  {completedByClaiming.slice(0, 3).map(t => (
+                    <div key={t.id} className="flex items-center justify-between">
+                      <p className="text-xs text-gray-700 truncate max-w-[200px]">{t.description}</p>
+                      <span className={`text-xs font-medium ${t.escrowTxHash ? "text-gray-900" : "text-gray-400"}`}>
+                        {t.escrowTxHash ? `$${t.bountyUsdc}` : `${t.bountyUsdc * 10} pts`}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -811,7 +806,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
             />
             <button
               onClick={() => setMapMode(false)}
-              className="absolute top-3 right-3 z-[1000] bg-black/80 backdrop-blur-sm text-white px-3 py-2 rounded-xl text-xs font-semibold border border-white/10 active:scale-95 transition-transform flex items-center gap-1.5"
+              className="absolute top-3 right-3 z-[1000] bg-black/80 backdrop-blur-sm text-white px-3 py-2 rounded-xl text-xs font-semibold border border-gray-200 active:scale-95 transition-transform flex items-center gap-1.5"
             >
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
               Close map
@@ -831,21 +826,21 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
               <>
                 <div className="flex items-center gap-2">
                   {["🏷️", "🗺️", "⏱️", "♿", "🏢"].map((icon, i) => (
-                    <div key={i} className="w-10 h-10 rounded-xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center text-lg">
+                    <div key={i} className="w-10 h-10 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-center text-lg">
                       {icon}
                     </div>
                   ))}
                 </div>
                 <div className="text-center">
-                  <p className="text-sm text-gray-400 font-medium">No bounties nearby right now</p>
+                  <p className="text-sm text-gray-400 font-medium">No favours nearby right now</p>
                   <p className="text-xs text-gray-600 mt-1 max-w-[260px]">
-                    AI agents post bounties when they need human eyes on the ground. Check back soon.
+                    AI agents ask for favours when they need a human on the ground. Check back soon.
                   </p>
                 </div>
               </>
             ) : (
               <>
-                <div className="w-12 h-12 rounded-full bg-gray-900 flex items-center justify-center">
+                <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center">
                   {tab === "mine" ? (
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#444" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
@@ -859,8 +854,8 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
                   )}
                 </div>
                 <p className="text-sm text-gray-500">
-                  {tab === "mine" ? "You haven't claimed any bounties yet" :
-                   "No completed bounties yet"}
+                  {tab === "mine" ? "You haven't picked up any favours yet" :
+                   "No completed favours yet"}
                 </p>
               </>
             )}
@@ -870,7 +865,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
             {/* Gallery stats bar */}
             <div className="flex items-center justify-between px-1">
               <span className="text-xs text-gray-500">{filtered.length} completed</span>
-              <span className="text-xs text-green-400 font-semibold">
+              <span className="text-xs text-green-600 font-semibold">
                 ${filtered.reduce((sum, t) => sum + t.bountyUsdc, 0).toFixed(2)} paid out
               </span>
             </div>
@@ -878,26 +873,26 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
               <div
                 key={task.id}
                 style={{ animationDelay: `${i * 60}ms` }}
-                className={`rounded-2xl overflow-hidden bg-[#111] cursor-pointer active:scale-[0.98] transition-all ${
+                className={`rounded-2xl overflow-hidden bg-white cursor-pointer active:scale-[0.98] transition-all ${
                   task.status === "completed"
-                    ? "border border-green-500/20"
-                    : "border border-white/[0.06]"
+                    ? "border border-green-200"
+                    : "border border-gray-100"
                 }`}
                 onClick={() => { setSelectedTask(task); setView("detail"); }}
               >
                 {task.proofImageUrl && (
                   <div className="relative">
                     <img src={task.proofImageUrl} alt="Proof" className="w-full h-48 object-cover" loading="lazy" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-[#111] to-transparent opacity-60" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-white to-transparent opacity-60" />
                     <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between">
-                      <div className="bg-green-500/20 backdrop-blur-sm border border-green-500/30 rounded-lg px-2.5 py-1 flex items-center gap-1.5">
+                      <div className="bg-green-100 backdrop-blur-sm border border-green-300 rounded-lg px-2.5 py-1 flex items-center gap-1.5">
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                           <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
                         </svg>
-                        <span className="text-[11px] font-bold text-green-400">VERIFIED</span>
+                        <span className="text-[11px] font-bold text-green-600">VERIFIED</span>
                       </div>
-                      <span className="text-[11px] font-bold text-green-400 bg-black/40 backdrop-blur-sm rounded-lg px-2 py-1">
-                        ${task.bountyUsdc} paid
+                      <span className="text-[11px] font-bold text-green-600 bg-white/80 backdrop-blur-sm rounded-lg px-2 py-1">
+                        {rewardLabel(task)}
                       </span>
                     </div>
                   </div>
@@ -915,7 +910,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
                     <span className="text-xs text-gray-500">{timeAgo(task.createdAt)}</span>
                   </div>
                   {task.verificationResult && (
-                    <div className="mt-3 pt-3 border-t border-white/[0.04] min-w-0">
+                    <div className="mt-3 pt-3 border-t border-gray-100 min-w-0">
                       <p className="text-xs text-gray-400 leading-relaxed italic break-words">&ldquo;{String(task.verificationResult.reasoning)}&rdquo;</p>
                       <div className="flex items-center gap-2 mt-2 flex-wrap">
                         <span className="text-[10px] text-gray-600 flex items-center gap-1 truncate max-w-full">
@@ -925,13 +920,13 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
                           )}
                         </span>
                         <span className="text-[10px] text-gray-700">·</span>
-                        <span className="text-[10px] text-green-500/70 font-medium">
+                        <span className="text-[10px] text-green-600 font-medium">
                           {Math.round((task.verificationResult.confidence || 0) * 100)}% confidence
                         </span>
                         {task.attestationTxHash && (
                           <>
                             <span className="text-[10px] text-gray-700">·</span>
-                            <a href={`https://worldscan.org/tx/${task.attestationTxHash}`} target="_blank" rel="noopener noreferrer" className="text-[10px] text-blue-400/70 min-h-[44px] flex items-center">
+                            <a href={`https://worldscan.org/tx/${task.attestationTxHash}`} target="_blank" rel="noopener noreferrer" className="text-[10px] text-blue-600 min-h-[44px] flex items-center">
                               verified →
                             </a>
                           </>
@@ -941,13 +936,13 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
                   )}
                   {!task.proofImageUrl && (
                     <div className="mt-3 flex items-center gap-2">
-                      <div className="bg-green-500/10 border border-green-500/20 rounded-lg px-2.5 py-1 flex items-center gap-1.5">
+                      <div className="bg-green-50 border border-green-200 rounded-lg px-2.5 py-1 flex items-center gap-1.5">
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                           <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
                         </svg>
-                        <span className="text-[11px] font-bold text-green-400">VERIFIED</span>
+                        <span className="text-[11px] font-bold text-green-600">VERIFIED</span>
                       </div>
-                      <span className="text-xs font-semibold text-green-400">${task.bountyUsdc} USDC</span>
+                      <span className="text-xs font-semibold text-green-600">{rewardLabel(task)}</span>
                     </div>
                   )}
                 </div>
@@ -970,18 +965,18 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
                     {recent.map(t => (
                       <div
                         key={t.id}
-                        className="flex items-center gap-2.5 bg-green-500/[0.04] border border-green-500/10 rounded-xl px-3 py-2 cursor-pointer active:scale-[0.98] transition-all"
+                        className="flex items-center gap-2.5 bg-green-50 border border-green-100 rounded-xl px-3 py-2 cursor-pointer active:scale-[0.98] transition-all"
                         onClick={() => { setSelectedTask(t); setView("detail"); }}
                       >
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
                           <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
                         </svg>
                         <span className="text-[11px] text-gray-400 truncate flex-1">{t.description.slice(0, 55)}{t.description.length > 55 ? "…" : ""}</span>
-                        <span className="text-[10px] text-green-400 font-semibold shrink-0">${t.bountyUsdc} paid</span>
+                        <span className="text-[10px] text-green-600 font-semibold shrink-0">{rewardLabel(t)}</span>
                       </div>
                     ))}
                   </div>
-                  <div className="border-t border-white/[0.04] mt-3 mb-1" />
+                  <div className="border-t border-gray-100 mt-3 mb-1" />
                 </div>
               );
             })()}
@@ -1073,25 +1068,25 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
 
       {/* Claim transaction success banner */}
       {claimTxSuccess && (
-        <div className="mx-4 mb-2 bg-green-500/8 border border-green-500/15 rounded-xl p-3 flex items-center gap-2.5">
+        <div className="mx-4 mb-2 bg-green-50 border border-green-200 rounded-xl p-3 flex items-center gap-2.5">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
           </svg>
           <div className="flex-1 min-w-0">
-            <p className="text-xs text-green-400 font-medium">Claim confirmed on World Chain</p>
+            <p className="text-xs text-green-600 font-medium">Claim confirmed on World Chain</p>
             <p className="text-[10px] text-gray-500 font-mono truncate">{claimTxSuccess.hash}</p>
           </div>
           <a
             href={`https://worldscan.org/tx/${claimTxSuccess.hash}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-[11px] text-blue-400 underline underline-offset-2 shrink-0 min-h-[44px] flex items-center"
+            className="text-[11px] text-blue-500 underline underline-offset-2 shrink-0 min-h-[44px] flex items-center"
           >
             Explorer
           </a>
           <button
             onClick={() => setClaimTxSuccess(null)}
-            className="text-gray-600 hover:text-gray-400 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+            className="text-gray-400 hover:text-gray-600 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
             aria-label="Dismiss"
           >
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1103,20 +1098,20 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
 
       {/* Claim transaction error banner */}
       {claimTxError && (
-        <div className="mx-4 mb-2 bg-red-500/8 border border-red-500/15 rounded-xl p-3 flex items-center gap-2.5">
+        <div className="mx-4 mb-2 bg-red-50 border border-red-200 rounded-xl p-3 flex items-center gap-2.5">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" />
           </svg>
           <p className="flex-1 text-xs text-red-400 font-medium">{claimTxError.message}</p>
           <button
             onClick={() => { setClaimTxError(null); claimTxError.retry(); }}
-            className="text-[11px] text-blue-400 underline underline-offset-2 shrink-0 min-h-[44px] flex items-center font-medium"
+            className="text-[11px] text-blue-500 underline underline-offset-2 shrink-0 min-h-[44px] flex items-center font-medium"
           >
             Retry
           </button>
           <button
             onClick={() => setClaimTxError(null)}
-            className="text-gray-600 hover:text-gray-400 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+            className="text-gray-400 hover:text-gray-600 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
             aria-label="Dismiss error"
           >
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1127,7 +1122,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
       )}
 
       {/* World Chat Status + Powered by footer */}
-      <div className="px-4 py-4 border-t border-white/[0.04]">
+      <div className="px-4 py-4 border-t border-gray-100">
         {xmtpStatus && (
           xmtpStatus.connected ? (
             <div className="flex items-center justify-center gap-1.5 mb-2 flex-wrap">
@@ -1135,7 +1130,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
               </span>
-              <span className="text-[10px] font-medium text-green-400/70">XMTP Connected</span>
+              <span className="text-[10px] font-medium text-green-600">XMTP Connected</span>
               {xmtpStatus.inboxId && (
                 <span className="text-[10px] text-gray-500 font-mono truncate max-w-[120px]">
                   {xmtpStatus.inboxId.slice(0, 8)}...{xmtpStatus.inboxId.slice(-4)}
@@ -1143,7 +1138,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
               )}
             </div>
           ) : (
-            <div className="flex items-center justify-center gap-2 mb-2 bg-gray-500/8 border border-white/[0.06] rounded-lg px-3 py-2">
+            <div className="flex items-center justify-center gap-2 mb-2 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2">
               <span className="relative inline-flex rounded-full h-2 w-2 bg-gray-500" />
               <span className="text-[10px] text-gray-500">XMTP connecting...</span>
             </div>
@@ -1154,12 +1149,12 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
             <span className="text-[10px] text-gray-500">World ID</span>
           </div>
-          <span className="text-gray-800">·</span>
+          <span className="text-gray-300">·</span>
           <div className="flex items-center gap-1.5">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#818cf8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>
             <span className="text-[10px] text-gray-500">XMTP</span>
           </div>
-          <span className="text-gray-800">·</span>
+          <span className="text-gray-300">·</span>
           <div className="flex items-center gap-1.5">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2" /><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" /></svg>
             <span className="text-[10px] text-gray-500">World Chain</span>
@@ -1169,30 +1164,30 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
 
       {/* Upgrade prompt modal */}
       {upgradePrompt && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-6">
-          <div className="bg-[#111] border border-white/[0.1] rounded-2xl p-5 max-w-sm w-full shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm px-6">
+          <div className="bg-white border border-gray-200 rounded-2xl p-5 max-w-sm w-full shadow-2xl">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-full bg-blue-500/15 border border-blue-500/20 flex items-center justify-center shrink-0">
+              <div className="w-10 h-10 rounded-full bg-blue-50 border border-blue-200 flex items-center justify-center shrink-0">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
                 </svg>
               </div>
               <div>
-                <p className="text-sm font-bold text-white">Verification Required</p>
+                <p className="text-sm font-bold text-gray-900">Verification Required</p>
                 <p className="text-[11px] text-gray-500 mt-0.5">World ID upgrade needed</p>
               </div>
             </div>
 
-            <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl p-3 mb-4">
+            <div className="bg-gray-50 border border-gray-100 rounded-xl p-3 mb-4">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-[10px] text-gray-500 uppercase tracking-wider">Required level</span>
-                <span className={`text-xs font-semibold ${upgradePrompt.required === "orb" ? "text-cyan-400" : "text-blue-400"}`}>
+                <span className={`text-xs font-semibold ${upgradePrompt.required === "orb" ? "text-cyan-600" : "text-blue-600"}`}>
                   {upgradePrompt.required === "orb" ? "◉ Orb Verified" : upgradePrompt.required === "device" ? "◎ Device Verified" : "○ Wallet Verified"}
                 </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-[10px] text-gray-500 uppercase tracking-wider">Your level</span>
-                <span className={`text-xs font-medium ${upgradePrompt.current === "orb" ? "text-cyan-400" : upgradePrompt.current === "device" ? "text-blue-400" : "text-green-400"}`}>
+                <span className={`text-xs font-medium ${upgradePrompt.current === "orb" ? "text-cyan-600" : upgradePrompt.current === "device" ? "text-blue-600" : "text-green-600"}`}>
                   {upgradePrompt.current === "orb" ? "◉ Orb" : upgradePrompt.current === "device" ? "◎ Device" : upgradePrompt.current === "wallet" ? "○ Wallet" : "None"}
                 </span>
               </div>
@@ -1222,6 +1217,9 @@ function getAgentReason(agentId: string): string {
     queuepulse: "No API for real-time queues. Only a human can check.",
     propertycheck: "Listings lie. Someone needs to walk by.",
     dropscout: "Ground intel on drops and pop-ups, before anyone else.",
+    openclaw: "Crawls the web but can't taste, smell, or verify in person.",
+    hermes: "Sends messages but can't make calls or show up.",
+    claudecode: "Writes code but can't open an app or tap a screen.",
   };
   return reasons[agentId] || "Needs a human on the ground.";
 }
@@ -1256,94 +1254,40 @@ function TaskCard({
   return (
     <div
       onClick={onTap}
-      className="rounded-2xl p-4 flex flex-col gap-2.5 cursor-pointer active:scale-[0.98] transition-all bg-[#111] border border-white/[0.06]"
+      className="rounded-2xl p-4 flex flex-col gap-2.5 cursor-pointer active:scale-[0.98] transition-all bg-white border border-gray-100 shadow-sm"
     >
-      {/* Agent as main character */}
-      {isAgentTask && task.agent ? (
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center text-lg border" style={{ backgroundColor: `${task.agent.color}15`, borderColor: `${task.agent.color}30` }}>
-              {task.agent.icon}
-            </div>
-            <div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-sm font-bold" style={{ color: task.agent.color }}>{task.agent.name}</span>
-                <span className="text-[8px] font-medium text-gray-500 bg-white/[0.04] border border-white/[0.06] rounded px-1 py-px">AGENT</span>
-              </div>
-              <p className="text-[10px] text-gray-500">{getAgentReason(task.agent.id)}</p>
-            </div>
-          </div>
-          {task.taskType === "double-or-nothing" ? (
-            <div className="text-right">
-              <p className="font-bold text-amber-400 text-sm">${task.bountyUsdc * 2}</p>
-              <p className="text-[8px] text-amber-500/60">2x payout</p>
-            </div>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          {isAgentTask && task.agent ? (
+            <>
+              <span className="text-xs font-medium text-gray-900">{task.agent.name}</span>
+              <span className="text-[8px] font-medium text-gray-400 bg-gray-50 border border-gray-100 rounded px-1 py-px">AI</span>
+            </>
           ) : (
-            <div className="text-right">
-              <p className="font-bold text-green-400 text-sm">${task.bountyUsdc}</p>
-              <p className="text-[8px] text-green-500/60">payout</p>
-            </div>
+            <span className="text-xs text-gray-400">Community</span>
           )}
         </div>
-      ) : (
-        <div className="flex items-center justify-between">
-          <span className="text-[10px] text-gray-500">Community request</span>
-          {task.taskType === "double-or-nothing" ? (
-            <div className="text-right">
-              <p className="font-bold text-amber-400 text-sm">${task.bountyUsdc * 2}</p>
-              <p className="text-[8px] text-amber-500/60">2x payout</p>
-            </div>
-          ) : (
-            <div className="text-right">
-              <p className="font-bold text-green-400 text-sm">${task.bountyUsdc}</p>
-              <p className="text-[8px] text-green-500/60">payout</p>
-            </div>
-          )}
-        </div>
-      )}
+        {task.escrowTxHash ? (
+          <span className="text-xs font-semibold text-gray-900">${task.bountyUsdc} USDC</span>
+        ) : (
+          <span className="text-xs font-medium text-gray-400">{task.bountyUsdc * 10} pts</span>
+        )}
+      </div>
 
-      <div className="flex justify-between items-start gap-3">
-        <div className="flex-1 min-w-0">
-          <p className="text-[13px] leading-snug break-words text-gray-200">{task.description}</p>
-          <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
-            <svg className="shrink-0" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-              <circle cx="12" cy="10" r="3" />
-            </svg>
-            <span className="text-xs text-gray-500 truncate max-w-[150px]">{task.location}</span>
-            {distance !== null && (
-              <>
-                <span className="text-[10px] text-gray-700 mx-0.5">·</span>
-                <span className="text-xs text-blue-400 font-medium">{formatDistance(distance)}</span>
-              </>
-            )}
-            <span className="text-[10px] text-gray-700 mx-0.5">·</span>
-            <span className="text-xs text-gray-600">{timeLeft(task.deadline)}</span>
-          </div>
-          {/* Claimant verification line for claimed/completed tasks */}
-          {task.claimant && (task.status === "claimed" || task.status === "completed") && (
-            <div className="flex items-center gap-1.5 mt-1.5">
-              <span className="text-[11px] text-gray-500">
-                Claimed by <span className="font-medium text-gray-400">{shortId(task.claimant)}</span>
-              </span>
-              {task.claimantVerification ? (
-                <span className={`inline-flex items-center gap-1 text-[10px] font-semibold ${
-                  task.claimantVerification === "orb" ? "text-[#22c55e]" :
-                  task.claimantVerification === "device" ? "text-[#3b82f6]" :
-                  "text-[#9ca3af]"
-                }`}>
-                  {task.claimantVerification === "orb" ? "Orb Verified" :
-                   task.claimantVerification === "device" ? "Device Verified" :
-                   "Wallet"} &#x2713;
-                </span>
-              ) : (
-                <VerificationBadge level="wallet" size="sm" />
-              )}
-            </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-[13px] leading-snug break-words text-gray-700">{task.description}</p>
+        <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+          <svg className="shrink-0" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+            <circle cx="12" cy="10" r="3" />
+          </svg>
+          <span className="text-xs text-gray-400 truncate max-w-[180px]">{task.location}</span>
+          {distance !== null && (
+            <>
+              <span className="text-[10px] text-gray-300 mx-0.5">·</span>
+              <span className="text-xs text-blue-500 font-medium">{formatDistance(distance)}</span>
+            </>
           )}
-        </div>
-        <div className="shrink-0">
-          <RequiredTierBadge bountyUsdc={task.bountyUsdc} />
         </div>
       </div>
 
@@ -1352,60 +1296,14 @@ function TaskCard({
           <StatusBadge status={task.status} />
           {isOwnTask && <span className="text-[10px] text-gray-600">You posted</span>}
           {isClaimant && task.status === "claimed" && <span className="text-[10px] text-gray-600">You claimed</span>}
-          {task.claimant && task.claimantVerification && (
-            <VerificationBadge level={task.claimantVerification} size="sm" />
-          )}
           {task.escrowTxHash && (
-            <span className="flex items-center gap-0.5 text-[9px] text-green-400 font-bold bg-green-500/10 border border-green-500/20 rounded-full px-1.5 py-0.5">
+            <span className="flex items-center gap-0.5 text-[9px] text-green-600 font-bold bg-green-50 border border-green-200 rounded-full px-1.5 py-0.5">
               &#x26d3; On-chain
-            </span>
-          )}
-          {isUrgent && (
-            <span className="flex items-center gap-0.5 text-[9px] text-red-400 font-bold bg-red-500/10 border border-red-500/20 rounded-full px-1.5 py-0.5">
-              &#x26a1; Urgent
-            </span>
-          )}
-          {task.taskType === "double-or-nothing" && (
-            <span className="flex items-center gap-0.5 text-[9px] text-amber-400 font-bold bg-amber-500/10 border border-amber-500/20 rounded-full px-1.5 py-0.5">
-              &#x1f3b2; 2x
-            </span>
-          )}
-          {task.recurring && (
-            <span className="flex items-center gap-0.5 text-[9px] text-orange-400/70 font-medium">
-              <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="23 4 23 10 17 10" /><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
-              </svg>
-              {task.recurring.completedRuns}/{task.recurring.totalRuns}
             </span>
           )}
         </div>
         <span className="text-[10px] text-gray-700">{timeAgo(task.createdAt)}</span>
       </div>
-
-      {task.verificationResult && (
-        <div className={`text-xs p-3 rounded-xl break-words ${
-          task.verificationResult.verdict === "pass" ? "bg-green-500/8 text-green-300 border border-green-500/15" :
-          task.verificationResult.verdict === "flag" ? "bg-yellow-500/8 text-yellow-300 border border-yellow-500/15" :
-          "bg-red-500/8 text-red-300 border border-red-500/15"
-        }`}>
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="font-bold text-[11px] tracking-wide">{task.verificationResult.verdict === "pass" ? "VERIFIED" : task.verificationResult.verdict === "flag" ? "FLAGGED" : "REJECTED"}</span>
-            {task.claimantVerification && (
-              <span className={`text-[9px] px-1.5 py-0.5 rounded-full border ${
-                task.claimantVerification === "orb" ? "text-cyan-400 border-cyan-500/20 bg-cyan-500/10" :
-                task.claimantVerification === "device" ? "text-blue-400 border-blue-500/20 bg-blue-500/10" :
-                "text-green-400 border-green-500/20 bg-green-500/10"
-              }`}>
-                {task.claimantVerification === "orb" ? "Orb-verified human" : task.claimantVerification === "device" ? "Device-verified" : "Wallet-level"}
-              </span>
-            )}
-            {task.verificationResult.confidence !== undefined && (
-              <span className="text-[9px] text-gray-500">{Math.round(task.verificationResult.confidence * 100)}% confidence</span>
-            )}
-          </div>
-          <span className="opacity-80 mt-1 block">{String(task.verificationResult.reasoning)}</span>
-        </div>
-      )}
 
       {task.status === "open" && userId && !isOwnTask && (
         <button
@@ -1423,7 +1321,7 @@ function TaskCard({
       {task.status === "claimed" && isClaimant && (
         <button
           onClick={(e) => { e.stopPropagation(); onSubmitProof(); }}
-          className="w-full bg-white/10 hover:bg-white/15 text-white font-medium rounded-xl px-4 py-3 min-h-[44px] transition-colors active:scale-[0.98] border border-white/10"
+          className="w-full bg-gray-100 hover:bg-gray-200 text-gray-900 font-medium rounded-xl px-4 py-3 min-h-[44px] transition-colors active:scale-[0.98] border border-gray-200"
         >
           Submit Proof
         </button>
@@ -1441,7 +1339,7 @@ function TaskCard({
               taskId: task.id,
             });
           }}
-          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06] transition-all text-sm text-gray-400 hover:text-white active:scale-[0.98] min-h-[44px]"
+          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-gray-200 bg-gray-50 hover:bg-gray-100 transition-all text-sm text-gray-500 hover:text-gray-900 active:scale-[0.98] min-h-[44px]"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="18" cy="5" r="3" />
@@ -1459,11 +1357,11 @@ function TaskCard({
 
 function StatusBadge({ status }: { status: string }) {
   const styles: Record<string, string> = {
-    open: "bg-blue-500/10 text-blue-400 border-blue-500/20",
-    claimed: "bg-yellow-500/10 text-yellow-400 border-yellow-500/20",
-    completed: "bg-green-500/10 text-green-400 border-green-500/20",
-    failed: "bg-red-500/10 text-red-400 border-red-500/20",
-    expired: "bg-gray-500/10 text-gray-400 border-gray-500/20",
+    open: "bg-blue-50 text-blue-600 border-blue-200",
+    claimed: "bg-yellow-50 text-yellow-600 border-yellow-200",
+    completed: "bg-green-50 text-green-600 border-green-200",
+    failed: "bg-red-50 text-red-600 border-red-200",
+    expired: "bg-gray-100 text-gray-500 border-gray-200",
   };
   const labels: Record<string, string> = {
     open: "Open",
@@ -1639,214 +1537,38 @@ function PostTask({
   return (
     <div className="flex flex-col min-h-screen max-w-lg mx-auto w-full">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
-        <button onClick={onCancel} className="text-sm text-gray-400 hover:text-white transition-colors min-h-[44px] min-w-[44px] flex items-center">Cancel</button>
+      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+        <button onClick={onCancel} className="text-sm text-gray-400 hover:text-gray-900 transition-colors min-h-[44px] min-w-[44px] flex items-center">Cancel</button>
         <span className="text-sm font-semibold">New Request</span>
         <div className="w-12" />
       </div>
 
       <div className="flex-1 px-4 py-5 flex flex-col gap-5">
-        {/* AI Suggested tasks */}
         <div>
-          <div className="flex items-center gap-1.5 mb-2">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#a855f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-            </svg>
-            <label className="text-[11px] text-gray-500 uppercase tracking-wider font-medium">
-              {coords ? "Suggested for your area" : "Popular requests"}
-            </label>
-            <span className="text-[9px] text-purple-400/70 bg-purple-500/10 rounded-full px-1.5 py-0.5 font-medium">AI suggested</span>
-          </div>
-          {coords && (
-            <p className="text-[10px] text-gray-600 mb-2 flex items-center gap-1">
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-                <circle cx="12" cy="10" r="3" />
-              </svg>
-              Based on your location
-            </p>
-          )}
-          <div className="flex flex-col gap-2">
-            {(() => {
-              // Score templates by relevance: prefer check-in/photo when we have coords, otherwise rank by bounty value
-              const scored = TASK_TEMPLATES.map((t) => {
-                let score = 0;
-                if (coords) {
-                  // With location, prioritize tasks that benefit from being nearby
-                  if (t.category === "check-in") score += 3;
-                  if (t.category === "photo") score += 2;
-                } else {
-                  // Without location, prioritize by bounty (higher = more popular)
-                  score += t.bounty;
-                }
-                return { ...t, score };
-              });
-              scored.sort((a, b) => b.score - a.score);
-              return scored.slice(0, 3);
-            })().map((t) => (
-              <button
-                key={`suggested-${t.label}`}
-                onClick={() => {
-                  setCategory(t.category);
-                  setDescription(t.description);
-                  setBounty(String(t.bounty));
-                }}
-                className="flex items-center gap-3 bg-[#111] border border-purple-500/10 rounded-2xl px-4 py-3 min-h-[52px] text-left hover:border-purple-500/25 hover:bg-purple-500/[0.03] transition-all active:scale-[0.98] group"
-              >
-                <span className="text-lg shrink-0">{t.icon}</span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-gray-200 font-medium group-hover:text-white transition-colors">{t.label}</p>
-                  <p className="text-[11px] text-gray-500 truncate">{t.description.replace(/ $/, "...")}</p>
-                </div>
-                <span className="text-xs text-green-400/80 font-semibold shrink-0">${t.bounty}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Quick templates */}
-        <div>
-          <label className="text-[11px] text-gray-500 uppercase tracking-wider font-medium block mb-2">Quick Start</label>
-          <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
-            {TASK_TEMPLATES.map((t) => (
-              <button
-                key={t.label}
-                onClick={() => {
-                  setCategory(t.category);
-                  setDescription(t.description);
-                  setBounty(String(t.bounty));
-                }}
-                className="shrink-0 flex items-center gap-1.5 bg-[#111] border border-white/[0.06] rounded-xl px-3 py-2 min-h-[44px] text-xs text-gray-400 hover:text-white hover:border-white/15 transition-all active:scale-95"
-              >
-                <span>{t.icon}</span>
-                {t.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Category picker */}
-        <div>
-          <label className="text-[11px] text-gray-500 uppercase tracking-wider font-medium block mb-2">Category</label>
-          <div className="flex gap-2">
-            {([
-              { key: "photo" as const, icon: "📸", label: "Photo" },
-              { key: "delivery" as const, icon: "📦", label: "Delivery" },
-              { key: "check-in" as const, icon: "📍", label: "Check-in" },
-              { key: "custom" as const, icon: "✏️", label: "Custom" },
-            ]).map((c) => (
-              <button
-                key={c.key}
-                onClick={() => setCategory(c.key)}
-                className={`flex-1 flex flex-col items-center justify-center gap-1 min-h-[56px] py-2.5 rounded-xl text-xs font-medium transition-all ${
-                  category === c.key
-                    ? "bg-white text-black"
-                    : "bg-[#111] text-gray-400 border border-white/[0.06]"
-                }`}
-              >
-                <span className="text-base">{c.icon}</span>
-                {c.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Task type selector */}
-        <div>
-          <label className="text-[11px] text-gray-500 uppercase tracking-wider font-medium block mb-2">Bounty Type</label>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setTaskType("standard")}
-              className={`flex-1 flex flex-col items-center justify-center gap-1 min-h-[56px] py-2.5 rounded-xl text-xs font-medium transition-all ${
-                taskType === "standard"
-                  ? "bg-white text-black"
-                  : "bg-[#111] text-gray-400 border border-white/[0.06]"
-              }`}
-            >
-              <span className="text-base">&#x1f4b0;</span>
-              Standard
-            </button>
-            <button
-              onClick={() => setTaskType("double-or-nothing")}
-              className={`flex-1 flex flex-col items-center justify-center gap-1 min-h-[56px] py-2.5 rounded-xl text-xs font-medium transition-all ${
-                taskType === "double-or-nothing"
-                  ? "bg-gradient-to-br from-amber-500 to-orange-600 text-white"
-                  : "bg-[#111] text-gray-400 border border-white/[0.06]"
-              }`}
-            >
-              <span className="text-base">&#x1f3b2;</span>
-              Double or Nothing
-            </button>
-          </div>
-          {taskType === "double-or-nothing" && (
-            <p className="text-[10px] text-amber-400/70 mt-1.5 leading-snug">
-              Runner must stake ${bounty || "0"} USDC to claim. Verified = runner gets 2x. Failed = you keep both.
-            </p>
-          )}
-        </div>
-
-        <div>
-          <div className="flex items-center justify-between mb-2">
-            <label className="text-[11px] text-gray-500 uppercase tracking-wider font-medium">What do you need?</label>
-            {enhanced && (
-              <span className="text-[10px] text-green-400 font-medium">
-                Enhanced
-              </span>
-            )}
-          </div>
+          <label className="text-[11px] text-gray-400 uppercase tracking-wider font-medium block mb-2">What do you need?</label>
           <textarea
-            placeholder="Take a photo of the menu board at Blue Bottle on Rue de Rivoli"
+            placeholder="Confirm if the package was delivered to the front door"
             value={description}
             onChange={(e) => { setDescription(e.target.value); setEnhanced(false); }}
             rows={3}
             autoFocus
-            className={`w-full bg-[#111] border rounded-xl px-4 py-3 text-sm resize-none focus:outline-none focus:border-white/20 transition-colors placeholder:text-gray-600 ${enhanced ? "border-green-500/30" : "border-white/[0.06]"}`}
+            className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm resize-none focus:outline-none focus:border-gray-300 transition-colors placeholder:text-gray-400"
           />
-          {description.trim().length > 0 && (
-            <button
-              type="button"
-              onClick={handleEnhance}
-              disabled={enhancing}
-              className="mt-1.5 flex items-center gap-1.5 text-[11px] text-gray-400 hover:text-white transition-colors disabled:opacity-50"
-            >
-              {enhancing ? (
-                <>
-                  <svg className="animate-spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
-                  </svg>
-                  <span>Enhancing...</span>
-                </>
-              ) : (
-                <>
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M12 3l1.912 5.813a2 2 0 001.275 1.275L21 12l-5.813 1.912a2 2 0 00-1.275 1.275L12 21l-1.912-5.813a2 2 0 00-1.275-1.275L3 12l5.813-1.912a2 2 0 001.275-1.275L12 3z" />
-                  </svg>
-                  <span>Enhance with AI</span>
-                </>
-              )}
-            </button>
-          )}
         </div>
         <div>
-          <label className="text-[11px] text-gray-500 uppercase tracking-wider font-medium block mb-2">Location</label>
-          <div className="relative">
-            <svg className="absolute left-3.5 top-1/2 -translate-y-1/2" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-              <circle cx="12" cy="10" r="3" />
-            </svg>
-            <input
-              type="text"
-              placeholder="City or neighborhood"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              className="w-full bg-[#111] border border-white/[0.06] rounded-xl pl-10 pr-4 py-3 text-sm focus:outline-none focus:border-white/20 transition-colors placeholder:text-gray-600"
-            />
-          </div>
+          <label className="text-[11px] text-gray-400 uppercase tracking-wider font-medium block mb-2">Location</label>
+          <input
+            type="text"
+            placeholder="City or address"
+            value={location}
+            onChange={(e) => setLocation(e.target.value)}
+            className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-gray-300 transition-colors placeholder:text-gray-400"
+          />
         </div>
         <div>
-          <label className="text-[11px] text-gray-500 uppercase tracking-wider font-medium block mb-2">Bounty</label>
-          <div className="relative">
-            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500 text-sm font-medium">$</span>
+          <label className="text-[11px] text-gray-400 uppercase tracking-wider font-medium block mb-2">Reward</label>
+          <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3">
+            <span className="text-sm text-gray-400">$</span>
             <input
               type="number"
               placeholder="5"
@@ -1854,47 +1576,34 @@ function PostTask({
               step="0.01"
               value={bounty}
               onChange={(e) => setBounty(e.target.value)}
-              className="w-full bg-[#111] border border-white/[0.06] rounded-xl pl-8 pr-16 py-3 text-sm focus:outline-none focus:border-white/20 transition-colors placeholder:text-gray-600"
+              className="flex-1 bg-transparent text-sm focus:outline-none placeholder:text-gray-400"
             />
-            <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[11px] text-gray-600 font-medium">USDC</span>
+            <span className="text-[11px] text-gray-400">USDC</span>
           </div>
         </div>
       </div>
 
       <div className="px-4 pb-8 pt-2">
         {escrowSuccess && (
-          <div className="mb-3 bg-green-500/8 border border-green-500/15 rounded-xl p-3">
-            <div className="flex items-center gap-2">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
-              </svg>
-              <span className="text-[11px] text-green-400 font-medium">Payment deposited on World Chain</span>
-              <span className="text-[9px] text-gray-600 bg-white/[0.04] border border-white/[0.06] rounded px-1.5 py-0.5 ml-auto">Powered by World Chain</span>
-            </div>
-            <div className="flex items-center justify-between mt-1.5">
-              <span className="text-[10px] text-gray-500 font-mono truncate max-w-[180px]">{escrowSuccess}</span>
-              <a
-                href={`https://worldscan.org/tx/${escrowSuccess}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-[11px] text-blue-400 underline underline-offset-2 shrink-0"
-              >
-                View on Explorer
-              </a>
-            </div>
+          <div className="mb-3 bg-green-50 border border-green-200 rounded-xl p-3 flex items-center justify-between">
+            <span className="text-[11px] text-green-600 font-medium">Deposited on-chain</span>
+            <a
+              href={`https://worldscan.org/tx/${escrowSuccess}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[11px] text-blue-500 underline underline-offset-2"
+            >
+              View tx
+            </a>
           </div>
         )}
         <button
           onClick={handleSubmit}
           disabled={!isValid || submitting}
-          className="w-full bg-blue-500 hover:bg-blue-600 disabled:bg-blue-500/40 disabled:cursor-not-allowed text-white font-medium rounded-xl px-4 py-3 min-h-[48px] transition-colors active:scale-[0.98] flex items-center justify-center gap-2"
+          className="w-full bg-gray-900 hover:bg-gray-800 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-medium rounded-xl px-4 py-3 min-h-[48px] transition-colors active:scale-[0.98] flex items-center justify-center gap-2"
         >
           {submitting && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
-          {submitting
-            ? "Posting..."
-            : taskType === "double-or-nothing"
-              ? `Post Double-or-Nothing${bounty ? ` — $${bounty} USDC` : ""}`
-              : `Post Request${bounty ? ` — $${bounty} USDC` : ""}`}
+          {submitting ? "Posting..." : "Post Favour"}
         </button>
       </div>
     </div>
@@ -2006,6 +1715,7 @@ function SubmitProof({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           taskId: task.id,
+          submitter: task.claimant || "anonymous",
           proofImageBase64: proofImages[0] || null,
           proofImages: proofImages.length > 0 ? proofImages : [],
           proofNote: proofNote || null,
@@ -2050,38 +1760,37 @@ function SubmitProof({
   return (
     <div className="flex flex-col min-h-screen max-w-lg mx-auto w-full">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
-        <button onClick={onCancel} className="text-sm text-gray-400 hover:text-white transition-colors min-h-[44px] min-w-[44px] flex items-center">Cancel</button>
+      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+        <button onClick={onCancel} className="text-sm text-gray-400 hover:text-gray-900 transition-colors min-h-[44px] min-w-[44px] flex items-center">Cancel</button>
         <span className="text-sm font-semibold">Submit Proof</span>
         <div className="w-12" />
       </div>
 
       <div className="flex-1 px-4 py-5 flex flex-col gap-4">
         {/* Task context */}
-        <div className="bg-[#111] border border-white/[0.06] rounded-2xl p-4">
-          <p className="text-[10px] text-gray-500 uppercase tracking-wider font-medium mb-1.5">Bounty</p>
-          <p className="text-sm font-medium leading-snug">{task.description}</p>
+        <div className="bg-white border border-gray-100 rounded-2xl p-4">
+          <p className="text-sm font-medium leading-snug text-gray-900">{task.description}</p>
           <div className="flex items-center gap-2 mt-2">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
               <circle cx="12" cy="10" r="3" />
             </svg>
-            <span className="text-xs text-gray-500">{task.location}</span>
-            <span className="text-[10px] text-gray-700 mx-0.5">·</span>
-            <span className="text-xs text-green-400 font-semibold">${task.bountyUsdc} USDC</span>
+            <span className="text-xs text-gray-400">{task.location}</span>
+            <span className="text-[10px] text-gray-300 mx-0.5">·</span>
+            <span className="text-xs font-medium text-gray-900">{rewardLabel(task)}</span>
           </div>
         </div>
 
         {/* Photo upload — multi-image */}
         <div>
-          <label className="text-[11px] text-gray-500 uppercase tracking-wider font-medium block mb-2">
-            Proof Photos ({images.length}/{MAX_PHOTOS})
+          <label className="text-[10px] text-gray-400 uppercase tracking-wider block mb-2">
+            Photos ({images.length}/{MAX_PHOTOS})
           </label>
 
           {images.length > 0 && (
             <div className="flex gap-2 mb-3 overflow-x-auto pb-1">
               {images.map((img, i) => (
-                <div key={i} className="relative shrink-0 w-24 h-24 rounded-xl overflow-hidden border border-white/[0.06]">
+                <div key={i} className="relative shrink-0 w-24 h-24 rounded-xl overflow-hidden border border-gray-100">
                   <img src={img.preview} alt={`Proof ${i + 1}`} className="w-full h-full object-cover" loading="lazy" />
                   {img.isVideo && (
                     <div className="absolute bottom-1 left-1 bg-black/70 rounded px-1 py-0.5">
@@ -2102,17 +1811,16 @@ function SubmitProof({
           )}
 
           {images.length < MAX_PHOTOS && (
-            <label className="flex flex-col items-center justify-center border border-dashed border-white/10 rounded-2xl p-5 sm:p-8 cursor-pointer hover:border-white/20 transition-all bg-[#111]/50 active:scale-[0.99]">
-              <div className="w-12 h-12 rounded-full bg-purple-500/10 flex items-center justify-center mb-3">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#a855f6" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <label className="flex flex-col items-center justify-center border border-dashed border-gray-200 rounded-2xl p-8 cursor-pointer hover:border-gray-300 transition-all bg-gray-50 active:scale-[0.99]">
+              <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center mb-2">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
                   <circle cx="12" cy="13" r="4" />
                 </svg>
               </div>
               <span className="text-sm text-gray-400">
-                {images.length === 0 ? "Take photo or choose from library" : "Add another photo"}
+                {images.length === 0 ? "Take photo or choose from library" : "Add another"}
               </span>
-              <span className="text-[10px] text-gray-600 mt-1">Photos or video accepted</span>
               <input
                 type="file"
                 accept="image/*,video/*"
@@ -2129,7 +1837,7 @@ function SubmitProof({
           placeholder="Add a note (optional)"
           value={proofNote}
           onChange={(e) => setProofNote(e.target.value)}
-          className="w-full bg-[#111] border border-white/[0.06] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-white/20 transition-colors placeholder:text-gray-600"
+          className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-gray-300 transition-colors placeholder:text-gray-400"
         />
 
         {/* AI Pre-Check */}
@@ -2158,20 +1866,20 @@ function SubmitProof({
                     setPreChecking(false);
                   }
                 }}
-                className="flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl border border-purple-500/20 bg-purple-500/5 hover:bg-purple-500/10 transition-all text-sm text-purple-300 active:scale-[0.98]"
+                className="flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl border border-gray-200 bg-gray-50 hover:bg-gray-100 transition-all text-sm text-gray-600 active:scale-[0.98]"
               >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#a855f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="11" cy="11" r="8" />
                   <line x1="21" y1="21" x2="16.65" y2="16.65" />
                 </svg>
                 Pre-check with AI
-                <span className="text-[10px] text-gray-500 ml-1">optional</span>
+                <span className="text-[10px] text-gray-400 ml-1">optional</span>
               </button>
             )}
 
             {preChecking && (
               <div className="flex items-center justify-center gap-2 py-3">
-                <div className="w-4 h-4 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+                <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
                 <span className="text-xs text-gray-400">Checking your photo...</span>
               </div>
             )}
@@ -2179,10 +1887,10 @@ function SubmitProof({
             {preCheck && (
               <div className={`p-3.5 rounded-xl border text-sm ${
                 preCheck.likely === "pass"
-                  ? "bg-green-500/8 border-green-500/20"
+                  ? "bg-green-50 border-green-200"
                   : preCheck.likely === "marginal"
-                  ? "bg-yellow-500/8 border-yellow-500/20"
-                  : "bg-red-500/8 border-red-500/20"
+                  ? "bg-yellow-50 border-yellow-200"
+                  : "bg-red-50 border-red-200"
               }`}>
                 <div className="flex items-center gap-2 mb-1.5">
                   {preCheck.likely === "pass" ? (
@@ -2203,10 +1911,10 @@ function SubmitProof({
                   )}
                   <span className={`text-xs font-bold uppercase tracking-wider ${
                     preCheck.likely === "pass"
-                      ? "text-green-400"
+                      ? "text-green-600"
                       : preCheck.likely === "marginal"
-                      ? "text-yellow-400"
-                      : "text-red-400"
+                      ? "text-yellow-600"
+                      : "text-red-600"
                   }`}>
                     {preCheck.likely === "pass"
                       ? "Looks good — likely to pass verification"
@@ -2229,7 +1937,7 @@ function SubmitProof({
               <div className="w-12 h-12 border-2 border-purple-500 border-t-transparent rounded-full animate-spin absolute inset-0" />
             </div>
             <div className="text-center">
-              <p className="text-sm font-medium text-white">Verifying proof...</p>
+              <p className="text-sm font-medium text-gray-900">Verifying proof...</p>
               <p className="text-xs text-gray-500 mt-1">Analyzing your photo{images.length > 1 ? "s" : ""}</p>
             </div>
           </div>
@@ -2238,9 +1946,9 @@ function SubmitProof({
         {/* Verdict result */}
         {result && (
           <div className={`p-5 rounded-2xl text-sm border ${
-            result.verdict === "pass" ? "bg-green-500/8 border-green-500/20" :
-            result.verdict === "flag" ? "bg-yellow-500/8 border-yellow-500/20" :
-            "bg-red-500/8 border-red-500/20"
+            result.verdict === "pass" ? "bg-green-50 border-green-200" :
+            result.verdict === "flag" ? "bg-yellow-50 border-yellow-200" :
+            "bg-red-50 border-red-200"
           }`}>
             <div className="flex items-center gap-2 mb-2">
               {result.verdict === "pass" ? (
@@ -2262,9 +1970,9 @@ function SubmitProof({
                 </svg>
               )}
               <span className={`font-bold text-lg tracking-tight ${
-                result.verdict === "pass" ? "text-green-400" :
-                result.verdict === "flag" ? "text-yellow-400" :
-                "text-red-400"
+                result.verdict === "pass" ? "text-green-600" :
+                result.verdict === "flag" ? "text-yellow-600" :
+                "text-red-600"
               }`}>
                 {result.verdict === "pass" ? "VERIFIED" : result.verdict === "flag" ? "FLAGGED" : "REJECTED"}
               </span>
@@ -2276,7 +1984,7 @@ function SubmitProof({
                   <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
                   <circle cx="12" cy="10" r="3" />
                 </svg>
-                <span className={`text-[11px] font-medium ${result.locationVerified ? "text-green-400" : "text-yellow-400"}`}>
+                <span className={`text-[11px] font-medium ${result.locationVerified ? "text-green-600" : "text-yellow-600"}`}>
                   {result.locationVerified ? "Location verified" : "Location not confirmed"}
                   {result.distanceKm !== undefined && result.distanceKm !== null && (
                     <span className="text-gray-500 font-normal"> · {result.distanceKm < 1 ? `${Math.round(result.distanceKm * 1000)}m` : `${result.distanceKm.toFixed(1)}km`} from task</span>
@@ -2285,8 +1993,8 @@ function SubmitProof({
               </div>
             )}
             {result.verdict === "pass" && (
-              <div className="mt-3 pt-3 border-t border-green-500/15 flex flex-col gap-2">
-                <p className="font-semibold text-sm text-green-400">${task.bountyUsdc} USDC released</p>
+              <div className="mt-3 pt-3 border-t border-green-200 flex flex-col gap-2">
+                <p className="font-semibold text-sm text-green-600">${task.bountyUsdc} USDC released</p>
                 <button
                   onClick={() => {
                     hapticTap();
@@ -2297,7 +2005,7 @@ function SubmitProof({
                       taskId: task.id,
                     });
                   }}
-                  className="flex items-center justify-center gap-2 py-2 rounded-xl border border-green-500/20 bg-green-500/5 hover:bg-green-500/10 transition-all text-xs text-green-400 active:scale-[0.98]"
+                  className="flex items-center justify-center gap-2 py-2 rounded-xl border border-green-200 bg-green-50 hover:bg-green-100 transition-all text-xs text-green-600 active:scale-[0.98]"
                 >
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <circle cx="18" cy="5" r="3" />
@@ -2311,10 +2019,10 @@ function SubmitProof({
               </div>
             )}
             {result.verdict === "flag" && (
-              <p className="mt-2 text-xs text-yellow-400/70">Waiting for poster to review...</p>
+              <p className="mt-2 text-xs text-yellow-600">Waiting for poster to review...</p>
             )}
             {result.verdict === "fail" && (
-              <p className="mt-2 text-xs text-red-400/70">Bounty reopened for new claims.</p>
+              <p className="mt-2 text-xs text-red-600">Bounty reopened for new claims.</p>
             )}
           </div>
         )}
@@ -2393,7 +2101,7 @@ function TaskTimeline({ task }: { task: Task }) {
   const activeIndex = currentStepIndex === -1 ? steps.length - 1 : currentStepIndex;
 
   return (
-    <div className="bg-[#111] border border-white/[0.06] rounded-2xl p-3 sm:p-4 overflow-x-auto">
+    <div className="bg-white border border-gray-100 rounded-2xl p-3 sm:p-4 overflow-x-auto">
       <div className="flex items-center justify-between min-w-0">
         {steps.map((step, i) => {
           const isActive = i === activeIndex && !step.done;
@@ -2405,17 +2113,17 @@ function TaskTimeline({ task }: { task: Task }) {
               <div className="flex flex-col items-center gap-1 sm:gap-1.5">
                 <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center transition-all ${
                   isDone
-                    ? isFlagged ? "bg-yellow-500/20 text-yellow-400" :
-                      isRejected ? "bg-red-500/20 text-red-400" :
-                      "bg-green-500/20 text-green-400"
+                    ? isFlagged ? "bg-yellow-100 text-yellow-600" :
+                      isRejected ? "bg-red-100 text-red-600" :
+                      "bg-green-100 text-green-600"
                     : isActive
-                    ? "bg-blue-500/20 text-blue-400 animate-[pulse-dot_2s_ease-in-out_infinite]"
-                    : "bg-white/5 text-gray-600"
+                    ? "bg-blue-100 text-blue-600 animate-[pulse-dot_2s_ease-in-out_infinite]"
+                    : "bg-gray-50 text-gray-600"
                 }`}>
                   {step.icon}
                 </div>
                 <span className={`text-[9px] font-medium ${
-                  isDone ? isFlagged ? "text-yellow-400" : isRejected ? "text-red-400" : "text-green-400"
+                  isDone ? isFlagged ? "text-yellow-600" : isRejected ? "text-red-600" : "text-green-600"
                   : isActive ? "text-blue-400" : "text-gray-600"
                 }`}>
                   {step.label}
@@ -2423,7 +2131,7 @@ function TaskTimeline({ task }: { task: Task }) {
               </div>
               {i < steps.length - 1 && (
                 <div className={`flex-1 h-px mx-0.5 sm:mx-1.5 ${
-                  i < activeIndex ? "bg-green-500/30" : "bg-white/5"
+                  i < activeIndex ? "bg-green-300" : "bg-gray-200"
                 }`} />
               )}
             </div>
@@ -2462,6 +2170,7 @@ function TaskDetail({
   const [reEvaluating, setReEvaluating] = useState(false);
   const [disputing, setDisputing] = useState(false);
   const [txSuccess, setTxSuccess] = useState<string | null>(null);
+  const [funding, setFunding] = useState(false);
   const isClaimant = currentTask.claimant === userId;
   const isPoster = currentTask.poster === userId;
   const isParticipant = isClaimant || isPoster;
@@ -2507,8 +2216,8 @@ function TaskDetail({
   return (
     <div className="flex flex-col min-h-screen max-w-lg mx-auto w-full">
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-[#050505]/90 backdrop-blur-xl flex items-center justify-between px-4 py-3 border-b border-white/5">
-        <button onClick={onBack} className="flex items-center gap-1 text-sm text-gray-400 hover:text-white transition-colors min-h-[44px] min-w-[44px]">
+      <div className="sticky top-0 z-10 bg-white/90 backdrop-blur-xl flex items-center justify-between px-4 py-3 border-b border-gray-100">
+        <button onClick={onBack} className="flex items-center gap-1 text-sm text-gray-400 hover:text-gray-900 transition-colors min-h-[44px] min-w-[44px]">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="15 18 9 12 15 6" />
           </svg>
@@ -2528,7 +2237,7 @@ function TaskDetail({
             </svg>
             <span className="text-xs text-gray-500 truncate max-w-[140px]">{currentTask.location}</span>
             <span className="text-[10px] text-gray-700 mx-0.5">·</span>
-            <span className="text-xs text-green-400 font-semibold">${currentTask.bountyUsdc} USDC</span>
+            <span className="text-xs font-semibold text-gray-900">{rewardLabel(currentTask)}</span>
             <span className="text-[10px] text-gray-700 mx-0.5">·</span>
             <span className="text-xs text-gray-500">{timeLeft(currentTask.deadline)}</span>
           </div>
@@ -2539,26 +2248,26 @@ function TaskDetail({
 
         {/* Transaction success banner */}
         {txSuccess && (
-          <div className="bg-green-500/8 border border-green-500/15 rounded-xl p-3">
+          <div className="bg-green-50 border border-green-200 rounded-xl p-3">
             <div className="flex items-center gap-2.5">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
               </svg>
               <div className="flex-1 min-w-0">
-                <p className="text-xs text-green-400 font-medium">Transaction confirmed on World Chain</p>
+                <p className="text-xs text-green-600 font-medium">Transaction confirmed on World Chain</p>
                 <p className="text-[10px] text-gray-500 font-mono truncate">{txSuccess}</p>
               </div>
             </div>
-            <div className="flex items-center justify-between mt-2 pt-2 border-t border-green-500/10">
+            <div className="flex items-center justify-between mt-2 pt-2 border-t border-green-200">
               <div className="flex items-center gap-1.5">
-                <span className="text-[10px] text-green-400 font-semibold">${currentTask.bountyUsdc} USDC</span>
-                <span className="text-[9px] text-gray-600 bg-white/[0.04] border border-white/[0.06] rounded px-1.5 py-0.5">Powered by World Chain</span>
+                <span className="text-[10px] text-green-600 font-semibold">{rewardLabel(currentTask)}</span>
+                <span className="text-[9px] text-gray-600 bg-gray-50 border border-gray-100 rounded px-1.5 py-0.5">Powered by World Chain</span>
               </div>
               <a
                 href={`https://worldscan.org/tx/${txSuccess}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-[11px] text-blue-400 underline underline-offset-2 shrink-0 min-h-[44px] flex items-center"
+                className="text-[11px] text-blue-500 underline underline-offset-2 shrink-0 min-h-[44px] flex items-center"
               >
                 View on Explorer
               </a>
@@ -2568,7 +2277,7 @@ function TaskDetail({
 
         {/* Escrow transaction link */}
         {currentTask.escrowTxHash && !txSuccess && (
-          <div className="bg-white/[0.02] border border-white/[0.06] rounded-xl p-3 flex items-center gap-2.5">
+          <div className="bg-gray-50 border border-gray-100 rounded-xl p-3 flex items-center gap-2.5">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <rect x="2" y="7" width="20" height="14" rx="2" ry="2" /><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
             </svg>
@@ -2580,32 +2289,67 @@ function TaskDetail({
               href={`https://worldscan.org/tx/${currentTask.escrowTxHash}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[11px] text-blue-400 underline underline-offset-2 shrink-0 min-h-[44px] flex items-center"
+              className="text-[11px] text-blue-500 underline underline-offset-2 shrink-0 min-h-[44px] flex items-center"
             >
               View on Explorer
             </a>
           </div>
         )}
 
+        {/* Fund with USDC — poster can fund an unfunded task */}
+        {currentTask.status === "open" && isPoster && !currentTask.escrowTxHash && isMiniKit() && RELAY_ESCROW_ADDRESS && (
+          <button
+            disabled={funding}
+            onClick={async () => {
+              setFunding(true);
+              try {
+                const countBefore = await readTaskCount().catch(() => 0);
+                const txPayload = encodeCreateTask(currentTask.description, currentTask.bountyUsdc, 24);
+                if (!txPayload) { setFunding(false); return; }
+                const result = await MiniKit.sendTransaction(txPayload);
+                const hash = typeof result === "object" && result !== null && "transactionHash" in result
+                  ? String((result as Record<string, unknown>).transactionHash)
+                  : null;
+                if (hash) {
+                  const onChainId = countBefore;
+                  await fetch(`/api/tasks/${currentTask.id}`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ onChainId, escrowTxHash: hash }),
+                  });
+                  setCurrentTask(prev => ({ ...prev, onChainId, escrowTxHash: hash }));
+                  setTxSuccess(hash);
+                } else {
+                  alert("Fund transaction failed. Please try again.");
+                }
+              } catch {
+                alert("Fund transaction rejected by wallet.");
+              }
+              setFunding(false);
+            }}
+            className="w-full bg-gray-900 hover:bg-gray-800 text-white px-4 py-3 rounded-2xl text-sm font-semibold active:scale-[0.98] transition-all flex items-center justify-center gap-2 min-h-[44px]"
+          >
+            {funding ? "Funding..." : `Fund $${currentTask.bountyUsdc} USDC`}
+          </button>
+        )}
+
         {/* Agent info or People */}
         {currentTask.agent ? (
-          <div className="rounded-xl p-4 border" style={{ backgroundColor: `${currentTask.agent.color}08`, borderColor: `${currentTask.agent.color}20` }}>
+          <div className="rounded-xl p-4 border border-gray-100 bg-gray-50">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl" style={{ backgroundColor: `${currentTask.agent.color}15` }}>
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl bg-white border border-gray-100">
                 {currentTask.agent.icon}
               </div>
               <div className="flex-1">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-bold" style={{ color: currentTask.agent.color }}>{currentTask.agent.name}</span>
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={currentTask.agent.color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                  </svg>
+                  <span className="text-sm font-bold text-gray-900">{currentTask.agent.name}</span>
+                  <span className="text-[8px] font-medium text-gray-400 bg-white border border-gray-200 rounded px-1 py-px">AI</span>
                 </div>
-                <p className="text-[11px] text-gray-500 mt-0.5">Bounty · Pays instantly</p>
+                <p className="text-[11px] text-gray-500 mt-0.5">Favour · Pays on completion</p>
               </div>
             </div>
             {currentTask.claimant && (
-              <div className="mt-3 pt-3 border-t" style={{ borderColor: `${currentTask.agent.color}15` }}>
+              <div className="mt-3 pt-3 border-t border-gray-100">
                 <p className="text-[10px] text-gray-500 uppercase tracking-wider font-medium mb-1">Claimed by</p>
                 <div className="flex items-center gap-2">
                   <p className="text-xs font-medium">{shortId(currentTask.claimant)}</p>
@@ -2616,12 +2360,12 @@ function TaskDetail({
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-3">
-            <div className="bg-[#111] rounded-xl p-3 border border-white/[0.06] min-w-0">
+            <div className="bg-white rounded-xl p-3 border border-gray-100 min-w-0">
               <p className="text-[10px] text-gray-500 uppercase tracking-wider font-medium mb-1">Poster</p>
               <p className="text-xs font-medium truncate">{shortId(currentTask.poster)}</p>
             </div>
             {currentTask.claimant && (
-              <div className="bg-[#111] rounded-xl p-3 border border-white/[0.06] min-w-0">
+              <div className="bg-white rounded-xl p-3 border border-gray-100 min-w-0">
                 <p className="text-[10px] text-gray-500 uppercase tracking-wider font-medium mb-1">Claimant</p>
                 <div className="flex items-center gap-2">
                   <p className="text-xs font-medium truncate">{shortId(currentTask.claimant)}</p>
@@ -2637,7 +2381,7 @@ function TaskDetail({
           <div>
             <button
               onClick={() => setShowProofImage(!showProofImage)}
-              className="flex items-center gap-2 text-xs text-purple-400 font-medium min-h-[44px]"
+              className="flex items-center gap-2 text-xs text-gray-500 font-medium min-h-[44px]"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
@@ -2647,10 +2391,10 @@ function TaskDetail({
               {showProofImage ? "Hide proof photo" : "View proof photo"}
             </button>
             {showProofImage && (
-              <div className="mt-2 rounded-2xl overflow-hidden border border-white/[0.06]">
+              <div className="mt-2 rounded-2xl overflow-hidden border border-gray-100">
                 <img src={currentTask.proofImageUrl} alt="Proof" className="w-full max-h-80 object-cover" loading="lazy" />
                 {currentTask.proofNote && (
-                  <div className="bg-[#111] px-4 py-2 border-t border-white/[0.06]">
+                  <div className="bg-white px-4 py-2 border-t border-gray-100">
                     <p className="text-xs text-gray-400 italic">&ldquo;{currentTask.proofNote}&rdquo;</p>
                   </div>
                 )}
@@ -2662,9 +2406,9 @@ function TaskDetail({
         {/* Verification result */}
         {currentTask.verificationResult && (
           <div className={`p-4 rounded-2xl border ${
-            currentTask.verificationResult.verdict === "pass" ? "bg-green-500/8 border-green-500/20" :
-            currentTask.verificationResult.verdict === "flag" ? "bg-yellow-500/8 border-yellow-500/20" :
-            "bg-red-500/8 border-red-500/20"
+            currentTask.verificationResult.verdict === "pass" ? "bg-green-50 border-green-200" :
+            currentTask.verificationResult.verdict === "flag" ? "bg-yellow-50 border-yellow-200" :
+            "bg-red-50 border-red-200"
           }`}>
             <div className="flex items-center gap-2 mb-1.5">
               {currentTask.verificationResult.verdict === "pass" ? (
@@ -2682,17 +2426,17 @@ function TaskDetail({
                 </svg>
               )}
               <span className={`font-bold text-sm tracking-tight ${
-                currentTask.verificationResult.verdict === "pass" ? "text-green-400" :
-                currentTask.verificationResult.verdict === "flag" ? "text-yellow-400" :
-                "text-red-400"
+                currentTask.verificationResult.verdict === "pass" ? "text-green-600" :
+                currentTask.verificationResult.verdict === "flag" ? "text-yellow-600" :
+                "text-red-600"
               }`}>
                 {currentTask.verificationResult.verdict === "pass" ? "VERIFIED" : currentTask.verificationResult.verdict === "flag" ? "FLAGGED" : "REJECTED"}
               </span>
               {currentTask.claimantVerification && (
                 <span className={`text-[10px] px-2 py-0.5 rounded-full border ml-1 ${
-                  currentTask.claimantVerification === "orb" ? "text-cyan-400 border-cyan-500/20 bg-cyan-500/10" :
-                  currentTask.claimantVerification === "device" ? "text-blue-400 border-blue-500/20 bg-blue-500/10" :
-                  "text-green-400 border-green-500/20 bg-green-500/10"
+                  currentTask.claimantVerification === "orb" ? "text-cyan-600 border-cyan-200 bg-cyan-50" :
+                  currentTask.claimantVerification === "device" ? "text-blue-600 border-blue-200 bg-blue-50" :
+                  "text-green-600 border-green-200 bg-green-50"
                 }`}>
                   {currentTask.claimantVerification === "orb" ? "Orb-verified human" : currentTask.claimantVerification === "device" ? "Device-verified" : "Wallet-level"}
                 </span>
@@ -2703,17 +2447,17 @@ function TaskDetail({
             </div>
             <p className="text-xs text-gray-400 leading-relaxed break-words">{String(currentTask.verificationResult.reasoning)}</p>
             {currentTask.verificationResult.verdict === "pass" && (
-              <div className="mt-2 pt-2 border-t border-green-500/15">
-                <p className="text-xs text-green-400 font-semibold">${currentTask.bountyUsdc} USDC released</p>
+              <div className="mt-2 pt-2 border-t border-green-200">
+                <p className="text-xs text-green-600 font-semibold">${currentTask.bountyUsdc} USDC released</p>
               </div>
             )}
             {currentTask.attestationTxHash && (
-              <div className="mt-2 pt-2 border-t border-white/[0.06]">
+              <div className="mt-2 pt-2 border-t border-gray-100">
                 <a
                   href={`https://worldscan.org/tx/${currentTask.attestationTxHash}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 text-[11px] text-blue-400 underline underline-offset-2 min-h-[44px]"
+                  className="flex items-center gap-1.5 text-[11px] text-blue-500 underline underline-offset-2 min-h-[44px]"
                 >
                   <svg className="shrink-0" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <rect x="2" y="7" width="20" height="14" rx="2" ry="2" /><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
@@ -2760,13 +2504,13 @@ function TaskDetail({
 
         {/* Uniswap swap — claimant can convert received USDC */}
         {currentTask.status === "completed" && isClaimant && isMiniKit() && (
-          <div className="bg-[#111] border border-white/[0.06] rounded-2xl p-4">
+          <div className="bg-white border border-gray-100 rounded-2xl p-4">
             <div className="flex items-center gap-2 mb-3">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f472b6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="17 1 21 5 17 9" /><path d="M3 11V9a4 4 0 0 1 4-4h14" />
                 <polyline points="7 23 3 19 7 15" /><path d="M21 13v2a4 4 0 0 1-4 4H3" />
               </svg>
-              <span className="text-xs font-semibold text-white">Swap Earnings</span>
+              <span className="text-xs font-semibold text-gray-900">Swap Earnings</span>
               <span className="text-[10px] text-gray-600 ml-auto">via Uniswap V3</span>
             </div>
             <div className="flex gap-2 mb-3">
@@ -2776,8 +2520,8 @@ function TaskDetail({
                   onClick={() => setSwapToken(token)}
                   className={`flex-1 min-h-[44px] py-2 rounded-xl text-xs font-medium transition-all ${
                     swapToken === token
-                      ? "bg-white text-black"
-                      : "bg-white/5 text-gray-400 hover:bg-white/10"
+                      ? "bg-black text-white"
+                      : "bg-gray-50 text-gray-500 border border-gray-200 hover:bg-gray-100"
                   }`}
                 >
                   {token}
@@ -2831,7 +2575,7 @@ function TaskDetail({
 
         {/* AI Follow-up: claimant can respond and request re-evaluation */}
         {hasFollowUp && isClaimant && (
-          <div className="bg-purple-500/8 border border-purple-500/20 rounded-2xl p-4">
+          <div className="bg-purple-50 border border-purple-200 rounded-2xl p-4">
             <div className="flex items-center gap-2 mb-2">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a855f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /><line x1="12" y1="17" x2="12.01" y2="17" />
@@ -2874,7 +2618,7 @@ function TaskDetail({
 
         {isFlagged && isPoster && (
           <div className="flex flex-col gap-2">
-            <p className="text-xs text-yellow-400/70 text-center">This proof was flagged. Your call — or request mediation.</p>
+            <p className="text-xs text-yellow-600 text-center">This proof was flagged. Your call — or request mediation.</p>
             <div className="flex gap-2">
               <button
                 onClick={async () => {
@@ -2944,10 +2688,10 @@ function TaskDetail({
         <div className="flex flex-col gap-2 mt-2">
           <div className="flex items-center gap-2">
             <span className="text-[10px] text-gray-500 uppercase tracking-wider font-medium">Thread</span>
-            <span className="flex-1 h-px bg-white/5" />
+            <span className="flex-1 h-px bg-gray-50" />
             <div className="flex items-center gap-1">
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#818cf8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
-              <span className="text-[10px] text-indigo-400/70">XMTP Encrypted</span>
+              <span className="text-[10px] text-indigo-500">XMTP Encrypted</span>
               <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-[pulse-dot_2s_ease-in-out_infinite]" />
             </div>
           </div>
@@ -2966,34 +2710,34 @@ function TaskDetail({
               return (
                 <div
                   key={msg.id}
-                  className={`rounded-xl p-3 ${
+                  className={`rounded-2xl p-4 ${
                     isAiMessage
-                      ? "bg-gradient-to-br from-purple-500/8 to-indigo-500/8 border border-purple-500/20"
+                      ? "bg-gradient-to-br from-purple-50 to-indigo-50 border border-purple-200"
                       : msg.sender === "relay-bot"
-                      ? "bg-[#111] border border-white/[0.06]"
+                      ? "bg-white border border-gray-200"
                       : msg.sender === userId
-                      ? "bg-blue-600/10 border border-blue-500/15 ml-6"
-                      : "bg-[#111] border border-white/[0.06] mr-6"
+                      ? "bg-blue-50 border border-blue-100 ml-4"
+                      : "bg-white border border-gray-200 mr-4"
                   }`}
                 >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className={`text-[10px] font-semibold flex items-center gap-1 ${
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className={`text-xs font-semibold flex items-center gap-1.5 ${
                       isAiMessage ? "text-purple-400" :
                       msg.sender === "relay-bot" ? "text-purple-400" :
                       msg.sender === userId ? "text-blue-400" : "text-gray-400"
                     }`}>
                       {isAiMessage && (
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                           <path d="M12 2a4 4 0 0 0-4 4v2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10a2 2 0 0 0-2-2h-2V6a4 4 0 0 0-4-4z" />
                         </svg>
                       )}
                       {msg.sender === "relay-bot" ? (isAiMessage ? "RELAY AI" : "RELAY") : msg.sender === userId ? "You" : shortId(msg.sender)}
                     </span>
-                    <span className="text-[10px] text-gray-700">
+                    <span className="text-[11px] text-gray-600">
                       {new Date(msg.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                     </span>
                   </div>
-                  <p className="text-xs text-gray-300 whitespace-pre-line leading-relaxed break-words">{typeof msg.text === "string" ? msg.text : String(msg.text)}</p>
+                  <p className="text-sm text-gray-700 whitespace-pre-line leading-relaxed break-words">{typeof msg.text === "string" ? msg.text : String(msg.text)}</p>
                 </div>
               );
             })
@@ -3004,7 +2748,7 @@ function TaskDetail({
 
       {/* Chat input */}
       {isParticipant && currentTask.status !== "completed" && currentTask.status !== "failed" && (
-        <div className="sticky bottom-14 bg-[#050505] border-t border-white/5 px-4 py-3">
+        <div className="sticky bottom-14 bg-white border-t border-gray-100 px-4 py-3">
           <div className="flex gap-2">
             <input
               type="text"
@@ -3012,14 +2756,14 @@ function TaskDetail({
               value={chatInput}
               onChange={(e) => setChatInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-              className={`flex-1 min-w-0 bg-[#111] border rounded-xl px-4 py-2.5 text-sm min-h-[44px] focus:outline-none transition-colors placeholder:text-gray-600 ${
-                hasFollowUp && isClaimant ? "border-purple-500/30 focus:border-purple-500/50" : "border-white/[0.06] focus:border-white/20"
+              className={`flex-1 min-w-0 bg-gray-50 border rounded-xl px-4 py-2.5 text-sm min-h-[44px] focus:outline-none transition-colors placeholder:text-gray-400 ${
+                hasFollowUp && isClaimant ? "border-purple-500/30 focus:border-purple-500/50" : "border-gray-200 focus:border-gray-300"
               }`}
             />
             <button
               onClick={sendMessage}
               disabled={!chatInput.trim() || sending}
-              className="bg-blue-600 text-white px-4 min-w-[44px] min-h-[44px] rounded-xl text-sm font-medium disabled:opacity-30 active:scale-95 transition-all flex items-center justify-center"
+              className="bg-black text-white px-4 min-w-[44px] min-h-[44px] rounded-xl text-sm font-medium disabled:opacity-30 active:scale-95 transition-all flex items-center justify-center"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="22" y1="2" x2="11" y2="13" />

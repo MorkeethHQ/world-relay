@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
 
 export default function ErrorPage({
@@ -9,19 +10,21 @@ export default function ErrorPage({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
-  const errorMsg = typeof error?.message === "string" ? error.message : String(error?.message ?? error?.digest ?? "Unknown error");
-  const errorStack = typeof error?.stack === "string" ? error.stack : "";
-  console.error("[ErrorBoundary]", errorMsg, errorStack);
+  useEffect(() => {
+    // Log to console for debugging — never expose to the user
+    console.error("[ErrorBoundary]", error);
+  }, [error]);
+
   return (
-    <div className="flex flex-col min-h-screen items-center justify-center px-6 bg-[#050505]">
+    <div className="flex flex-col min-h-screen items-center justify-center px-6 bg-[#FAFAFA]">
       <div className="flex flex-col items-center gap-6 max-w-lg mx-auto text-center">
-        <div className="w-16 h-16 rounded-2xl bg-white flex items-center justify-center shadow-[0_0_40px_rgba(255,255,255,0.08)]">
+        <div className="w-16 h-16 rounded-2xl bg-white flex items-center justify-center shadow-[0_2px_16px_rgba(0,0,0,0.06)]">
           <svg
             width="28"
             height="28"
             viewBox="0 0 24 24"
             fill="none"
-            stroke="black"
+            stroke="#1a1a1a"
             strokeWidth="2.5"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -32,32 +35,32 @@ export default function ErrorPage({
           </svg>
         </div>
 
-        <div className="space-y-2">
-          <h1 className="text-3xl font-bold tracking-tight text-white">
+        <div className="space-y-3">
+          <h1 className="text-3xl font-bold tracking-tight text-[#111827]">
             Something went wrong
           </h1>
-          <p className="text-gray-600 text-xs font-mono break-all max-w-xs">
-            {errorMsg}
+          <p className="text-gray-500 text-sm max-w-xs">
+            RELAY FAVOURS hit an unexpected issue. Give it another shot or head
+            back to the feed.
           </p>
-          {errorStack && (
-            <details className="text-left">
-              <summary className="text-[10px] text-gray-700 cursor-pointer">Stack trace</summary>
-              <pre className="text-[8px] text-gray-700 mt-1 max-h-32 overflow-auto whitespace-pre-wrap break-all">{errorStack}</pre>
-            </details>
+          {error?.digest && (
+            <p className="text-gray-400 text-xs font-mono">
+              ref: {error.digest}
+            </p>
           )}
         </div>
 
         <div className="flex flex-col items-center gap-3">
           <button
             onClick={reset}
-            className="bg-white text-black px-6 py-3 rounded-2xl font-semibold text-sm active:scale-[0.97] transition-all shadow-[0_0_20px_rgba(255,255,255,0.1)]"
+            className="bg-black text-white px-6 py-3 rounded-2xl font-semibold text-sm active:scale-[0.97] transition-all shadow-[0_2px_12px_rgba(0,0,0,0.1)]"
           >
             Try again
           </button>
 
           <Link
             href="/"
-            className="text-gray-400 hover:text-gray-300 text-sm underline underline-offset-4 transition-colors"
+            className="text-gray-500 hover:text-gray-700 text-sm underline underline-offset-4 transition-colors"
           >
             Back to feed
           </Link>

@@ -41,6 +41,30 @@ export const AGENT_REGISTRY: Record<string, AgentInfo> = {
     verificationPrompt: "Focus on event/pop-up identification — brand signage, storefront setup, crowd presence. Verify the location matches the described event. Check for QR codes, promotional materials, or brand indicators. Flag if the scene doesn't match an active event or pop-up.",
     personality: "Ground intel for brands and platforms. Limited drops, pop-ups, local events — DropScout gets eyes on the scene before anyone else.",
   },
+  openclaw: {
+    id: "openclaw",
+    name: "OpenClaw",
+    icon: "🦞",
+    color: "#ef4444",
+    verificationPrompt: "Verify that the human response addresses the specific limitation the AI agent described. Check for genuine first-hand observation — not something that could be googled. Flag vague or copy-pasted responses.",
+    personality: "Open-source AI agent that crawls the web for data. Fast at aggregation, helpless at anything requiring a body. Needs humans for sensory ground truth.",
+  },
+  hermes: {
+    id: "hermes",
+    name: "Hermes",
+    icon: "📨",
+    color: "#8b5cf6",
+    verificationPrompt: "Verify that the human completed the communication task as described. Check for evidence of the interaction — screenshots, confirmation messages, or detailed accounts. Flag if the response is too vague to confirm action was taken.",
+    personality: "Messaging agent that handles DMs and notifications. Can send a thousand messages but can't pick up the phone, knock on a door, or read someone's face.",
+  },
+  claudecode: {
+    id: "claudecode",
+    name: "Claude Code",
+    icon: "🤖",
+    color: "#1a1a1a",
+    verificationPrompt: "Verify that the human tested the specific thing the AI could not. Look for real screenshots, specific observations, or measured results. Flag responses that could be fabricated without actual testing.",
+    personality: "AI coding assistant. Can write code all day but can't open a browser, tap a screen, or verify what a real user actually sees. Needs humans to close the loop.",
+  },
 };
 
 

@@ -5,6 +5,7 @@ import { generateClaimBriefing } from "@/lib/ai-chat";
 import { notifyTaskClaimed } from "@/lib/notifications";
 import { getRedis } from "@/lib/redis";
 import { broadcastEvent } from "@/lib/sse";
+import { recordFavourClaimed } from "@/lib/proof-of-favour";
 
 const VERIFICATION_TIERS: Record<string, number> = {
   orb: 3,
@@ -87,6 +88,9 @@ export async function POST(
 
   await postClaimNotification(updated, claimant);
   notifyTaskClaimed(updated.poster, updated.description).catch(console.error);
+
+  // Award Proof of Favour points for claiming a task
+  recordFavourClaimed(claimant).catch(console.error);
 
   generateClaimBriefing(updated, updated.agent?.id || undefined).then(async (briefing) => {
     if (briefing) await postClaimBriefing(updated.id, briefing);

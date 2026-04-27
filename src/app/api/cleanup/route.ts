@@ -2,7 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { getRedis } from "@/lib/redis";
 import { listTasks, resetCache } from "@/lib/store";
 
+const ADMIN_SECRET = process.env.ADMIN_SECRET;
+
 export async function POST(req: NextRequest) {
+  const { secret } = await req.json().catch(() => ({ secret: req.nextUrl.searchParams.get("secret") || "" }));
+  if (!ADMIN_SECRET || secret !== ADMIN_SECRET) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const confirm = req.nextUrl.searchParams.get("confirm") === "true";
   const mode = req.nextUrl.searchParams.get("mode") || "fake";
 

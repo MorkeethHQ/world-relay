@@ -14,18 +14,18 @@ const TaskMapFull = dynamic(() => import("@/components/TaskMapFull"), {
 
 export default function MapPage() {
   return (
-    <div className="min-h-screen bg-[#050505] flex flex-col">
+    <div className="min-h-screen bg-[#FAFAFA] flex flex-col">
       {/* Header */}
-      <header className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
+      <header className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-white">
         <Link href="/" className="flex items-center gap-2">
-          <span className="text-white font-bold text-sm tracking-tight">
+          <span className="text-gray-900 font-bold text-sm tracking-tight">
             RELAY FAVOURS
           </span>
-          <span className="text-[10px] text-gray-500 font-mono">MAP</span>
+          <span className="text-[10px] text-gray-400 font-mono">MAP</span>
         </Link>
         <Link
           href="/"
-          className="h-10 sm:h-8 px-3 rounded-full text-[11px] font-semibold border border-white/10 text-gray-400 hover:text-white hover:border-white/20 transition-all flex items-center gap-1.5"
+          className="h-10 sm:h-8 px-3 rounded-full text-[11px] font-semibold border border-gray-200 text-gray-500 hover:text-gray-900 hover:border-gray-400 transition-all flex items-center gap-1.5"
         >
           <svg
             width="12"

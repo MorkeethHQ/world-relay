@@ -4,21 +4,28 @@ import { processAgentQuery } from "@/lib/xmtp-agent";
 const AGENT_API_KEY = process.env.AGENT_API_KEY;
 
 function checkAuth(req: NextRequest): boolean {
-  if (!AGENT_API_KEY) return true;
+  if (!AGENT_API_KEY) return false;
   const auth = req.headers.get("authorization");
   if (!auth) return false;
   const token = auth.replace("Bearer ", "");
   return token === AGENT_API_KEY;
 }
 
+function isInAppRequest(req: NextRequest): boolean {
+  const referer = req.headers.get("referer") || "";
+  const origin = req.headers.get("origin") || "";
+  const host = req.headers.get("host") || "";
+  return referer.includes(host) || origin.includes(host);
+}
+
 export async function POST(req: NextRequest) {
-  if (!checkAuth(req)) {
+  if (!isInAppRequest(req) && !checkAuth(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
     const body = await req.json();
-    const query = body.query;
+    const { query, history } = body;
 
     if (!query || typeof query !== "string") {
       return NextResponse.json(
@@ -27,7 +34,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const response = await processAgentQuery(query);
+    // history is optional: Array<{ role: "user" | "assistant"; content: string }>
+    const conversationHistory = Array.isArray(history) ? history : undefined;
+    const response = await processAgentQuery(query, conversationHistory);
 
     return NextResponse.json({
       response,

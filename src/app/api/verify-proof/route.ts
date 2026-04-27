@@ -7,6 +7,7 @@ import { generateFollowUpQuestion } from "@/lib/ai-chat";
 import { notifyProofSubmitted, notifyVerified, notifyFlagged } from "@/lib/notifications";
 import { postAttestation } from "@/lib/attestation";
 import { recordCompletion, recordFailure, getReputation, getTrustScore, getVerificationMultiplier } from "@/lib/reputation";
+import { recordFavourAttempted, recordFavourCompleted, recordFavourFailed } from "@/lib/proof-of-favour";
 import { getRedis } from "@/lib/redis";
 import { fireWebhook } from "@/lib/webhooks";
 import { releaseEscrow, resolveDon } from "@/lib/escrow";
@@ -42,7 +43,12 @@ function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): nu
 export async function POST(req: NextRequest) {
   const body = await req.json();
   const { taskId, proofImageBase64, proofNote, lat, lng, proofVideoFrame } = body;
-  const demoMode = req.nextUrl.searchParams.get("demo") === "true";
+  const ADMIN_SECRET = process.env.ADMIN_SECRET;
+  const demoMode = req.nextUrl.searchParams.get("demo") === "true" && req.nextUrl.searchParams.get("secret") === ADMIN_SECRET && !!ADMIN_SECRET;
+  const submitter = body.submitter;
+  if (!submitter && !demoMode) {
+    return NextResponse.json({ error: "Submitter identity required" }, { status: 401 });
+  }
 
   // Accept proofImages array, fall back to single proofImageBase64
   let proofImages: string[] = body.proofImages || [];
@@ -64,8 +70,15 @@ export async function POST(req: NextRequest) {
   if (!task) {
     return NextResponse.json({ error: "Task not found" }, { status: 404 });
   }
-  if (task.status !== "claimed" && !demoMode) {
+  if (!demoMode && task.requiresClaim && task.claimant && submitter !== task.claimant) {
+    return NextResponse.json({ error: "Only the task claimant can submit proof" }, { status: 403 });
+  }
+  const needsClaim = task.requiresClaim !== false;
+  if (needsClaim && task.status !== "claimed" && !demoMode) {
     return NextResponse.json({ error: "Task not in claimed state" }, { status: 400 });
+  }
+  if (!needsClaim && task.status === "completed") {
+    return NextResponse.json({ error: "Task already completed" }, { status: 400 });
   }
 
   let locationVerified: boolean | null = null;
@@ -78,6 +91,11 @@ export async function POST(req: NextRequest) {
   const proofImageUrls = proofImages.map((img: string) => `data:image/jpeg;base64,${img}`);
   await submitProof(taskId, proofImageUrls[0] || null, proofNote || null, proofImageUrls.length > 0 ? proofImageUrls : null);
   await postProofSubmitted(taskId, proofNote);
+
+  // Award Proof of Favour points for proof upload
+  if (task.claimant) {
+    recordFavourAttempted(task.claimant).catch(console.error);
+  }
 
   broadcastEvent("task:proof", {
     taskId,
@@ -163,8 +181,11 @@ export async function POST(req: NextRequest) {
   if (task.claimant) {
     if (result.verdict === "pass") {
       recordCompletion(task.claimant, task.bountyUsdc, result.confidence, task.claimantVerification || undefined).catch(console.error);
+      const claimantRep2 = await getReputation(task.claimant);
+      recordFavourCompleted(task.claimant, claimantRep2.currentStreak).catch(console.error);
     } else if (result.verdict === "fail") {
       recordFailure(task.claimant).catch(console.error);
+      recordFavourFailed(task.claimant).catch(console.error);
     }
   }
 
