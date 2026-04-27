@@ -16,10 +16,25 @@ function checkAuth(req: NextRequest): boolean {
 }
 
 function isInAppRequest(req: NextRequest): boolean {
-  const referer = req.headers.get("referer") || "";
-  const origin = req.headers.get("origin") || "";
   const host = req.headers.get("host") || "";
-  return referer.includes(host) || origin.includes(host);
+  if (!host) return false;
+  const origin = req.headers.get("origin") || "";
+  if (origin) {
+    try {
+      return new URL(origin).host === host;
+    } catch {
+      return false;
+    }
+  }
+  const referer = req.headers.get("referer") || "";
+  if (referer) {
+    try {
+      return new URL(referer).host === host;
+    } catch {
+      return false;
+    }
+  }
+  return false;
 }
 
 export async function GET(req: NextRequest) {
@@ -59,6 +74,17 @@ export async function POST(req: NextRequest) {
       required: ["description", "location", "bounty_usdc"],
       optional: ["agent_id", "lat", "lng", "deadline_hours", "callback_url", "recurring_hours", "recurring_count"],
     }, { status: 400 });
+  }
+
+  if (callback_url) {
+    try {
+      const cbUrl = new URL(callback_url);
+      if (cbUrl.protocol !== "https:") {
+        return NextResponse.json({ error: "callback_url must use HTTPS" }, { status: 400 });
+      }
+    } catch {
+      return NextResponse.json({ error: "Invalid callback_url" }, { status: 400 });
+    }
   }
 
   const agentId = agent_id || null;

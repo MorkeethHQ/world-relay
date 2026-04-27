@@ -18,7 +18,8 @@ export default function Home() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [networkStats, setNetworkStats] = useState<{
     totalTasks: number; totalBounty: number; completedCount: number;
-  }>({ totalTasks: 0, totalBounty: 0, completedCount: 0 });
+    totalPaidOut: string; totalDeposited: string; txCount: number;
+  }>({ totalTasks: 0, totalBounty: 0, completedCount: 0, totalPaidOut: "0", totalDeposited: "0", txCount: 0 });
 
   useEffect(() => {
     try { setIsInWorldApp(MiniKit.isInstalled()); } catch { setIsInWorldApp(false); }
@@ -31,13 +32,19 @@ export default function Home() {
       setVerificationLevel(storedLevel);
     }
     // Fetch network stats for the homepage
-    fetch("/api/tasks").then(r => r.json()).then(data => {
-      const tasks = data.tasks || [];
+    Promise.all([
+      fetch("/api/tasks").then(r => r.json()),
+      fetch("/api/escrow-stats").then(r => r.json()).catch(() => null),
+    ]).then(([taskData, escrowData]) => {
+      const tasks = taskData.tasks || [];
       const completed = tasks.filter((t: Record<string, unknown>) => t.status === "completed");
       setNetworkStats({
         totalTasks: tasks.length,
         totalBounty: tasks.reduce((sum: number, t: Record<string, unknown>) => sum + (Number(t.bountyUsdc) || 0), 0),
         completedCount: completed.length,
+        totalPaidOut: escrowData?.paidOut || "0",
+        totalDeposited: escrowData?.totalDeposited || "0",
+        txCount: escrowData?.taskCount || 0,
       });
     }).catch(() => {});
   }, []);
@@ -156,6 +163,27 @@ export default function Home() {
             </p>
           </div>
 
+          {/* Social proof */}
+          {networkStats.txCount > 0 && (
+            <div className="w-full animate-[fadeUp_0.6s_ease-out_0.28s_both]">
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div className="bg-white border border-gray-100 rounded-xl py-2.5">
+                  <p className="text-base font-bold text-gray-900">${networkStats.totalPaidOut}</p>
+                  <p className="text-[9px] text-gray-400 mt-0.5">Paid out</p>
+                </div>
+                <div className="bg-white border border-gray-100 rounded-xl py-2.5">
+                  <p className="text-base font-bold text-gray-900">{networkStats.txCount}</p>
+                  <p className="text-[9px] text-gray-400 mt-0.5">Transactions</p>
+                </div>
+                <div className="bg-white border border-gray-100 rounded-xl py-2.5">
+                  <p className="text-base font-bold text-gray-900">${networkStats.totalDeposited}</p>
+                  <p className="text-[9px] text-gray-400 mt-0.5">Deposited</p>
+                </div>
+              </div>
+              <p className="text-[9px] text-gray-300 text-center mt-1.5">Live on World Chain mainnet</p>
+            </div>
+          )}
+
           <div className="w-full space-y-3 animate-[fadeUp_0.6s_ease-out_0.3s_both]">
             <a
               href="https://worldcoin.org/download"
@@ -203,6 +231,27 @@ export default function Home() {
               Agents hit dead-ends in the physical world — stale data, failed deliveries, unverifiable states. You close the loop.
             </p>
           </div>
+
+          {/* Social proof — live on-chain stats */}
+          {networkStats.txCount > 0 && (
+            <div className="w-full animate-[fadeUp_0.6s_ease-out_0.28s_both]">
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div className="bg-white border border-gray-100 rounded-xl py-2.5">
+                  <p className="text-base font-bold text-gray-900">${networkStats.totalPaidOut}</p>
+                  <p className="text-[9px] text-gray-400 mt-0.5">Paid out</p>
+                </div>
+                <div className="bg-white border border-gray-100 rounded-xl py-2.5">
+                  <p className="text-base font-bold text-gray-900">{networkStats.txCount}</p>
+                  <p className="text-[9px] text-gray-400 mt-0.5">Transactions</p>
+                </div>
+                <div className="bg-white border border-gray-100 rounded-xl py-2.5">
+                  <p className="text-base font-bold text-gray-900">${networkStats.totalDeposited}</p>
+                  <p className="text-[9px] text-gray-400 mt-0.5">Deposited</p>
+                </div>
+              </div>
+              <p className="text-[9px] text-gray-300 text-center mt-1.5">Live on World Chain mainnet</p>
+            </div>
+          )}
 
           <div className="w-full space-y-3 animate-[fadeUp_0.6s_ease-out_0.3s_both]">
             <button
@@ -277,6 +326,27 @@ export default function Home() {
               </div>
             ))}
           </div>
+
+          {/* Social proof — live on-chain stats */}
+          {networkStats.txCount > 0 && (
+            <div className="w-full animate-[fadeUp_0.6s_ease-out_0.28s_both]">
+              <div className="grid grid-cols-3 gap-2 text-center">
+                <div className="bg-white border border-gray-100 rounded-xl py-2.5">
+                  <p className="text-base font-bold text-gray-900">${networkStats.totalPaidOut}</p>
+                  <p className="text-[9px] text-gray-400 mt-0.5">Paid out</p>
+                </div>
+                <div className="bg-white border border-gray-100 rounded-xl py-2.5">
+                  <p className="text-base font-bold text-gray-900">{networkStats.txCount}</p>
+                  <p className="text-[9px] text-gray-400 mt-0.5">Transactions</p>
+                </div>
+                <div className="bg-white border border-gray-100 rounded-xl py-2.5">
+                  <p className="text-base font-bold text-gray-900">${networkStats.totalDeposited}</p>
+                  <p className="text-[9px] text-gray-400 mt-0.5">Deposited</p>
+                </div>
+              </div>
+              <p className="text-[9px] text-gray-300 text-center mt-1.5">Live on World Chain mainnet</p>
+            </div>
+          )}
 
           {/* Single CTA */}
           <div className="w-full space-y-3 animate-[fadeUp_0.6s_ease-out_0.3s_both]">

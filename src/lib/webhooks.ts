@@ -9,8 +9,36 @@ function resolveEvent(task: Task): WebhookEvent | null {
   return null;
 }
 
+function isSafeUrl(raw: string): boolean {
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    return false;
+  }
+  if (url.protocol !== "https:") return false;
+  const host = url.hostname.toLowerCase();
+  if (
+    host === "localhost" ||
+    host === "127.0.0.1" ||
+    host === "0.0.0.0" ||
+    host === "[::1]" ||
+    host.startsWith("10.") ||
+    host.startsWith("192.168.") ||
+    host.startsWith("172.") ||
+    host.endsWith(".internal") ||
+    host.endsWith(".local") ||
+    host === "metadata.google.internal" ||
+    host === "169.254.169.254"
+  ) {
+    return false;
+  }
+  return true;
+}
+
 export async function fireWebhook(task: Task): Promise<void> {
   if (!task.callbackUrl) return;
+  if (!isSafeUrl(task.callbackUrl)) return;
 
   const event = resolveEvent(task);
   if (!event) return;

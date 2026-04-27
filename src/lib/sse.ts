@@ -7,18 +7,19 @@ export type SSEEventType =
   | "task:proof"
   | "task:verified"
   | "task:completed"
-  | "task:failed";
+  | "task:failed"
+  | "task:expired";
 
 export interface SSEEventPayload {
   taskId: string;
-  description: string;
-  location: string;
-  bountyUsdc: number;
-  status: string;
+  description?: string;
+  location?: string;
+  bountyUsdc?: number;
+  status?: string;
   agentName?: string;
   verdict?: string;
   confidence?: number;
-  timestamp: string;
+  timestamp?: string;
 }
 
 const clients = new Set<ReadableStreamDefaultController>();

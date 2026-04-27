@@ -12,10 +12,25 @@ function checkAuth(req: NextRequest): boolean {
 }
 
 function isInAppRequest(req: NextRequest): boolean {
-  const referer = req.headers.get("referer") || "";
-  const origin = req.headers.get("origin") || "";
   const host = req.headers.get("host") || "";
-  return referer.includes(host) || origin.includes(host);
+  if (!host) return false;
+  const origin = req.headers.get("origin") || "";
+  if (origin) {
+    try {
+      return new URL(origin).host === host;
+    } catch {
+      return false;
+    }
+  }
+  const referer = req.headers.get("referer") || "";
+  if (referer) {
+    try {
+      return new URL(referer).host === host;
+    } catch {
+      return false;
+    }
+  }
+  return false;
 }
 
 export async function POST(req: NextRequest) {

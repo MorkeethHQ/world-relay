@@ -63,6 +63,7 @@ const CATEGORY_ICONS: Record<string, string> = {
   delivery: "\u{1F4E6}",
   "check-in": "\u{1F4CD}",
   custom: "\u{2699}️",
+  feedback: "\u{1F4AC}",
 };
 
 const STATUS_STYLES: Record<string, { bg: string; text: string; label: string }> = {

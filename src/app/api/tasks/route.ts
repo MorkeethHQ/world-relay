@@ -5,6 +5,7 @@ import { addMessage } from "@/lib/messages";
 import { postTaskCreated } from "@/lib/xmtp";
 import { broadcastEvent } from "@/lib/sse";
 import { recordFavourPosted } from "@/lib/proof-of-favour";
+import { rateLimit, getClientIp } from "@/lib/rate-limit";
 
 export async function GET() {
   const tasks = await listTasks();
@@ -12,6 +13,12 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const ip = getClientIp(req);
+  const { ok } = rateLimit(`create:${ip}`, 5, 60_000);
+  if (!ok) {
+    return NextResponse.json({ error: "Too many requests. Try again in a minute." }, { status: 429 });
+  }
+
   const body = await req.json();
   const { poster, category, description, location, lat, lng, bountyUsdc, deadlineHours, onChainId, escrowTxHash, taskType, donOnChainId, agentId } = body;
 

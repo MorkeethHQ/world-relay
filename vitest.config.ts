@@ -10,5 +10,7 @@ export default defineConfig({
   test: {
     globals: false,
     testTimeout: 60_000,
+    include: ["src/**/*.test.{ts,tsx}"],
+    exclude: ["contracts/**", "node_modules/**", "scripts/**"],
   },
 });

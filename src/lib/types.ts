@@ -1,6 +1,6 @@
 export type TaskStatus = "open" | "claimed" | "completed" | "failed" | "expired";
 
-export type TaskCategory = "photo" | "delivery" | "check-in" | "custom";
+export type TaskCategory = "photo" | "delivery" | "check-in" | "custom" | "feedback";
 
 export type TaskType = "standard" | "double-or-nothing";
 

@@ -12,6 +12,8 @@ import { getRedis } from "@/lib/redis";
 import { fireWebhook } from "@/lib/webhooks";
 import { releaseEscrow, resolveDon } from "@/lib/escrow";
 import { broadcastEvent } from "@/lib/sse";
+import { uploadProofImage } from "@/lib/image-upload";
+import { rateLimit, getClientIp } from "@/lib/rate-limit";
 
 const RATE_LIMIT_KEY = "ratelimit:verify";
 const MAX_VERIFICATIONS_PER_HOUR = 100;
@@ -40,11 +42,20 @@ function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): nu
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+const MAX_BASE64_SIZE = 5 * 1024 * 1024; // 5MB per image
+
 export async function POST(req: NextRequest) {
+  const ip = getClientIp(req);
+  const { ok } = rateLimit(`verify:${ip}`, 10, 60_000);
+  if (!ok) {
+    return NextResponse.json({ error: "Too many requests. Try again in a minute." }, { status: 429 });
+  }
+
   const body = await req.json();
   const { taskId, proofImageBase64, proofNote, lat, lng, proofVideoFrame } = body;
   const ADMIN_SECRET = process.env.ADMIN_SECRET;
-  const demoMode = req.nextUrl.searchParams.get("demo") === "true" && req.nextUrl.searchParams.get("secret") === ADMIN_SECRET && !!ADMIN_SECRET;
+  const authHeader = req.headers.get("authorization") || "";
+  const demoMode = authHeader === `Bearer ${ADMIN_SECRET}` && !!ADMIN_SECRET;
   const submitter = body.submitter;
   if (!submitter && !demoMode) {
     return NextResponse.json({ error: "Submitter identity required" }, { status: 401 });
@@ -61,6 +72,12 @@ export async function POST(req: NextRequest) {
   }
   // Limit to max 3 images
   proofImages = proofImages.slice(0, 3);
+
+  for (const img of proofImages) {
+    if (img.length > MAX_BASE64_SIZE) {
+      return NextResponse.json({ error: "Image too large (max 5MB)" }, { status: 413 });
+    }
+  }
 
   if (!taskId || (proofImages.length === 0 && !proofNote)) {
     return NextResponse.json({ error: "Missing taskId or proof (image or note)" }, { status: 400 });
@@ -88,7 +105,9 @@ export async function POST(req: NextRequest) {
     locationVerified = distanceKm <= 2;
   }
 
-  const proofImageUrls = proofImages.map((img: string) => `data:image/jpeg;base64,${img}`);
+  const proofImageUrls = await Promise.all(
+    proofImages.map((img: string, i: number) => uploadProofImage(img, taskId, i))
+  );
   await submitProof(taskId, proofImageUrls[0] || null, proofNote || null, proofImageUrls.length > 0 ? proofImageUrls : null);
   await postProofSubmitted(taskId, proofNote);
 

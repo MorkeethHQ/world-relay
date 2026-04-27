@@ -9,7 +9,7 @@ function isMiniKit(): boolean {
   try { return typeof window !== "undefined" && MiniKit.isInstalled(); } catch { return false; }
 }
 import { VerificationBadge, RequiredTierBadge } from "@/components/VerificationBadge";
-import { DailyChallenge } from "@/components/DailyChallenge";
+import { FeedbackTasks } from "@/components/FeedbackTasks";
 import { ProofOfFavourCard } from "@/components/ProofOfFavourCard";
 import { encodeCreateTask, encodeClaimTask, encodeReleasePayment, encodeUniswapSwap, readTaskCount, RELAY_ESCROW_ADDRESS, DOUBLE_OR_NOTHING_ADDRESS, encodeCreateDoubleOrNothing, encodeStakeAndClaimWithApproval, readDonTaskCount, type SwapToken } from "@/lib/contracts";
 import { hapticSuccess, hapticError, hapticTap, hapticHeavy, hapticMedium, hapticSelection, shareTask } from "@/lib/minikit-helpers";
@@ -67,6 +67,7 @@ const CATEGORY_ICONS: Record<string, string> = {
   delivery: "📦",
   "check-in": "📍",
   custom: "✏️",
+  feedback: "💬",
 };
 
 function SkeletonCard() {
@@ -384,7 +385,10 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
 
   const filtered = tasks.filter((t) => {
     if (tab === "available") {
-      if (t.status === "open") { /* show all open */ }
+      // Hide unfunded dev/demo junk — only show funded tasks or user's own claims
+      if (t.status === "open") {
+        if (!t.escrowTxHash && t.category !== "feedback") return false;
+      }
       else if (t.status === "claimed" && t.claimant === userId) { /* show my active claims */ }
       else return false;
       return true;
@@ -722,10 +726,10 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
         </div>
       )}
 
-      {/* Daily Challenge */}
-      {tab === "available" && userId && !mapMode && (
+      {/* Feedback Tasks — fun onboarding for new visitors */}
+      {tab === "available" && !mapMode && (
         <div className="px-4 pt-3">
-          <DailyChallenge address={userId} onComplete={fetchTasks} />
+          <FeedbackTasks address={userId} onComplete={fetchTasks} />
         </div>
       )}
 

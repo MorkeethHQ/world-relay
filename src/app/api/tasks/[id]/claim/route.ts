@@ -6,6 +6,7 @@ import { notifyTaskClaimed } from "@/lib/notifications";
 import { getRedis } from "@/lib/redis";
 import { broadcastEvent } from "@/lib/sse";
 import { recordFavourClaimed } from "@/lib/proof-of-favour";
+import { rateLimit, getClientIp } from "@/lib/rate-limit";
 
 const VERIFICATION_TIERS: Record<string, number> = {
   orb: 3,
@@ -39,6 +40,13 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+
+  const ip = getClientIp(req);
+  const { ok } = rateLimit(`claim:${ip}`, 10, 60_000);
+  if (!ok) {
+    return NextResponse.json({ error: "Too many requests. Try again in a minute." }, { status: 429 });
+  }
+
   const body = await req.json();
   const { claimant, claimCode } = body;
 
@@ -56,6 +64,13 @@ export async function POST(
       error: "Invalid claim code",
       requiresCode: true,
       message: "This is a restricted bounty. Enter the claim code to unlock it.",
+    }, { status: 403 });
+  }
+
+  if (claimant.startsWith("dev_") && task.escrowTxHash) {
+    return NextResponse.json({
+      error: "Dev accounts cannot claim funded tasks",
+      message: "This task has real USDC escrow. Verify with World ID to claim it.",
     }, { status: 403 });
   }
 
