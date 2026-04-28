@@ -4,12 +4,10 @@ import { generateLocationBriefing } from "@/lib/ai-chat";
 import { addMessage } from "@/lib/messages";
 import { postTaskCreated } from "@/lib/xmtp";
 import { broadcastEvent } from "@/lib/sse";
-import { createEscrowTask } from "@/lib/escrow";
+import { createEscrowTaskWithKey } from "@/lib/escrow";
 import { getRedis } from "@/lib/redis";
 
 const AGENT_API_KEY = process.env.AGENT_API_KEY;
-const ADMIN_SECRET = process.env.ADMIN_SECRET;
-const MAX_FUNDED_BOUNTY = 50; // $50 cap per auto-funded task
 
 function checkAuth(req: NextRequest): boolean {
   if (!AGENT_API_KEY) return false;
@@ -19,12 +17,9 @@ function checkAuth(req: NextRequest): boolean {
   return token === AGENT_API_KEY;
 }
 
-function checkAdminAuth(req: NextRequest): boolean {
-  if (!ADMIN_SECRET) return false;
-  const auth = req.headers.get("authorization");
-  if (!auth) return false;
-  const token = auth.replace("Bearer ", "");
-  return token === ADMIN_SECRET;
+function getAgentWalletKey(agentId: string): string | null {
+  const envKey = `AGENT_WALLET_${agentId.toUpperCase().replace(/-/g, "_")}`;
+  return process.env[envKey] || null;
 }
 
 function isInAppRequest(req: NextRequest): boolean {
@@ -115,34 +110,36 @@ export async function POST(req: NextRequest) {
     callbackUrl: callback_url || null,
   });
 
-  // Auto-fund escrow — requires admin auth (your agents only)
+  // Auto-fund escrow from agent's own wallet
   let escrowResult: { onChainId: number; txHash: string } | null = null;
   if (fund) {
-    if (!checkAdminAuth(req)) {
+    const walletKey = getAgentWalletKey(agentId || "default");
+    if (!walletKey) {
       return NextResponse.json({
-        error: "Auto-funding requires admin authorization",
-        hint: "Use Authorization: Bearer <ADMIN_SECRET> to fund tasks, or fund via your own wallet",
-      }, { status: 403 });
-    }
-    if (Number(bounty_usdc) > MAX_FUNDED_BOUNTY) {
-      return NextResponse.json({
-        error: `Auto-fund capped at $${MAX_FUNDED_BOUNTY} per task`,
+        error: `No wallet configured for agent "${agentId}"`,
+        hint: `Set env var AGENT_WALLET_${(agentId || "DEFAULT").toUpperCase()} with the agent's private key`,
       }, { status: 400 });
     }
 
-    escrowResult = await createEscrowTask(
+    escrowResult = await createEscrowTaskWithKey(
+      walletKey,
       description,
       Number(bounty_usdc),
       Number(deadline_hours) || 24,
     );
 
-    if (escrowResult) {
-      task.onChainId = escrowResult.onChainId;
-      task.escrowTxHash = escrowResult.txHash;
-      const redis = getRedis();
-      if (redis) {
-        await redis.set(`task:${task.id}`, JSON.stringify(task));
-      }
+    if (!escrowResult) {
+      return NextResponse.json({
+        error: "Failed to fund — check agent wallet USDC balance",
+        hint: `Send USDC to the agent wallet on World Chain (chainId 480)`,
+      }, { status: 400 });
+    }
+
+    task.onChainId = escrowResult.onChainId;
+    task.escrowTxHash = escrowResult.txHash;
+    const redis = getRedis();
+    if (redis) {
+      await redis.set(`task:${task.id}`, JSON.stringify(task));
     }
   }
 

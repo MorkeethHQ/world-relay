@@ -211,6 +211,72 @@ export async function createEscrowTask(
   }
 }
 
+// ── Agent-funded escrow (uses agent's own wallet key) ───────────
+
+export async function createEscrowTaskWithKey(
+  privateKey: string,
+  description: string,
+  bountyUsdc: number,
+  deadlineHours: number
+): Promise<{ onChainId: number; txHash: string } | null> {
+  const formattedKey = privateKey.startsWith("0x") ? privateKey : `0x${privateKey}`;
+  const account = privateKeyToAccount(formattedKey as `0x${string}`);
+  const client = createWalletClient({ account, chain: worldchain, transport: http(RPC_URL) });
+  const pub = getPublicClient();
+  const bountyWei = parseUnits(bountyUsdc.toString(), 6);
+
+  try {
+    const balance = await pub.readContract({
+      address: USDC_ADDRESS,
+      abi: ERC20_ABI,
+      functionName: "balanceOf",
+      args: [account.address],
+    });
+
+    if (balance < bountyWei) {
+      console.error(`[Escrow] Agent wallet ${account.address} insufficient USDC: have ${formatUnits(balance, 6)}, need ${bountyUsdc}`);
+      return null;
+    }
+
+    const allowance = await pub.readContract({
+      address: USDC_ADDRESS,
+      abi: ERC20_ABI,
+      functionName: "allowance",
+      args: [account.address, ESCROW_ADDRESS],
+    });
+
+    if (allowance < bountyWei) {
+      const approveTx = await client.writeContract({
+        address: USDC_ADDRESS,
+        abi: ERC20_ABI,
+        functionName: "approve",
+        args: [ESCROW_ADDRESS, parseUnits("1000", 6)],
+      });
+      await pub.waitForTransactionReceipt({ hash: approveTx });
+    }
+
+    const countBefore = await pub.readContract({
+      address: ESCROW_ADDRESS,
+      abi: ESCROW_ABI,
+      functionName: "taskCount",
+    });
+
+    const deadline = BigInt(Math.floor(Date.now() / 1000) + deadlineHours * 3600);
+    const txHash = await client.writeContract({
+      address: ESCROW_ADDRESS,
+      abi: ESCROW_ABI,
+      functionName: "createTask",
+      args: [description, bountyWei, deadline],
+    });
+
+    await pub.waitForTransactionReceipt({ hash: txHash });
+    return { onChainId: Number(countBefore), txHash };
+  } catch (err) {
+    console.error("[Escrow] Agent-funded task failed:", err);
+    return null;
+  }
+}
+
 // ── Double-or-Nothing resolution ────────────────────────────────
 
 const DON_ADDRESS = (process.env.NEXT_PUBLIC_DON_ADDRESS || "") as `0x${string}`;
