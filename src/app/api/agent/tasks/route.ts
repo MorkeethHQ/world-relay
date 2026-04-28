@@ -8,6 +8,8 @@ import { createEscrowTask } from "@/lib/escrow";
 import { getRedis } from "@/lib/redis";
 
 const AGENT_API_KEY = process.env.AGENT_API_KEY;
+const ADMIN_SECRET = process.env.ADMIN_SECRET;
+const MAX_FUNDED_BOUNTY = 50; // $50 cap per auto-funded task
 
 function checkAuth(req: NextRequest): boolean {
   if (!AGENT_API_KEY) return false;
@@ -15,6 +17,14 @@ function checkAuth(req: NextRequest): boolean {
   if (!auth) return false;
   const token = auth.replace("Bearer ", "");
   return token === AGENT_API_KEY;
+}
+
+function checkAdminAuth(req: NextRequest): boolean {
+  if (!ADMIN_SECRET) return false;
+  const auth = req.headers.get("authorization");
+  if (!auth) return false;
+  const token = auth.replace("Bearer ", "");
+  return token === ADMIN_SECRET;
 }
 
 function isInAppRequest(req: NextRequest): boolean {
@@ -105,9 +115,21 @@ export async function POST(req: NextRequest) {
     callbackUrl: callback_url || null,
   });
 
-  // Auto-fund escrow if requested
+  // Auto-fund escrow — requires admin auth (your agents only)
   let escrowResult: { onChainId: number; txHash: string } | null = null;
   if (fund) {
+    if (!checkAdminAuth(req)) {
+      return NextResponse.json({
+        error: "Auto-funding requires admin authorization",
+        hint: "Use Authorization: Bearer <ADMIN_SECRET> to fund tasks, or fund via your own wallet",
+      }, { status: 403 });
+    }
+    if (Number(bounty_usdc) > MAX_FUNDED_BOUNTY) {
+      return NextResponse.json({
+        error: `Auto-fund capped at $${MAX_FUNDED_BOUNTY} per task`,
+      }, { status: 400 });
+    }
+
     escrowResult = await createEscrowTask(
       description,
       Number(bounty_usdc),
