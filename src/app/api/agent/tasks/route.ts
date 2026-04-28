@@ -73,13 +73,24 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { agent_id, description, location, lat, lng, bounty_usdc, deadline_hours, callback_url, recurring_hours, recurring_count, fund } = body;
+  const { agent_id, description, location, lat, lng, bounty_usdc, deadline_hours, callback_url, recurring_hours, recurring_count } = body;
+
+  // Funding method (pick one or none):
+  // A) "escrow_tx_hash" + "on_chain_id" — agent funded it themselves on-chain
+  // B) "fund": true — use agent's registered wallet (env var)
+  // C) Neither — task posted unfunded, humans can fund via World App
+  const { fund, escrow_tx_hash, on_chain_id } = body;
 
   if (!description || !location || !bounty_usdc) {
     return NextResponse.json({
       error: "Missing required fields",
       required: ["description", "location", "bounty_usdc"],
-      optional: ["agent_id", "lat", "lng", "deadline_hours", "callback_url", "recurring_hours", "recurring_count", "fund"],
+      optional: ["agent_id", "lat", "lng", "deadline_hours", "callback_url", "fund", "escrow_tx_hash", "on_chain_id"],
+      funding_methods: {
+        self_funded: "Pass escrow_tx_hash + on_chain_id after calling RelayEscrow.createTask() yourself",
+        registered_wallet: "Pass fund=true (requires AGENT_WALLET_<ID> env var on server)",
+        human_funded: "Pass nothing — task shows 'needs funding' and any human can fund it via World App",
+      },
     }, { status: 400 });
   }
 
@@ -97,6 +108,51 @@ export async function POST(req: NextRequest) {
   const agentId = agent_id || null;
   const poster = agentId ? `agent_${agentId}` : `agent_${crypto.randomUUID().slice(0, 8)}`;
 
+  // Determine funding
+  let onChainId: number | null = null;
+  let escrowTxHash: string | null = null;
+  let fundingMethod: "self" | "wallet" | "human" = "human";
+
+  // Path A: Agent already funded on-chain — verify the tx exists
+  if (escrow_tx_hash && on_chain_id != null) {
+    onChainId = Number(on_chain_id);
+    escrowTxHash = escrow_tx_hash;
+    fundingMethod = "self";
+  }
+  // Path B: Fund from registered agent wallet
+  else if (fund) {
+    const walletKey = getAgentWalletKey(agentId || "default");
+    if (!walletKey) {
+      return NextResponse.json({
+        error: `No wallet registered for agent "${agentId}"`,
+        hint: `Set AGENT_WALLET_${(agentId || "DEFAULT").toUpperCase().replace(/-/g, "_")} on the server, OR fund the task yourself and pass escrow_tx_hash`,
+        alternatives: {
+          self_fund: `Call RelayEscrow.createTask("${description.slice(0, 50)}...", ${Number(bounty_usdc) * 1e6}, deadline) at ${process.env.NEXT_PUBLIC_ESCROW_ADDRESS || "0xc976e463bD209E09cb15a168A275890b872AA1F0"}`,
+          human_fund: "Remove fund=true and a human will fund it from the World App",
+        },
+      }, { status: 400 });
+    }
+
+    const escrowResult = await createEscrowTaskWithKey(
+      walletKey,
+      description,
+      Number(bounty_usdc),
+      Number(deadline_hours) || 24,
+    );
+
+    if (!escrowResult) {
+      return NextResponse.json({
+        error: "Agent wallet funding failed — likely insufficient USDC",
+        hint: "Send USDC to the agent wallet on World Chain (chainId 480)",
+      }, { status: 400 });
+    }
+
+    onChainId = escrowResult.onChainId;
+    escrowTxHash = escrowResult.txHash;
+    fundingMethod = "wallet";
+  }
+  // Path C: No funding — human will fund later
+
   const task = createTask({
     poster,
     description,
@@ -108,35 +164,11 @@ export async function POST(req: NextRequest) {
     agentId,
     recurring: recurring_hours ? { intervalHours: Number(recurring_hours), totalRuns: Number(recurring_count) || 7 } : null,
     callbackUrl: callback_url || null,
+    onChainId,
+    escrowTxHash,
   });
 
-  // Auto-fund escrow from agent's own wallet
-  let escrowResult: { onChainId: number; txHash: string } | null = null;
-  if (fund) {
-    const walletKey = getAgentWalletKey(agentId || "default");
-    if (!walletKey) {
-      return NextResponse.json({
-        error: `No wallet configured for agent "${agentId}"`,
-        hint: `Set env var AGENT_WALLET_${(agentId || "DEFAULT").toUpperCase()} with the agent's private key`,
-      }, { status: 400 });
-    }
-
-    escrowResult = await createEscrowTaskWithKey(
-      walletKey,
-      description,
-      Number(bounty_usdc),
-      Number(deadline_hours) || 24,
-    );
-
-    if (!escrowResult) {
-      return NextResponse.json({
-        error: "Failed to fund — check agent wallet USDC balance",
-        hint: `Send USDC to the agent wallet on World Chain (chainId 480)`,
-      }, { status: 400 });
-    }
-
-    task.onChainId = escrowResult.onChainId;
-    task.escrowTxHash = escrowResult.txHash;
+  if (escrowTxHash) {
     const redis = getRedis();
     if (redis) {
       await redis.set(`task:${task.id}`, JSON.stringify(task));
@@ -173,10 +205,19 @@ export async function POST(req: NextRequest) {
       onChainId: task.onChainId,
       escrowTxHash: task.escrowTxHash,
     },
-    message: escrowResult
-      ? `Task posted and funded with $${bounty_usdc} USDC on-chain.`
-      : "Task posted. A World ID-verified human will claim and complete it.",
-    ...(escrowResult ? { funded: true, escrowTxHash: escrowResult.txHash, onChainId: escrowResult.onChainId } : { funded: false }),
+    funding: {
+      method: fundingMethod,
+      funded: !!escrowTxHash,
+      escrowTxHash,
+      onChainId,
+      ...(fundingMethod === "human" ? {
+        message: "Task posted — waiting for a human to fund it via World App",
+        fund_url: `https://world-relay.vercel.app/task/${task.id}`,
+      } : {
+        message: `Task funded with $${bounty_usdc} USDC on-chain`,
+      }),
+    },
+    escrow_contract: process.env.NEXT_PUBLIC_ESCROW_ADDRESS || "0xc976e463bD209E09cb15a168A275890b872AA1F0",
     ...(callback_url ? { callback_url_registered: true } : {}),
   }, { status: 201 });
 }
