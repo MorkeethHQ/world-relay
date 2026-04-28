@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createTask, listTasks } from "@/lib/store";
+import { createTask, listTasks, getTask } from "@/lib/store";
 import { generateLocationBriefing } from "@/lib/ai-chat";
 import { addMessage } from "@/lib/messages";
 import { postTaskCreated } from "@/lib/xmtp";
 import { broadcastEvent } from "@/lib/sse";
+import { createEscrowTask } from "@/lib/escrow";
+import { getRedis } from "@/lib/redis";
 
 const AGENT_API_KEY = process.env.AGENT_API_KEY;
 
@@ -66,13 +68,13 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { agent_id, description, location, lat, lng, bounty_usdc, deadline_hours, callback_url, recurring_hours, recurring_count } = body;
+  const { agent_id, description, location, lat, lng, bounty_usdc, deadline_hours, callback_url, recurring_hours, recurring_count, fund } = body;
 
   if (!description || !location || !bounty_usdc) {
     return NextResponse.json({
       error: "Missing required fields",
       required: ["description", "location", "bounty_usdc"],
-      optional: ["agent_id", "lat", "lng", "deadline_hours", "callback_url", "recurring_hours", "recurring_count"],
+      optional: ["agent_id", "lat", "lng", "deadline_hours", "callback_url", "recurring_hours", "recurring_count", "fund"],
     }, { status: 400 });
   }
 
@@ -103,6 +105,25 @@ export async function POST(req: NextRequest) {
     callbackUrl: callback_url || null,
   });
 
+  // Auto-fund escrow if requested
+  let escrowResult: { onChainId: number; txHash: string } | null = null;
+  if (fund) {
+    escrowResult = await createEscrowTask(
+      description,
+      Number(bounty_usdc),
+      Number(deadline_hours) || 24,
+    );
+
+    if (escrowResult) {
+      task.onChainId = escrowResult.onChainId;
+      task.escrowTxHash = escrowResult.txHash;
+      const redis = getRedis();
+      if (redis) {
+        await redis.set(`task:${task.id}`, JSON.stringify(task));
+      }
+    }
+  }
+
   // Post task creation to XMTP thread
   postTaskCreated(task).catch(console.error);
 
@@ -130,8 +151,13 @@ export async function POST(req: NextRequest) {
       bountyUsdc: task.bountyUsdc,
       deadline: task.deadline,
       status: task.status,
+      onChainId: task.onChainId,
+      escrowTxHash: task.escrowTxHash,
     },
-    message: "Task posted. A World ID-verified human will claim and complete it.",
+    message: escrowResult
+      ? `Task posted and funded with $${bounty_usdc} USDC on-chain.`
+      : "Task posted. A World ID-verified human will claim and complete it.",
+    ...(escrowResult ? { funded: true, escrowTxHash: escrowResult.txHash, onChainId: escrowResult.onChainId } : { funded: false }),
     ...(callback_url ? { callback_url_registered: true } : {}),
   }, { status: 201 });
 }
