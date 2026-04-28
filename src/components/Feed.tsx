@@ -59,6 +59,7 @@ function formatDistance(km: number): string {
 
 function rewardLabel(task: Task): string {
   if (task.escrowTxHash) return `$${task.bountyUsdc} USDC`;
+  if (task.agent && !task.escrowTxHash) return `$${task.bountyUsdc} — needs funding`;
   return `${task.bountyUsdc * 10} pts`;
 }
 
@@ -2312,8 +2313,8 @@ function TaskDetail({
           </div>
         )}
 
-        {/* Fund with USDC — poster can fund an unfunded task */}
-        {currentTask.status === "open" && isPoster && !currentTask.escrowTxHash && isMiniKit() && RELAY_ESCROW_ADDRESS && (
+        {/* Fund with USDC — anyone can fund an unfunded agent task, poster can fund their own */}
+        {currentTask.status === "open" && (isPoster || currentTask.agent) && !currentTask.escrowTxHash && isMiniKit() && RELAY_ESCROW_ADDRESS && (
           <button
             disabled={funding}
             onClick={async () => {
