@@ -387,7 +387,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
     if (tab === "available") {
       // Hide unfunded dev/demo junk — only show funded tasks or user's own claims
       if (t.status === "open") {
-        if (!t.escrowTxHash && t.category !== "feedback") return false;
+        if (!t.escrowTxHash && t.category !== "feedback" && !t.agent) return false;
       }
       else if (t.status === "claimed" && t.claimant === userId) { /* show my active claims */ }
       else return false;
