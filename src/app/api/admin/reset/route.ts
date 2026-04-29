@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getRedis } from "@/lib/redis";
-import { resetCache, createTask } from "@/lib/store";
+import { createTask } from "@/lib/store";
 
 const ADMIN_SECRET = process.env.ADMIN_SECRET;
 
@@ -236,9 +236,7 @@ export async function POST(req: NextRequest) {
   await redis.del("ratelimit:verify").catch(() => {});
   await redis.del("ai_insight_cache").catch(() => {});
 
-  resetCache();
-
-  const created = FRESH_TASKS.map((t) => createTask(t));
+  const created = await Promise.all(FRESH_TASKS.map((t) => createTask(t)));
 
   return NextResponse.json({
     flushed: taskIds.length,

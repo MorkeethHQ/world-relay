@@ -6,14 +6,6 @@ export type { Task, TaskStatus, TaskCategory };
 const TASK_PREFIX = "task:";
 const TASK_LIST_KEY = "task_ids";
 
-const cache: Map<string, Task> = new Map();
-let cacheHydrated = false;
-
-export function resetCache(): void {
-  cache.clear();
-  cacheHydrated = false;
-}
-
 async function persistTask(task: Task): Promise<void> {
   const redis = getRedis();
   if (!redis) return;
@@ -23,64 +15,36 @@ async function persistTask(task: Task): Promise<void> {
   ]);
 }
 
-async function hydrateCache(): Promise<void> {
-  if (cacheHydrated) return;
-  const redis = getRedis();
-  if (!redis) {
-    cacheHydrated = true;
-    return;
+function normalizeTask(task: Task): Task {
+  if (task.agent === undefined) task.agent = null;
+  if ((task as any).aiFollowUp === undefined) task.aiFollowUp = null;
+  if ((task as any).recurring === undefined) task.recurring = null;
+  if ((task as any).callbackUrl === undefined) task.callbackUrl = null;
+  if ((task as any).onChainId === undefined) task.onChainId = null;
+  if ((task as any).escrowTxHash === undefined) task.escrowTxHash = null;
+  if ((task as any).claimCode === undefined) task.claimCode = null;
+  if ((task as any).proofImages === undefined) {
+    (task as any).proofImages = task.proofImageUrl ? [task.proofImageUrl] : null;
   }
-
-  try {
-    const ids = await redis.smembers(TASK_LIST_KEY);
-    if (ids.length === 0) {
-      cacheHydrated = true;
-      return;
-    }
-
-    const pipeline = redis.pipeline();
-    for (const id of ids) {
-      pipeline.get(`${TASK_PREFIX}${id}`);
-    }
-    const results = await pipeline.exec();
-
-    for (const raw of results) {
-      if (!raw) continue;
-      const task: Task = typeof raw === "string" ? JSON.parse(raw) : (raw as Task);
-      if (task.agent === undefined) task.agent = null;
-      if ((task as any).aiFollowUp === undefined) task.aiFollowUp = null;
-      if ((task as any).recurring === undefined) task.recurring = null;
-      if ((task as any).callbackUrl === undefined) task.callbackUrl = null;
-      if ((task as any).onChainId === undefined) task.onChainId = null;
-      if ((task as any).escrowTxHash === undefined) task.escrowTxHash = null;
-      if ((task as any).claimCode === undefined) task.claimCode = null;
-      if ((task as any).proofImages === undefined) {
-        (task as any).proofImages = task.proofImageUrl ? [task.proofImageUrl] : null;
-      }
-      if ((task as any).claimantVerification === undefined) {
-        (task as any).claimantVerification = null;
-      }
-      if ((task as any).taskType === undefined) {
-        (task as any).taskType = "standard";
-      }
-      if ((task as any).donOnChainId === undefined) {
-        (task as any).donOnChainId = null;
-      }
-      if ((task as any).donStakeTxHash === undefined) {
-        (task as any).donStakeTxHash = null;
-      }
-      if ((task as any).requiresClaim === undefined) {
-        (task as any).requiresClaim = false;
-      }
-      cache.set(task.id, task);
-    }
-  } catch (err) {
-    console.error("[Store] Redis hydration failed, using in-memory cache:", err);
+  if ((task as any).claimantVerification === undefined) {
+    (task as any).claimantVerification = null;
   }
-  cacheHydrated = true;
+  if ((task as any).taskType === undefined) {
+    (task as any).taskType = "standard";
+  }
+  if ((task as any).donOnChainId === undefined) {
+    (task as any).donOnChainId = null;
+  }
+  if ((task as any).donStakeTxHash === undefined) {
+    (task as any).donStakeTxHash = null;
+  }
+  if ((task as any).requiresClaim === undefined) {
+    (task as any).requiresClaim = false;
+  }
+  return task;
 }
 
-export function createTask(input: {
+export async function createTask(input: {
   poster: string;
   category?: TaskCategory;
   description: string;
@@ -98,7 +62,7 @@ export function createTask(input: {
   taskType?: TaskType;
   donOnChainId?: number | null;
   requiresClaim?: boolean;
-}): Task {
+}): Promise<Task> {
   const id = crypto.randomUUID();
   const agent = input.agentId ? getAgent(input.agentId) : null;
   const recurring: RecurringConfig | null = input.recurring
@@ -140,21 +104,20 @@ export function createTask(input: {
     requiresClaim: input.requiresClaim ?? false,
     createdAt: new Date().toISOString(),
   };
-  cache.set(id, task);
-  persistTask(task).catch(console.error);
+  await persistTask(task);
   return task;
 }
 
-export function spawnRecurringTask(completedTask: Task): Task | null {
+export async function spawnRecurringTask(completedTask: Task): Promise<Task | null> {
   if (!completedTask.recurring) return null;
   const newCompletedRuns = completedTask.recurring.completedRuns + 1;
 
   completedTask.recurring.completedRuns = newCompletedRuns;
-  persistTask(completedTask).catch(console.error);
+  await persistTask(completedTask);
 
   if (newCompletedRuns >= completedTask.recurring.totalRuns) return null;
 
-  const next = createTask({
+  const next = await createTask({
     poster: completedTask.poster,
     category: completedTask.category,
     description: completedTask.description,
@@ -172,33 +135,27 @@ export function spawnRecurringTask(completedTask: Task): Task | null {
   });
 
   next.recurring!.completedRuns = newCompletedRuns;
-  persistTask(next).catch(console.error);
+  await persistTask(next);
   return next;
 }
 
-/** Insert a fully-formed Task into the cache + Redis. Used for seeding demo data. */
-export function seedTask(task: Task): void {
-  cache.set(task.id, task);
-  persistTask(task).catch(console.error);
+export async function seedTask(task: Task): Promise<void> {
+  await persistTask(task);
 }
 
 export async function hasAgentTasks(): Promise<boolean> {
-  await hydrateCache();
-  return Array.from(cache.values()).some(t => t.agent !== null && t.agent !== undefined);
+  const tasks = await listTasks();
+  return tasks.some(t => t.agent !== null && t.agent !== undefined);
 }
 
 export async function getTask(id: string): Promise<Task | undefined> {
-  await hydrateCache();
-  if (cache.has(id)) return cache.get(id);
-
   const redis = getRedis();
   if (!redis) return undefined;
   try {
     const raw = await redis.get(`${TASK_PREFIX}${id}`);
     if (!raw) return undefined;
     const task: Task = typeof raw === "string" ? JSON.parse(raw) : (raw as Task);
-    cache.set(id, task);
-    return task;
+    return normalizeTask(task);
   } catch (err) {
     console.error(`[Store] Redis get failed for task ${id}:`, err);
     return undefined;
@@ -206,10 +163,32 @@ export async function getTask(id: string): Promise<Task | undefined> {
 }
 
 export async function listTasks(): Promise<Task[]> {
-  await hydrateCache();
-  return Array.from(cache.values()).sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-  );
+  const redis = getRedis();
+  if (!redis) return [];
+  try {
+    const ids = await redis.smembers(TASK_LIST_KEY);
+    if (ids.length === 0) return [];
+
+    const pipeline = redis.pipeline();
+    for (const id of ids) {
+      pipeline.get(`${TASK_PREFIX}${id}`);
+    }
+    const results = await pipeline.exec();
+
+    const tasks: Task[] = [];
+    for (const raw of results) {
+      if (!raw) continue;
+      const task: Task = typeof raw === "string" ? JSON.parse(raw) : (raw as Task);
+      tasks.push(normalizeTask(task));
+    }
+
+    return tasks.sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+  } catch (err) {
+    console.error("[Store] Redis listTasks failed:", err);
+    return [];
+  }
 }
 
 export async function claimTask(
@@ -223,7 +202,7 @@ export async function claimTask(
   task.claimant = claimant;
   task.status = "claimed";
   task.claimantVerification = verificationLevel ?? null;
-  persistTask(task).catch(console.error);
+  await persistTask(task);
   return task;
 }
 
@@ -238,7 +217,7 @@ export async function submitProof(
   task.proofImageUrl = proofImageUrl;
   task.proofImages = proofImages && proofImages.length > 0 ? proofImages : proofImageUrl ? [proofImageUrl] : null;
   task.proofNote = proofNote;
-  persistTask(task).catch(console.error);
+  await persistTask(task);
   return task;
 }
 
@@ -259,7 +238,7 @@ export async function completeTask(
     task.proofImages = null;
     task.proofNote = null;
   }
-  persistTask(task).catch(console.error);
+  await persistTask(task);
   return task;
 }
 
@@ -268,7 +247,7 @@ export async function setOnChainId(id: string, onChainId: number, escrowTxHash: 
   if (!task) return null;
   task.onChainId = onChainId;
   task.escrowTxHash = escrowTxHash;
-  persistTask(task).catch(console.error);
+  await persistTask(task);
   return task;
 }
 
@@ -276,7 +255,7 @@ export async function setDonStakeTxHash(id: string, txHash: string): Promise<Tas
   const task = await getTask(id);
   if (!task) return null;
   task.donStakeTxHash = txHash;
-  persistTask(task).catch(console.error);
+  await persistTask(task);
   return task;
 }
 
@@ -284,7 +263,7 @@ export async function setAttestationHash(id: string, txHash: string): Promise<Ta
   const task = await getTask(id);
   if (!task) return null;
   task.attestationTxHash = txHash;
-  persistTask(task).catch(console.error);
+  await persistTask(task);
   return task;
 }
 
@@ -303,7 +282,7 @@ export async function posterConfirm(id: string, approved: boolean): Promise<Task
     task.verificationResult = null;
   }
   task.aiFollowUp = null;
-  persistTask(task).catch(console.error);
+  await persistTask(task);
   return task;
 }
 
@@ -311,7 +290,7 @@ export async function setFollowUp(id: string, question: string, confidence: numb
   const task = await getTask(id);
   if (!task) return null;
   task.aiFollowUp = { question, status: "pending", initialConfidence: confidence };
-  persistTask(task).catch(console.error);
+  await persistTask(task);
   return task;
 }
 
@@ -333,6 +312,6 @@ export async function resolveFollowUp(
     task.proofImages = null;
     task.proofNote = null;
   }
-  persistTask(task).catch(console.error);
+  await persistTask(task);
   return task;
 }

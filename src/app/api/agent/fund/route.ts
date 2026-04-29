@@ -90,7 +90,7 @@ export async function POST(req: NextRequest) {
   const agentId = agent_id || null;
   const poster = agentId ? `agent_${agentId}` : `agent_${agent_wallet.slice(2, 10)}`;
 
-  const task = createTask({
+  const task = await createTask({
     poster,
     description,
     location,

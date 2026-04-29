@@ -310,7 +310,7 @@ describe("E2E Anthropic API tests", () => {
       "creates a task, generates briefing, and verifies proof end-to-end",
       async () => {
         // Step 1: Create a task via the store
-        const task = createTask({
+        const task = await createTask({
           poster: "0xLifecyclePoster",
           category: "photo",
           description:

@@ -128,7 +128,7 @@ async function handleToolCall(
     const bounty = Number(toolInput.bountyUsdc) || 3;
     const cat = String(toolInput.category || "custom") as "photo" | "check-in" | "delivery" | "custom";
 
-    const task = createTask({
+    const task = await createTask({
       poster: userId || "chat-user",
       category: cat,
       description: desc,

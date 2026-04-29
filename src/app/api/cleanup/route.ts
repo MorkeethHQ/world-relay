@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getRedis } from "@/lib/redis";
-import { listTasks, resetCache } from "@/lib/store";
+import { listTasks } from "@/lib/store";
 
 const ADMIN_SECRET = process.env.ADMIN_SECRET;
 
@@ -45,8 +45,6 @@ export async function POST(req: NextRequest) {
     await redis.srem("task_ids", t.id);
     await redis.del(`msgs:${t.id}`);
   }
-
-  resetCache();
 
   return NextResponse.json({
     deleted: toDelete.length,

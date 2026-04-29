@@ -14,7 +14,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const ip = getClientIp(req);
-  const { ok } = rateLimit(`create:${ip}`, 5, 60_000);
+  const { ok } = await rateLimit(`create:${ip}`, 5, 60_000);
   if (!ok) {
     return NextResponse.json({ error: "Too many requests. Try again in a minute." }, { status: 429 });
   }
@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
 
   const resolvedAgentId = agentId || (poster?.startsWith("agent:") ? poster.replace("agent:", "") : null);
 
-  const task = createTask({
+  const task = await createTask({
     poster,
     category: category || "custom",
     description,

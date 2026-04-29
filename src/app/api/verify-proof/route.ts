@@ -46,7 +46,7 @@ const MAX_BASE64_SIZE = 5 * 1024 * 1024; // 5MB per image
 
 export async function POST(req: NextRequest) {
   const ip = getClientIp(req);
-  const { ok } = rateLimit(`verify:${ip}`, 10, 60_000);
+  const { ok } = await rateLimit(`verify:${ip}`, 10, 60_000);
   if (!ok) {
     return NextResponse.json({ error: "Too many requests. Try again in a minute." }, { status: 429 });
   }
@@ -254,7 +254,7 @@ export async function POST(req: NextRequest) {
   if (result.verdict === "pass") {
     const updatedTask = await getTask(taskId);
     if (updatedTask?.recurring) {
-      const next = spawnRecurringTask(updatedTask);
+      const next = await spawnRecurringTask(updatedTask);
       if (next) nextRecurringTaskId = next.id;
     }
   }

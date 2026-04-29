@@ -23,7 +23,7 @@ export async function POST(
   const { id } = await params;
 
   const ip = getClientIp(req);
-  const { ok } = rateLimit(`escalate:${ip}`, 5, 60_000);
+  const { ok } = await rateLimit(`escalate:${ip}`, 5, 60_000);
   if (!ok) {
     return NextResponse.json({ error: "Too many requests" }, { status: 429 });
   }

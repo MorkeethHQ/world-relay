@@ -1,13 +1,40 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { createTask, getTask, listTasks, claimTask, submitProof, completeTask, resetCache } from "@/lib/store";
+import { describe, it, expect, beforeEach, vi } from "vitest";
+import { createTask, getTask, listTasks, claimTask, submitProof, completeTask } from "@/lib/store";
+
+// Mock Redis with an in-memory implementation for tests
+const mockStore = new Map<string, string>();
+const mockSets = new Map<string, Set<string>>();
+
+vi.mock("@/lib/redis", () => ({
+  getRedis: () => ({
+    set: async (key: string, value: string) => { mockStore.set(key, value); },
+    get: async (key: string) => mockStore.get(key) || null,
+    del: async (key: string) => { mockStore.delete(key); },
+    sadd: async (key: string, member: string) => {
+      if (!mockSets.has(key)) mockSets.set(key, new Set());
+      mockSets.get(key)!.add(member);
+    },
+    smembers: async (key: string) => Array.from(mockSets.get(key) || []),
+    pipeline: () => {
+      const ops: Array<() => any> = [];
+      return {
+        get: (key: string) => { ops.push(() => mockStore.get(key) || null); },
+        exec: async () => ops.map(op => op()),
+      };
+    },
+    pexpire: async () => {},
+    incr: async () => 1,
+  }),
+}));
 
 beforeEach(() => {
-  resetCache();
+  mockStore.clear();
+  mockSets.clear();
 });
 
 describe("createTask", () => {
-  it("creates a task with correct defaults", () => {
-    const task = createTask({
+  it("creates a task with correct defaults", async () => {
+    const task = await createTask({
       poster: "agent:shelfwatch",
       description: "Check if Blue Bottle is open",
       location: "Paris, Le Marais",
@@ -27,9 +54,9 @@ describe("createTask", () => {
     expect(task.verificationResult).toBeNull();
   });
 
-  it("sets deadline correctly", () => {
+  it("sets deadline correctly", async () => {
     const before = Date.now();
-    const task = createTask({
+    const task = await createTask({
       poster: "test",
       description: "test",
       location: "test",
@@ -43,8 +70,8 @@ describe("createTask", () => {
     expect(deadline).toBeLessThanOrEqual(after + 2 * 3600_000);
   });
 
-  it("resolves agent from agentId", () => {
-    const task = createTask({
+  it("resolves agent from agentId", async () => {
+    const task = await createTask({
       poster: "agent:shelfwatch",
       description: "test",
       location: "test",
@@ -58,8 +85,8 @@ describe("createTask", () => {
     expect(task.agent!.icon).toBe("🏷️");
   });
 
-  it("sets escrow fields when provided", () => {
-    const task = createTask({
+  it("sets escrow fields when provided", async () => {
+    const task = await createTask({
       poster: "agent:test",
       description: "funded task",
       location: "test",
@@ -76,7 +103,7 @@ describe("createTask", () => {
 
 describe("getTask", () => {
   it("returns created task by id", async () => {
-    const created = createTask({
+    const created = await createTask({
       poster: "test",
       description: "findme",
       location: "test",
@@ -98,9 +125,9 @@ describe("getTask", () => {
 
 describe("listTasks", () => {
   it("returns all created tasks", async () => {
-    createTask({ poster: "a", description: "first", location: "x", bountyUsdc: 1, deadlineHours: 1 });
-    createTask({ poster: "b", description: "second", location: "x", bountyUsdc: 1, deadlineHours: 1 });
-    createTask({ poster: "c", description: "third", location: "x", bountyUsdc: 1, deadlineHours: 1 });
+    await createTask({ poster: "a", description: "first", location: "x", bountyUsdc: 1, deadlineHours: 1 });
+    await createTask({ poster: "b", description: "second", location: "x", bountyUsdc: 1, deadlineHours: 1 });
+    await createTask({ poster: "c", description: "third", location: "x", bountyUsdc: 1, deadlineHours: 1 });
 
     const tasks = await listTasks();
     expect(tasks.length).toBe(3);
@@ -113,7 +140,7 @@ describe("listTasks", () => {
 
 describe("claimTask", () => {
   it("claims an open task", async () => {
-    const task = createTask({
+    const task = await createTask({
       poster: "poster1",
       description: "claimable",
       location: "test",
@@ -129,7 +156,7 @@ describe("claimTask", () => {
   });
 
   it("prevents self-claim", async () => {
-    const task = createTask({
+    const task = await createTask({
       poster: "poster1",
       description: "self-claim",
       location: "test",
@@ -142,7 +169,7 @@ describe("claimTask", () => {
   });
 
   it("prevents double-claim", async () => {
-    const task = createTask({
+    const task = await createTask({
       poster: "poster1",
       description: "double",
       location: "test",
@@ -158,7 +185,7 @@ describe("claimTask", () => {
 
 describe("submitProof", () => {
   it("attaches proof to claimed task", async () => {
-    const task = createTask({
+    const task = await createTask({
       poster: "p",
       description: "proof test",
       location: "x",
@@ -175,7 +202,7 @@ describe("submitProof", () => {
   });
 
   it("rejects proof on unclaimed task", async () => {
-    const task = createTask({
+    const task = await createTask({
       poster: "p",
       description: "not claimed",
       location: "x",
@@ -190,7 +217,7 @@ describe("submitProof", () => {
 
 describe("completeTask", () => {
   it("completes task with pass verdict", async () => {
-    const task = createTask({
+    const task = await createTask({
       poster: "p",
       description: "complete me",
       location: "x",
@@ -212,7 +239,7 @@ describe("completeTask", () => {
   });
 
   it("resets task on fail verdict", async () => {
-    const task = createTask({
+    const task = await createTask({
       poster: "p",
       description: "fail me",
       location: "x",

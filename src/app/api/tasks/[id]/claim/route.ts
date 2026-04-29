@@ -42,7 +42,7 @@ export async function POST(
   const { id } = await params;
 
   const ip = getClientIp(req);
-  const { ok } = rateLimit(`claim:${ip}`, 10, 60_000);
+  const { ok } = await rateLimit(`claim:${ip}`, 10, 60_000);
   if (!ok) {
     return NextResponse.json({ error: "Too many requests. Try again in a minute." }, { status: 429 });
   }

@@ -153,7 +153,7 @@ export async function POST(req: NextRequest) {
   }
   // Path C: No funding — human will fund later
 
-  const task = createTask({
+  const task = await createTask({
     poster,
     description,
     location,
