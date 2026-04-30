@@ -7,7 +7,11 @@ const mockSets = new Map<string, Set<string>>();
 
 vi.mock("@/lib/redis", () => ({
   getRedis: () => ({
-    set: async (key: string, value: string) => { mockStore.set(key, value); },
+    set: async (key: string, value: string, opts?: any) => {
+      if (opts?.nx && mockStore.has(key)) return null;
+      mockStore.set(key, value);
+      return "OK";
+    },
     get: async (key: string) => mockStore.get(key) || null,
     del: async (key: string) => { mockStore.delete(key); },
     sadd: async (key: string, member: string) => {

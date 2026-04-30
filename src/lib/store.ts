@@ -196,14 +196,25 @@ export async function claimTask(
   claimant: string,
   verificationLevel?: "orb" | "device" | "wallet" | null,
 ): Promise<Task | null> {
-  const task = await getTask(id);
-  if (!task || task.status !== "open") return null;
-  if (task.poster === claimant) return null;
-  task.claimant = claimant;
-  task.status = "claimed";
-  task.claimantVerification = verificationLevel ?? null;
-  await persistTask(task);
-  return task;
+  const redis = getRedis();
+  if (!redis) return null;
+
+  const lockKey = `lock:claim:${id}`;
+  const acquired = await redis.set(lockKey, "1", { nx: true, px: 10000 });
+  if (!acquired) return null;
+
+  try {
+    const task = await getTask(id);
+    if (!task || task.status !== "open") return null;
+    if (task.poster === claimant) return null;
+    task.claimant = claimant;
+    task.status = "claimed";
+    task.claimantVerification = verificationLevel ?? null;
+    await persistTask(task);
+    return task;
+  } finally {
+    await redis.del(lockKey);
+  }
 }
 
 export async function submitProof(

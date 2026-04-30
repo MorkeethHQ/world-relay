@@ -61,6 +61,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Submitter identity required" }, { status: 401 });
   }
 
+  // Prevent double-verification race condition
+  const redis = getRedis();
+  if (redis && taskId) {
+    const verifyLock = `lock:verify:${taskId}`;
+    const acquired = await redis.set(verifyLock, "1", { nx: true, px: 120000 });
+    if (!acquired) {
+      return NextResponse.json({ error: "Verification already in progress" }, { status: 409 });
+    }
+  }
+
   // Accept proofImages array, fall back to single proofImageBase64
   let proofImages: string[] = body.proofImages || [];
   if (proofImages.length === 0 && proofImageBase64) {
@@ -145,11 +155,19 @@ export async function POST(req: NextRequest) {
     } else if (useRealVerification) {
       result = await verifyProof(task.description, proofImages, proofNote, task.category, task.agent?.id);
     } else {
-      result = verifyProofStub(task.description, proofImages[0]);
+      if (task.escrowTxHash) {
+        result = { verdict: "flag", reasoning: "AI verification unavailable — funded task requires manual review.", confidence: 0 };
+      } else {
+        result = verifyProofStub(task.description, proofImages[0]);
+      }
     }
   } catch (err) {
-    console.error("AI verification error, falling back to stub:", err);
-    result = verifyProofStub(task.description, proofImages[0]);
+    console.error("AI verification error, falling back to safe mode:", err);
+    if (task.escrowTxHash) {
+      result = { verdict: "flag", reasoning: "AI verification error — funded task flagged for manual review.", confidence: 0 };
+    } else {
+      result = verifyProofStub(task.description, proofImages[0]);
+    }
   }
 
 
