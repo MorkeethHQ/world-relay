@@ -26,7 +26,7 @@ async function sendNotification(
         wallet_addresses: validAddresses,
         title: title.slice(0, 30),
         message: message.slice(0, 200),
-        ...(path ? { mini_app_path: `worldapp://mini-app?app_id=${appId}&path=${path}` } : {}),
+        ...(path ? { mini_app_path: path } : {}),
       }),
     });
 

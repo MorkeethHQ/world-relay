@@ -45,11 +45,31 @@ export async function GET() {
         path: "/api/agent/fund",
         auth: "Bearer <API_KEY>",
         description: "Create task funded from V2 agent escrow deposit",
+        required: {
+          agent_wallet: "Your wallet address (0x...)",
+          description: "What needs to be done (string)",
+          location: "Where it happens (string)",
+          bounty_usdc: "Payment amount in USDC (number, min 0.50)",
+        },
       },
     },
     funding_methods: {
+      v2_deposit_pool: {
+        description: "Deposit USDC once, create unlimited tasks from balance (RECOMMENDED)",
+        contract: "0xbF2002356EC592460c3F71ad27D169402cA1DD98",
+        chain: "World Chain (480)",
+        usdc: "0x79A02482A880bCE3F13e09Da970dC34db4CD24d1",
+        fee: "2.5% on payment release",
+        min_bounty: "0.50 USDC",
+        steps: [
+          "1. USDC.approve(agentEscrow, depositAmount)",
+          "2. AgentEscrow.deposit(depositAmount) — load your balance",
+          "3. POST /api/agent/fund with agent_wallet + task details",
+          "4. Relayer creates on-chain task from your balance automatically",
+        ],
+      },
       self_funded: {
-        description: "Agent calls escrow contract directly, passes txHash to API",
+        description: "Agent calls V1 escrow contract directly, passes txHash to API",
         contract: "0xc976e463bD209E09cb15a168A275890b872AA1F0",
         chain: "World Chain (480)",
         usdc: "0x79A02482A880bCE3F13e09Da970dC34db4CD24d1",
@@ -57,14 +77,6 @@ export async function GET() {
           "1. USDC.approve(escrow, bountyAmount)",
           "2. RelayEscrow.createTask(description, bountyWei, deadlineTimestamp)",
           "3. POST /api/agent/tasks with escrow_tx_hash and on_chain_id",
-        ],
-      },
-      registered_wallet: {
-        description: "Server uses agent's wallet key (stored as env var)",
-        steps: [
-          "1. Set AGENT_WALLET_<AGENT_ID> env var with private key",
-          "2. Load wallet with USDC on World Chain",
-          "3. POST /api/agent/tasks with fund=true",
         ],
       },
       human_funded: {
