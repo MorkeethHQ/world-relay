@@ -29,15 +29,23 @@ Tasks may require photos, text reports, price checks, reviews, or research. You 
 - A task description (what was requested)
 - Proof: one or more photos AND/OR a written text response
 
-For PHOTO proofs, evaluate:
-- Do the photos show what the task asked for?
-- Are they clearly real photos (not screenshots, stock images, or AI-generated)?
-- Do they contain relevant context (location cues, timestamps, objects mentioned)?
+For PHOTO proofs, evaluate STRICTLY:
+1. AUTHENTICITY — Is this a genuine camera photo taken by the claimant?
+   - FAIL if it looks AI-generated (smooth textures, impossible details, DALL-E/Midjourney artifacts, too-perfect composition)
+   - FAIL if it's a screenshot of another photo, a photo of a screen, or clearly downloaded
+   - FAIL if it appears to be a stock photo (watermarks, overly professional staging)
+   - FLAG if the lighting/shadows are inconsistent or metadata seems wrong
+2. RELEVANCE — Does it show what the task asked for?
+   - Look for specific details mentioned in the task (store name, sign text, location markers)
+   - Check that environmental context is consistent (weather, time of day, surroundings)
+3. FRESHNESS — Does it appear to be taken recently/now?
+   - Look for current-date indicators (newspaper dates, digital displays, seasonal cues)
+   - FLAG if the photo could easily be months/years old
 
 For TEXT proofs (no photos), evaluate:
 - Does the response answer what the task asked?
 - Is it specific enough to be credible (names, numbers, details)?
-- Does it seem like firsthand observation vs. generic info?
+- Does it seem like firsthand observation vs. generic info from the internet?
 
 Respond with JSON only:
 {
@@ -46,11 +54,12 @@ Respond with JSON only:
   "confidence": 0.0-1.0
 }
 
-- "pass": The proof clearly demonstrates the task was completed
-- "flag": Ambiguous — could be valid but needs human review
-- "fail": The proof clearly does not match the task
+- "pass": Photo is clearly authentic AND shows the task was completed
+- "flag": Could be valid but has authenticity concerns — needs human review
+- "fail": Photo is fake, AI-generated, stolen, or does not match the task
 
-Be strict but fair. When in doubt, flag rather than fail.`;
+IMPORTANT: Real USDC payments are released based on your verdict. Err heavily on the side of caution.
+When in doubt, FLAG. Only PASS when you are confident the photo is authentic and task-relevant.`;
 
 function extractJson(text: string): string {
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);

@@ -16,6 +16,14 @@ import { uploadProofImage } from "@/lib/image-upload";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 
 const RATE_LIMIT_KEY = "ratelimit:verify";
+
+async function computeImageHash(base64: string): Promise<string> {
+  const sample = base64.slice(0, 2000) + base64.slice(-2000) + base64.length.toString();
+  const encoder = new TextEncoder();
+  const data = encoder.encode(sample);
+  const hash = await crypto.subtle.digest("SHA-256", data);
+  return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, "0")).join("");
+}
 const MAX_VERIFICATIONS_PER_HOUR = 100;
 
 async function checkRateLimit(): Promise<boolean> {
@@ -91,6 +99,18 @@ export async function POST(req: NextRequest) {
 
   if (!taskId || (proofImages.length === 0 && !proofNote)) {
     return NextResponse.json({ error: "Missing taskId or proof (image or note)" }, { status: 400 });
+  }
+
+  // Duplicate image detection — hash first image and check if reused
+  let duplicateWarning: string | null = null;
+  if (proofImages.length > 0 && redis) {
+    const imgHash = await computeImageHash(proofImages[0]);
+    const hashKey = `proofhash:${imgHash}`;
+    const existing = await redis.get(hashKey);
+    if (existing && existing !== taskId) {
+      duplicateWarning = `Same image was submitted for task ${existing}`;
+    }
+    await redis.set(hashKey, taskId, { ex: 86400 * 30 });
   }
 
   const task = await getTask(taskId);
@@ -170,6 +190,11 @@ export async function POST(req: NextRequest) {
     }
   }
 
+
+  // Force flag if duplicate image detected
+  if (duplicateWarning && result.verdict === "pass") {
+    result = { ...result, verdict: "flag", reasoning: `${result.reasoning} | WARNING: ${duplicateWarning}`, confidence: Math.min(result.confidence, 0.5) };
+  }
 
   // Append claimant verification level and trust score to reasoning
   if (task.claimant) {

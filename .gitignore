@@ -48,3 +48,6 @@ next-env.d.ts
 # foundry build artifacts
 contracts/out/
 contracts/cache/
+mcp-server/node_modules/
+sdks/python/__pycache__/
+sdks/python/*.egg-info/
