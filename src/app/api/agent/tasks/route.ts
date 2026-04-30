@@ -6,16 +6,7 @@ import { postTaskCreated } from "@/lib/xmtp";
 import { broadcastEvent } from "@/lib/sse";
 import { createEscrowTaskWithKey } from "@/lib/escrow";
 import { getRedis } from "@/lib/redis";
-
-const AGENT_API_KEY = process.env.AGENT_API_KEY;
-
-function checkAuth(req: NextRequest): boolean {
-  if (!AGENT_API_KEY) return false;
-  const auth = req.headers.get("authorization");
-  if (!auth) return false;
-  const token = auth.replace("Bearer ", "");
-  return token === AGENT_API_KEY;
-}
+import { checkAgentAuth } from "@/lib/api-keys";
 
 function getAgentWalletKey(agentId: string): string | null {
   const envKey = `AGENT_WALLET_${agentId.toUpperCase().replace(/-/g, "_")}`;
@@ -45,30 +36,76 @@ function isInAppRequest(req: NextRequest): boolean {
 }
 
 export async function GET(req: NextRequest) {
-  if (!isInAppRequest(req) && !checkAuth(req)) {
+  const auth = await checkAgentAuth(req);
+  if (!isInAppRequest(req) && !auth.authenticated) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const tasks = await listTasks();
-  const openTasks = tasks.filter((t) => t.status === "open");
+  const url = new URL(req.url);
+  const statusFilter = url.searchParams.get("status") || "open";
+  const agentId = url.searchParams.get("agent_id") || null;
+  const limit = Math.min(Math.max(Number(url.searchParams.get("limit")) || 50, 1), 200);
+  const offset = Math.max(Number(url.searchParams.get("offset")) || 0, 0);
+
+  const allTasks = await listTasks();
+
+  // Filter by status
+  let filtered = allTasks;
+  if (statusFilter !== "all") {
+    filtered = filtered.filter((t) => t.status === statusFilter);
+  }
+
+  // Filter by agent_id (poster matches agent_<id> or agent:<id>)
+  if (agentId) {
+    filtered = filtered.filter(
+      (t) => t.poster === `agent_${agentId}` || t.poster === `agent:${agentId}`
+    );
+  }
+
+  const total = filtered.length;
+  const paged = filtered.slice(offset, offset + limit);
 
   return NextResponse.json({
-    tasks: openTasks.map((t) => ({
-      id: t.id,
-      description: t.description,
-      location: t.location,
-      lat: t.lat,
-      lng: t.lng,
-      bountyUsdc: t.bountyUsdc,
-      deadline: t.deadline,
-      status: t.status,
-      createdAt: t.createdAt,
-    })),
+    tasks: paged.map((t) => {
+      const base: Record<string, unknown> = {
+        id: t.id,
+        description: t.description,
+        location: t.location,
+        lat: t.lat,
+        lng: t.lng,
+        bountyUsdc: t.bountyUsdc,
+        deadline: t.deadline,
+        status: t.status,
+        createdAt: t.createdAt,
+      };
+
+      // Include extra fields for completed/failed tasks
+      if (t.status === "completed" || t.status === "failed") {
+        base.claimant = t.claimant;
+        base.proofImageUrl = t.proofImageUrl;
+        base.attestationTxHash = t.attestationTxHash;
+        if (t.verificationResult) {
+          base.verificationResult = {
+            verdict: t.verificationResult.verdict,
+            confidence: t.verificationResult.confidence,
+          };
+        }
+      }
+
+      return base;
+    }),
+    pagination: {
+      total,
+      limit,
+      offset,
+      hasMore: offset + limit < total,
+    },
   });
 }
 
 export async function POST(req: NextRequest) {
-  if (!checkAuth(req)) {
+  const auth = await checkAgentAuth(req);
+  if (!auth.authenticated) {
     return NextResponse.json({ error: "Unauthorized", hint: "Pass your API key as: Authorization: Bearer <key>" }, { status: 401 });
   }
 

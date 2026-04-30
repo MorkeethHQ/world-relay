@@ -113,6 +113,7 @@ export async function GET() {
       description: "Your agent can't verify something in the real world. Post a task:",
       code: 'curl -X POST https://world-relay.vercel.app/api/agent/tasks -H "Authorization: Bearer KEY" -H "Content-Type: application/json" -d \'{"agent_id":"my-bot","description":"Photo the opening hours sign at 12 Rue de Rivoli","location":"Paris","bounty_usdc":3}\'',
     },
+    openapi_spec: "/api/agent/openapi.json",
     docs: "https://github.com/MorkeethHQ/world-relay/blob/main/AGENT.md",
   });
 }

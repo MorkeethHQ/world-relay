@@ -8,6 +8,7 @@ export type SSEEventType =
   | "task:completed"
   | "task:failed"
   | "task:expired"
+  | "task:cancelled"
   | "task:disputed";
 
 export interface SSEEventPayload {

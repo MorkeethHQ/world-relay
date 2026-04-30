@@ -4,19 +4,12 @@ import { createTask } from "@/lib/store";
 import { postTaskCreated } from "@/lib/xmtp";
 import { broadcastEvent } from "@/lib/sse";
 import { getRedis } from "@/lib/redis";
-
-const AGENT_API_KEY = process.env.AGENT_API_KEY;
-
-function checkAuth(req: NextRequest): boolean {
-  if (!AGENT_API_KEY) return false;
-  const auth = req.headers.get("authorization");
-  if (!auth) return false;
-  return auth.replace("Bearer ", "") === AGENT_API_KEY;
-}
+import { checkAgentAuth } from "@/lib/api-keys";
 
 // GET /api/agent/fund — check agent's deposited balance
 export async function GET(req: NextRequest) {
-  if (!checkAuth(req)) {
+  const auth = await checkAgentAuth(req);
+  if (!auth.authenticated) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -46,7 +39,8 @@ export async function GET(req: NextRequest) {
 
 // POST /api/agent/fund — create a task funded from agent's deposited balance
 export async function POST(req: NextRequest) {
-  if (!checkAuth(req)) {
+  const auth = await checkAgentAuth(req);
+  if (!auth.authenticated) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

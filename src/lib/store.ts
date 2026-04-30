@@ -191,6 +191,18 @@ export async function listTasks(): Promise<Task[]> {
   }
 }
 
+export async function cancelTask(id: string, poster: string): Promise<Task | null> {
+  const task = await getTask(id);
+  if (!task) return null;
+  // Only the poster can cancel
+  if (task.poster !== poster) return null;
+  // Can only cancel open or claimed tasks (not completed/expired/failed/cancelled)
+  if (task.status !== "open" && task.status !== "claimed") return null;
+  task.status = "cancelled";
+  await persistTask(task);
+  return task;
+}
+
 export async function claimTask(
   id: string,
   claimant: string,

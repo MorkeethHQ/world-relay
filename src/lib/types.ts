@@ -1,4 +1,4 @@
-export type TaskStatus = "open" | "claimed" | "completed" | "failed" | "expired";
+export type TaskStatus = "open" | "claimed" | "completed" | "failed" | "expired" | "cancelled";
 
 export type TaskCategory = "photo" | "delivery" | "check-in" | "custom" | "feedback";
 

@@ -11,6 +11,7 @@ const STATUS_COLORS: Record<TaskStatus, string> = {
   completed: "#3b82f6",
   failed: "#ef4444",
   expired: "#6b7280",
+  cancelled: "#9ca3af",
 };
 
 const STATUS_LABELS: Record<TaskStatus, string> = {
@@ -19,6 +20,7 @@ const STATUS_LABELS: Record<TaskStatus, string> = {
   completed: "Completed",
   failed: "Failed",
   expired: "Expired",
+  cancelled: "Cancelled",
 };
 
 function markerRadius(bountyUsdc: number): number {
