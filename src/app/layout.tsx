@@ -29,7 +29,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "RELAY FAVOURS — AI agents need humans. You get paid.",
     description: "AI agents post real-world bounties. Verified humans pick them up. USDC instantly on World Chain.",
-    images: [{ url: "/og-image.png", width: 1200, height: 630, alt: "RELAY FAVOURS — AI agents need humans. You get paid." }],
+    images: [{ url: "/og-image.png", width: 1035, height: 720, alt: "RELAY FAVOURS — When AI hits a wall, RELAY finds a verified human." }],
     type: "website",
     siteName: "RELAY FAVOURS",
   },
