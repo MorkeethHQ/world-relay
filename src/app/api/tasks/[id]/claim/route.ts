@@ -3,6 +3,7 @@ import { claimTask, getTask } from "@/lib/store";
 import { postClaimNotification, postClaimBriefing, syncAndProcessMessages } from "@/lib/xmtp";
 import { generateClaimBriefing } from "@/lib/ai-chat";
 import { notifyTaskClaimed } from "@/lib/notifications";
+import { addNotification } from "@/lib/notifications-store";
 import { getRedis } from "@/lib/redis";
 import { broadcastEvent } from "@/lib/sse";
 import { recordFavourClaimed } from "@/lib/proof-of-favour";
@@ -103,6 +104,15 @@ export async function POST(
 
   await postClaimNotification(updated, claimant);
   notifyTaskClaimed(updated.poster, updated.description).catch(console.error);
+
+  // In-app notification to poster
+  addNotification({
+    userId: updated.poster,
+    type: "task_claimed",
+    title: "Task claimed!",
+    body: `Someone claimed "${updated.description.slice(0, 40)}..."`,
+    taskId: updated.id,
+  }).catch(console.error);
 
   // Award Proof of Favour points for claiming a task
   recordFavourClaimed(claimant).catch(console.error);

@@ -5,6 +5,7 @@ import type { ConsensusResult } from "@/lib/verify-proof";
 import { postProofSubmitted, postVerificationResult, postFollowUpQuestion, postSettlementConfirmation, syncAndProcessMessages } from "@/lib/xmtp";
 import { generateFollowUpQuestion } from "@/lib/ai-chat";
 import { notifyProofSubmitted, notifyVerified, notifyFlagged } from "@/lib/notifications";
+import { addNotification } from "@/lib/notifications-store";
 import { postAttestation } from "@/lib/attestation";
 import { recordCompletion, recordFailure, getReputation, getTrustScore, getVerificationMultiplier } from "@/lib/reputation";
 import { recordFavourAttempted, recordFavourCompleted, recordFavourFailed } from "@/lib/proof-of-favour";
@@ -236,6 +237,15 @@ export async function POST(req: NextRequest) {
     } else {
       await postVerificationResult(taskId, result.verdict, result.reasoning, task.bountyUsdc, result.confidence);
       notifyFlagged(task.poster, task.description).catch(console.error);
+
+      // In-app notification for flagged proof
+      addNotification({
+        userId: task.poster,
+        type: "flagged",
+        title: "Proof flagged",
+        body: `A submission needs your review for "${task.description.slice(0, 40)}..."`,
+        taskId,
+      }).catch(console.error);
     }
   } else {
     await completeTask(taskId, result);
@@ -243,12 +253,39 @@ export async function POST(req: NextRequest) {
 
     if (result.verdict === "pass" && task.claimant) {
       notifyVerified(task.claimant, task.bountyUsdc).catch(console.error);
+
+      // In-app notification for verified proof
+      addNotification({
+        userId: task.claimant,
+        type: "verified",
+        title: "Proof verified!",
+        body: `Your proof was accepted. $${task.bountyUsdc} USDC ready for release.`,
+        taskId,
+      }).catch(console.error);
     } else if (result.verdict === "flag") {
       notifyFlagged(task.poster, task.description).catch(console.error);
+
+      // In-app notification for flagged proof
+      addNotification({
+        userId: task.poster,
+        type: "flagged",
+        title: "Proof flagged",
+        body: `A submission needs your review for "${task.description.slice(0, 40)}..."`,
+        taskId,
+      }).catch(console.error);
     }
   }
 
   notifyProofSubmitted(task.poster, task.description).catch(console.error);
+
+  // In-app notification for proof submitted (always notify poster)
+  addNotification({
+    userId: task.poster,
+    type: "proof_submitted",
+    title: "Proof submitted",
+    body: `Someone submitted proof for "${task.description.slice(0, 40)}..."`,
+    taskId,
+  }).catch(console.error);
 
   if (task.claimant) {
     if (result.verdict === "pass") {

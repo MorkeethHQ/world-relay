@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import type { Task } from "@/lib/types";
 import { ProofOfFavourCard } from "@/components/ProofOfFavourCard";
+import { TaskSearch } from "@/components/TaskSearch";
 
 type OnChainTask = {
   id: number;
@@ -180,6 +181,12 @@ export default function ProfilePage() {
                 <p className="text-[10px] text-gray-400 mt-1">Completed</p>
               </div>
             </div>
+          </div>
+
+          {/* Search & filter tasks */}
+          <div>
+            <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-2 px-1">Browse favours</p>
+            <TaskSearch initialTasks={tasks.filter(t => t.status === "open")} />
           </div>
 
           {/* Active agents */}

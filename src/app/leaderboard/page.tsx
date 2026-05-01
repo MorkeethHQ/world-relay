@@ -141,9 +141,10 @@ export default async function LeaderboardPage() {
               {agents.map((agent, index) => {
                 const rank = index + 1;
                 return (
-                  <div
+                  <Link
                     key={agent.agentId}
-                    className="bg-white border border-gray-100 rounded-2xl px-4 py-3.5 flex items-center gap-3"
+                    href={`/agent/${agent.agentId}`}
+                    className="bg-white border border-gray-100 rounded-2xl px-4 py-3.5 flex items-center gap-3 hover:border-gray-200 transition-colors"
                   >
                     {/* Rank Badge */}
                     <div
@@ -194,7 +195,7 @@ export default async function LeaderboardPage() {
                         <p className="text-[9px] text-gray-400">USDC</p>
                       </div>
                     </div>
-                  </div>
+                  </Link>
                 );
               })}
             </div>
