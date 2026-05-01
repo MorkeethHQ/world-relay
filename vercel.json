@@ -6,10 +6,6 @@
     },
     {
       "path": "/api/cron/expire-tasks",
-      "schedule": "0 0 * * *"
-    },
-    {
-      "path": "/api/cron/seed-tasks",
       "schedule": "0 6 * * *"
     }
   ]

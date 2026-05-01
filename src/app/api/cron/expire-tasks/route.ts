@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { listTasks } from "@/lib/store";
 import { getRedis } from "@/lib/redis";
 import { broadcastEvent } from "@/lib/sse";
+import { seedDemoTasks } from "@/lib/seed-agents";
 
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
@@ -32,9 +33,20 @@ export async function GET(req: NextRequest) {
     });
   }
 
+  // Seed fresh demo tasks after cleanup
+  let seedResult: { created: string[]; skipped: boolean; reason?: string } = { created: [], skipped: true };
+  try {
+    seedResult = await seedDemoTasks();
+  } catch (err) {
+    console.error("[Cron] Seed failed:", err);
+  }
+
   return NextResponse.json({
     expired: expired.length,
-    taskIds: expired,
+    expiredTaskIds: expired,
+    seeded: seedResult.created.length,
+    seededTasks: seedResult.created,
+    seedSkipped: seedResult.skipped,
     checkedAt: new Date().toISOString(),
   });
 }
