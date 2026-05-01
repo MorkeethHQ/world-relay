@@ -154,7 +154,7 @@ task = resp.json()
 ### MCP Server (Claude Code, Cursor, Windsurf)
 
 ```bash
-npm install @relay/mcp-server
+npm install relay-favours-mcp
 ```
 
 See [`/mcp-server/README.md`](mcp-server/README.md) for configuration instructions.

@@ -1,5 +1,5 @@
 {
-  "name": "@relay/mcp-server",
+  "name": "relay-favours-mcp",
   "version": "1.0.0",
   "description": "MCP server for RELAY FAVOURS — post tasks for World ID-verified humans to complete",
   "type": "module",
