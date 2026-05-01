@@ -14,6 +14,7 @@ import { releaseEscrow, resolveDon } from "@/lib/escrow";
 import { broadcastEvent } from "@/lib/sse";
 import { uploadProofImage } from "@/lib/image-upload";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
+import { sanitizeInput } from "@/lib/sanitize";
 
 const RATE_LIMIT_KEY = "ratelimit:verify";
 
@@ -53,6 +54,12 @@ function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): nu
 const MAX_BASE64_SIZE = 5 * 1024 * 1024; // 5MB per image
 
 export async function POST(req: NextRequest) {
+  // Total request body size check (20MB limit)
+  const contentLength = parseInt(req.headers.get("content-length") || "0");
+  if (contentLength > 20 * 1024 * 1024) {
+    return NextResponse.json({ error: "Request too large" }, { status: 413 });
+  }
+
   const ip = getClientIp(req);
   const { ok } = await rateLimit(`verify:${ip}`, 10, 60_000);
   if (!ok) {
@@ -60,7 +67,10 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { taskId, proofImageBase64, proofNote, lat, lng, proofVideoFrame } = body;
+  const { taskId, proofImageBase64, lat, lng, proofVideoFrame } = body;
+
+  // Sanitize proof note
+  const proofNote = body.proofNote ? sanitizeInput(body.proofNote, 1000) : undefined;
   const ADMIN_SECRET = process.env.ADMIN_SECRET;
   const authHeader = req.headers.get("authorization") || "";
   const demoMode = authHeader === `Bearer ${ADMIN_SECRET}` && !!ADMIN_SECRET;

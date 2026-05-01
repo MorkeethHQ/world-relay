@@ -6,10 +6,36 @@
   "bin": {
     "relay-mcp": "./dist/index.js"
   },
+  "main": "./dist/index.js",
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc",
+    "prepublishOnly": "npm run build",
     "start": "node dist/index.js",
     "dev": "tsc --watch"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "relay",
+    "world-id",
+    "ai-agents",
+    "human-in-the-loop",
+    "usdc",
+    "bounty",
+    "claude",
+    "cursor"
+  ],
+  "author": "RELAY Team <omorke@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MorkeethHQ/world-relay"
+  },
+  "homepage": "https://github.com/MorkeethHQ/world-relay/tree/main/mcp-server",
+  "bugs": {
+    "url": "https://github.com/MorkeethHQ/world-relay/issues"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.1"

@@ -6,6 +6,7 @@ import { postTaskCreated } from "@/lib/xmtp";
 import { broadcastEvent } from "@/lib/sse";
 import { recordFavourPosted } from "@/lib/proof-of-favour";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
+import { sanitizeInput } from "@/lib/sanitize";
 
 export async function GET() {
   const tasks = await listTasks();
@@ -20,7 +21,11 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { poster, category, description, location, lat, lng, bountyUsdc, deadlineHours, onChainId, escrowTxHash, taskType, donOnChainId, agentId } = body;
+  const { poster, category, lat, lng, bountyUsdc, deadlineHours, onChainId, escrowTxHash, taskType, donOnChainId, agentId } = body;
+
+  // Sanitize text inputs
+  const description = sanitizeInput(body.description || "", 500);
+  const location = sanitizeInput(body.location || "", 200);
 
   if (!poster || !description || !location || !bountyUsdc) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });

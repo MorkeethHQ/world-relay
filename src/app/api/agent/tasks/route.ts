@@ -7,6 +7,8 @@ import { broadcastEvent } from "@/lib/sse";
 import { createEscrowTaskWithKey } from "@/lib/escrow";
 import { getRedis } from "@/lib/redis";
 import { checkAgentAuth } from "@/lib/api-keys";
+import { rateLimit, getClientIp } from "@/lib/rate-limit";
+import { sanitizeInput } from "@/lib/sanitize";
 
 function getAgentWalletKey(agentId: string): string | null {
   const envKey = `AGENT_WALLET_${agentId.toUpperCase().replace(/-/g, "_")}`;
@@ -109,8 +111,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized", hint: "Pass your API key as: Authorization: Bearer <key>" }, { status: 401 });
   }
 
+  // Rate limit: 30 tasks per hour per IP
+  const ip = getClientIp(req);
+  const { ok } = await rateLimit(`agent-create:${ip}`, 30, 3_600_000);
+  if (!ok) {
+    return NextResponse.json({ error: "Rate limit exceeded. Max 30 tasks per hour." }, { status: 429 });
+  }
+
   const body = await req.json();
-  const { agent_id, description, location, lat, lng, bounty_usdc, deadline_hours, callback_url, recurring_hours, recurring_count } = body;
+  const { agent_id, lat, lng, bounty_usdc, deadline_hours, callback_url, recurring_hours, recurring_count } = body;
+
+  // Sanitize text inputs
+  const description = sanitizeInput(body.description || "", 500);
+  const location = sanitizeInput(body.location || "", 200);
 
   // Funding method (pick one or none):
   // A) "escrow_tx_hash" + "on_chain_id" — agent funded it themselves on-chain

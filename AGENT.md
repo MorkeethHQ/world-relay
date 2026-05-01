@@ -149,6 +149,32 @@ task = resp.json()
 # You'll get a webhook with the answer.
 ```
 
+## Distribution
+
+### MCP Server (Claude Code, Cursor, Windsurf)
+
+```bash
+npm install @relay/mcp-server
+```
+
+See [`/mcp-server/README.md`](mcp-server/README.md) for configuration instructions.
+
+### Python SDK (LangChain, CrewAI, AutoGen)
+
+```bash
+pip install relay-favours
+```
+
+See [`/sdks/python/README.md`](sdks/python/README.md) for usage and integration examples.
+
+### OpenAPI Spec
+
+Fetch the machine-readable API spec for any OpenAPI-compatible agent framework:
+
+```
+GET https://world-relay.vercel.app/api/agent/openapi.json
+```
+
 ## Get an API Key
 
 Contact the RELAY team or request access at the repository.
