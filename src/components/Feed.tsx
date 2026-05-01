@@ -14,7 +14,14 @@ import { ProofOfFavourCard } from "@/components/ProofOfFavourCard";
 import { encodeCreateTask, encodeClaimTask, encodeReleasePayment, encodeUniswapSwap, readTaskCount, RELAY_ESCROW_ADDRESS, DOUBLE_OR_NOTHING_ADDRESS, encodeCreateDoubleOrNothing, encodeStakeAndClaimWithApproval, readDonTaskCount, type SwapToken } from "@/lib/contracts";
 import { hapticSuccess, hapticError, hapticTap, hapticHeavy, hapticMedium, hapticSelection, shareTask } from "@/lib/minikit-helpers";
 import { TASK_TEMPLATES } from "@/lib/agents";
-// Plain Tailwind buttons — @worldcoin/mini-apps-ui-kit-react causes hydration crashes
+
+function extractTxHash(result: unknown): string | null {
+  if (typeof result !== "object" || result === null) return null;
+  const r = result as Record<string, unknown>;
+  if ("userOpHash" in r && r.userOpHash) return String(r.userOpHash);
+  if ("transactionHash" in r && r.transactionHash) return String(r.transactionHash);
+  return null;
+}
 
 const TaskMap = dynamic(() => import("./TaskMap").then((m) => m.TaskMap), { ssr: false });
 
@@ -1031,7 +1038,8 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
                           if (txPayload) {
                             const txResult = await MiniKit.sendTransaction(txPayload);
                             if (!txResult) {
-                              setClaimTxError({ message: `Staking $${task.bountyUsdc} USDC failed.`, taskId: task.id, retry: () => {} });
+                              setClaimTxError({ message: `Staking $${task.bountyUsdc} USDC failed. Please try again.`, taskId: task.id, retry: () => {} });
+                              hapticError();
                               return;
                             }
                           }
@@ -1040,13 +1048,18 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
                           if (txPayload) {
                             const txResult = await MiniKit.sendTransaction(txPayload);
                             if (!txResult) {
-                              setClaimTxError({ message: "On-chain claim failed.", taskId: task.id, retry: () => {} });
+                              setClaimTxError({ message: "On-chain claim failed. Please try again.", taskId: task.id, retry: () => {} });
+                              hapticError();
                               return;
                             }
                           }
                         }
-                      } catch {
-                        // MiniKit not available outside World App — continue with API claim
+                      } catch (err) {
+                        if (isMiniKit()) {
+                          setClaimTxError({ message: err instanceof Error ? err.message : "Transaction failed. Please try again.", taskId: task.id, retry: () => {} });
+                          hapticError();
+                          return;
+                        }
                       }
 
                       const res = await fetch(`/api/tasks/${task.id}/claim`, {
@@ -1434,6 +1447,7 @@ function PostTask({
   const [submitting, setSubmitting] = useState(false);
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [escrowSuccess, setEscrowSuccess] = useState<string | null>(null);
+  const [txError, setTxError] = useState<string | null>(null);
   const [enhancing, setEnhancing] = useState(false);
   const [enhanced, setEnhanced] = useState(false);
   const enhancedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1490,15 +1504,22 @@ function PostTask({
             const txResult = await MiniKit.sendTransaction(txPayload);
             if (txResult) {
               donOnChainId = countBefore;
-              escrowTxHash = typeof txResult === "object" && txResult !== null && "transactionHash" in txResult
-                ? String((txResult as Record<string, unknown>).transactionHash)
-                : null;
+              escrowTxHash = extractTxHash(txResult);
               if (escrowTxHash) {
                 hapticSuccess();
                 setEscrowSuccess(escrowTxHash);
               }
+            } else {
+              hapticError();
+              setTxError("Transaction was rejected. Please try again.");
+              setSubmitting(false);
+              return;
             }
-          } catch {
+          } catch (err) {
+            hapticError();
+            setTxError(err instanceof Error ? err.message : "Transaction failed. Please try again.");
+            setSubmitting(false);
+            return;
           }
         }
       } else if (RELAY_ESCROW_ADDRESS) {
@@ -1509,22 +1530,29 @@ function PostTask({
             const txResult = await MiniKit.sendTransaction(txPayload);
             if (txResult) {
               onChainId = countBefore;
-              escrowTxHash = typeof txResult === "object" && txResult !== null && "transactionHash" in txResult
-                ? String((txResult as Record<string, unknown>).transactionHash)
-                : null;
+              escrowTxHash = extractTxHash(txResult);
               if (escrowTxHash) {
                 hapticSuccess();
                 setEscrowSuccess(escrowTxHash);
               }
+            } else {
+              hapticError();
+              setTxError("Transaction was rejected. Please try again.");
+              setSubmitting(false);
+              return;
             }
-          } catch {
+          } catch (err) {
+            hapticError();
+            setTxError(err instanceof Error ? err.message : "Transaction failed. Please try again.");
+            setSubmitting(false);
+            return;
           }
         }
       }
     }
 
     try {
-      await fetch("/api/tasks", {
+      const res = await fetch("/api/tasks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1542,9 +1570,19 @@ function PostTask({
           donOnChainId,
         }),
       });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        hapticError();
+        setTxError(errData.error || "Failed to create task. Please try again.");
+        setSubmitting(false);
+        return;
+      }
       hapticSuccess();
     } catch {
       hapticError();
+      setTxError("Network error. Please check your connection and try again.");
+      setSubmitting(false);
+      return;
     }
     onDone();
   };
@@ -1601,6 +1639,12 @@ function PostTask({
       </div>
 
       <div className="px-4 pb-8 pt-2">
+        {txError && (
+          <div className="mb-3 bg-red-50 border border-red-200 rounded-xl p-3 flex items-center justify-between">
+            <span className="text-[11px] text-red-600 font-medium">{txError}</span>
+            <button onClick={() => setTxError(null)} className="text-[11px] text-red-400 hover:text-red-600">✕</button>
+          </div>
+        )}
         {escrowSuccess && (
           <div className="mb-3 bg-green-50 border border-green-200 rounded-xl p-3 flex items-center justify-between">
             <span className="text-[11px] text-green-600 font-medium">Deposited on-chain</span>
@@ -2324,9 +2368,7 @@ function TaskDetail({
                 const txPayload = encodeCreateTask(currentTask.description, currentTask.bountyUsdc, 24);
                 if (!txPayload) { setFunding(false); return; }
                 const result = await MiniKit.sendTransaction(txPayload);
-                const hash = typeof result === "object" && result !== null && "transactionHash" in result
-                  ? String((result as Record<string, unknown>).transactionHash)
-                  : null;
+                const hash = extractTxHash(result);
                 if (hash) {
                   const onChainId = countBefore;
                   await fetch(`/api/tasks/${currentTask.id}`, {
@@ -2498,13 +2540,11 @@ function TaskDetail({
                     setTxSuccess(null);
                     alert("Release transaction failed. Please try again.");
                   } else {
-                    const hash = typeof result === "object" && result !== null && "transactionHash" in result
-                      ? String((result as Record<string, unknown>).transactionHash)
-                      : null;
+                    const hash = extractTxHash(result);
                     if (hash) setTxSuccess(hash);
                   }
-                } catch {
-                  alert("Release transaction rejected by wallet.");
+                } catch (err) {
+                  alert(err instanceof Error ? err.message : "Release transaction rejected by wallet.");
                 }
               }
             }}
@@ -2554,13 +2594,11 @@ function TaskDetail({
                   if (txPayload) {
                     try {
                       const swapResult = await MiniKit.sendTransaction(txPayload);
-                      const swapHash = typeof swapResult === "object" && swapResult !== null && "transactionHash" in swapResult
-                        ? String((swapResult as Record<string, unknown>).transactionHash)
-                        : null;
+                      const swapHash = extractTxHash(swapResult);
                       if (swapHash) setTxSuccess(swapHash);
                       else alert("Swap transaction failed. Please try again.");
-                    } catch {
-                      alert("Swap transaction rejected by wallet.");
+                    } catch (err) {
+                      alert(err instanceof Error ? err.message : "Swap transaction rejected by wallet.");
                     }
                   }
                   setSwapping(false);

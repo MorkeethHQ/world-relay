@@ -80,11 +80,12 @@ export function encodeCreateTask(description: string, bountyUsdc: number, deadli
 
   const bountyWei = parseUnits(bountyUsdc.toString(), 6);
   const deadline = BigInt(Math.floor(Date.now() / 1000) + deadlineHours * 3600);
+  const expiration = Math.floor(Date.now() / 1000) + 86400;
 
   const approveData = encodeFunctionData({
     abi: PERMIT2_ABI,
     functionName: "approve",
-    args: [USDC_ADDRESS, RELAY_ESCROW_ADDRESS, BigInt(bountyWei), Math.floor(Date.now() / 1000) + 86400],
+    args: [USDC_ADDRESS, RELAY_ESCROW_ADDRESS, bountyWei, expiration],
   });
 
   const createData = encodeFunctionData({
@@ -273,11 +274,12 @@ export function encodeCreateDoubleOrNothing(description: string, bountyUsdc: num
 
   const bountyWei = parseUnits(bountyUsdc.toString(), 6);
   const deadline = BigInt(Math.floor(Date.now() / 1000) + deadlineHours * 3600);
+  const expiration = Math.floor(Date.now() / 1000) + 86400;
 
   const approveData = encodeFunctionData({
     abi: PERMIT2_ABI,
     functionName: "approve",
-    args: [USDC_ADDRESS, DOUBLE_OR_NOTHING_ADDRESS, BigInt(bountyWei), Math.floor(Date.now() / 1000) + 86400],
+    args: [USDC_ADDRESS, DOUBLE_OR_NOTHING_ADDRESS, bountyWei, expiration],
   });
 
   const createData = encodeFunctionData({
@@ -316,11 +318,12 @@ export function encodeStakeAndClaimWithApproval(taskId: number, bountyUsdc: numb
   if (!DOUBLE_OR_NOTHING_ADDRESS) return null;
 
   const stakeWei = parseUnits(bountyUsdc.toString(), 6);
+  const expiration = Math.floor(Date.now() / 1000) + 86400;
 
   const approveData = encodeFunctionData({
     abi: PERMIT2_ABI,
     functionName: "approve",
-    args: [USDC_ADDRESS, DOUBLE_OR_NOTHING_ADDRESS, BigInt(stakeWei), Math.floor(Date.now() / 1000) + 86400],
+    args: [USDC_ADDRESS, DOUBLE_OR_NOTHING_ADDRESS, stakeWei, expiration],
   });
 
   const stakeData = encodeFunctionData({
