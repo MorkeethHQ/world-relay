@@ -1,0 +1,29 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Light background -->
+  <rect width="512" height="512" rx="112" fill="#FAFAFA"/>
+  <rect width="512" height="512" rx="112" stroke="#E5E5E5" stroke-width="1"/>
+
+  <!-- Relay mark — three stacked diamond layers with depth -->
+  <g transform="translate(256, 210)">
+    <!-- Shadow/ground -->
+    <ellipse cx="0" cy="90" rx="80" ry="12" fill="#00000008"/>
+
+    <!-- Bottom layer -->
+    <path d="M-110 35L0 75L110 35L0 -5Z" fill="#E8E8E8" stroke="#D4D4D4" stroke-width="1"/>
+    <!-- Middle layer -->
+    <path d="M-110 0L0 40L110 0L0 -40Z" fill="#D1D1D1" stroke="#BFBFBF" stroke-width="1"/>
+    <!-- Top layer -->
+    <path d="M-110 -35L0 5L110 -35L0 -75Z" fill="#1A1A1A" stroke="#333333" stroke-width="1"/>
+
+    <!-- Green pulse dot on top -->
+    <circle cx="0" cy="-75" r="14" fill="#22c55e" opacity="0.15"/>
+    <circle cx="0" cy="-75" r="9" fill="#22c55e"/>
+    <circle cx="-2" cy="-77" r="3" fill="#4ade80" opacity="0.6"/>
+  </g>
+
+  <!-- RELAY text -->
+  <text x="256" y="370" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="52" font-weight="900" letter-spacing="4" fill="#1A1A1A">RELAY</text>
+
+  <!-- FAVOURS subtitle -->
+  <text x="256" y="405" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="18" font-weight="500" letter-spacing="10" fill="#999999">FAVOURS</text>
+</svg>

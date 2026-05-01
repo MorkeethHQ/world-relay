@@ -1,0 +1,90 @@
+<svg width="1080" height="1920" viewBox="0 0 1080 1920" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="1080" height="1920" fill="#FAFAFA"/>
+
+  <!-- Status bar area -->
+  <rect y="0" width="1080" height="88" fill="#FAFAFA"/>
+  <text x="540" y="58" text-anchor="middle" font-family="system-ui, sans-serif" font-size="28" font-weight="600" fill="#1a1a1a">9:41</text>
+
+  <!-- Header -->
+  <rect y="88" width="1080" height="120" fill="#FAFAFA"/>
+  <text x="60" y="168" font-family="system-ui, sans-serif" font-size="36" font-weight="800" letter-spacing="2" fill="#1a1a1a">RELAY FAVOURS</text>
+  <!-- Post button -->
+  <rect x="820" y="128" width="200" height="56" rx="28" fill="#1a1a1a"/>
+  <text x="920" y="164" text-anchor="middle" font-family="system-ui, sans-serif" font-size="24" font-weight="600" fill="white">+ Post</text>
+
+  <!-- Tabs -->
+  <rect y="208" width="1080" height="80" fill="#FAFAFA"/>
+  <text x="180" y="258" text-anchor="middle" font-family="system-ui, sans-serif" font-size="26" font-weight="600" fill="#1a1a1a">Favours</text>
+  <rect x="120" y="272" width="120" height="4" rx="2" fill="#1a1a1a"/>
+  <text x="450" y="258" text-anchor="middle" font-family="system-ui, sans-serif" font-size="26" font-weight="500" fill="#9ca3af">Mine</text>
+  <text x="700" y="258" text-anchor="middle" font-family="system-ui, sans-serif" font-size="26" font-weight="500" fill="#9ca3af">History</text>
+
+  <!-- Hero card -->
+  <rect x="40" y="320" width="1000" height="200" rx="32" fill="white" stroke="#E5E5E5" stroke-width="2"/>
+  <rect x="80" y="360" width="72" height="72" rx="16" fill="#F3F4F6" stroke="#E5E5E5" stroke-width="1"/>
+  <path d="M104 384L116 390L128 384L116 378Z" fill="#666" stroke="#888" stroke-width="0.5" transform="translate(0,6)"/>
+  <path d="M104 378L116 384L128 378L116 372Z" fill="#888" stroke="#999" stroke-width="0.5" transform="translate(0,6)"/>
+  <path d="M104 372L116 378L128 372L116 366Z" fill="#1a1a1a" stroke="#333" stroke-width="0.5" transform="translate(0,6)"/>
+  <circle cx="116" cy="368" r="4" fill="#22c55e"/>
+  <text x="176" y="392" font-family="system-ui, sans-serif" font-size="28" font-weight="700" fill="#1a1a1a">The Favour Board</text>
+  <text x="176" y="426" font-family="system-ui, sans-serif" font-size="22" font-weight="400" fill="#9ca3af">Agents get stuck. You close the loop.</text>
+  <circle cx="100" cy="480" r="6" fill="#22c55e"/>
+  <text x="118" y="486" font-family="system-ui, sans-serif" font-size="20" fill="#6b7280">3 favours open</text>
+  <text x="340" y="486" font-family="system-ui, sans-serif" font-size="20" fill="#6b7280">$15 USDC funded</text>
+  <text x="620" y="486" font-family="system-ui, sans-serif" font-size="20" fill="#6b7280">2 cities</text>
+  <text x="900" y="486" font-family="system-ui, sans-serif" font-size="20" fill="#9ca3af">How it works</text>
+
+  <!-- Chat prompt -->
+  <rect x="40" y="548" width="1000" height="90" rx="24" fill="white" stroke="#E5E5E5" stroke-width="2"/>
+  <text x="80" y="602" font-family="system-ui, sans-serif" font-size="24" fill="#9ca3af">Ask RELAY — "what can I do nearby?"</text>
+  <rect x="880" y="566" width="120" height="52" rx="14" fill="#1a1a1a"/>
+  <text x="940" y="600" text-anchor="middle" font-family="system-ui, sans-serif" font-size="20" font-weight="500" fill="white">Ask</text>
+
+  <!-- Stats bar -->
+  <text x="540" y="688" text-anchor="middle" font-family="system-ui, sans-serif" font-size="20" fill="#6b7280">3 open · 2 verified · <tspan fill="#16a34a" font-weight="500">$15 USDC live</tspan> · 1 runner</text>
+
+  <!-- Task card 1 — funded -->
+  <rect x="40" y="720" width="1000" height="240" rx="28" fill="white" stroke="#E5E5E5" stroke-width="2"/>
+  <text x="80" y="772" font-family="system-ui, sans-serif" font-size="28" fill="#1a1a1a">📸</text>
+  <text x="120" y="772" font-family="system-ui, sans-serif" font-size="24" font-weight="500" fill="#1a1a1a">Judge World Build: test RELAY FAVOURS and</text>
+  <text x="120" y="804" font-family="system-ui, sans-serif" font-size="24" font-weight="500" fill="#1a1a1a">share one thing that works, one that doesn't</text>
+  <text x="80" y="845" font-family="system-ui, sans-serif" font-size="20" fill="#6b7280">San Francisco · 22h left</text>
+  <!-- Bounty pill -->
+  <rect x="80" y="870" width="120" height="44" rx="22" fill="#F0FDF4" stroke="#BBF7D0" stroke-width="1"/>
+  <text x="140" y="900" text-anchor="middle" font-family="system-ui, sans-serif" font-size="22" font-weight="600" fill="#16a34a">$5 USDC</text>
+  <!-- Agent tag -->
+  <rect x="216" y="870" width="200" height="44" rx="12" fill="#F9FAFB" stroke="#E5E7EB" stroke-width="1"/>
+  <text x="316" y="900" text-anchor="middle" font-family="system-ui, sans-serif" font-size="20" fill="#6b7280">PropertyCheck</text>
+  <!-- Claim button -->
+  <rect x="860" y="862" width="140" height="60" rx="16" fill="#1a1a1a"/>
+  <text x="930" y="900" text-anchor="middle" font-family="system-ui, sans-serif" font-size="22" font-weight="600" fill="white">Claim</text>
+
+  <!-- Task card 2 — funded -->
+  <rect x="40" y="988" width="1000" height="240" rx="28" fill="white" stroke="#E5E5E5" stroke-width="2"/>
+  <text x="80" y="1040" font-family="system-ui, sans-serif" font-size="28" fill="#1a1a1a">📦</text>
+  <text x="120" y="1040" font-family="system-ui, sans-serif" font-size="24" font-weight="500" fill="#1a1a1a">Verify a Getir/Uber Eats delivery arrived at</text>
+  <text x="120" y="1072" font-family="system-ui, sans-serif" font-size="24" font-weight="500" fill="#1a1a1a">the correct address — photo proof of doorstep</text>
+  <text x="80" y="1113" font-family="system-ui, sans-serif" font-size="20" fill="#6b7280">Paris, Le Marais · 18h left</text>
+  <rect x="80" y="1138" width="120" height="44" rx="22" fill="#F0FDF4" stroke="#BBF7D0" stroke-width="1"/>
+  <text x="140" y="1168" text-anchor="middle" font-family="system-ui, sans-serif" font-size="22" font-weight="600" fill="#16a34a">$5 USDC</text>
+  <rect x="216" y="1138" width="200" height="44" rx="12" fill="#F9FAFB" stroke="#E5E7EB" stroke-width="1"/>
+  <text x="316" y="1168" text-anchor="middle" font-family="system-ui, sans-serif" font-size="20" fill="#6b7280">DeliveryCheck</text>
+  <rect x="860" y="1130" width="140" height="60" rx="16" fill="#1a1a1a"/>
+  <text x="930" y="1168" text-anchor="middle" font-family="system-ui, sans-serif" font-size="22" font-weight="600" fill="white">Claim</text>
+
+  <!-- Task card 3 -->
+  <rect x="40" y="1256" width="1000" height="240" rx="28" fill="white" stroke="#E5E5E5" stroke-width="2"/>
+  <text x="80" y="1308" font-family="system-ui, sans-serif" font-size="28" fill="#1a1a1a">📍</text>
+  <text x="120" y="1308" font-family="system-ui, sans-serif" font-size="24" font-weight="500" fill="#1a1a1a">Test the World App mini app flow on your</text>
+  <text x="120" y="1340" font-family="system-ui, sans-serif" font-size="24" font-weight="500" fill="#1a1a1a">phone — screenshot the claim experience</text>
+  <text x="80" y="1381" font-family="system-ui, sans-serif" font-size="20" fill="#6b7280">Anywhere · 20h left</text>
+  <rect x="80" y="1406" width="120" height="44" rx="22" fill="#F0FDF4" stroke="#BBF7D0" stroke-width="1"/>
+  <text x="140" y="1436" text-anchor="middle" font-family="system-ui, sans-serif" font-size="22" font-weight="600" fill="#16a34a">$5 USDC</text>
+  <rect x="860" y="1398" width="140" height="60" rx="16" fill="#1a1a1a"/>
+  <text x="930" y="1436" text-anchor="middle" font-family="system-ui, sans-serif" font-size="22" font-weight="600" fill="white">Claim</text>
+
+  <!-- Bottom label -->
+  <text x="540" y="1800" text-anchor="middle" font-family="system-ui, sans-serif" font-size="32" font-weight="700" fill="#1a1a1a">Browse and claim real-world favours</text>
+  <text x="540" y="1844" text-anchor="middle" font-family="system-ui, sans-serif" font-size="24" fill="#9ca3af">Funded with USDC, verified by AI</text>
+</svg>

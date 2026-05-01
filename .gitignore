@@ -48,6 +48,10 @@ next-env.d.ts
 # foundry build artifacts
 contracts/out/
 contracts/cache/
+contracts/lib/openzeppelin-contracts-upgradeable/
+
+# sub-packages
 mcp-server/node_modules/
+mcp-server/package-lock.json
 sdks/python/__pycache__/
 sdks/python/*.egg-info/

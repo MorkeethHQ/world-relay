@@ -1,0 +1,74 @@
+<svg width="1080" height="1920" viewBox="0 0 1080 1920" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="1080" height="1920" fill="#FAFAFA"/>
+
+  <!-- Status bar -->
+  <text x="540" y="58" text-anchor="middle" font-family="system-ui, sans-serif" font-size="28" font-weight="600" fill="#1a1a1a">9:41</text>
+
+  <!-- Back + title -->
+  <text x="60" y="148" font-family="system-ui, sans-serif" font-size="28" fill="#6b7280">‹ Back</text>
+  <text x="540" y="148" text-anchor="middle" font-family="system-ui, sans-serif" font-size="28" font-weight="700" fill="#1a1a1a">Task Detail</text>
+
+  <!-- Task info card -->
+  <rect x="40" y="188" width="1000" height="280" rx="28" fill="white" stroke="#E5E5E5" stroke-width="2"/>
+  <text x="80" y="244" font-family="system-ui, sans-serif" font-size="26" font-weight="600" fill="#1a1a1a">Verify a delivery arrived at the correct</text>
+  <text x="80" y="280" font-family="system-ui, sans-serif" font-size="26" font-weight="600" fill="#1a1a1a">address — photo proof of doorstep</text>
+  <text x="80" y="326" font-family="system-ui, sans-serif" font-size="22" fill="#6b7280">Paris, Le Marais</text>
+  <text x="360" y="326" font-family="system-ui, sans-serif" font-size="22" fill="#6b7280">18h left</text>
+  <!-- Status: claimed -->
+  <rect x="80" y="356" width="140" height="40" rx="20" fill="#FEF3C7" stroke="#FDE68A" stroke-width="1"/>
+  <text x="150" y="383" text-anchor="middle" font-family="system-ui, sans-serif" font-size="20" font-weight="600" fill="#D97706">Claimed</text>
+  <rect x="236" y="356" width="130" height="40" rx="20" fill="#F0FDF4" stroke="#BBF7D0" stroke-width="1"/>
+  <text x="301" y="383" text-anchor="middle" font-family="system-ui, sans-serif" font-size="20" font-weight="600" fill="#16a34a">$5 USDC</text>
+  <!-- Escrow lock -->
+  <rect x="382" y="356" width="220" height="40" rx="20" fill="#F9FAFB" stroke="#E5E7EB" stroke-width="1"/>
+  <text x="492" y="383" text-anchor="middle" font-family="system-ui, sans-serif" font-size="18" fill="#6b7280">USDC in escrow</text>
+
+  <!-- World ID verification badge -->
+  <rect x="40" y="496" width="1000" height="120" rx="28" fill="white" stroke="#E5E5E5" stroke-width="2"/>
+  <circle cx="110" cy="556" r="32" fill="#ECFDF5" stroke="#A7F3D0" stroke-width="2"/>
+  <!-- Shield icon -->
+  <path d="M98 544L110 538L122 544V556C122 562 116 568 110 570C104 568 98 562 98 556Z" fill="none" stroke="#22c55e" stroke-width="2.5"/>
+  <circle cx="110" cy="554" r="5" fill="none" stroke="#22c55e" stroke-width="2"/>
+  <text x="164" y="548" font-family="system-ui, sans-serif" font-size="24" font-weight="700" fill="#059669">World ID Verified</text>
+  <text x="164" y="578" font-family="system-ui, sans-serif" font-size="20" fill="#9ca3af">Orb-level verification · No claim limit</text>
+
+  <!-- AI Briefing -->
+  <rect x="40" y="644" width="1000" height="200" rx="28" fill="white" stroke="#E5E5E5" stroke-width="2"/>
+  <text x="80" y="696" font-family="system-ui, sans-serif" font-size="20" font-weight="600" letter-spacing="2" fill="#9ca3af">AI BRIEFING</text>
+  <text x="80" y="736" font-family="system-ui, sans-serif" font-size="22" fill="#374151" font-style="italic">"Head to the delivery address in Le Marais. Look for</text>
+  <text x="80" y="766" font-family="system-ui, sans-serif" font-size="22" fill="#374151" font-style="italic">the package at the door. Photograph the label and</text>
+  <text x="80" y="796" font-family="system-ui, sans-serif" font-size="22" fill="#374151" font-style="italic">the doorstep clearly. Include the building number."</text>
+
+  <!-- Photo proof section -->
+  <rect x="40" y="872" width="1000" height="520" rx="28" fill="white" stroke="#E5E5E5" stroke-width="2"/>
+  <text x="80" y="928" font-family="system-ui, sans-serif" font-size="20" font-weight="600" letter-spacing="2" fill="#9ca3af">SUBMIT PROOF</text>
+
+  <!-- Camera area mockup -->
+  <rect x="80" y="952" width="920" height="340" rx="20" fill="#F3F4F6" stroke="#E5E7EB" stroke-width="1.5"/>
+  <!-- Camera crosshair -->
+  <rect x="440" y="1060" width="200" height="140" rx="8" fill="none" stroke="#9ca3af" stroke-width="1.5" stroke-dasharray="8 4"/>
+  <!-- Upload icon -->
+  <path d="M520 1120L540 1100L560 1120" fill="none" stroke="#9ca3af" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <line x1="540" y1="1100" x2="540" y2="1160" stroke="#9ca3af" stroke-width="2.5" stroke-linecap="round"/>
+  <text x="540" y="1200" text-anchor="middle" font-family="system-ui, sans-serif" font-size="22" fill="#9ca3af">Tap to upload photo proof</text>
+
+  <!-- Submit button -->
+  <rect x="80" y="1308" width="920" height="72" rx="20" fill="#1a1a1a"/>
+  <text x="540" y="1354" text-anchor="middle" font-family="system-ui, sans-serif" font-size="26" font-weight="600" fill="white">Submit Proof</text>
+
+  <!-- Verification result preview -->
+  <rect x="40" y="1432" width="1000" height="200" rx="28" fill="white" stroke="#BBF7D0" stroke-width="2"/>
+  <text x="80" y="1488" font-family="system-ui, sans-serif" font-size="20" font-weight="600" letter-spacing="2" fill="#16a34a">VERIFICATION RESULT</text>
+  <text x="920" y="1488" text-anchor="end" font-family="system-ui, sans-serif" font-size="28" font-weight="700" fill="#16a34a">PASS 94%</text>
+  <circle cx="92" y="1528" r="8" fill="#22c55e"/>
+  <text x="112" y="1534" font-family="system-ui, sans-serif" font-size="20" fill="#6b7280">Package visible at doorstep</text>
+  <circle cx="92" cy="1562" r="8" fill="#22c55e"/>
+  <text x="112" y="1568" font-family="system-ui, sans-serif" font-size="20" fill="#6b7280">Building number matches address</text>
+  <circle cx="92" cy="1596" r="8" fill="#22c55e"/>
+  <text x="112" y="1602" font-family="system-ui, sans-serif" font-size="20" fill="#6b7280">Location consistent with Le Marais</text>
+
+  <!-- Bottom label -->
+  <text x="540" y="1800" text-anchor="middle" font-family="system-ui, sans-serif" font-size="32" font-weight="700" fill="#1a1a1a">AI verifies your proof automatically</text>
+  <text x="540" y="1844" text-anchor="middle" font-family="system-ui, sans-serif" font-size="24" fill="#9ca3af">USDC released from escrow on pass</text>
+</svg>

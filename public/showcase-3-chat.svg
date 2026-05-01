@@ -1,0 +1,76 @@
+<svg width="1080" height="1920" viewBox="0 0 1080 1920" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="1080" height="1920" fill="#FAFAFA"/>
+
+  <!-- Status bar -->
+  <text x="540" y="58" text-anchor="middle" font-family="system-ui, sans-serif" font-size="28" font-weight="600" fill="#1a1a1a">9:41</text>
+
+  <!-- Header -->
+  <rect y="88" width="1080" height="100" fill="#FAFAFA"/>
+  <text x="60" y="150" font-family="system-ui, sans-serif" font-size="28" fill="#6b7280">‹ Back</text>
+  <text x="540" y="150" text-anchor="middle" font-family="system-ui, sans-serif" font-size="28" font-weight="700" fill="#1a1a1a">RELAY Chat</text>
+  <circle cx="980" cy="140" r="8" fill="#22c55e"/>
+
+  <!-- Chat messages -->
+
+  <!-- User message 1 -->
+  <rect x="300" y="240" width="720" height="80" rx="24" fill="#F3F4F6" stroke="#E5E7EB" stroke-width="1"/>
+  <text x="340" y="268" font-family="system-ui, sans-serif" font-size="22" font-weight="500" fill="#1a1a1a">what can I do to earn some money</text>
+  <text x="340" y="296" font-family="system-ui, sans-serif" font-size="22" font-weight="500" fill="#1a1a1a">near Le Marais?</text>
+
+  <!-- Bot reply 1 -->
+  <rect x="60" y="348" width="780" height="200" rx="24" fill="white" stroke="#E5E7EB" stroke-width="1"/>
+  <text x="92" y="382" font-family="system-ui, sans-serif" font-size="18" font-weight="700" letter-spacing="1" fill="#9ca3af">RELAY FAVOURS</text>
+  <text x="92" y="420" font-family="system-ui, sans-serif" font-size="22" fill="#374151">There are 2 funded favours near you right now:</text>
+  <text x="92" y="460" font-family="system-ui, sans-serif" font-size="22" fill="#374151">- $5 USDC: verify a delivery in Le Marais</text>
+  <text x="92" y="494" font-family="system-ui, sans-serif" font-size="22" fill="#374151">- $5 USDC: photograph Paris skyline view</text>
+  <text x="92" y="528" font-family="system-ui, sans-serif" font-size="22" fill="#6b7280">Want me to grab one for you?</text>
+
+  <!-- User message 2 -->
+  <rect x="440" y="576" width="580" height="60" rx="24" fill="#F3F4F6" stroke="#E5E7EB" stroke-width="1"/>
+  <text x="480" y="614" font-family="system-ui, sans-serif" font-size="22" font-weight="500" fill="#1a1a1a">yeah claim the delivery one</text>
+
+  <!-- Bot reply 2 -->
+  <rect x="60" y="664" width="700" height="120" rx="24" fill="white" stroke="#E5E7EB" stroke-width="1"/>
+  <text x="92" y="698" font-family="system-ui, sans-serif" font-size="18" font-weight="700" letter-spacing="1" fill="#9ca3af">RELAY FAVOURS</text>
+  <text x="92" y="736" font-family="system-ui, sans-serif" font-size="22" fill="#374151">On it. Head to the delivery address, snap a</text>
+  <text x="92" y="766" font-family="system-ui, sans-serif" font-size="22" fill="#374151">photo of the doorstep with the package visible.</text>
+
+  <!-- User message 3 -->
+  <rect x="240" y="812" width="780" height="60" rx="24" fill="#F3F4F6" stroke="#E5E7EB" stroke-width="1"/>
+  <text x="280" y="850" font-family="system-ui, sans-serif" font-size="22" font-weight="500" fill="#1a1a1a">relay this: check if Blue Bottle on Rue de Turenne is open</text>
+
+  <!-- Bot reply 3 with tool use -->
+  <rect x="60" y="900" width="740" height="160" rx="24" fill="white" stroke="#E5E7EB" stroke-width="1"/>
+  <text x="92" y="934" font-family="system-ui, sans-serif" font-size="18" font-weight="700" letter-spacing="1" fill="#9ca3af">RELAY FAVOURS</text>
+  <text x="92" y="972" font-family="system-ui, sans-serif" font-size="22" fill="#374151">Done. Posted a favour for 3 pts:</text>
+  <text x="92" y="1006" font-family="system-ui, sans-serif" font-size="22" fill="#374151">"Check if Blue Bottle on Rue de Turenne is</text>
+  <text x="92" y="1036" font-family="system-ui, sans-serif" font-size="22" fill="#374151">open" — Paris, Le Marais</text>
+
+  <!-- Tool use indicator -->
+  <rect x="92" y="1088" width="1000" height="100" rx="16" fill="#F9FAFB" stroke="#E5E7EB" stroke-width="1"/>
+  <rect x="92" y="1088" width="600" height="100" rx="16" fill="#F9FAFB"/>
+  <text x="122" y="1120" font-family="system-ui, sans-serif" font-size="18" font-weight="600" fill="#6b7280">create_favour</text>
+  <text x="122" y="1148" font-family="monospace" font-size="16" fill="#9ca3af">{ "description": "Check if Blue Bottle...",</text>
+  <text x="122" y="1170" font-family="monospace" font-size="16" fill="#9ca3af">  "location": "Paris, Le Marais" }</text>
+
+  <!-- Divider -->
+  <line x1="60" y1="1230" x2="1020" y2="1230" stroke="#E5E7EB" stroke-width="1"/>
+
+  <!-- Network status -->
+  <rect x="60" y="1260" width="960" height="160" rx="24" fill="white" stroke="#E5E7EB" stroke-width="1"/>
+  <text x="100" y="1298" font-family="system-ui, sans-serif" font-size="18" font-weight="600" letter-spacing="2" fill="#9ca3af">NETWORK</text>
+  <text x="100" y="1336" font-family="system-ui, sans-serif" font-size="22" fill="#6b7280">3 open (3 funded) · 2 completed · $15 available</text>
+  <text x="100" y="1374" font-family="system-ui, sans-serif" font-size="22" fill="#6b7280">Agents: PropertyCheck, DeliveryCheck</text>
+  <text x="100" y="1400" font-family="system-ui, sans-serif" font-size="20" fill="#9ca3af">Powered by XMTP encrypted messaging</text>
+
+  <!-- Chat input -->
+  <rect x="40" y="1480" width="840" height="72" rx="24" fill="white" stroke="#E5E7EB" stroke-width="2"/>
+  <text x="80" y="1524" font-family="system-ui, sans-serif" font-size="22" fill="#9ca3af">Message RELAY...</text>
+  <rect x="900" y="1480" width="140" height="72" rx="24" fill="#1a1a1a"/>
+  <text x="970" y="1524" text-anchor="middle" font-family="system-ui, sans-serif" font-size="22" font-weight="600" fill="white">Send</text>
+
+  <!-- Bottom label -->
+  <text x="540" y="1760" text-anchor="middle" font-family="system-ui, sans-serif" font-size="32" font-weight="700" fill="#1a1a1a">Chat with RELAY to find and post favours</text>
+  <text x="540" y="1804" text-anchor="middle" font-family="system-ui, sans-serif" font-size="24" fill="#9ca3af">AI assistant with tools — create, check, browse</text>
+</svg>

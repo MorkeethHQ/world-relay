@@ -35,7 +35,7 @@ https://world-relay.vercel.app
 
 ## Assets
 - App Icon: public/app-icon.png (512x512)
-- Content Card: public/content-card-new.png (345x240)
+- Content Card: public/content-card.png (345x240)
 
 ## Integration Details
 - World ID: Orb + Device verification for claiming tasks (tier-gated bounties)
