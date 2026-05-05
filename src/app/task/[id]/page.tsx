@@ -5,8 +5,8 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import type { Task, VerificationResult, AiFollowUp } from "@/lib/types";
 import { VerificationBadge, RequiredTierBadge } from "@/components/VerificationBadge";
-// Using plain Tailwind instead of @worldcoin/mini-apps-ui-kit-react to avoid hydration crashes
 import { hapticTap, hapticSuccess, shareTask } from "@/lib/minikit-helpers";
+import { useWorldUsers, displayName } from "@/hooks/useWorldUser";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -25,10 +25,7 @@ const WORLDSCAN_TX = "https://worldscan.org/tx";
 const WORLDSCAN_ADDR = "https://worldscan.org/address";
 
 function truncate(addr: string): string {
-  if (addr.startsWith("0x") && addr.length > 10)
-    return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
-  if (addr.startsWith("agent_")) return addr.replace("agent_", "");
-  return addr.length > 16 ? `${addr.slice(0, 12)}...` : addr;
+  return displayName(addr);
 }
 
 function timeAgo(dateStr: string): string {
@@ -1160,6 +1157,9 @@ export default function TaskDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const addressesToResolve = task ? [task.poster, task.claimant].filter(Boolean) as string[] : [];
+  useWorldUsers(addressesToResolve);
+
   const fetchData = useCallback(async () => {
     try {
       const [tasksRes, msgsRes] = await Promise.all([
@@ -1374,10 +1374,10 @@ export default function TaskDetailPage() {
   // ---- Render ----
 
   return (
-    <div className="min-h-screen bg-[#FAFAFA] text-gray-900 max-w-lg mx-auto">
+    <div className="min-h-screen bg-white text-gray-900 max-w-lg mx-auto">
       {/* Sticky Header */}
-      <div className="sticky top-0 z-10 bg-[#FAFAFA]/90 backdrop-blur-xl border-b border-gray-100">
-        <div className="flex items-center justify-between px-3 py-2.5">
+      <div className="sticky top-0 z-10 bg-white/90 backdrop-blur-xl border-b border-gray-100">
+        <div className="flex items-center justify-between px-4 py-3">
           <Link href="/" className="flex items-center gap-1.5 text-gray-500 hover:text-gray-900 transition-colors active:scale-95 py-1 px-2 -ml-2 rounded-lg hover:bg-gray-100">
             <svg
               width="18"

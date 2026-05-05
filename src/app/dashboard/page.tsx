@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { Task } from "@/lib/types";
 import { ProofOfFavourCard } from "@/components/ProofOfFavourCard";
 import { TaskSearch } from "@/components/TaskSearch";
+import { displayName } from "@/hooks/useWorldUser";
 
 type OnChainTask = {
   id: number;
@@ -27,8 +28,7 @@ type EscrowStats = {
 };
 
 function shortAddr(addr: string): string {
-  if (!addr || addr.length < 10) return addr;
-  return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
+  return displayName(addr);
 }
 
 export default function ProfilePage() {
@@ -57,8 +57,8 @@ export default function ProfilePage() {
   const agents = Array.from(agentMap.values()).sort((a, b) => b.count - a.count);
 
   return (
-    <div className="min-h-screen bg-[#FAFAFA] text-gray-900 max-w-lg mx-auto">
-      <div className="sticky top-0 z-10 bg-[#FAFAFA]/90 backdrop-blur-xl border-b border-gray-100">
+    <div className="min-h-screen bg-white text-gray-900 max-w-lg mx-auto">
+      <div className="sticky top-0 z-10 bg-white/90 backdrop-blur-xl border-b border-gray-100">
         <div className="flex items-center justify-between px-4 py-3">
           <Link href="/" className="flex items-center text-sm text-gray-400 hover:text-gray-900 transition-colors">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

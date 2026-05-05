@@ -69,9 +69,9 @@ export default async function LeaderboardPage() {
   const hasData = agents.length > 0;
 
   return (
-    <div className="min-h-screen bg-[#FAFAFA] text-gray-900 max-w-lg mx-auto">
+    <div className="min-h-screen bg-white text-gray-900 max-w-lg mx-auto">
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-[#FAFAFA]/90 backdrop-blur-xl border-b border-gray-100">
+      <div className="sticky top-0 z-10 bg-white/90 backdrop-blur-xl border-b border-gray-100">
         <div className="flex items-center justify-between px-4 py-3">
           <Link
             href="/"

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { MiniKit } from "@worldcoin/minikit-js";
 import { Feed } from "@/components/Feed";
+import { displayName } from "@/hooks/useWorldUser";
 
 type VerificationLevel = "orb" | "device" | "wallet" | "dev" | null;
 
@@ -75,7 +76,6 @@ export default function Home() {
         });
         if (result?.data?.address) {
           const addr = result.data.address;
-          const shortAddr = `${addr.slice(0, 5)}...${addr.slice(-3)}`;
           const firstTime = !localStorage.getItem("relay_has_signed_in");
 
           setUserId(addr);
@@ -93,8 +93,12 @@ export default function Home() {
             }),
           });
 
-          // Show welcome message
-          setWelcomeMsg(`Welcome back, ${shortAddr}`);
+          // Show welcome message — resolve username async
+          MiniKit.getUserByAddress(addr).then(u => {
+            setWelcomeMsg(`Welcome back, ${u?.username ? `@${u.username}` : displayName(addr)}`);
+          }).catch(() => {
+            setWelcomeMsg(`Welcome back, ${displayName(addr)}`);
+          });
           setTimeout(() => setWelcomeMsg(null), 3000);
 
           // First-time onboarding

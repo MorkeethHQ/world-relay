@@ -14,6 +14,7 @@ import { ProofOfFavourCard } from "@/components/ProofOfFavourCard";
 import { encodeCreateTask, encodeClaimTask, encodeReleasePayment, encodeUniswapSwap, readTaskCount, RELAY_ESCROW_ADDRESS, DOUBLE_OR_NOTHING_ADDRESS, encodeCreateDoubleOrNothing, encodeStakeAndClaimWithApproval, readDonTaskCount, type SwapToken } from "@/lib/contracts";
 import { hapticSuccess, hapticError, hapticTap, hapticHeavy, hapticMedium, hapticSelection, shareTask } from "@/lib/minikit-helpers";
 import { TASK_TEMPLATES } from "@/lib/agents";
+import { useWorldUsers, displayName } from "@/hooks/useWorldUser";
 
 function extractTxHash(result: unknown): string | null {
   if (typeof result !== "object" || result === null) return null;
@@ -35,9 +36,7 @@ function timeLeft(deadline: string): string {
 }
 
 function shortId(id: string): string {
-  if (id.startsWith("dev_")) return id;
-  if (id.startsWith("0x")) return `${id.slice(0, 6)}...${id.slice(-4)}`;
-  return id.slice(0, 12);
+  return displayName(id);
 }
 
 function timeAgo(dateStr: string): string {
@@ -204,6 +203,9 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
   const statusToastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const feedTopRef = useRef<HTMLDivElement>(null);
   const userLocation = useUserLocation();
+
+  const allAddresses = [...new Set(tasks.flatMap(t => [t.poster, t.claimant].filter(Boolean) as string[]))];
+  useWorldUsers(allAddresses);
 
   const fetchTasks = useCallback(async () => {
     const res = await fetch("/api/tasks");
