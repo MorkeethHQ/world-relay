@@ -39,12 +39,12 @@ export default function ErrorPage({
           <h1 className="text-3xl font-bold tracking-tight text-[#111827]">
             Something went wrong
           </h1>
-          <p className="text-gray-500 text-sm max-w-xs">
+          <p className="text-[#9BA3AE] text-sm max-w-xs">
             RELAY FAVOURS hit an unexpected issue. Give it another shot or head
             back to the feed.
           </p>
           {error?.digest && (
-            <p className="text-gray-400 text-xs font-mono">
+            <p className="text-[#9BA3AE] text-xs font-mono">
               ref: {error.digest}
             </p>
           )}
@@ -60,7 +60,7 @@ export default function ErrorPage({
 
           <Link
             href="/"
-            className="text-gray-500 hover:text-gray-700 text-sm underline underline-offset-4 transition-colors"
+            className="text-[#9BA3AE] hover:text-[#657080] text-sm underline underline-offset-4 transition-colors"
           >
             Back to feed
           </Link>

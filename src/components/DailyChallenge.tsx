@@ -71,7 +71,7 @@ function SunIcon() {
       strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
-      className="text-gray-400"
+      className="text-[#9BA3AE]"
     >
       <circle cx="12" cy="12" r="5" />
       <line x1="12" y1="1" x2="12" y2="3" />
@@ -101,7 +101,7 @@ function CameraIcon() {
       strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
-      className="text-gray-500"
+      className="text-[#9BA3AE]"
     >
       <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
       <circle cx="12" cy="13" r="4" />
@@ -187,10 +187,10 @@ function StreakFlame({ streak }: { streak: number }) {
 
 function DailyChallengeSkeleton() {
   const shimmer =
-    "bg-[length:200%_100%] bg-gradient-to-r from-gray-100 via-gray-200 to-gray-100 animate-[shimmer_1.5s_infinite]";
+    "bg-[length:200%_100%] bg-gradient-to-r from-[#F0F2F5] via-[#E9ECF0] to-[#F0F2F5] animate-[shimmer_1.5s_infinite]";
 
   return (
-    <div className="rounded-2xl bg-white border border-gray-100 shadow-sm p-5 flex flex-col gap-3">
+    <div className="rounded-2xl bg-white border border-[#E9ECF0] shadow-sm p-5 flex flex-col gap-3">
       <div className="flex items-center gap-2">
         <div className={`w-3.5 h-3.5 rounded-full ${shimmer}`} />
         <div className={`h-3 rounded-md w-28 ${shimmer}`} />
@@ -325,8 +325,8 @@ export function DailyChallenge({ address, onComplete }: Props) {
 
   if (error && !data) {
     return (
-      <div className="rounded-2xl bg-white border border-gray-100 shadow-sm p-5">
-        <p className="text-sm text-gray-400">
+      <div className="rounded-2xl bg-white border border-[#E9ECF0] shadow-sm p-5">
+        <p className="text-sm text-[#9BA3AE]">
           Could not load today&apos;s challenge.
         </p>
       </div>
@@ -364,7 +364,7 @@ export function DailyChallenge({ address, onComplete }: Props) {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <SunIcon />
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+            <span className="text-xs font-semibold uppercase tracking-wider text-[#9BA3AE]">
               Daily Challenge
             </span>
           </div>
@@ -379,12 +379,12 @@ export function DailyChallenge({ address, onComplete }: Props) {
         </div>
 
         {/* Title */}
-        <h3 className="text-base font-bold text-gray-900 leading-snug">
+        <h3 className="text-base font-bold text-[#191C20] leading-snug">
           {data.title}
         </h3>
 
         {/* Completed message */}
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-[#9BA3AE]">
           You completed today&apos;s challenge
         </p>
 
@@ -404,12 +404,12 @@ export function DailyChallenge({ address, onComplete }: Props) {
         {streak > 0 && (
           <div className="flex items-center gap-2">
             <StreakFlame streak={streak} />
-            <span className="text-xs text-gray-400">streak</span>
+            <span className="text-xs text-[#9BA3AE]">streak</span>
           </div>
         )}
 
         {/* Footer */}
-        <p className="text-xs text-gray-400 pt-1">
+        <p className="text-xs text-[#9BA3AE] pt-1">
           Come back tomorrow for a new challenge
         </p>
       </div>
@@ -422,40 +422,40 @@ export function DailyChallenge({ address, onComplete }: Props) {
 
   if (!address) {
     return (
-      <div className="rounded-2xl bg-white border border-gray-200/60 shadow-sm p-5 flex flex-col gap-3">
+      <div className="rounded-2xl bg-white border border-[#E9ECF0]/60 shadow-sm p-5 flex flex-col gap-3">
         {/* Header */}
         <div className="flex items-center gap-2">
           <SunIcon />
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+          <span className="text-xs font-semibold uppercase tracking-wider text-[#9BA3AE]">
             Daily Challenge
           </span>
         </div>
 
         {/* Title */}
-        <h3 className="text-lg font-bold text-gray-900 leading-snug">
+        <h3 className="text-lg font-bold text-[#191C20] leading-snug">
           {data.title}
         </h3>
 
         {/* Description */}
-        <p className="text-sm text-gray-600 leading-relaxed">
+        <p className="text-sm text-[#657080] leading-relaxed">
           {data.description}
         </p>
 
         {/* Why */}
         {data.why && (
-          <p className="text-xs italic text-gray-400">
+          <p className="text-xs italic text-[#9BA3AE]">
             {data.why}
           </p>
         )}
 
         {/* Stats + disabled button */}
         <div className="flex items-center justify-between pt-2">
-          <span className="text-xs text-gray-400 tabular-nums">
+          <span className="text-xs text-[#9BA3AE] tabular-nums">
             {data.completedCount} completed today
           </span>
           <button
             disabled
-            className="px-5 py-2.5 rounded-2xl bg-gray-200 text-gray-400 text-sm font-semibold cursor-not-allowed"
+            className="px-5 py-2.5 rounded-2xl bg-[#E9ECF0] text-[#9BA3AE] text-sm font-semibold cursor-not-allowed"
           >
             Sign in to participate
           </button>
@@ -469,12 +469,12 @@ export function DailyChallenge({ address, onComplete }: Props) {
   // -------------------------------------------------------------------------
 
   return (
-    <div className="rounded-2xl bg-white border border-gray-200/60 shadow-sm p-5 flex flex-col gap-3 transition-all duration-300">
+    <div className="rounded-2xl bg-white border border-[#E9ECF0]/60 shadow-sm p-5 flex flex-col gap-3 transition-all duration-300">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <SunIcon />
-          <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+          <span className="text-xs font-semibold uppercase tracking-wider text-[#9BA3AE]">
             Daily Challenge
           </span>
         </div>
@@ -482,28 +482,28 @@ export function DailyChallenge({ address, onComplete }: Props) {
       </div>
 
       {/* Title */}
-      <h3 className="text-lg font-bold text-gray-900 leading-snug">
+      <h3 className="text-lg font-bold text-[#191C20] leading-snug">
         {data.title}
       </h3>
 
       {/* Description */}
-      <p className="text-sm text-gray-600 leading-relaxed">
+      <p className="text-sm text-[#657080] leading-relaxed">
         {data.description}
       </p>
 
       {/* Why this matters */}
       {data.why && (
-        <p className="text-xs italic text-gray-400">
+        <p className="text-xs italic text-[#9BA3AE]">
           {data.why}
         </p>
       )}
 
       {/* Stats row */}
-      <div className="flex items-center gap-4 text-xs text-gray-400 tabular-nums">
+      <div className="flex items-center gap-4 text-xs text-[#9BA3AE] tabular-nums">
         <span>{data.completedCount} completed today</span>
         {data.userStreak > 0 && (
           <>
-            <span className="w-px h-3 bg-gray-200" />
+            <span className="w-px h-3 bg-[#E9ECF0]" />
             <span>{data.userStreak} day streak</span>
           </>
         )}
@@ -516,7 +516,7 @@ export function DailyChallenge({ address, onComplete }: Props) {
           ${showForm ? "max-h-[400px] opacity-100 mt-1" : "max-h-0 opacity-0"}
         `}
       >
-        <div className="flex flex-col gap-3 pt-2 border-t border-gray-100">
+        <div className="flex flex-col gap-3 pt-2 border-t border-[#E9ECF0]">
           {/* Image capture */}
           <div className="flex items-start gap-3">
             <input
@@ -532,7 +532,7 @@ export function DailyChallenge({ address, onComplete }: Props) {
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="relative w-16 h-16 rounded-xl overflow-hidden border border-gray-200 shrink-0 group"
+                className="relative w-16 h-16 rounded-xl overflow-hidden border border-[#E9ECF0] shrink-0 group"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
@@ -549,9 +549,9 @@ export function DailyChallenge({ address, onComplete }: Props) {
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 className="
-                  w-16 h-16 rounded-xl border-2 border-dashed border-gray-200
+                  w-16 h-16 rounded-xl border-2 border-dashed border-[#E9ECF0]
                   flex items-center justify-center shrink-0
-                  hover:border-gray-300 hover:bg-gray-50 transition-colors
+                  hover:border-[#9BA3AE] hover:bg-[#F7F8FA] transition-colors
                 "
               >
                 <CameraIcon />
@@ -565,10 +565,10 @@ export function DailyChallenge({ address, onComplete }: Props) {
               placeholder="Add a note (optional)"
               rows={2}
               className="
-                flex-1 resize-none rounded-xl border border-gray-200
-                bg-gray-50 px-3 py-2 text-sm text-gray-900
-                placeholder:text-gray-400
-                focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-300
+                flex-1 resize-none rounded-xl border border-[#E9ECF0]
+                bg-[#F7F8FA] px-3 py-2 text-sm text-[#191C20]
+                placeholder:text-[#9BA3AE]
+                focus:outline-none focus:ring-2 focus:ring-[#191C20]/10 focus:border-[#9BA3AE]
                 transition-all
               "
             />
@@ -582,8 +582,8 @@ export function DailyChallenge({ address, onComplete }: Props) {
             className="
               w-full py-2.5 rounded-2xl bg-black text-white
               text-sm font-semibold
-              hover:bg-gray-800 active:bg-gray-900
-              disabled:bg-gray-300 disabled:text-gray-500
+              hover:bg-[#191C20] active:bg-[#191C20]
+              disabled:bg-[#E9ECF0] disabled:text-[#9BA3AE]
               transition-colors
             "
           >
@@ -608,11 +608,11 @@ export function DailyChallenge({ address, onComplete }: Props) {
       {!showForm && (
         <div className="flex items-center justify-between pt-1">
           <div className="flex items-center gap-1.5">
-            <span className="text-xs font-medium text-gray-900 tabular-nums">
+            <span className="text-xs font-medium text-[#191C20] tabular-nums">
               +{data.pointsBase} pts
             </span>
             {data.userStreak > 0 && (
-              <span className="text-xs text-gray-400">
+              <span className="text-xs text-[#9BA3AE]">
                 + streak bonus
               </span>
             )}
@@ -626,7 +626,7 @@ export function DailyChallenge({ address, onComplete }: Props) {
             className="
               px-5 py-2.5 rounded-2xl bg-black text-white
               text-sm font-semibold
-              hover:bg-gray-800 active:bg-gray-900
+              hover:bg-[#191C20] active:bg-[#191C20]
               transition-colors
             "
           >

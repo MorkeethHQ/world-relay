@@ -56,13 +56,13 @@ type LevelConfig = {
 const LEVEL_CONFIG: Record<string, LevelConfig> = {
   "New Runner": {
     key: "new",
-    gradient: "from-gray-50 to-gray-100",
-    compactGradient: "from-gray-50 to-gray-100",
-    badgeBg: "bg-gray-100",
-    badgeBorder: "border-gray-200",
-    textColor: "text-gray-600",
-    progressColor: "bg-gray-400",
-    progressBg: "bg-gray-200",
+    gradient: "from-[#F7F8FA] to-[#F0F2F5]",
+    compactGradient: "from-[#F7F8FA] to-[#F0F2F5]",
+    badgeBg: "bg-[#F0F2F5]",
+    badgeBorder: "border-[#E9ECF0]",
+    textColor: "text-[#657080]",
+    progressColor: "bg-[#9BA3AE]",
+    progressBg: "bg-[#E9ECF0]",
   },
   "Local Runner": {
     key: "local",
@@ -123,7 +123,7 @@ function StreakFlame({
 }) {
   if (streak === 0) {
     return (
-      <span className="text-gray-500 text-xs font-medium">No streak</span>
+      <span className="text-[#9BA3AE] text-xs font-medium">No streak</span>
     );
   }
 
@@ -305,11 +305,11 @@ function timeAgo(iso: string): string {
 // ---------------------------------------------------------------------------
 
 const shimmerBg =
-  "bg-[length:200%_100%] bg-gradient-to-r from-gray-100 via-gray-200 to-gray-100 animate-[shimmer_1.5s_infinite]";
+  "bg-[length:200%_100%] bg-gradient-to-r from-[#F0F2F5] via-[#E9ECF0] to-[#F0F2F5] animate-[shimmer_1.5s_infinite]";
 
 function CompactSkeleton() {
   return (
-    <div className="flex items-center gap-3 rounded-xl px-3 py-2.5 bg-gray-50 border border-gray-200">
+    <div className="flex items-center gap-3 rounded-xl px-3 py-2.5 bg-[#F7F8FA] border border-[#E9ECF0]">
       <div className={`w-5 h-5 rounded-full shrink-0 ${shimmerBg}`} />
       <div className={`h-3 rounded-md w-16 ${shimmerBg}`} />
       <div className={`h-3 rounded-md w-12 ${shimmerBg}`} />
@@ -322,7 +322,7 @@ function CompactSkeleton() {
 
 function FullSkeleton() {
   return (
-    <div className="rounded-2xl p-5 flex flex-col gap-4 bg-gray-50 border border-gray-200">
+    <div className="rounded-2xl p-5 flex flex-col gap-4 bg-[#F7F8FA] border border-[#E9ECF0]">
       <div className="flex items-center gap-3">
         <div className={`w-8 h-8 rounded-full shrink-0 ${shimmerBg}`} />
         <div className="flex-1 flex flex-col gap-1.5">
@@ -477,7 +477,7 @@ function CompactCard({
       className={`
         flex items-center gap-2.5 rounded-xl px-3 py-2.5
         bg-gradient-to-r ${config.compactGradient}
-        border border-gray-200
+        border border-[#E9ECF0]
         transition-all duration-500
         ${appeared ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"}
       `}
@@ -486,15 +486,15 @@ function CompactCard({
       <LevelBadge level={profile.level} size="sm" />
 
       {/* Level name */}
-      <span className={`text-[11px] font-semibold ${config.textColor} shrink-0`}>
+      <span className={`text-xs font-semibold ${config.textColor} shrink-0`}>
         {profile.level}
       </span>
 
       {/* Divider */}
-      <span className="w-px h-3.5 bg-gray-300 shrink-0" />
+      <span className="w-px h-3.5 bg-[#9BA3AE] shrink-0" />
 
       {/* Points */}
-      <span className="text-[11px] font-bold text-gray-900 tabular-nums shrink-0">
+      <span className="text-xs font-bold text-[#191C20] tabular-nums shrink-0">
         {displayPoints.toLocaleString()} pts
       </span>
 
@@ -552,7 +552,7 @@ function FullCard({
       className={`
         rounded-2xl p-5 flex flex-col gap-4
         bg-gradient-to-br ${config.gradient}
-        border border-gray-200
+        border border-[#E9ECF0]
         transition-all duration-500
         ${appeared ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}
       `}
@@ -562,7 +562,7 @@ function FullCard({
         <div className="flex items-center gap-3">
           <LevelBadge level={profile.level} size="lg" />
           <div className="flex flex-col">
-            <span className="text-[10px] font-semibold uppercase tracking-[0.15em] text-gray-400">
+            <span className="text-xs font-semibold uppercase tracking-[0.15em] text-[#9BA3AE]">
               Proof of Favour
             </span>
             <span className={`text-lg font-bold ${config.textColor} leading-tight`}>
@@ -578,17 +578,17 @@ function FullCard({
       {/* Points + progress */}
       <div className="flex flex-col gap-2">
         <div className="flex items-baseline justify-between">
-          <span className="text-2xl font-black text-gray-900 tabular-nums">
+          <span className="text-2xl font-black text-[#191C20] tabular-nums">
             {displayPoints.toLocaleString()}
-            <span className="text-sm font-semibold text-gray-400 ml-1">pts</span>
+            <span className="text-sm font-semibold text-[#9BA3AE] ml-1">pts</span>
           </span>
           {!isMaxLevel && (
-            <span className="text-[11px] text-gray-400 tabular-nums">
+            <span className="text-xs text-[#9BA3AE] tabular-nums">
               {nextLevel.pointsNeeded.toLocaleString()} to {nextLevel.nextLevel}
             </span>
           )}
           {isMaxLevel && (
-            <span className="text-[11px] text-amber-400/70 font-semibold">
+            <span className="text-xs text-amber-400/70 font-semibold">
               Max level reached
             </span>
           )}
@@ -630,7 +630,7 @@ function FullCard({
       {/* Recent points history */}
       {recentHistory.length > 0 && (
         <div className="flex flex-col gap-1.5">
-          <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-gray-400">
+          <span className="text-xs font-semibold uppercase tracking-[0.12em] text-[#9BA3AE]">
             Recent Activity
           </span>
           {recentHistory.map((entry, i) => (
@@ -638,14 +638,14 @@ function FullCard({
               key={`${entry.timestamp}-${i}`}
               className="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-white/60"
             >
-              <span className="text-[11px] text-gray-600">
+              <span className="text-xs text-[#657080]">
                 {formatAction(entry.action)}
               </span>
               <div className="flex items-center gap-2">
-                <span className="text-[11px] font-bold text-emerald-400 tabular-nums">
+                <span className="text-xs font-bold text-emerald-400 tabular-nums">
                   +{entry.points}
                 </span>
-                <span className="text-[10px] text-gray-400 tabular-nums">
+                <span className="text-xs text-[#9BA3AE] tabular-nums">
                   {timeAgo(entry.timestamp)}
                 </span>
               </div>
@@ -656,7 +656,7 @@ function FullCard({
 
       {/* Footer branding */}
       <div className="flex items-center justify-center pt-1">
-        <span className="text-[9px] font-semibold uppercase tracking-[0.2em] text-gray-300">
+        <span className="text-xs font-semibold uppercase tracking-[0.2em] text-[#9BA3AE]">
           RELAY FAVOURS
         </span>
       </div>
@@ -687,13 +687,13 @@ function StatBox({
         ${config.badgeBg} border ${config.badgeBorder}
       `}
     >
-      <span className="text-base font-bold text-gray-900 tabular-nums">
+      <span className="text-base font-bold text-[#191C20] tabular-nums">
         {value}
         {suffix && (
-          <span className="text-[10px] font-semibold text-gray-400">{suffix}</span>
+          <span className="text-xs font-semibold text-[#9BA3AE]">{suffix}</span>
         )}
       </span>
-      <span className="text-[9px] font-medium text-gray-500 text-center leading-tight">
+      <span className="text-xs font-medium text-[#9BA3AE] text-center leading-tight">
         {label}
       </span>
     </div>

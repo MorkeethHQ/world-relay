@@ -57,62 +57,62 @@ export default function ProfilePage() {
   const agents = Array.from(agentMap.values()).sort((a, b) => b.count - a.count);
 
   return (
-    <div className="min-h-screen bg-white text-gray-900 max-w-lg mx-auto">
-      <div className="sticky top-0 z-10 bg-white/90 backdrop-blur-xl border-b border-gray-100">
-        <div className="flex items-center justify-between px-4 py-3">
-          <Link href="/" className="flex items-center text-sm text-gray-400 hover:text-gray-900 transition-colors">
+    <div className="min-h-screen bg-white text-[#191C20] max-w-lg mx-auto">
+      <div className="sticky top-0 z-10 bg-white/90 backdrop-blur-xl border-b border-[#E9ECF0]">
+        <div className="flex items-center justify-between px-6 py-4">
+          <Link href="/" className="flex items-center text-sm text-[#9BA3AE] hover:text-[#191C20] transition-colors">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="15 18 9 12 15 6" />
             </svg>
           </Link>
-          <span className="text-sm font-semibold text-gray-900">Profile</span>
+          <span className="text-sm font-semibold text-[#191C20]">Profile</span>
           <div className="w-8" />
         </div>
       </div>
 
       {loading ? (
         <div className="flex flex-col items-center justify-center py-20 gap-4">
-          <div className="w-5 h-5 border-2 border-gray-200 border-t-gray-900 rounded-full animate-spin" />
+          <div className="w-5 h-5 border-2 border-[#E9ECF0] border-t-[#191C20] rounded-full animate-spin" />
         </div>
       ) : (
-        <div className="px-4 pt-6 pb-24 flex flex-col gap-6">
+        <div className="px-6 pt-6 pb-24 flex flex-col gap-8">
 
           {/* On-chain stats */}
           {chain && (
             <>
               <div>
-                <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-2 px-1">On-chain escrow</p>
-                <div className="bg-white border border-gray-100 rounded-2xl p-4">
+                <p className="text-xs text-[#9BA3AE] uppercase tracking-wider mb-2 px-1">On-chain escrow</p>
+                <div className="bg-white border border-[#E9ECF0] rounded-2xl p-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <p className="text-[10px] text-gray-400">Total deposited</p>
-                      <p className="text-xl font-bold text-gray-900">${chain.totalDeposited}</p>
+                      <p className="text-xs text-[#9BA3AE]">Total deposited</p>
+                      <p className="text-xl font-bold text-[#191C20]">${chain.totalDeposited}</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-[10px] text-gray-400">Paid out</p>
-                      <p className="text-xl font-bold text-gray-900">${chain.paidOut}</p>
+                      <p className="text-xs text-[#9BA3AE]">Paid out</p>
+                      <p className="text-xl font-bold text-[#191C20]">${chain.paidOut}</p>
                     </div>
                   </div>
-                  <div className="grid grid-cols-3 gap-3 mt-4 pt-3 border-t border-gray-50 text-center">
+                  <div className="grid grid-cols-3 gap-3 mt-4 pt-4 border-t border-[#E9ECF0] text-center">
                     <div>
-                      <p className="text-lg font-bold text-gray-900">${chain.escrowBalance}</p>
-                      <p className="text-[9px] text-gray-400">Locked now</p>
+                      <p className="text-lg font-bold text-[#191C20]">${chain.escrowBalance}</p>
+                      <p className="text-xs text-[#9BA3AE]">Locked now</p>
                     </div>
                     <div>
-                      <p className="text-lg font-bold text-gray-900">{chain.taskCount}</p>
-                      <p className="text-[9px] text-gray-400">Transactions</p>
+                      <p className="text-lg font-bold text-[#191C20]">{chain.taskCount}</p>
+                      <p className="text-xs text-[#9BA3AE]">Transactions</p>
                     </div>
                     <div>
-                      <p className="text-lg font-bold text-gray-900">{chain.claimants}</p>
-                      <p className="text-[9px] text-gray-400">Claimants</p>
+                      <p className="text-lg font-bold text-[#191C20]">{chain.claimants}</p>
+                      <p className="text-xs text-[#9BA3AE]">Claimants</p>
                     </div>
                   </div>
-                  <div className="mt-3 pt-3 border-t border-gray-50">
+                  <div className="mt-3 pt-4 border-t border-[#E9ECF0]">
                     <a
                       href={`https://worldscan.org/address/${chain.escrowAddress}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-[10px] text-blue-500 underline underline-offset-2"
+                      className="text-xs text-blue-500 underline underline-offset-2"
                     >
                       View contract on WorldScan
                     </a>
@@ -122,33 +122,33 @@ export default function ProfilePage() {
 
               {/* On-chain ledger */}
               <div>
-                <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-2 px-1">
+                <p className="text-xs text-[#9BA3AE] uppercase tracking-wider mb-2 px-1">
                   Transaction ledger ({chain.tasks.length})
                 </p>
-                <div className="bg-white border border-gray-100 rounded-2xl overflow-hidden divide-y divide-gray-50">
+                <div className="bg-white border border-[#E9ECF0] rounded-2xl overflow-hidden divide-y divide-[#E9ECF0]">
                   {chain.tasks.slice().reverse().map((t) => (
                     <div key={t.id} className="px-3 py-2.5 flex items-center gap-2">
                       <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
                         t.status === "completed" ? "bg-green-400" :
                         t.status === "open" ? "bg-blue-400" :
                         t.status === "claimed" ? "bg-yellow-400" :
-                        "bg-gray-300"
+                        "bg-[#9BA3AE]"
                       }`} />
                       <div className="flex-1 min-w-0">
-                        <p className="text-[11px] text-gray-700 truncate">{t.description}</p>
+                        <p className="text-xs text-[#657080] truncate">{t.description}</p>
                         <div className="flex items-center gap-2 mt-0.5">
-                          <span className="text-[9px] text-gray-400">#{t.id}</span>
+                          <span className="text-xs text-[#9BA3AE]">#{t.id}</span>
                           {t.claimant && (
-                            <span className="text-[9px] text-gray-400">{shortAddr(t.claimant)}</span>
+                            <span className="text-xs text-[#9BA3AE]">{shortAddr(t.claimant)}</span>
                           )}
                         </div>
                       </div>
                       <div className="text-right shrink-0">
-                        <p className="text-xs font-semibold text-gray-900">${t.bounty}</p>
-                        <p className={`text-[9px] ${
+                        <p className="text-xs font-semibold text-[#191C20]">${t.bounty}</p>
+                        <p className={`text-xs ${
                           t.status === "completed" ? "text-green-600" :
                           t.status === "open" ? "text-blue-500" :
-                          "text-gray-400"
+                          "text-[#9BA3AE]"
                         }`}>{t.status}</p>
                       </div>
                     </div>
@@ -160,49 +160,49 @@ export default function ProfilePage() {
 
           {/* Proof of Favour reputation */}
           <div>
-            <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-2 px-1">Your reputation</p>
+            <p className="text-xs text-[#9BA3AE] uppercase tracking-wider mb-2 px-1">Your reputation</p>
             <ProofOfFavourCard address={typeof window !== "undefined" ? localStorage.getItem("relay_user_id") || "anonymous" : "anonymous"} />
           </div>
 
           {/* App stats */}
           <div>
-            <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-2 px-1">App overview</p>
+            <p className="text-xs text-[#9BA3AE] uppercase tracking-wider mb-2 px-1">App overview</p>
             <div className="grid grid-cols-3 gap-3 text-center">
-              <div className="bg-white border border-gray-100 rounded-2xl py-4">
-                <p className="text-2xl font-bold text-gray-900">{openFunded.length}</p>
-                <p className="text-[10px] text-gray-400 mt-1">Funded</p>
+              <div className="bg-[#F0F2F5] border border-[#E9ECF0] rounded-2xl py-4">
+                <p className="text-2xl font-bold text-[#191C20]">{openFunded.length}</p>
+                <p className="text-xs text-[#9BA3AE] mt-1">Funded</p>
               </div>
-              <div className="bg-white border border-gray-100 rounded-2xl py-4">
-                <p className="text-2xl font-bold text-gray-900">{tasks.filter(t => t.status === "open").length}</p>
-                <p className="text-[10px] text-gray-400 mt-1">Open</p>
+              <div className="bg-[#F0F2F5] border border-[#E9ECF0] rounded-2xl py-4">
+                <p className="text-2xl font-bold text-[#191C20]">{tasks.filter(t => t.status === "open").length}</p>
+                <p className="text-xs text-[#9BA3AE] mt-1">Open</p>
               </div>
-              <div className="bg-white border border-gray-100 rounded-2xl py-4">
-                <p className="text-2xl font-bold text-gray-900">{appCompleted.length}</p>
-                <p className="text-[10px] text-gray-400 mt-1">Completed</p>
+              <div className="bg-[#F0F2F5] border border-[#E9ECF0] rounded-2xl py-4">
+                <p className="text-2xl font-bold text-[#191C20]">{appCompleted.length}</p>
+                <p className="text-xs text-[#9BA3AE] mt-1">Completed</p>
               </div>
             </div>
           </div>
 
           {/* Search & filter tasks */}
           <div>
-            <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-2 px-1">Browse favours</p>
+            <p className="text-xs text-[#9BA3AE] uppercase tracking-wider mb-2 px-1">Browse favours</p>
             <TaskSearch initialTasks={tasks.filter(t => t.status === "open")} />
           </div>
 
           {/* Active agents */}
           {agents.length > 0 && (
             <div>
-              <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-2 px-1">Active agents</p>
+              <p className="text-xs text-[#9BA3AE] uppercase tracking-wider mb-2 px-1">Active agents</p>
               <div className="flex flex-col gap-1.5">
                 {agents.map((agent) => (
                   <div
                     key={agent.name}
-                    className="flex items-center justify-between bg-white border border-gray-100 rounded-xl px-4 py-3"
+                    className="flex items-center justify-between bg-white border border-[#E9ECF0] rounded-xl px-6 py-4"
                   >
-                    <span className="text-sm font-medium text-gray-900">{agent.name}</span>
+                    <span className="text-sm font-medium text-[#191C20]">{agent.name}</span>
                     <div className="flex items-center gap-3">
-                      <span className="text-xs text-gray-400">{agent.count} favours</span>
-                      <span className="text-xs font-medium text-gray-900">${agent.usdc}</span>
+                      <span className="text-xs text-[#9BA3AE]">{agent.count} favours</span>
+                      <span className="text-xs font-medium text-[#191C20]">${agent.usdc}</span>
                     </div>
                   </div>
                 ))}
@@ -211,7 +211,7 @@ export default function ProfilePage() {
           )}
 
           {/* Footer */}
-          <div className="flex items-center justify-center gap-2 text-[10px] text-gray-300 mt-4">
+          <div className="flex items-center justify-center gap-2 text-xs text-[#9BA3AE] mt-4">
             <span>RELAY FAVOURS</span>
             <span>·</span>
             <span>World Chain</span>

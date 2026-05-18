@@ -17,9 +17,9 @@ const BADGE_CONFIG: Record<string, { color: string; bg: string; border: string; 
     label: "Device Verified",
   },
   wallet: {
-    color: "text-gray-400",
-    bg: "bg-gray-500/10",
-    border: "border-gray-500/25",
+    color: "text-[#9BA3AE]",
+    bg: "bg-[#F7F8FA]0/10",
+    border: "border-[#9BA3AE]/25",
     label: "Wallet",
   },
 };
@@ -58,7 +58,7 @@ export function VerificationBadge({ level, size = "sm" }: Props) {
         className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 border ${config.bg} ${config.border}`}
       >
         <ShieldIcon level={level} size={12} />
-        <span className={`text-[11px] font-semibold ${config.color}`}>
+        <span className={`text-xs font-semibold ${config.color}`}>
           {config.label}
         </span>
       </span>
@@ -70,7 +70,7 @@ export function VerificationBadge({ level, size = "sm" }: Props) {
       className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 border ${config.bg} ${config.border}`}
     >
       <ShieldIcon level={level} size={9} />
-      <span className={`text-[9px] font-semibold ${config.color}`}>
+      <span className={`text-xs font-semibold ${config.color}`}>
         {config.label}
       </span>
     </span>
@@ -96,8 +96,8 @@ export function RequiredTierBadge({
     <span
       className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 border ${config.bg} ${config.border}`}
     >
-      <span className="text-[9px]">{"\u{1F512}"}</span>
-      <span className={`text-[9px] font-semibold ${config.color}`}>
+      <span className="text-xs">{"\u{1F512}"}</span>
+      <span className={`text-xs font-semibold ${config.color}`}>
         {label}
       </span>
     </span>

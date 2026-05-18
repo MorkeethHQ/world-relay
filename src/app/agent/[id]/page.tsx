@@ -15,11 +15,11 @@ function getStatusBadge(status: TaskStatus) {
       return "bg-blue-50 text-blue-700 border-blue-200";
     case "expired":
     case "cancelled":
-      return "bg-gray-50 text-gray-500 border-gray-200";
+      return "bg-[#F7F8FA] text-[#9BA3AE] border-[#E9ECF0]";
     case "failed":
       return "bg-red-50 text-red-600 border-red-200";
     default:
-      return "bg-gray-50 text-gray-500 border-gray-200";
+      return "bg-[#F7F8FA] text-[#9BA3AE] border-[#E9ECF0]";
   }
 }
 
@@ -58,13 +58,13 @@ export default async function AgentProfilePage({ params }: { params: Promise<{ i
   const recentTasks = agentTasks.slice(0, 10);
 
   return (
-    <div className="min-h-screen bg-white text-gray-900 max-w-lg mx-auto">
+    <div className="min-h-screen bg-white text-[#191C20] max-w-lg mx-auto">
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-white/90 backdrop-blur-xl border-b border-gray-100">
-        <div className="flex items-center justify-between px-4 py-3">
+      <div className="sticky top-0 z-10 bg-white/90 backdrop-blur-xl border-b border-[#E9ECF0]">
+        <div className="flex items-center justify-between px-6 py-4">
           <Link
             href="/leaderboard"
-            className="flex items-center text-sm text-gray-400 hover:text-gray-900 transition-colors"
+            className="flex items-center text-sm text-[#9BA3AE] hover:text-[#191C20] transition-colors"
           >
             <svg
               width="20"
@@ -79,16 +79,16 @@ export default async function AgentProfilePage({ params }: { params: Promise<{ i
               <polyline points="15 18 9 12 15 6" />
             </svg>
           </Link>
-          <span className="text-sm font-semibold text-gray-900">
+          <span className="text-sm font-semibold text-[#191C20]">
             Agent Profile
           </span>
           <div className="w-8" />
         </div>
       </div>
 
-      <div className="px-4 pt-6 pb-24 flex flex-col gap-6">
+      <div className="px-6 pt-6 pb-24 flex flex-col gap-6">
         {/* Agent Hero */}
-        <div className="bg-white border border-gray-100 rounded-2xl p-5 relative overflow-hidden">
+        <div className="bg-white border border-[#E9ECF0] rounded-2xl p-5 relative overflow-hidden">
           {/* Colored accent bar */}
           <div
             className="absolute top-0 left-0 right-0 h-1 rounded-t-2xl"
@@ -102,14 +102,14 @@ export default async function AgentProfilePage({ params }: { params: Promise<{ i
               {agent.icon}
             </div>
             <div className="flex-1 min-w-0">
-              <h1 className="text-xl font-bold text-gray-900 truncate">
+              <h1 className="text-xl font-bold text-[#191C20] truncate">
                 {agent.name}
               </h1>
-              <p className="text-xs text-gray-400 mt-0.5">AI Agent</p>
+              <p className="text-xs text-[#9BA3AE] mt-0.5">AI Agent</p>
             </div>
           </div>
           {agent.personality && (
-            <p className="text-sm text-gray-600 leading-relaxed mt-4">
+            <p className="text-sm text-[#657080] leading-relaxed mt-4">
               {agent.personality}
             </p>
           )}
@@ -117,48 +117,48 @@ export default async function AgentProfilePage({ params }: { params: Promise<{ i
 
         {/* Stats Cards */}
         <div>
-          <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-2 px-1">
+          <p className="text-xs text-[#9BA3AE] uppercase tracking-wider mb-2 px-1">
             Performance
           </p>
           <div className="grid grid-cols-2 gap-2">
-            <div className="bg-white border border-gray-100 rounded-2xl py-3 px-3 text-center">
-              <p className="text-xl font-bold text-gray-900">
+            <div className="bg-white border border-[#E9ECF0] rounded-2xl py-4 px-3 text-center">
+              <p className="text-xl font-bold text-[#191C20]">
                 {stats?.totalTasks ?? 0}
               </p>
-              <p className="text-[10px] text-gray-400 mt-0.5">Total Tasks</p>
+              <p className="text-xs text-[#9BA3AE] mt-0.5">Total Tasks</p>
             </div>
-            <div className="bg-white border border-gray-100 rounded-2xl py-3 px-3 text-center">
+            <div className="bg-white border border-[#E9ECF0] rounded-2xl py-4 px-3 text-center">
               <p className="text-xl font-bold text-green-600">
                 {stats?.completedTasks ?? 0}
               </p>
-              <p className="text-[10px] text-gray-400 mt-0.5">Completed</p>
+              <p className="text-xs text-[#9BA3AE] mt-0.5">Completed</p>
             </div>
-            <div className="bg-white border border-gray-100 rounded-2xl py-3 px-3 text-center">
+            <div className="bg-white border border-[#E9ECF0] rounded-2xl py-4 px-3 text-center">
               <p
                 className={`text-xl font-bold ${
                   (stats?.successRate ?? 0) >= 80
                     ? "text-green-600"
                     : (stats?.successRate ?? 0) >= 50
                       ? "text-yellow-600"
-                      : "text-gray-500"
+                      : "text-[#9BA3AE]"
                 }`}
               >
                 {stats?.successRate ?? 0}%
               </p>
-              <p className="text-[10px] text-gray-400 mt-0.5">Success Rate</p>
+              <p className="text-xs text-[#9BA3AE] mt-0.5">Success Rate</p>
             </div>
-            <div className="bg-white border border-gray-100 rounded-2xl py-3 px-3 text-center">
-              <p className="text-xl font-bold text-gray-900">
+            <div className="bg-white border border-[#E9ECF0] rounded-2xl py-4 px-3 text-center">
+              <p className="text-xl font-bold text-[#191C20]">
                 ${stats?.totalSpentUsdc ?? 0}
               </p>
-              <p className="text-[10px] text-gray-400 mt-0.5">USDC Spent</p>
+              <p className="text-xs text-[#9BA3AE] mt-0.5">USDC Spent</p>
             </div>
           </div>
         </div>
 
         {/* Recent Tasks */}
         <div>
-          <p className="text-[10px] text-gray-400 uppercase tracking-wider mb-2 px-1">
+          <p className="text-xs text-[#9BA3AE] uppercase tracking-wider mb-2 px-1">
             Recent Tasks
           </p>
           {recentTasks.length > 0 ? (
@@ -167,28 +167,28 @@ export default async function AgentProfilePage({ params }: { params: Promise<{ i
                 <Link
                   key={task.id}
                   href={`/task/${task.id}`}
-                  className="bg-white border border-gray-100 rounded-2xl px-4 py-3.5 block hover:border-gray-200 transition-colors"
+                  className="bg-white border border-[#E9ECF0] rounded-2xl px-5 py-4 block hover:border-[#E9ECF0] transition-colors"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 line-clamp-2">
+                      <p className="text-sm font-medium text-[#191C20] line-clamp-2">
                         {task.description}
                       </p>
-                      <p className="text-[11px] text-gray-400 mt-1 truncate">
+                      <p className="text-xs text-[#9BA3AE] mt-1 truncate">
                         {task.location}
                       </p>
                     </div>
                     <span
-                      className={`text-[10px] font-medium px-2 py-0.5 rounded-full border shrink-0 ${getStatusBadge(task.status)}`}
+                      className={`text-xs font-medium px-2 py-0.5 rounded-full border shrink-0 ${getStatusBadge(task.status)}`}
                     >
                       {task.status}
                     </span>
                   </div>
-                  <div className="flex items-center justify-between mt-2.5 pt-2.5 border-t border-gray-50">
-                    <span className="text-xs font-semibold text-gray-900">
+                  <div className="flex items-center justify-between mt-2.5 pt-2.5 border-t border-[#F7F8FA]">
+                    <span className="text-xs font-semibold text-[#191C20]">
                       ${task.bountyUsdc} USDC
                     </span>
-                    <span className="text-[10px] text-gray-400">
+                    <span className="text-xs text-[#9BA3AE]">
                       {formatTime(task.createdAt)}
                     </span>
                   </div>
@@ -196,9 +196,9 @@ export default async function AgentProfilePage({ params }: { params: Promise<{ i
               ))}
             </div>
           ) : (
-            <div className="bg-white border border-gray-100 rounded-2xl py-10 flex flex-col items-center justify-center gap-2">
-              <p className="text-sm text-gray-500">No tasks yet</p>
-              <p className="text-xs text-gray-400">
+            <div className="bg-white border border-[#E9ECF0] rounded-2xl py-10 flex flex-col items-center justify-center gap-2">
+              <p className="text-sm text-[#9BA3AE]">No tasks yet</p>
+              <p className="text-xs text-[#9BA3AE]">
                 This agent hasn&apos;t posted any tasks.
               </p>
             </div>
@@ -206,7 +206,7 @@ export default async function AgentProfilePage({ params }: { params: Promise<{ i
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-center gap-2 text-[10px] text-gray-300 mt-4">
+        <div className="flex items-center justify-center gap-2 text-xs text-[#9BA3AE] mt-4">
           <span>RELAY FAVOURS</span>
           <span>·</span>
           <span>World Chain</span>
