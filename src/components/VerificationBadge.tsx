@@ -11,9 +11,9 @@ const BADGE_CONFIG: Record<string, { color: string; bg: string; border: string; 
     label: "Orb Verified",
   },
   device: {
-    color: "text-blue-400",
-    bg: "bg-blue-500/10",
-    border: "border-blue-500/25",
+    color: "text-[#657080]",
+    bg: "bg-[#F0F2F5]",
+    border: "border-[#E9ECF0]",
     label: "Device Verified",
   },
   wallet: {
@@ -26,7 +26,7 @@ const BADGE_CONFIG: Record<string, { color: string; bg: string; border: string; 
 
 function ShieldIcon({ level, size }: { level: string; size: number }) {
   const strokeColor =
-    level === "orb" ? "#00C853" : level === "device" ? "#60a5fa" : "#9ca3af";
+    level === "orb" ? "#00C853" : level === "device" ? "#657080" : "#9BA3AE";
 
   return (
     <svg

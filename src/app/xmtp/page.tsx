@@ -119,7 +119,7 @@ export default function XmtpPage() {
             </svg>
           </Link>
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-lg bg-indigo-50 flex items-center justify-center">
+            <div className="w-6 h-6 rounded-lg bg-[#F0F2F5] flex items-center justify-center">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#818cf8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
               </svg>
@@ -220,7 +220,7 @@ export default function XmtpPage() {
           <button
             type="submit"
             disabled={!input.trim() || sending}
-            className="w-10 h-10 rounded-xl bg-[#191C20] hover:bg-[#657080] disabled:bg-[#E9ECF0] flex items-center justify-center transition-colors active:scale-95 shrink-0"
+            className="w-11 h-11 rounded-xl bg-[#191C20] hover:bg-[#657080] disabled:bg-[#E9ECF0] flex items-center justify-center transition-colors active:scale-95 shrink-0"
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <line x1="22" y1="2" x2="11" y2="13" />

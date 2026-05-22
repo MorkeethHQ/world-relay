@@ -66,43 +66,43 @@ const LEVEL_CONFIG: Record<string, LevelConfig> = {
   },
   "Local Runner": {
     key: "local",
-    gradient: "from-emerald-50 to-emerald-100/50",
-    compactGradient: "from-emerald-50 to-emerald-100/50",
-    badgeBg: "bg-emerald-50",
-    badgeBorder: "border-emerald-200",
-    textColor: "text-emerald-600",
-    progressColor: "bg-emerald-500",
-    progressBg: "bg-emerald-100",
+    gradient: "from-[#E8F8EE] to-[#D4F5E0]",
+    compactGradient: "from-[#E8F8EE] to-[#D4F5E0]",
+    badgeBg: "bg-[#E8F8EE]",
+    badgeBorder: "border-[#A7E8BE]",
+    textColor: "text-[#29A352]",
+    progressColor: "bg-[#29A352]",
+    progressBg: "bg-[#D4F5E0]",
   },
   "Trusted Runner": {
     key: "trusted",
-    gradient: "from-blue-50 to-blue-100/50",
-    compactGradient: "from-blue-50 to-blue-100/50",
-    badgeBg: "bg-blue-50",
-    badgeBorder: "border-blue-200",
-    textColor: "text-blue-600",
-    progressColor: "bg-blue-500",
-    progressBg: "bg-blue-100",
+    gradient: "from-[#F0F2F5] to-[#E9ECF0]",
+    compactGradient: "from-[#F0F2F5] to-[#E9ECF0]",
+    badgeBg: "bg-[#F0F2F5]",
+    badgeBorder: "border-[#E9ECF0]",
+    textColor: "text-[#191C20]",
+    progressColor: "bg-[#191C20]",
+    progressBg: "bg-[#E9ECF0]",
   },
   "Veteran Runner": {
     key: "veteran",
-    gradient: "from-purple-50 to-purple-100/50",
-    compactGradient: "from-purple-50 to-purple-100/50",
-    badgeBg: "bg-purple-50",
-    badgeBorder: "border-purple-200",
-    textColor: "text-purple-600",
-    progressColor: "bg-purple-500",
-    progressBg: "bg-purple-100",
+    gradient: "from-[#F0F2F5] to-[#E9ECF0]",
+    compactGradient: "from-[#F0F2F5] to-[#E9ECF0]",
+    badgeBg: "bg-[#F0F2F5]",
+    badgeBorder: "border-[#9BA3AE]",
+    textColor: "text-[#191C20]",
+    progressColor: "bg-[#657080]",
+    progressBg: "bg-[#E9ECF0]",
   },
   Legend: {
     key: "legend",
-    gradient: "from-amber-50 to-yellow-100/50",
-    compactGradient: "from-amber-50 to-yellow-100/50",
-    badgeBg: "bg-amber-50",
-    badgeBorder: "border-amber-200",
-    textColor: "text-amber-600",
-    progressColor: "bg-gradient-to-r from-amber-500 to-yellow-400",
-    progressBg: "bg-amber-100",
+    gradient: "from-[#FFF8E1] to-[#FFF3E0]",
+    compactGradient: "from-[#FFF8E1] to-[#FFF3E0]",
+    badgeBg: "bg-[#FFF8E1]",
+    badgeBorder: "border-[#FDE68A]",
+    textColor: "text-[#F59E0B]",
+    progressColor: "bg-gradient-to-r from-[#F59E0B] to-[#FBBF24]",
+    progressBg: "bg-[#FEF3C7]",
   },
 };
 
@@ -207,7 +207,7 @@ function LevelBadge({
   const px = sizeMap[size];
 
   const colorMap: Record<LevelKey, string> = {
-    new: "#9ca3af",
+    new: "#9BA3AE",
     local: "#34d399",
     trusted: "#60a5fa",
     veteran: "#a78bfa",
@@ -588,7 +588,7 @@ function FullCard({
             </span>
           )}
           {isMaxLevel && (
-            <span className="text-xs text-amber-400/70 font-semibold">
+            <span className="text-xs text-[#F59E0B]/70 font-semibold">
               Max level reached
             </span>
           )}
@@ -642,7 +642,7 @@ function FullCard({
                 {formatAction(entry.action)}
               </span>
               <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-emerald-400 tabular-nums">
+                <span className="text-xs font-bold text-[#29A352] tabular-nums">
                   +{entry.points}
                 </span>
                 <span className="text-xs text-[#9BA3AE] tabular-nums">

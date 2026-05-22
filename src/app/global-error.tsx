@@ -10,7 +10,6 @@ export default function GlobalError({
   reset: () => void;
 }) {
   useEffect(() => {
-    // Log to console for debugging — never expose to the user
     console.error("[GlobalErrorBoundary]", error);
   }, [error]);
 
@@ -24,9 +23,9 @@ export default function GlobalError({
           alignItems: "center",
           justifyContent: "center",
           backgroundColor: "#FAFAFA",
-          color: "#1a1a1a",
+          color: "#191C20",
           fontFamily:
-            '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+            'var(--font-sans, "TWK Lausanne", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif)',
         }}
       >
         <div
@@ -57,7 +56,7 @@ export default function GlobalError({
               height="28"
               viewBox="0 0 24 24"
               fill="none"
-              stroke="black"
+              stroke="#191C20"
               strokeWidth="2.5"
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -79,13 +78,13 @@ export default function GlobalError({
             >
               Something went wrong
             </h1>
-            <p style={{ color: "#9ca3af", fontSize: "0.875rem", margin: 0 }}>
+            <p style={{ color: "#9BA3AE", fontSize: "0.875rem", margin: 0 }}>
               RELAY FAVOURS hit a critical error. Try reloading the page.
             </p>
             {error?.digest && (
               <p
                 style={{
-                  color: "#4b5563",
+                  color: "#657080",
                   fontSize: "0.75rem",
                   fontFamily: "monospace",
                   marginTop: "8px",
@@ -99,7 +98,7 @@ export default function GlobalError({
           <button
             onClick={reset}
             style={{
-              backgroundColor: "#000",
+              backgroundColor: "#191C20",
               color: "white",
               padding: "12px 24px",
               borderRadius: "16px",
@@ -107,6 +106,7 @@ export default function GlobalError({
               fontSize: "0.875rem",
               border: "none",
               cursor: "pointer",
+              minHeight: "44px",
               boxShadow: "0 2px 12px rgba(0,0,0,0.1)",
             }}
           >

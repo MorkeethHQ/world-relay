@@ -112,7 +112,7 @@ export default function ProfilePage() {
                       href={`https://worldscan.org/address/${chain.escrowAddress}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-xs text-blue-500 underline underline-offset-2"
+                      className="text-xs text-[#191C20] underline underline-offset-2"
                     >
                       View contract on WorldScan
                     </a>
@@ -130,7 +130,7 @@ export default function ProfilePage() {
                     <div key={t.id} className="px-3 py-2.5 flex items-center gap-2">
                       <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
                         t.status === "completed" ? "bg-green-400" :
-                        t.status === "open" ? "bg-blue-400" :
+                        t.status === "open" ? "bg-[#657080]" :
                         t.status === "claimed" ? "bg-yellow-400" :
                         "bg-[#9BA3AE]"
                       }`} />
@@ -147,7 +147,7 @@ export default function ProfilePage() {
                         <p className="text-xs font-semibold text-[#191C20]">${t.bounty}</p>
                         <p className={`text-xs ${
                           t.status === "completed" ? "text-green-600" :
-                          t.status === "open" ? "text-blue-500" :
+                          t.status === "open" ? "text-[#191C20]" :
                           "text-[#9BA3AE]"
                         }`}>{t.status}</p>
                       </div>

@@ -134,7 +134,7 @@ function ActivityTicker({ tasks }: { tasks: Task[] }) {
       events.push({
         icon: "⚡",
         text: `${shortId(t.claimant)} claimed ${t.agent ? t.agent.name : ""} favour · $${t.bountyUsdc}`,
-        color: "text-blue-600",
+        color: "text-[#191C20]",
         time: timeAgo(t.createdAt),
       });
     }
@@ -613,8 +613,8 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
         <div className="px-6 pt-4">
           <div className="w-full bg-[#F7F8FA] border border-[#E9ECF0] rounded-xl px-5 py-3 flex items-center gap-3">
             <span className="relative flex h-2 w-2 shrink-0">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500" />
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#FBBF24] opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-[#F59E0B]" />
             </span>
             <span className={`text-sm font-medium ${statusToast.color}`}>
               {statusToast.message}
@@ -809,7 +809,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
                   <p className="font-medium text-[15px] leading-snug break-words">{task.description}</p>
                   <div className="flex items-center gap-1.5 mt-2 flex-wrap">
                     {task.agent && <AgentBadge agent={task.agent} />}
-                    <svg className="shrink-0" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <svg className="shrink-0" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9BA3AE" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
                       <circle cx="12" cy="10" r="3" />
                     </svg>
@@ -834,7 +834,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
                         {task.attestationTxHash && (
                           <>
                             <span className="text-xs text-[#657080]">·</span>
-                            <a href={`https://worldscan.org/tx/${task.attestationTxHash}`} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 min-h-[44px] flex items-center">
+                            <a href={`https://worldscan.org/tx/${task.attestationTxHash}`} target="_blank" rel="noopener noreferrer" className="text-xs text-[#191C20] min-h-[44px] flex items-center">
                               verified →
                             </a>
                           </>
@@ -994,7 +994,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
             href={`https://worldscan.org/tx/${claimTxSuccess.hash}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-xs text-blue-500 underline underline-offset-2 shrink-0 min-h-[44px] flex items-center"
+            className="text-xs text-[#191C20] underline underline-offset-2 shrink-0 min-h-[44px] flex items-center"
           >
             Explorer
           </a>
@@ -1019,7 +1019,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
           <p className="flex-1 text-xs text-red-400 font-medium">{claimTxError.message}</p>
           <button
             onClick={() => { setClaimTxError(null); claimTxError.retry(); }}
-            className="text-xs text-blue-500 underline underline-offset-2 shrink-0 min-h-[44px] flex items-center font-medium"
+            className="text-xs text-[#191C20] underline underline-offset-2 shrink-0 min-h-[44px] flex items-center font-medium"
           >
             Retry
           </button>
@@ -1065,7 +1065,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
           </div>
           <span className="text-[#9BA3AE]">·</span>
           <div className="flex items-center gap-1.5">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#818cf8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9BA3AE" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>
             <span className="text-xs text-[#9BA3AE]">XMTP</span>
           </div>
           <span className="text-[#9BA3AE]">·</span>
@@ -1081,7 +1081,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm px-6">
           <div className="bg-white border border-[#E9ECF0] rounded-2xl p-5 max-w-sm w-full shadow-2xl">
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-full bg-blue-50 border border-blue-200 flex items-center justify-center shrink-0">
+              <div className="w-10 h-10 rounded-full bg-[#F0F2F5] border border-[#E9ECF0] flex items-center justify-center shrink-0">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
                 </svg>
@@ -1095,13 +1095,13 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
             <div className="bg-[#F7F8FA] border border-[#E9ECF0] rounded-xl p-3 mb-4">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs text-[#9BA3AE] uppercase tracking-wider">Required level</span>
-                <span className={`text-xs font-semibold ${upgradePrompt.required === "orb" ? "text-cyan-600" : "text-blue-600"}`}>
+                <span className={`text-xs font-semibold ${upgradePrompt.required === "orb" ? "text-[#191C20]" : "text-[#191C20]"}`}>
                   {upgradePrompt.required === "orb" ? "◉ Orb Verified" : upgradePrompt.required === "device" ? "◎ Device Verified" : "○ Wallet Verified"}
                 </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-xs text-[#9BA3AE] uppercase tracking-wider">Your level</span>
-                <span className={`text-xs font-medium ${upgradePrompt.current === "orb" ? "text-cyan-600" : upgradePrompt.current === "device" ? "text-blue-600" : "text-green-600"}`}>
+                <span className={`text-xs font-medium ${upgradePrompt.current === "orb" ? "text-[#191C20]" : upgradePrompt.current === "device" ? "text-[#191C20]" : "text-green-600"}`}>
                   {upgradePrompt.current === "orb" ? "◉ Orb" : upgradePrompt.current === "device" ? "◎ Device" : upgradePrompt.current === "wallet" ? "○ Wallet" : "None"}
                 </span>
               </div>
@@ -1113,7 +1113,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
 
             <button
               onClick={() => setUpgradePrompt(null)}
-              className="w-full min-h-[44px] bg-blue-600 hover:bg-blue-500 text-white py-2.5 rounded-xl text-sm font-semibold active:scale-[0.98] transition-all"
+              className="w-full min-h-[44px] bg-[#191C20] hover:bg-[#191C20] text-white py-2.5 rounded-xl text-sm font-semibold active:scale-[0.98] transition-all"
             >
               Got it
             </button>
@@ -1271,7 +1271,7 @@ function TaskCard({
 
 function StatusBadge({ status }: { status: string }) {
   const styles: Record<string, string> = {
-    open: "bg-blue-50 text-blue-600 border-blue-200",
+    open: "bg-[#F0F2F5] text-[#191C20] border-[#E9ECF0]",
     claimed: "bg-yellow-50 text-yellow-600 border-yellow-200",
     completed: "bg-green-50 text-green-600 border-green-200",
     failed: "bg-red-50 text-red-600 border-red-200",
@@ -2062,14 +2062,14 @@ function TaskTimeline({ task }: { task: Task }) {
                       isRejected ? "bg-red-100 text-red-600" :
                       "bg-green-100 text-green-600"
                     : isActive
-                    ? "bg-blue-100 text-blue-600 animate-[pulse-dot_2s_ease-in-out_infinite]"
+                    ? "bg-[#E9ECF0] text-[#191C20] animate-[pulse-dot_2s_ease-in-out_infinite]"
                     : "bg-[#F7F8FA] text-[#657080]"
                 }`}>
                   {step.icon}
                 </div>
                 <span className={`text-xs font-medium ${
                   isDone ? isFlagged ? "text-yellow-600" : isRejected ? "text-red-600" : "text-green-600"
-                  : isActive ? "text-blue-400" : "text-[#657080]"
+                  : isActive ? "text-[#657080]" : "text-[#657080]"
                 }`}>
                   {step.label}
                 </span>
@@ -2176,7 +2176,7 @@ function TaskDetail({
         <div className="min-w-0">
           <p className="font-semibold text-lg leading-snug break-words">{currentTask.description}</p>
           <div className="flex items-center gap-2 mt-2 flex-wrap">
-            <svg className="shrink-0" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg className="shrink-0" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9BA3AE" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
               <circle cx="12" cy="10" r="3" />
             </svg>
@@ -2212,7 +2212,7 @@ function TaskDetail({
                 href={`https://worldscan.org/tx/${txSuccess}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-xs text-blue-500 underline underline-offset-2 shrink-0 min-h-[44px] flex items-center"
+                className="text-xs text-[#191C20] underline underline-offset-2 shrink-0 min-h-[44px] flex items-center"
               >
                 View on Explorer
               </a>
@@ -2234,7 +2234,7 @@ function TaskDetail({
               href={`https://worldscan.org/tx/${currentTask.escrowTxHash}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-xs text-blue-500 underline underline-offset-2 shrink-0 min-h-[44px] flex items-center"
+              className="text-xs text-[#191C20] underline underline-offset-2 shrink-0 min-h-[44px] flex items-center"
             >
               View on Explorer
             </a>
@@ -2377,8 +2377,8 @@ function TaskDetail({
               </span>
               {currentTask.claimantVerification && (
                 <span className={`text-xs px-2 py-0.5 rounded-full border ml-1 ${
-                  currentTask.claimantVerification === "orb" ? "text-cyan-600 border-cyan-200 bg-cyan-50" :
-                  currentTask.claimantVerification === "device" ? "text-blue-600 border-blue-200 bg-blue-50" :
+                  currentTask.claimantVerification === "orb" ? "text-[#191C20] border-cyan-200 bg-cyan-50" :
+                  currentTask.claimantVerification === "device" ? "text-[#191C20] border-[#E9ECF0] bg-[#F0F2F5]" :
                   "text-green-600 border-green-200 bg-green-50"
                 }`}>
                   {currentTask.claimantVerification === "orb" ? "Orb-verified human" : currentTask.claimantVerification === "device" ? "Device-verified" : "Wallet-level"}
@@ -2400,7 +2400,7 @@ function TaskDetail({
                   href={`https://worldscan.org/tx/${currentTask.attestationTxHash}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 text-xs text-blue-500 underline underline-offset-2 min-h-[44px]"
+                  className="flex items-center gap-1.5 text-xs text-[#191C20] underline underline-offset-2 min-h-[44px]"
                 >
                   <svg className="shrink-0" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <rect x="2" y="7" width="20" height="14" rx="2" ry="2" /><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
@@ -2506,7 +2506,7 @@ function TaskDetail({
         {currentTask.status === "claimed" && isClaimant && !isFlagged && !hasFollowUp && (
           <button
             onClick={onSubmitProof}
-            className="w-full bg-blue-500 hover:bg-blue-600 text-white font-medium rounded-xl px-4 py-3 min-h-[44px] transition-colors active:scale-[0.98]"
+            className="w-full bg-[#191C20] hover:bg-[#191C20] text-white font-medium rounded-xl px-4 py-3 min-h-[44px] transition-colors active:scale-[0.98]"
           >
             Submit Proof
           </button>
@@ -2514,12 +2514,12 @@ function TaskDetail({
 
         {/* AI Follow-up: claimant can respond and request re-evaluation */}
         {hasFollowUp && isClaimant && (
-          <div className="bg-purple-50 border border-purple-200 rounded-2xl p-4">
+          <div className="bg-[#F7F8FA] border border-[#E9ECF0] rounded-2xl p-4">
             <div className="flex items-center gap-2 mb-2">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a855f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /><line x1="12" y1="17" x2="12.01" y2="17" />
               </svg>
-              <span className="text-sm font-semibold text-purple-400">More info needed</span>
+              <span className="text-sm font-semibold text-[#657080]">More info needed</span>
             </div>
             <p className="text-xs text-[#9BA3AE] mb-3">Reply to the question in the thread below, then tap re-evaluate.</p>
             <button
@@ -2536,7 +2536,7 @@ function TaskDetail({
                 setReEvaluating(false);
               }}
               disabled={reEvaluating}
-              className="w-full min-h-[44px] bg-purple-600 hover:bg-purple-500 text-white py-2.5 rounded-xl text-sm font-semibold active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+              className="w-full min-h-[44px] bg-[#191C20] hover:bg-[#191C20] text-white py-2.5 rounded-xl text-sm font-semibold active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {reEvaluating ? (
                 <>
@@ -2604,7 +2604,7 @@ function TaskDetail({
                 setDisputing(false);
               }}
               disabled={disputing}
-              className="w-full min-h-[44px] bg-indigo-600/80 hover:bg-indigo-600 text-white py-3 rounded-2xl text-sm font-semibold active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+              className="w-full min-h-[44px] bg-[#191C20] hover:bg-[#191C20] text-white py-3 rounded-2xl text-sm font-semibold active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {disputing ? (
                 <>
@@ -2629,8 +2629,8 @@ function TaskDetail({
             <span className="text-xs text-[#9BA3AE] uppercase tracking-wider font-medium">Thread</span>
             <span className="flex-1 h-px bg-[#F7F8FA]" />
             <div className="flex items-center gap-1">
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#818cf8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
-              <span className="text-xs text-indigo-500">XMTP Encrypted</span>
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#9BA3AE" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
+              <span className="text-xs text-[#657080]">XMTP Encrypted</span>
               <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-[pulse-dot_2s_ease-in-out_infinite]" />
             </div>
           </div>
@@ -2651,19 +2651,19 @@ function TaskDetail({
                   key={msg.id}
                   className={`rounded-2xl p-4 ${
                     isAiMessage
-                      ? "bg-gradient-to-br from-purple-50 to-indigo-50 border border-purple-200"
+                      ? "bg-gradient-to-br from-[#F7F8FA] to-[#F0F2F5] border border-[#E9ECF0]"
                       : msg.sender === "relay-bot"
                       ? "bg-white border border-[#E9ECF0]"
                       : msg.sender === userId
-                      ? "bg-blue-50 border border-blue-100 ml-4"
+                      ? "bg-[#F0F2F5] border border-[#E9ECF0] ml-4"
                       : "bg-white border border-[#E9ECF0] mr-4"
                   }`}
                 >
                   <div className="flex items-center justify-between mb-1.5">
                     <span className={`text-xs font-semibold flex items-center gap-1.5 ${
-                      isAiMessage ? "text-purple-400" :
-                      msg.sender === "relay-bot" ? "text-purple-400" :
-                      msg.sender === userId ? "text-blue-400" : "text-[#9BA3AE]"
+                      isAiMessage ? "text-[#657080]" :
+                      msg.sender === "relay-bot" ? "text-[#657080]" :
+                      msg.sender === userId ? "text-[#657080]" : "text-[#9BA3AE]"
                     }`}>
                       {isAiMessage && (
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -2696,7 +2696,7 @@ function TaskDetail({
               onChange={(e) => setChatInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && sendMessage()}
               className={`flex-1 min-w-0 bg-[#F7F8FA] border rounded-xl px-4 py-2.5 text-sm min-h-[44px] focus:outline-none transition-colors placeholder:text-[#9BA3AE] ${
-                hasFollowUp && isClaimant ? "border-purple-500/30 focus:border-purple-500/50" : "border-[#E9ECF0] focus:border-[#9BA3AE]"
+                hasFollowUp && isClaimant ? "border-[#E9ECF0] focus:border-[#9BA3AE]" : "border-[#E9ECF0] focus:border-[#9BA3AE]"
               }`}
             />
             <button

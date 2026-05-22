@@ -11,7 +11,6 @@ export default function ErrorPage({
   reset: () => void;
 }) {
   useEffect(() => {
-    // Log to console for debugging — never expose to the user
     console.error("[ErrorBoundary]", error);
   }, [error]);
 
@@ -24,7 +23,7 @@ export default function ErrorPage({
             height="28"
             viewBox="0 0 24 24"
             fill="none"
-            stroke="#1a1a1a"
+            stroke="#191C20"
             strokeWidth="2.5"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -36,7 +35,7 @@ export default function ErrorPage({
         </div>
 
         <div className="space-y-3">
-          <h1 className="text-3xl font-bold tracking-tight text-[#111827]">
+          <h1 className="text-3xl font-bold tracking-tight text-[#191C20]">
             Something went wrong
           </h1>
           <p className="text-[#9BA3AE] text-sm max-w-xs">
@@ -53,14 +52,14 @@ export default function ErrorPage({
         <div className="flex flex-col items-center gap-3">
           <button
             onClick={reset}
-            className="bg-black text-white px-6 py-3 rounded-2xl font-semibold text-sm active:scale-[0.97] transition-all shadow-[0_2px_12px_rgba(0,0,0,0.1)]"
+            className="bg-[#191C20] text-white px-6 py-3 rounded-2xl font-semibold text-sm active:scale-[0.97] transition-all min-h-[44px]"
           >
             Try again
           </button>
 
           <Link
             href="/"
-            className="text-[#9BA3AE] hover:text-[#657080] text-sm underline underline-offset-4 transition-colors"
+            className="text-[#9BA3AE] hover:text-[#657080] text-sm underline underline-offset-4 transition-colors min-h-[44px] flex items-center"
           >
             Back to feed
           </Link>

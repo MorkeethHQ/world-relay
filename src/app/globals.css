@@ -15,11 +15,11 @@ body {
 }
 
 input, textarea {
-  color: #1a1a1a;
+  color: #191C20;
 }
 
 input::placeholder, textarea::placeholder {
-  color: #9ca3af;
+  color: #9BA3AE;
 }
 
 @keyframes shimmer {

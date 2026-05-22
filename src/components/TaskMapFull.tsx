@@ -10,8 +10,8 @@ const STATUS_COLORS: Record<TaskStatus, string> = {
   claimed: "#eab308",
   completed: "#3b82f6",
   failed: "#ef4444",
-  expired: "#6b7280",
-  cancelled: "#9ca3af",
+  expired: "#657080",
+  cancelled: "#9BA3AE",
 };
 
 const STATUS_LABELS: Record<TaskStatus, string> = {
@@ -43,7 +43,7 @@ function makeClusterIcon(count: number) {
   const size = Math.min(40, 24 + count * 2);
   return L.divIcon({
     className: "",
-    html: `<div style="width:${size}px;height:${size}px;border-radius:50%;background:rgba(59,130,246,0.85);border:2px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;color:white;font-size:11px;font-weight:700;">${count}</div>`,
+    html: `<div style="width:${size}px;height:${size}px;border-radius:50%;background:rgba(59,130,246,0.85);border:2px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;color:white;font-size:12px;font-weight:700;">${count}</div>`,
     iconSize: [size, size],
     iconAnchor: [size / 2, size / 2],
   });
@@ -191,10 +191,10 @@ export default function TaskMapFull() {
           const icon = makeClusterIcon(cluster.tasks.length);
           const clusterBounty = cluster.tasks.reduce((s, t) => s + t.bountyUsdc, 0);
           const popupHtml = `
-            <div style="font-family:system-ui,sans-serif;color:#e5e7eb;max-width:200px;">
+            <div style="font-family:system-ui,sans-serif;color:#E9ECF0;max-width:200px;">
               <p style="margin:0 0 4px;font-size:13px;font-weight:600;">${cluster.tasks.length} tasks</p>
-              <p style="margin:0 0 4px;font-size:11px;color:#9ca3af;">Total bounty: $${clusterBounty.toFixed(2)} USDC</p>
-              <p style="margin:0;font-size:10px;color:#6b7280;">Zoom in to see individual tasks</p>
+              <p style="margin:0 0 4px;font-size:12px;color:#9BA3AE;">Total bounty: $${clusterBounty.toFixed(2)} USDC</p>
+              <p style="margin:0;font-size:12px;color:#657080;">Zoom in to see individual tasks</p>
             </div>
           `;
           L.marker([cluster.center.lat, cluster.center.lng], { icon })
@@ -213,13 +213,13 @@ export default function TaskMapFull() {
     }
 
     function addTaskMarker(task: Task, layer: L.LayerGroup) {
-      const pinColor = STATUS_COLORS[task.status] || "#6b7280";
+      const pinColor = STATUS_COLORS[task.status] || "#657080";
       const radius = markerRadius(task.bountyUsdc);
       const icon = makeIcon(pinColor, radius);
       const statusLabel = STATUS_LABELS[task.status] || task.status;
 
       const agentHtml = task.agent
-        ? `<p style="margin:0 0 4px;font-size:11px;color:#9ca3af;">
+        ? `<p style="margin:0 0 4px;font-size:12px;color:#9BA3AE;">
             <span style="font-size:13px;">${task.agent.icon}</span> ${task.agent.name}
             <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${task.agent.color};margin-left:4px;vertical-align:middle;"></span>
           </p>`
@@ -228,12 +228,12 @@ export default function TaskMapFull() {
       const descriptionTruncated = truncate(task.description, 80);
 
       const popupHtml = `
-        <div style="font-family:system-ui,sans-serif;color:#e5e7eb;max-width:220px;">
+        <div style="font-family:system-ui,sans-serif;color:#E9ECF0;max-width:220px;">
           ${agentHtml}
           <p style="margin:0 0 6px;font-size:13px;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">${descriptionTruncated}</p>
-          <p style="margin:0 0 4px;font-size:11px;color:#9ca3af;">💰 $${task.bountyUsdc} USDC</p>
-          <p style="margin:0 0 4px;font-size:11px;">
-            <span style="display:inline-block;padding:1px 6px;border-radius:9999px;font-size:10px;font-weight:600;background:${STATUS_COLORS[task.status]}22;color:${STATUS_COLORS[task.status]};">${statusLabel}</span>
+          <p style="margin:0 0 4px;font-size:12px;color:#9BA3AE;">💰 $${task.bountyUsdc} USDC</p>
+          <p style="margin:0 0 4px;font-size:12px;">
+            <span style="display:inline-block;padding:1px 6px;border-radius:9999px;font-size:12px;font-weight:600;background:${STATUS_COLORS[task.status]}22;color:${STATUS_COLORS[task.status]};">${statusLabel}</span>
           </p>
           <a href="/task/${task.id}" style="display:inline-block;margin-top:6px;font-size:12px;color:#60a5fa;text-decoration:none;font-weight:500;">View Task &rarr;</a>
         </div>
@@ -264,10 +264,10 @@ export default function TaskMapFull() {
             const cIcon = makeClusterIcon(cluster.tasks.length);
             const cBounty = cluster.tasks.reduce((s, t) => s + t.bountyUsdc, 0);
             const cPopup = `
-              <div style="font-family:system-ui,sans-serif;color:#e5e7eb;max-width:200px;">
+              <div style="font-family:system-ui,sans-serif;color:#E9ECF0;max-width:200px;">
                 <p style="margin:0 0 4px;font-size:13px;font-weight:600;">${cluster.tasks.length} tasks</p>
-                <p style="margin:0 0 4px;font-size:11px;color:#9ca3af;">Total bounty: $${cBounty.toFixed(2)} USDC</p>
-                <p style="margin:0;font-size:10px;color:#6b7280;">Zoom in to see individual tasks</p>
+                <p style="margin:0 0 4px;font-size:12px;color:#9BA3AE;">Total bounty: $${cBounty.toFixed(2)} USDC</p>
+                <p style="margin:0;font-size:12px;color:#657080;">Zoom in to see individual tasks</p>
               </div>
             `;
             L.marker([cluster.center.lat, cluster.center.lng], { icon: cIcon })
@@ -314,7 +314,7 @@ export default function TaskMapFull() {
             style={{
               background:
                 filter === f.value ? f.color + "22" : "rgba(0,0,0,0.6)",
-              color: filter === f.value ? f.color : "#9ca3af",
+              color: filter === f.value ? f.color : "#9BA3AE",
               borderColor:
                 filter === f.value ? f.color + "55" : "rgba(255,255,255,0.1)",
               backdropFilter: "blur(8px)",
@@ -361,7 +361,7 @@ export default function TaskMapFull() {
           border: 1px solid rgba(255, 255, 255, 0.1);
         }
         .dark-popup .leaflet-popup-close-button {
-          color: #9ca3af !important;
+          color: #9BA3AE !important;
         }
         .dark-popup .leaflet-popup-close-button:hover {
           color: #fff !important;

@@ -57,9 +57,9 @@ async function fetchAnalytics(): Promise<AnalyticsResponse> {
 }
 
 function getRankBadge(rank: number): string {
-  if (rank === 1) return "bg-yellow-100 text-yellow-700 border-yellow-200";
+  if (rank === 1) return "bg-[#FFF8E1] text-[#F59E0B] border-[#FDE68A]";
   if (rank === 2) return "bg-[#F0F2F5] text-[#657080] border-[#E9ECF0]";
-  if (rank === 3) return "bg-orange-50 text-orange-600 border-orange-200";
+  if (rank === 3) return "bg-[#FFF3E0] text-[#EA580C] border-[#FDBA74]";
   return "bg-[#F0F2F5] text-[#9BA3AE] border-[#E9ECF0]";
 }
 
@@ -209,7 +209,7 @@ export default async function LeaderboardPage() {
                 height="24"
                 viewBox="0 0 24 24"
                 fill="none"
-                stroke="#9ca3af"
+                stroke="#9BA3AE"
                 strokeWidth="1.5"
                 strokeLinecap="round"
                 strokeLinejoin="round"

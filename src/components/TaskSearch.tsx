@@ -376,7 +376,7 @@ function TaskResultCard({ task }: { task: Task }) {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           {/* Bounty badge */}
-          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-50 text-green-700 border border-green-100">
+          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-[#E8F8EE] text-[#29A352] border border-[#D4F5E0]">
             ${task.bountyUsdc}
           </span>
 

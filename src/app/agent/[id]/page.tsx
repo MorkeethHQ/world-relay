@@ -12,7 +12,7 @@ function getStatusBadge(status: TaskStatus) {
     case "claimed":
       return "bg-yellow-50 text-yellow-700 border-yellow-200";
     case "open":
-      return "bg-blue-50 text-blue-700 border-blue-200";
+      return "bg-[#F0F2F5] text-[#191C20] border-[#E9ECF0]";
     case "expired":
     case "cancelled":
       return "bg-[#F7F8FA] text-[#9BA3AE] border-[#E9ECF0]";

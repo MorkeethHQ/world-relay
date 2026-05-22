@@ -65,7 +65,7 @@ export function TaskMap({
         const color = task.status === "open" ? "#22c55e" : task.status === "claimed" ? "#f59e0b" : "#3b82f6";
 
         const taskIcon = L.divIcon({
-          html: `<div style="background:${color};color:white;border-radius:12px;padding:2px 8px;font-size:11px;font-weight:600;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;align-items:center;gap:4px;"><span>${icon}</span> $${task.bountyUsdc}</div>`,
+          html: `<div style="background:${color};color:white;border-radius:12px;padding:2px 8px;font-size:12px;font-weight:600;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;align-items:center;gap:4px;"><span>${icon}</span> $${task.bountyUsdc}</div>`,
           iconSize: [0, 0],
           iconAnchor: [30, 15],
           className: "",
