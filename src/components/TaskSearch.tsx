@@ -41,9 +41,9 @@ function timeLeft(deadline: string): string {
 
 function SkeletonCard() {
   const shimmer =
-    "bg-[length:200%_100%] bg-gradient-to-r from-gray-100 via-gray-200 to-gray-100 animate-[shimmer_1.5s_infinite]";
+    "bg-[length:200%_100%] bg-gradient-to-r from-[#F0F2F5] via-[#E9ECF0] to-[#F0F2F5] animate-[shimmer_1.5s_infinite]";
   return (
-    <div className="rounded-2xl p-4 flex flex-col gap-3 bg-white border border-gray-100 shadow-sm">
+    <div className="rounded-2xl p-4 flex flex-col gap-3 bg-white border border-[#E9ECF0] shadow-sm">
       <div className="flex items-start gap-2">
         <div className={`w-5 h-5 rounded shrink-0 ${shimmer}`} />
         <div className="flex-1 flex flex-col gap-1.5">
@@ -154,7 +154,7 @@ export function TaskSearch({ initialTasks }: { initialTasks?: Task[] }) {
             strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
-            className="text-gray-400"
+            className="text-[#9BA3AE]"
           >
             <circle cx="11" cy="11" r="8" />
             <line x1="21" y1="21" x2="16.65" y2="16.65" />
@@ -165,12 +165,12 @@ export function TaskSearch({ initialTasks }: { initialTasks?: Task[] }) {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search tasks..."
-          className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-300 transition-all"
+          className="w-full pl-10 pr-4 py-3 bg-white border border-[#E9ECF0] rounded-xl text-sm text-[#191C20] placeholder-[#9BA3AE] focus:outline-none focus:ring-2 focus:ring-[#191C20]/10 focus:border-[#9BA3AE] transition-all"
         />
         {query && (
           <button
             onClick={() => setQuery("")}
-            className="absolute inset-y-0 right-3 flex items-center text-gray-400 hover:text-gray-600"
+            className="absolute inset-y-0 right-3 flex items-center text-[#9BA3AE] hover:text-[#657080]"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <line x1="18" y1="6" x2="6" y2="18" />
@@ -188,8 +188,8 @@ export function TaskSearch({ initialTasks }: { initialTasks?: Task[] }) {
             onClick={() => setCategory(cat.value)}
             className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
               category === cat.value
-                ? "bg-gray-900 text-white"
-                : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"
+                ? "bg-[#191C20] text-white"
+                : "bg-white border border-[#E9ECF0] text-[#657080] hover:bg-[#F7F8FA]"
             }`}
           >
             {cat.value !== "all" && (
@@ -205,7 +205,7 @@ export function TaskSearch({ initialTasks }: { initialTasks?: Task[] }) {
         <select
           value={sort}
           onChange={(e) => setSort(e.target.value as SortOption)}
-          className="bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-900/10"
+          className="bg-white border border-[#E9ECF0] rounded-lg px-3 py-1.5 text-xs text-[#657080] focus:outline-none focus:ring-2 focus:ring-[#191C20]/10"
         >
           {SORT_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>
@@ -218,8 +218,8 @@ export function TaskSearch({ initialTasks }: { initialTasks?: Task[] }) {
           onClick={() => setShowFilters(!showFilters)}
           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
             showFilters
-              ? "bg-gray-900 text-white"
-              : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"
+              ? "bg-[#191C20] text-white"
+              : "bg-white border border-[#E9ECF0] text-[#657080] hover:bg-[#F7F8FA]"
           }`}
         >
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -240,28 +240,28 @@ export function TaskSearch({ initialTasks }: { initialTasks?: Task[] }) {
       {/* Bounty range filters (collapsible) */}
       {showFilters && (
         <div className="flex items-center gap-2 animate-[fadeIn_0.2s_ease-out]">
-          <span className="text-xs text-gray-500 shrink-0">Bounty:</span>
+          <span className="text-xs text-[#9BA3AE] shrink-0">Bounty:</span>
           <input
             type="number"
             value={minBounty}
             onChange={(e) => setMinBounty(e.target.value)}
             placeholder="Min $"
             min="0"
-            className="w-20 px-2 py-1.5 bg-white border border-gray-200 rounded-lg text-xs text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900/10"
+            className="w-20 px-2 py-1.5 bg-white border border-[#E9ECF0] rounded-lg text-xs text-[#657080] placeholder-[#9BA3AE] focus:outline-none focus:ring-2 focus:ring-[#191C20]/10"
           />
-          <span className="text-xs text-gray-400">-</span>
+          <span className="text-xs text-[#9BA3AE]">-</span>
           <input
             type="number"
             value={maxBounty}
             onChange={(e) => setMaxBounty(e.target.value)}
             placeholder="Max $"
             min="0"
-            className="w-20 px-2 py-1.5 bg-white border border-gray-200 rounded-lg text-xs text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900/10"
+            className="w-20 px-2 py-1.5 bg-white border border-[#E9ECF0] rounded-lg text-xs text-[#657080] placeholder-[#9BA3AE] focus:outline-none focus:ring-2 focus:ring-[#191C20]/10"
           />
           {(minBounty || maxBounty) && (
             <button
               onClick={() => { setMinBounty(""); setMaxBounty(""); }}
-              className="text-xs text-gray-400 hover:text-gray-600 underline"
+              className="text-xs text-[#9BA3AE] hover:text-[#657080] underline"
             >
               Clear
             </button>
@@ -272,7 +272,7 @@ export function TaskSearch({ initialTasks }: { initialTasks?: Task[] }) {
       {/* Results count */}
       {hasSearched && !loading && (
         <div className="flex items-center justify-between px-1">
-          <span className="text-[11px] text-gray-400">
+          <span className="text-xs text-[#9BA3AE]">
             {total} {total === 1 ? "task" : "tasks"} found
           </span>
           {(query || category !== "all" || minBounty || maxBounty) && (
@@ -284,7 +284,7 @@ export function TaskSearch({ initialTasks }: { initialTasks?: Task[] }) {
                 setMaxBounty("");
                 setSort("newest");
               }}
-              className="text-[11px] text-gray-500 hover:text-gray-700 underline"
+              className="text-xs text-[#9BA3AE] hover:text-[#657080] underline"
             >
               Clear all filters
             </button>
@@ -304,14 +304,14 @@ export function TaskSearch({ initialTasks }: { initialTasks?: Task[] }) {
       {/* Empty state */}
       {!loading && hasSearched && tasks.length === 0 && (
         <div className="flex flex-col items-center justify-center py-12 gap-3">
-          <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-gray-400">
+          <div className="w-12 h-12 rounded-full bg-[#F0F2F5] flex items-center justify-center">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="text-[#9BA3AE]">
               <circle cx="11" cy="11" r="8" />
               <line x1="21" y1="21" x2="16.65" y2="16.65" />
             </svg>
           </div>
-          <p className="text-sm text-gray-500 font-medium">No tasks match your filters</p>
-          <p className="text-xs text-gray-400">Try adjusting your search or filters</p>
+          <p className="text-sm text-[#9BA3AE] font-medium">No tasks match your filters</p>
+          <p className="text-xs text-[#9BA3AE]">Try adjusting your search or filters</p>
         </div>
       )}
 
@@ -328,7 +328,7 @@ export function TaskSearch({ initialTasks }: { initialTasks?: Task[] }) {
       {hasMore && !loading && (
         <button
           onClick={loadMore}
-          className="w-full py-3 text-sm font-medium text-gray-600 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-all"
+          className="w-full py-3 text-sm font-medium text-[#657080] bg-white border border-[#E9ECF0] rounded-xl hover:bg-[#F7F8FA] transition-all"
         >
           Load more tasks
         </button>
@@ -337,7 +337,7 @@ export function TaskSearch({ initialTasks }: { initialTasks?: Task[] }) {
       {/* Loading indicator for pagination */}
       {loading && tasks.length > 0 && (
         <div className="flex justify-center py-4">
-          <div className="w-5 h-5 border-2 border-gray-200 border-t-gray-900 rounded-full animate-spin" />
+          <div className="w-5 h-5 border-2 border-[#E9ECF0] border-t-[#191C20] rounded-full animate-spin" />
         </div>
       )}
     </div>
@@ -351,25 +351,25 @@ function TaskResultCard({ task }: { task: Task }) {
   return (
     <a
       href={`/task/${task.id}`}
-      className="block rounded-2xl p-4 bg-white border border-gray-100 shadow-sm hover:shadow-md hover:border-gray-200 transition-all active:scale-[0.98]"
+      className="block rounded-2xl p-4 bg-white border border-[#E9ECF0] shadow-sm hover:shadow-md hover:border-[#E9ECF0] transition-all active:scale-[0.98]"
     >
       {/* Description + category icon */}
       <div className="flex items-start gap-2 mb-2">
         <span className="text-base shrink-0 mt-0.5">
           {CATEGORY_ICONS[task.category] || "✏️"}
         </span>
-        <p className="text-sm text-gray-900 leading-snug line-clamp-2">
+        <p className="text-sm text-[#191C20] leading-snug line-clamp-2">
           {task.description}
         </p>
       </div>
 
       {/* Location */}
       <div className="flex items-center gap-1.5 mb-3">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-400 shrink-0">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[#9BA3AE] shrink-0">
           <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
           <circle cx="12" cy="10" r="3" />
         </svg>
-        <span className="text-xs text-gray-500 truncate">{task.location}</span>
+        <span className="text-xs text-[#9BA3AE] truncate">{task.location}</span>
       </div>
 
       {/* Bottom row: bounty, category pill, agent, deadline */}
@@ -381,30 +381,30 @@ function TaskResultCard({ task }: { task: Task }) {
           </span>
 
           {/* Category pill */}
-          <span className="inline-flex items-center px-2 py-0.5 rounded-lg text-[10px] font-medium bg-gray-100 text-gray-600">
+          <span className="inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-medium bg-[#F0F2F5] text-[#657080]">
             {task.category}
           </span>
 
           {/* Agent icon */}
           {task.agent && (
             <span
-              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-lg text-[10px] bg-gray-50 border border-gray-100"
+              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-lg text-xs bg-[#F7F8FA] border border-[#E9ECF0]"
               title={task.agent.name}
             >
               <span>{task.agent.icon}</span>
-              <span className="text-gray-500 max-w-[60px] truncate">{task.agent.name}</span>
+              <span className="text-[#9BA3AE] max-w-[60px] truncate">{task.agent.name}</span>
             </span>
           )}
         </div>
 
         {/* Deadline countdown */}
         <span
-          className={`text-[11px] font-medium ${
+          className={`text-xs font-medium ${
             isExpired
               ? "text-red-500"
               : deadline.includes("m") && !deadline.includes("h")
               ? "text-orange-500"
-              : "text-gray-400"
+              : "text-[#9BA3AE]"
           }`}
         >
           {isExpired ? "Expired" : deadline}

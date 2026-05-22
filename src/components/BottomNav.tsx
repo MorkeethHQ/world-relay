@@ -41,7 +41,7 @@ export function BottomNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200" style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 12px)" }}>
+    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-[#E9ECF0]" style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 12px)" }}>
       <div className="max-w-lg mx-auto flex items-center justify-around pt-2">
         {TABS.map((tab) => {
           const active = tab.href === "/" ? pathname === "/" : pathname.startsWith(tab.href);
@@ -54,7 +54,7 @@ export function BottomNav() {
               }`}
             >
               {TAB_ICONS[tab.href]?.(active)}
-              <span className={`text-[11px] font-medium ${active ? "text-[#191C20]" : "text-[#9BA3AE]"}`}>
+              <span className={`text-xs font-medium ${active ? "text-[#191C20]" : "text-[#9BA3AE]"}`}>
                 {tab.label}
               </span>
             </Link>

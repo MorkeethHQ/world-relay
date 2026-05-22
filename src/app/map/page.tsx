@@ -6,7 +6,7 @@ import Link from "next/link";
 const TaskMapFull = dynamic(() => import("@/components/TaskMapFull"), {
   ssr: false,
   loading: () => (
-    <div className="flex-1 flex items-center justify-center text-gray-500 text-sm">
+    <div className="flex-1 flex items-center justify-center text-[#9BA3AE] text-sm">
       Loading map...
     </div>
   ),
@@ -16,16 +16,16 @@ export default function MapPage() {
   return (
     <div className="min-h-screen bg-[#FAFAFA] flex flex-col">
       {/* Header */}
-      <header className="flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-white">
+      <header className="flex items-center justify-between px-4 py-3 border-b border-[#E9ECF0] bg-white">
         <Link href="/" className="flex items-center gap-2">
-          <span className="text-gray-900 font-bold text-sm tracking-tight">
+          <span className="text-[#191C20] font-bold text-sm tracking-tight">
             RELAY FAVOURS
           </span>
-          <span className="text-[10px] text-gray-400 font-mono">MAP</span>
+          <span className="text-xs text-[#9BA3AE] font-mono">MAP</span>
         </Link>
         <Link
           href="/"
-          className="h-10 sm:h-8 px-3 rounded-full text-[11px] font-semibold border border-gray-200 text-gray-500 hover:text-gray-900 hover:border-gray-400 transition-all flex items-center gap-1.5"
+          className="h-10 sm:h-8 px-3 rounded-full text-xs font-semibold border border-[#E9ECF0] text-[#9BA3AE] hover:text-[#191C20] hover:border-[#9BA3AE] transition-all flex items-center gap-1.5"
         >
           <svg
             width="12"

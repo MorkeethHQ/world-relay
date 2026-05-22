@@ -38,8 +38,8 @@ export class ErrorBoundary extends Component<Props, State> {
               </svg>
             </div>
             <div className="text-center">
-              <h2 className="text-lg font-semibold text-gray-900">Something went wrong</h2>
-              <p className="text-sm text-gray-500 mt-1">
+              <h2 className="text-lg font-semibold text-[#191C20]">Something went wrong</h2>
+              <p className="text-sm text-[#9BA3AE] mt-1">
                 RELAY hit an unexpected error. Your data is safe.
               </p>
             </div>
@@ -48,16 +48,16 @@ export class ErrorBoundary extends Component<Props, State> {
                 this.setState({ hasError: false, error: null });
                 window.location.reload();
               }}
-              className="w-full bg-gray-900 text-white px-6 py-3 rounded-xl font-semibold text-sm active:scale-[0.97] transition-all"
+              className="w-full bg-[#191C20] text-white px-6 py-3 rounded-xl font-semibold text-sm active:scale-[0.97] transition-all"
             >
               Reload App
             </button>
             {this.state.error && (
               <details className="w-full">
-                <summary className="text-[10px] text-gray-400 cursor-pointer">
+                <summary className="text-xs text-[#9BA3AE] cursor-pointer">
                   Technical details
                 </summary>
-                <pre className="mt-2 text-[9px] text-gray-400 bg-gray-50 border border-gray-100 rounded-lg p-3 overflow-x-auto whitespace-pre-wrap break-words">
+                <pre className="mt-2 text-xs text-[#9BA3AE] bg-[#F7F8FA] border border-[#E9ECF0] rounded-lg p-3 overflow-x-auto whitespace-pre-wrap break-words">
                   {this.state.error.message}
                 </pre>
               </details>
