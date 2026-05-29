@@ -3,6 +3,7 @@ import "./globals.css";
 import { MiniKitProvider } from "@/lib/minikit-provider";
 import { BottomNav } from "@/components/BottomNav";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { Toaster } from "@worldcoin/mini-apps-ui-kit-react";
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -37,11 +38,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="h-full antialiased">
-      <body className="min-h-full flex flex-col bg-[#FAFAFA] text-[#191C20] overflow-x-hidden">
+      <body className="min-h-full flex flex-col bg-gray-50 text-gray-900 overflow-x-hidden">
         <ErrorBoundary>
           <MiniKitProvider>
             <main className="flex-1 pb-20">{children}</main>
             <BottomNav />
+            <Toaster />
           </MiniKitProvider>
         </ErrorBoundary>
       </body>

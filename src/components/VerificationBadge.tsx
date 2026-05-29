@@ -1,3 +1,7 @@
+import {
+  VerificationBadge as WorldVerificationBadge,
+} from "@worldcoin/mini-apps-ui-kit-react";
+
 type Props = {
   level: "orb" | "device" | "wallet" | "unverified" | string | null | undefined;
   size?: "sm" | "md";
@@ -5,28 +9,28 @@ type Props = {
 
 const BADGE_CONFIG: Record<string, { color: string; bg: string; border: string; label: string }> = {
   orb: {
-    color: "text-[#00C853]",
-    bg: "bg-[#00C853]/10",
-    border: "border-[#00C853]/25",
+    color: "text-success-600",
+    bg: "bg-success-100",
+    border: "border-success-200",
     label: "Orb Verified",
   },
   device: {
-    color: "text-[#657080]",
-    bg: "bg-[#F0F2F5]",
-    border: "border-[#E9ECF0]",
+    color: "text-gray-500",
+    bg: "bg-gray-100",
+    border: "border-gray-200",
     label: "Device Verified",
   },
   wallet: {
-    color: "text-[#9BA3AE]",
-    bg: "bg-[#F7F8FA]0/10",
-    border: "border-[#9BA3AE]/25",
+    color: "text-gray-400",
+    bg: "bg-gray-50",
+    border: "border-gray-300",
     label: "Wallet",
   },
 };
 
 function ShieldIcon({ level, size }: { level: string; size: number }) {
   const strokeColor =
-    level === "orb" ? "#00C853" : level === "device" ? "#657080" : "#9BA3AE";
+    level === "orb" ? "rgb(var(--success-600))" : level === "device" ? "rgb(var(--gray-500))" : "rgb(var(--gray-400))";
 
   return (
     <svg
@@ -77,10 +81,6 @@ export function VerificationBadge({ level, size = "sm" }: Props) {
   );
 }
 
-/**
- * Shows a lock badge indicating what verification tier is required
- * to claim a task based on its bounty amount.
- */
 export function RequiredTierBadge({
   bountyUsdc,
 }: {

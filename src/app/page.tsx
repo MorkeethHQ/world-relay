@@ -4,6 +4,21 @@ import { useState, useEffect } from "react";
 import { MiniKit } from "@worldcoin/minikit-js";
 import { Feed } from "@/components/Feed";
 import { displayName } from "@/hooks/useWorldUser";
+import {
+  Button,
+  Typography,
+  Spinner,
+  CircularIcon,
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogClose,
+  Pill,
+  LiveFeedback,
+} from "@worldcoin/mini-apps-ui-kit-react";
 
 type VerificationLevel = "orb" | "device" | "wallet" | "dev" | null;
 
@@ -109,23 +124,25 @@ export default function Home() {
       <div className="flex flex-col min-h-screen max-w-lg mx-auto w-full items-center justify-center px-6">
         <div className="flex flex-col items-center gap-8 w-full max-w-sm">
           <div className="flex flex-col items-center gap-4">
-            <div className="w-16 h-16 rounded-2xl bg-[#191C20] flex items-center justify-center">
+            <CircularIcon size="lg" className="bg-gray-900">
               <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 2L2 7l10 5 10-5-10-5z" />
                 <path d="M2 17l10 5 10-5" />
                 <path d="M2 12l10 5 10-5" />
               </svg>
-            </div>
-            <h1 className="text-2xl font-semibold tracking-tight text-[#191C20]">RELAY FAVOURS</h1>
+            </CircularIcon>
+            <Typography variant="heading" level={3} as="h1">
+              RELAY FAVOURS
+            </Typography>
           </div>
 
           <div className="text-center space-y-3">
-            <p className="text-base font-medium text-[#191C20] leading-snug">
-              AI agents get stuck in the real world.{"\n"}You close the loop and get paid.
-            </p>
-            <p className="text-sm text-[#657080] leading-relaxed max-w-[300px] mx-auto">
+            <Typography variant="subtitle" level={1}>
+              AI agents get stuck in the real world. You close the loop and get paid.
+            </Typography>
+            <Typography variant="body" level={3} className="text-gray-400 max-w-[300px] mx-auto">
               Verify locations, confirm deliveries, check business hours. 30 seconds of your time, instant USDC.
-            </p>
+            </Typography>
           </div>
 
           <div className="w-full space-y-4">
@@ -135,34 +152,33 @@ export default function Home() {
               { num: "3", text: "Get paid instantly", sub: "AI verifies your proof. USDC to your wallet." },
             ].map((step) => (
               <div key={step.num} className="flex items-start gap-4 px-1">
-                <div className="w-8 h-8 rounded-full bg-[#F0F2F5] flex items-center justify-center shrink-0 mt-0.5">
-                  <span className="text-sm font-semibold text-[#191C20]">{step.num}</span>
-                </div>
+                <CircularIcon size="sm" className="bg-gray-100 mt-0.5">
+                  <Typography variant="label" level={2}>{step.num}</Typography>
+                </CircularIcon>
                 <div>
-                  <p className="text-sm font-medium text-[#191C20]">{step.text}</p>
-                  <p className="text-sm text-[#657080]">{step.sub}</p>
+                  <Typography variant="body" level={2}>{step.text}</Typography>
+                  <Typography variant="body" level={3} className="text-gray-400">{step.sub}</Typography>
                 </div>
               </div>
             ))}
           </div>
 
           <div className="w-full space-y-3">
-            <button
-              onClick={handleVerify}
-              disabled={isVerifying}
-              className="w-full bg-[#191C20] text-white px-6 py-4 rounded-2xl font-semibold text-base disabled:opacity-50 active:scale-[0.98] transition-transform"
-            >
-              {isVerifying ? (
-                <span className="flex items-center justify-center gap-2">
-                  <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Connecting...
-                </span>
-              ) : isInWorldApp ? "Get Started" : "Continue"}
-            </button>
+            <LiveFeedback state={isVerifying ? "pending" : undefined}>
+              <Button
+                onClick={handleVerify}
+                disabled={isVerifying}
+                fullWidth
+                variant="primary"
+                size="lg"
+              >
+                {isInWorldApp ? "Get Started" : "Continue"}
+              </Button>
+            </LiveFeedback>
             {!isInWorldApp && (
-              <p className="text-xs text-[#9BA3AE] text-center">
+              <Typography variant="body" level={4} className="text-gray-400 text-center">
                 Full features available in World App
-              </p>
+              </Typography>
             )}
           </div>
         </div>
@@ -174,60 +190,54 @@ export default function Home() {
     <div className="relative">
       {welcomeMsg && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 max-w-sm w-[90%]">
-          <div className="bg-white border border-[#D4F5E0] rounded-2xl px-5 py-3 flex items-center gap-3 shadow-lg">
-            <div className="w-8 h-8 rounded-full bg-[#E8F8EE] flex items-center justify-center shrink-0">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#29A352" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <div className="bg-white border border-success-200 rounded-2xl px-5 py-3 flex items-center gap-3 shadow-lg">
+            <CircularIcon size="sm" className="bg-success-100">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgb(var(--success-600))" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
               </svg>
-            </div>
+            </CircularIcon>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-[#191C20]">{welcomeMsg}</p>
-              <p className="text-xs text-[#657080]">Identity verified</p>
+              <Typography variant="body" level={2}>{welcomeMsg}</Typography>
+              <Typography variant="body" level={4} className="text-gray-400">Identity verified</Typography>
             </div>
           </div>
         </div>
       )}
 
-      {showOnboarding && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-6">
-          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-lg">
-            <div className="flex items-center gap-3 mb-5">
-              <div className="w-10 h-10 rounded-full bg-[#EDF2FF] flex items-center justify-center shrink-0">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4E7AFF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-                </svg>
-              </div>
-              <div>
-                <p className="text-base font-semibold text-[#191C20]">Welcome to RELAY</p>
-                <p className="text-sm text-[#657080] mt-0.5">Higher verification unlocks more favours</p>
-              </div>
-            </div>
+      <AlertDialog open={showOnboarding} onOpenChange={setShowOnboarding}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Welcome to RELAY</AlertDialogTitle>
+            <AlertDialogDescription>
+              Higher verification unlocks more favours
+            </AlertDialogDescription>
+          </AlertDialogHeader>
 
-            <div className="flex flex-col gap-3 mb-5">
-              {[
-                { tier: "Wallet", color: "bg-[#E8F8EE] text-[#29A352]", desc: "Up to $5", range: "$0-$5" },
-                { tier: "Device", color: "bg-[#EDF2FF] text-[#4E7AFF]", desc: "Up to $20", range: "$5-$20" },
-                { tier: "Orb", color: "bg-[#E5F9F6] text-[#00B894]", desc: "All favours", range: "$20+" },
-              ].map((t) => (
-                <div key={t.tier} className="flex items-center gap-3 bg-[#F7F8FA] rounded-xl px-4 py-3">
-                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${t.color}`}>{t.tier}</span>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-[#191C20]">{t.desc}</p>
-                  </div>
-                  <span className="text-sm text-[#9BA3AE] font-mono">{t.range}</span>
+          <div className="flex flex-col gap-3 px-6 pb-4">
+            {[
+              { tier: "Wallet", color: "bg-success-100 text-success-700", desc: "Up to $5", range: "$0-$5" },
+              { tier: "Device", color: "bg-info-100 text-info-700", desc: "Up to $20", range: "$5-$20" },
+              { tier: "Orb", color: "bg-success-100 text-success-700", desc: "All favours", range: "$20+" },
+            ].map((t) => (
+              <div key={t.tier} className="flex items-center gap-3 bg-gray-50 rounded-xl px-4 py-3">
+                <Pill checked>{t.tier}</Pill>
+                <div className="flex-1">
+                  <Typography variant="body" level={2}>{t.desc}</Typography>
                 </div>
-              ))}
-            </div>
-
-            <button
-              onClick={() => setShowOnboarding(false)}
-              className="w-full bg-[#191C20] text-white px-4 py-3.5 rounded-xl font-semibold text-sm active:scale-[0.98] transition-transform"
-            >
-              Got it
-            </button>
+                <Typography variant="body" level={3} className="text-gray-400 font-mono">{t.range}</Typography>
+              </div>
+            ))}
           </div>
-        </div>
-      )}
+
+          <AlertDialogFooter>
+            <AlertDialogClose asChild>
+              <Button fullWidth variant="primary" size="lg">
+                Got it
+              </Button>
+            </AlertDialogClose>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Feed userId={userId} verificationLevel={verificationLevel} onLogout={handleLogout} />
     </div>
