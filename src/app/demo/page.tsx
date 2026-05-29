@@ -72,7 +72,7 @@ function PhoneFrame({ children }: { children: React.ReactNode }) {
     <div className="relative mx-auto w-[220px] animate-[fadeIn_0.5s_ease-out]">
       <div className="rounded-[24px] border-2 border-gray-800 bg-[#1a1a1a] p-1.5 shadow-[0_0_40px_rgba(0,0,0,0.15)]">
         <div className="mx-auto mb-1 h-4 w-20 rounded-full bg-[#111] border border-gray-700" />
-        <div className="rounded-[18px] bg-[#FAFAFA] overflow-hidden flex flex-col">
+        <div className="rounded-[18px] bg-gray-50 overflow-hidden flex flex-col">
           {children}
         </div>
         <div className="mx-auto mt-1 h-1 w-16 rounded-full bg-gray-600" />
@@ -91,12 +91,12 @@ function CodeBlock({
   highlight?: number[];
 }) {
   return (
-    <div className="bg-gray-50 rounded-lg border border-gray-200 overflow-hidden text-[10px] font-mono">
+    <div className="bg-gray-50 rounded-lg border border-gray-200 overflow-hidden text-xs font-mono">
       <div className="px-2 py-1.5 border-b border-gray-200 flex items-center gap-1.5">
         <div className="w-1.5 h-1.5 rounded-full bg-red-400/60" />
         <div className="w-1.5 h-1.5 rounded-full bg-yellow-400/60" />
         <div className="w-1.5 h-1.5 rounded-full bg-green-400/60" />
-        <span className="text-[8px] text-gray-400 ml-1">api/agent/tasks</span>
+        <span className="text-xs text-gray-400 ml-1">api/agent/tasks</span>
       </div>
       <div className="p-2 space-y-0.5 overflow-x-auto">
         {lines.map((line, i) => (
@@ -352,10 +352,10 @@ export default function DemoPage() {
         >
           {!isSystem && (
             <div className="flex items-center gap-2 mb-1">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">
+              <span className="text-xs font-bold uppercase tracking-wider text-gray-500">
                 {isBot ? "RELAY FAVOURS Bot" : truncAddr(msg.sender)}
               </span>
-              <span className="text-[9px] text-gray-400">
+              <span className="text-xs text-gray-400">
                 {timeAgo(msg.timestamp)}
               </span>
             </div>
@@ -378,9 +378,9 @@ export default function DemoPage() {
             <div className="px-3 py-2 border-b border-gray-100">
               <div className="flex items-center gap-2">
                 <div className="w-5 h-5 rounded-full bg-blue-500/10 flex items-center justify-center">
-                  <span className="text-[8px]">{"\u{1F916}"}</span>
+                  <span className="text-xs">{"\u{1F916}"}</span>
                 </div>
-                <span className="text-[10px] font-bold text-gray-500">
+                <span className="text-xs font-bold text-gray-500">
                   PropertyCheck Agent
                 </span>
               </div>
@@ -388,21 +388,21 @@ export default function DemoPage() {
             <div className="flex-1 p-3 space-y-2">
               <div className="bg-white border border-gray-200 rounded-lg p-2.5 space-y-1.5 shadow-sm">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold text-gray-900">New Bounty</span>
-                  <span className="text-[9px] text-green-500 font-semibold">$5.00</span>
+                  <span className="text-xs font-bold text-gray-900">New Bounty</span>
+                  <span className="text-xs text-green-500 font-semibold">$5.00</span>
                 </div>
-                <p className="text-[9px] text-gray-500 leading-relaxed">
+                <p className="text-xs text-gray-500 leading-relaxed">
                   &quot;Photograph the Paris skyline from your location — include landmarks, rooftops, and sky conditions&quot;
                 </p>
-                <div className="flex items-center gap-2 text-[8px] text-gray-500">
+                <div className="flex items-center gap-2 text-xs text-gray-500">
                   <span>Paris, any vantage point</span>
                 </div>
               </div>
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-2">
-                <p className="text-[9px] text-blue-600 font-medium">
+                <p className="text-xs text-blue-600 font-medium">
                   $5 USDC locked in escrow
                 </p>
-                <p className="text-[8px] text-blue-400 mt-0.5">
+                <p className="text-xs text-blue-400 mt-0.5">
                   Released to runner only after AI verification passes
                 </p>
               </div>
@@ -416,9 +416,9 @@ export default function DemoPage() {
             <div className="px-3 py-2 border-b border-gray-100">
               <div className="flex items-center gap-2">
                 <div className="w-5 h-5 rounded-full bg-amber-500/10 flex items-center justify-center">
-                  <span className="text-[8px]">{"\u{1F464}"}</span>
+                  <span className="text-xs">{"\u{1F464}"}</span>
                 </div>
-                <span className="text-[10px] font-bold text-gray-500">
+                <span className="text-xs font-bold text-gray-500">
                   Verified Human
                 </span>
               </div>
@@ -441,10 +441,10 @@ export default function DemoPage() {
                     </svg>
                   </div>
                   <div>
-                    <p className="text-[10px] font-bold text-[#00C853]">
+                    <p className="text-xs font-bold text-[#00C853]">
                       World ID Verified
                     </p>
-                    <p className="text-[8px] text-gray-400">
+                    <p className="text-xs text-gray-400">
                       Orb-level verification
                     </p>
                   </div>
@@ -456,20 +456,20 @@ export default function DemoPage() {
 
               {/* Claim action */}
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-2.5 animate-[fadeIn_0.4s_ease-out_0.2s_both]">
-                <p className="text-[9px] text-amber-600 font-bold uppercase tracking-wider mb-1">
+                <p className="text-xs text-amber-600 font-bold uppercase tracking-wider mb-1">
                   Claiming favour...
                 </p>
-                <p className="text-[8px] text-amber-500">
+                <p className="text-xs text-amber-500">
                   World ID proves you&apos;re human. USDC stays locked until you deliver proof.
                 </p>
               </div>
 
               {/* Briefing preview */}
               <div className="bg-gray-50 rounded-lg border border-gray-100 p-2 animate-[fadeIn_0.4s_ease-out_0.4s_both]">
-                <p className="text-[8px] text-gray-500 mb-1">
+                <p className="text-xs text-gray-500 mb-1">
                   Briefing Preview:
                 </p>
-                <p className="text-[8px] text-gray-500 italic leading-relaxed">
+                <p className="text-xs text-gray-500 italic leading-relaxed">
                   &ldquo;Find a window or rooftop with a clear view. Include
                   the Eiffel Tower if visible, rooftops, and sky conditions.
                   Shoot during daylight for best results...&rdquo;
@@ -485,9 +485,9 @@ export default function DemoPage() {
             <div className="px-3 py-2 border-b border-gray-100">
               <div className="flex items-center gap-2">
                 <div className="w-5 h-5 rounded-full bg-purple-500/10 flex items-center justify-center">
-                  <span className="text-[8px]">{"\u{1F4F7}"}</span>
+                  <span className="text-xs">{"\u{1F4F7}"}</span>
                 </div>
-                <span className="text-[10px] font-bold text-gray-500">
+                <span className="text-xs font-bold text-gray-500">
                   Proof Capture
                 </span>
               </div>
@@ -500,11 +500,11 @@ export default function DemoPage() {
                 </div>
                 <div className="absolute top-2 right-2 flex items-center gap-1 bg-red-500/80 rounded-full px-1.5 py-0.5">
                   <div className="w-1.5 h-1.5 rounded-full bg-white animate-[pulse-dot_1s_ease-in-out_infinite]" />
-                  <span className="text-[7px] text-white font-bold">LIVE</span>
+                  <span className="text-xs text-white font-bold">LIVE</span>
                 </div>
                 <div className="absolute bottom-2 left-2 right-2 flex justify-between items-center">
-                  <span className="text-[7px] text-gray-500/60">GPS: 48.861, 2.335</span>
-                  <span className="text-[7px] text-gray-500/60">14:23 CEST</span>
+                  <span className="text-xs text-gray-500/60">GPS: 48.861, 2.335</span>
+                  <span className="text-xs text-gray-500/60">14:23 CEST</span>
                 </div>
                 {/* Crosshair grid */}
                 <div className="absolute inset-4 border border-gray-400/10 rounded" />
@@ -533,10 +533,10 @@ export default function DemoPage() {
                     <line x1="12" y1="3" x2="12" y2="15" />
                   </svg>
                   <div>
-                    <p className="text-[9px] text-purple-400 font-medium">
+                    <p className="text-xs text-purple-400 font-medium">
                       Photo captured + optional note
                     </p>
-                    <p className="text-[8px] text-purple-300/40">
+                    <p className="text-xs text-purple-300/40">
                       Sent for visual verification
                     </p>
                   </div>
@@ -552,9 +552,9 @@ export default function DemoPage() {
             <div className="px-3 py-2 border-b border-gray-100">
               <div className="flex items-center gap-2">
                 <div className="w-5 h-5 rounded-full bg-green-500/10 flex items-center justify-center">
-                  <span className="text-[8px]">{"\u{1F9E0}"}</span>
+                  <span className="text-xs">{"\u{1F9E0}"}</span>
                 </div>
-                <span className="text-[10px] font-bold text-gray-500">
+                <span className="text-xs font-bold text-gray-500">
                   Verification
                 </span>
               </div>
@@ -564,35 +564,35 @@ export default function DemoPage() {
               <div className="bg-white rounded-lg border border-gray-200 p-2.5 shadow-sm">
                 <div className="flex items-center gap-2 mb-2">
                   <div className="w-4 h-4 border-2 border-green-500/40 border-t-green-500 rounded-full animate-spin" />
-                  <span className="text-[9px] text-green-400 font-medium">
+                  <span className="text-xs text-green-400 font-medium">
                     Analyzing proof...
                   </span>
                 </div>
                 <div className="space-y-1.5">
                   <div className="flex items-center gap-2">
                     <div className="w-1 h-1 rounded-full bg-green-500" />
-                    <span className="text-[8px] text-gray-500">
+                    <span className="text-xs text-gray-500">
                       Skyline visible with landmarks
                     </span>
-                    <span className="text-[8px] text-green-500 ml-auto">
+                    <span className="text-xs text-green-500 ml-auto">
                       {"✓"}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="w-1 h-1 rounded-full bg-green-500" />
-                    <span className="text-[8px] text-gray-500">
+                    <span className="text-xs text-gray-500">
                       Location matches Paris
                     </span>
-                    <span className="text-[8px] text-green-500 ml-auto">
+                    <span className="text-xs text-green-500 ml-auto">
                       {"✓"}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="w-1 h-1 rounded-full bg-green-500" />
-                    <span className="text-[8px] text-gray-500">
+                    <span className="text-xs text-gray-500">
                       Sky conditions clearly captured
                     </span>
-                    <span className="text-[8px] text-green-500 ml-auto">
+                    <span className="text-xs text-green-500 ml-auto">
                       {"✓"}
                     </span>
                   </div>
@@ -602,29 +602,29 @@ export default function DemoPage() {
               {/* Follow-up or verdict */}
               {task?.aiFollowUp?.status === "pending" ? (
                 <div className="bg-amber-500/8 border border-amber-500/15 rounded-lg p-2.5 animate-[fadeIn_0.3s_ease-out_0.2s_both]">
-                  <p className="text-[9px] text-amber-400 font-bold mb-1">
+                  <p className="text-xs text-amber-400 font-bold mb-1">
                     Follow-up Question
                   </p>
-                  <p className="text-[8px] text-amber-200/60 italic leading-relaxed">
+                  <p className="text-xs text-amber-200/60 italic leading-relaxed">
                     &ldquo;{task.aiFollowUp.question}&rdquo;
                   </p>
-                  <p className="text-[7px] text-amber-300/30 mt-1">
+                  <p className="text-xs text-amber-300/30 mt-1">
                     Asking for more info before making a final decision
                   </p>
                 </div>
               ) : (
                 <div className="bg-green-500/8 border border-green-500/15 rounded-lg p-2.5 animate-[fadeIn_0.3s_ease-out_0.3s_both]">
                   <div className="flex items-center justify-between">
-                    <span className="text-[9px] text-green-400 font-bold">
+                    <span className="text-xs text-green-400 font-bold">
                       VERDICT: PASS
                     </span>
-                    <span className="text-[9px] text-green-500 font-mono">
+                    <span className="text-xs text-green-500 font-mono">
                       {task?.verificationResult
                         ? `${Math.round(task.verificationResult.confidence * 100)}%`
                         : "92%"}
                     </span>
                   </div>
-                  <p className="text-[8px] text-green-300/50 mt-1 italic">
+                  <p className="text-xs text-green-300/50 mt-1 italic">
                     {task?.verificationResult?.reasoning ||
                       "Photo shows Paris skyline with Eiffel Tower visible. Rooftops and sky conditions clearly captured. Location confirmed as Paris residential area."}
                   </p>
@@ -640,9 +640,9 @@ export default function DemoPage() {
             <div className="px-3 py-2 border-b border-gray-100">
               <div className="flex items-center gap-2">
                 <div className="w-5 h-5 rounded-full bg-cyan-500/10 flex items-center justify-center">
-                  <span className="text-[8px]">{"\u{1F4B0}"}</span>
+                  <span className="text-xs">{"\u{1F4B0}"}</span>
                 </div>
-                <span className="text-[10px] font-bold text-gray-500">
+                <span className="text-xs font-bold text-gray-500">
                   Payment
                 </span>
               </div>
@@ -650,33 +650,33 @@ export default function DemoPage() {
             <div className="flex-1 p-3 space-y-2">
               {/* On-chain TX */}
               <div className="bg-white rounded-lg border border-gray-200 p-2.5 shadow-sm">
-                <p className="text-[8px] text-gray-500 uppercase tracking-wider font-medium mb-1.5">
+                <p className="text-xs text-gray-500 uppercase tracking-wider font-medium mb-1.5">
                   Escrow Release
                 </p>
                 <div className="space-y-1">
                   <div className="flex justify-between">
-                    <span className="text-[8px] text-gray-400">Network</span>
-                    <span className="text-[8px] text-gray-700">
+                    <span className="text-xs text-gray-400">Network</span>
+                    <span className="text-xs text-gray-700">
                       World Chain
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-[8px] text-gray-400">Released</span>
-                    <span className="text-[8px] text-green-500 font-bold">
+                    <span className="text-xs text-gray-400">Released</span>
+                    <span className="text-xs text-green-500 font-bold">
                       ${task?.bountyUsdc?.toFixed(2) || "5.00"} USDC
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-[8px] text-gray-400">Escrow</span>
-                    <span className="text-[8px] text-green-500 flex items-center gap-1">
+                    <span className="text-xs text-gray-400">Escrow</span>
+                    <span className="text-xs text-green-500 flex items-center gap-1">
                       <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
                       Paid out
                     </span>
                   </div>
                   {task?.attestationTxHash && (
                     <div className="flex justify-between">
-                      <span className="text-[8px] text-gray-400">TX</span>
-                      <span className="text-[8px] text-blue-400 font-mono">
+                      <span className="text-xs text-gray-400">TX</span>
+                      <span className="text-xs text-blue-400 font-mono">
                         {task.attestationTxHash.slice(0, 10)}...
                       </span>
                     </div>
@@ -686,25 +686,25 @@ export default function DemoPage() {
 
               {/* XMTP thread */}
               <div className="bg-cyan-50 border border-cyan-200 rounded-lg p-2.5 animate-[fadeIn_0.3s_ease-out_0.2s_both]">
-                <p className="text-[9px] text-cyan-600 font-bold mb-1.5">
+                <p className="text-xs text-cyan-600 font-bold mb-1.5">
                   XMTP Thread
                 </p>
                 <div className="space-y-1.5">
                   <div className="flex gap-1.5 items-start">
                     <div className="w-3 h-3 rounded-full bg-blue-200 shrink-0 mt-0.5" />
-                    <p className="text-[8px] text-gray-500">
+                    <p className="text-xs text-gray-500">
                       Agent: &ldquo;Favour posted, $5 in escrow&rdquo;
                     </p>
                   </div>
                   <div className="flex gap-1.5 items-start">
                     <div className="w-3 h-3 rounded-full bg-amber-200 shrink-0 mt-0.5" />
-                    <p className="text-[8px] text-gray-500">
+                    <p className="text-xs text-gray-500">
                       Human: &ldquo;Claimed, proof submitted&rdquo;
                     </p>
                   </div>
                   <div className="flex gap-1.5 items-start">
                     <div className="w-3 h-3 rounded-full bg-green-200 shrink-0 mt-0.5" />
-                    <p className="text-[8px] text-gray-500">
+                    <p className="text-xs text-gray-500">
                       AI: &ldquo;Verified — USDC released from escrow&rdquo;
                     </p>
                   </div>
@@ -714,10 +714,10 @@ export default function DemoPage() {
               {/* Trust score update */}
               <div className="bg-gray-50 rounded-lg border border-gray-100 p-2 animate-[fadeIn_0.3s_ease-out_0.4s_both]">
                 <div className="flex items-center justify-between">
-                  <span className="text-[8px] text-gray-500">
+                  <span className="text-xs text-gray-500">
                     Trust Score Updated
                   </span>
-                  <span className="text-[9px] text-green-400 font-bold">
+                  <span className="text-xs text-green-400 font-bold">
                     +5 pts
                   </span>
                 </div>
@@ -736,7 +736,7 @@ export default function DemoPage() {
         return (
           <div className="flex flex-col gap-3">
             <div className="bg-white border border-gray-200 rounded-xl p-3 shadow-sm">
-              <p className="text-[10px] text-gray-500 uppercase tracking-wider font-medium mb-2">
+              <p className="text-xs text-gray-500 uppercase tracking-wider font-medium mb-2">
                 Step 1 of 5
               </p>
               <p className="text-xs text-gray-700 leading-relaxed">
@@ -764,7 +764,7 @@ export default function DemoPage() {
         return (
           <div className="flex flex-col gap-3">
             <div className="bg-white border border-gray-200 rounded-xl p-3 shadow-sm">
-              <p className="text-[10px] text-gray-500 uppercase tracking-wider font-medium mb-2">
+              <p className="text-xs text-gray-500 uppercase tracking-wider font-medium mb-2">
                 Step 2 of 5
               </p>
               <p className="text-xs text-gray-700 leading-relaxed">
@@ -792,7 +792,7 @@ export default function DemoPage() {
         return (
           <div className="flex flex-col gap-3">
             <div className="bg-white border border-gray-200 rounded-xl p-3 shadow-sm">
-              <p className="text-[10px] text-gray-500 uppercase tracking-wider font-medium mb-2">
+              <p className="text-xs text-gray-500 uppercase tracking-wider font-medium mb-2">
                 Step 3 of 5
               </p>
               <p className="text-xs text-gray-700 leading-relaxed">
@@ -867,7 +867,7 @@ export default function DemoPage() {
         return (
           <div className="flex flex-col gap-3">
             <div className="bg-white border border-gray-200 rounded-xl p-3 shadow-sm">
-              <p className="text-[10px] text-gray-500 uppercase tracking-wider font-medium mb-2">
+              <p className="text-xs text-gray-500 uppercase tracking-wider font-medium mb-2">
                 Step 4 of 5
               </p>
               <p className="text-xs text-gray-700 leading-relaxed">
@@ -878,7 +878,7 @@ export default function DemoPage() {
             {task?.aiFollowUp?.status === "pending" ? (
               <>
                 <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3">
-                  <p className="text-[10px] text-amber-400 uppercase tracking-wider font-medium mb-1">
+                  <p className="text-xs text-amber-400 uppercase tracking-wider font-medium mb-1">
                     Follow-Up Question
                   </p>
                   <p className="text-xs text-amber-200/70 italic">
@@ -913,7 +913,7 @@ export default function DemoPage() {
                   </button>
                 </div>
 
-                <p className="text-[10px] text-gray-400 text-center">
+                <p className="text-xs text-gray-400 text-center">
                   Tip: Reference specific details from the photo for best results
                 </p>
               </>
@@ -932,7 +932,7 @@ export default function DemoPage() {
         return (
           <div className="flex flex-col gap-3">
             <div className="bg-white border border-gray-200 rounded-xl p-3 shadow-sm">
-              <p className="text-[10px] text-gray-500 uppercase tracking-wider font-medium mb-2">
+              <p className="text-xs text-gray-500 uppercase tracking-wider font-medium mb-2">
                 Step 5 of 5
               </p>
               <p className="text-xs text-gray-700 leading-relaxed">
@@ -960,7 +960,7 @@ export default function DemoPage() {
                 }}
               >
                 <div className="flex items-center justify-between mb-1.5">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                  <span className="text-xs font-bold uppercase tracking-wider text-gray-400">
                     Final Verdict
                   </span>
                   <span
@@ -978,7 +978,7 @@ export default function DemoPage() {
                     {Math.round(task.verificationResult.confidence * 100)}%
                   </span>
                 </div>
-                <p className="text-[10px] text-gray-500 italic leading-relaxed">
+                <p className="text-xs text-gray-500 italic leading-relaxed">
                   &ldquo;{task.verificationResult.reasoning}&rdquo;
                 </p>
                 {task.attestationTxHash && (
@@ -986,7 +986,7 @@ export default function DemoPage() {
                     href={`https://worldscan.org/tx/${task.attestationTxHash}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-[10px] text-blue-400 font-medium mt-2 inline-block hover:underline"
+                    className="text-xs text-blue-400 font-medium mt-2 inline-block hover:underline"
                   >
                     View on-chain attestation {"→"}
                   </a>
@@ -1038,9 +1038,9 @@ export default function DemoPage() {
   }
 
   return (
-    <div className="h-[calc(100dvh-3.5rem)] bg-[#FAFAFA] text-gray-900 flex flex-col max-w-lg mx-auto overflow-hidden -mb-16">
+    <div className="h-[calc(100dvh-3.5rem)] bg-gray-50 text-gray-900 flex flex-col max-w-lg mx-auto overflow-hidden -mb-16">
       {/* Header */}
-      <div className="shrink-0 bg-[#FAFAFA] border-b border-gray-100">
+      <div className="shrink-0 bg-gray-50 border-b border-gray-100">
         <div className="flex items-center justify-between px-4 py-3">
           <Link
             href="/"
@@ -1085,7 +1085,7 @@ export default function DemoPage() {
                   }}
                 />
                 <span
-                  className="text-[8px] uppercase tracking-wider font-medium transition-colors truncate max-w-full text-center"
+                  className="text-xs uppercase tracking-wider font-medium transition-colors truncate max-w-full text-center"
                   style={{
                     color: isDone
                       ? "#22c55e"
@@ -1109,7 +1109,7 @@ export default function DemoPage() {
           <div className="px-4 pt-3 pb-2">
             <div className="flex items-center gap-2">
               <span
-                className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                className="text-xs font-bold px-2 py-0.5 rounded-full"
                 style={{
                   backgroundColor: `${STEP_META[step].color}15`,
                   color: STEP_META[step].color,
@@ -1131,7 +1131,7 @@ export default function DemoPage() {
         {messages.length > 0 && (
           <RevealCard variant="fade-up" delay={200}>
             <div className="px-4 py-2">
-              <p className="text-[10px] uppercase tracking-wider text-gray-400 font-medium mb-2">
+              <p className="text-xs uppercase tracking-wider text-gray-400 font-medium mb-2">
                 Task Chat
               </p>
               <div className="flex flex-col gap-2 max-h-[200px] overflow-y-auto rounded-xl bg-white border border-gray-100 p-3 shadow-sm">

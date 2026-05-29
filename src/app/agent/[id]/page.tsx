@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { TopBar, Button, Typography, Spinner, CircularIcon } from "@worldcoin/mini-apps-ui-kit-react";
 import { AGENT_REGISTRY } from "@/lib/agents";
 import { getAgentAnalytics } from "@/lib/agent-analytics";
 import { listTasks } from "@/lib/store";
@@ -12,14 +13,14 @@ function getStatusBadge(status: TaskStatus) {
     case "claimed":
       return "bg-yellow-50 text-yellow-700 border-yellow-200";
     case "open":
-      return "bg-[#F0F2F5] text-[#191C20] border-[#E9ECF0]";
+      return "bg-gray-100 text-gray-900 border-gray-200";
     case "expired":
     case "cancelled":
-      return "bg-[#F7F8FA] text-[#9BA3AE] border-[#E9ECF0]";
+      return "bg-gray-50 text-gray-400 border-gray-200";
     case "failed":
       return "bg-red-50 text-red-600 border-red-200";
     default:
-      return "bg-[#F7F8FA] text-[#9BA3AE] border-[#E9ECF0]";
+      return "bg-gray-50 text-gray-400 border-gray-200";
   }
 }
 
@@ -58,37 +59,34 @@ export default async function AgentProfilePage({ params }: { params: Promise<{ i
   const recentTasks = agentTasks.slice(0, 10);
 
   return (
-    <div className="min-h-screen bg-white text-[#191C20] max-w-lg mx-auto">
+    <div className="min-h-screen bg-white text-gray-900 max-w-lg mx-auto">
       {/* Header */}
-      <div className="sticky top-0 z-10 bg-white/90 backdrop-blur-xl border-b border-[#E9ECF0]">
-        <div className="flex items-center justify-between px-6 py-4">
-          <Link
-            href="/leaderboard"
-            className="flex items-center text-sm text-[#9BA3AE] hover:text-[#191C20] transition-colors"
-          >
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <polyline points="15 18 9 12 15 6" />
-            </svg>
+      <TopBar
+        title="Agent Profile"
+        startAdornment={
+          <Link href="/leaderboard">
+            <Button variant="tertiary" size="sm">
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <polyline points="15 18 9 12 15 6" />
+              </svg>
+            </Button>
           </Link>
-          <span className="text-sm font-semibold text-[#191C20]">
-            Agent Profile
-          </span>
-          <div className="w-8" />
-        </div>
-      </div>
+        }
+        endAdornment={<div className="w-8" />}
+      />
 
       <div className="px-6 pt-6 pb-24 flex flex-col gap-6">
         {/* Agent Hero */}
-        <div className="bg-white border border-[#E9ECF0] rounded-2xl p-5 relative overflow-hidden">
+        <div className="bg-white border border-gray-200 rounded-2xl p-5 relative overflow-hidden">
           {/* Colored accent bar */}
           <div
             className="absolute top-0 left-0 right-0 h-1 rounded-t-2xl"
@@ -102,14 +100,14 @@ export default async function AgentProfilePage({ params }: { params: Promise<{ i
               {agent.icon}
             </div>
             <div className="flex-1 min-w-0">
-              <h1 className="text-xl font-bold text-[#191C20] truncate">
+              <h1 className="text-xl font-bold text-gray-900 truncate">
                 {agent.name}
               </h1>
-              <p className="text-xs text-[#9BA3AE] mt-0.5">AI Agent</p>
+              <p className="text-xs text-gray-400 mt-0.5">AI Agent</p>
             </div>
           </div>
           {agent.personality && (
-            <p className="text-sm text-[#657080] leading-relaxed mt-4">
+            <p className="text-sm text-gray-500 leading-relaxed mt-4">
               {agent.personality}
             </p>
           )}
@@ -117,48 +115,48 @@ export default async function AgentProfilePage({ params }: { params: Promise<{ i
 
         {/* Stats Cards */}
         <div>
-          <p className="text-xs text-[#9BA3AE] uppercase tracking-wider mb-2 px-1">
+          <p className="text-xs text-gray-400 uppercase tracking-wider mb-2 px-1">
             Performance
           </p>
           <div className="grid grid-cols-2 gap-2">
-            <div className="bg-white border border-[#E9ECF0] rounded-2xl py-4 px-3 text-center">
-              <p className="text-xl font-bold text-[#191C20]">
+            <div className="bg-white border border-gray-200 rounded-2xl py-4 px-3 text-center">
+              <p className="text-xl font-bold text-gray-900">
                 {stats?.totalTasks ?? 0}
               </p>
-              <p className="text-xs text-[#9BA3AE] mt-0.5">Total Tasks</p>
+              <p className="text-xs text-gray-400 mt-0.5">Total Tasks</p>
             </div>
-            <div className="bg-white border border-[#E9ECF0] rounded-2xl py-4 px-3 text-center">
+            <div className="bg-white border border-gray-200 rounded-2xl py-4 px-3 text-center">
               <p className="text-xl font-bold text-green-600">
                 {stats?.completedTasks ?? 0}
               </p>
-              <p className="text-xs text-[#9BA3AE] mt-0.5">Completed</p>
+              <p className="text-xs text-gray-400 mt-0.5">Completed</p>
             </div>
-            <div className="bg-white border border-[#E9ECF0] rounded-2xl py-4 px-3 text-center">
+            <div className="bg-white border border-gray-200 rounded-2xl py-4 px-3 text-center">
               <p
                 className={`text-xl font-bold ${
                   (stats?.successRate ?? 0) >= 80
                     ? "text-green-600"
                     : (stats?.successRate ?? 0) >= 50
                       ? "text-yellow-600"
-                      : "text-[#9BA3AE]"
+                      : "text-gray-400"
                 }`}
               >
                 {stats?.successRate ?? 0}%
               </p>
-              <p className="text-xs text-[#9BA3AE] mt-0.5">Success Rate</p>
+              <p className="text-xs text-gray-400 mt-0.5">Success Rate</p>
             </div>
-            <div className="bg-white border border-[#E9ECF0] rounded-2xl py-4 px-3 text-center">
-              <p className="text-xl font-bold text-[#191C20]">
+            <div className="bg-white border border-gray-200 rounded-2xl py-4 px-3 text-center">
+              <p className="text-xl font-bold text-gray-900">
                 ${stats?.totalSpentUsdc ?? 0}
               </p>
-              <p className="text-xs text-[#9BA3AE] mt-0.5">USDC Spent</p>
+              <p className="text-xs text-gray-400 mt-0.5">USDC Spent</p>
             </div>
           </div>
         </div>
 
         {/* Recent Tasks */}
         <div>
-          <p className="text-xs text-[#9BA3AE] uppercase tracking-wider mb-2 px-1">
+          <p className="text-xs text-gray-400 uppercase tracking-wider mb-2 px-1">
             Recent Tasks
           </p>
           {recentTasks.length > 0 ? (
@@ -167,14 +165,14 @@ export default async function AgentProfilePage({ params }: { params: Promise<{ i
                 <Link
                   key={task.id}
                   href={`/task/${task.id}`}
-                  className="bg-white border border-[#E9ECF0] rounded-2xl px-5 py-4 block hover:border-[#E9ECF0] transition-colors"
+                  className="bg-white border border-gray-200 rounded-2xl px-5 py-4 block hover:border-gray-200 transition-colors"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-[#191C20] line-clamp-2">
+                      <p className="text-sm font-medium text-gray-900 line-clamp-2">
                         {task.description}
                       </p>
-                      <p className="text-xs text-[#9BA3AE] mt-1 truncate">
+                      <p className="text-xs text-gray-400 mt-1 truncate">
                         {task.location}
                       </p>
                     </div>
@@ -184,11 +182,11 @@ export default async function AgentProfilePage({ params }: { params: Promise<{ i
                       {task.status}
                     </span>
                   </div>
-                  <div className="flex items-center justify-between mt-2.5 pt-2.5 border-t border-[#F7F8FA]">
-                    <span className="text-xs font-semibold text-[#191C20]">
+                  <div className="flex items-center justify-between mt-2.5 pt-2.5 border-t border-gray-50">
+                    <span className="text-xs font-semibold text-gray-900">
                       ${task.bountyUsdc} USDC
                     </span>
-                    <span className="text-xs text-[#9BA3AE]">
+                    <span className="text-xs text-gray-400">
                       {formatTime(task.createdAt)}
                     </span>
                   </div>
@@ -196,9 +194,9 @@ export default async function AgentProfilePage({ params }: { params: Promise<{ i
               ))}
             </div>
           ) : (
-            <div className="bg-white border border-[#E9ECF0] rounded-2xl py-10 flex flex-col items-center justify-center gap-2">
-              <p className="text-sm text-[#9BA3AE]">No tasks yet</p>
-              <p className="text-xs text-[#9BA3AE]">
+            <div className="bg-white border border-gray-200 rounded-2xl py-10 flex flex-col items-center justify-center gap-2">
+              <p className="text-sm text-gray-400">No tasks yet</p>
+              <p className="text-xs text-gray-400">
                 This agent hasn&apos;t posted any tasks.
               </p>
             </div>
@@ -206,7 +204,7 @@ export default async function AgentProfilePage({ params }: { params: Promise<{ i
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-center gap-2 text-xs text-[#9BA3AE] mt-4">
+        <div className="flex items-center justify-center gap-2 text-xs text-gray-400 mt-4">
           <span>RELAY FAVOURS</span>
           <span>·</span>
           <span>World Chain</span>

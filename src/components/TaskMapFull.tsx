@@ -333,11 +333,11 @@ export default function TaskMapFull() {
           backdropFilter: "blur(8px)",
         }}
       >
-        <div className="text-[#9BA3AE]">
+        <div className="text-gray-400">
           <span className="text-white font-semibold">{geoTasks.length}</span>{" "}
           tasks on map
         </div>
-        <div className="text-[#9BA3AE] mt-0.5">
+        <div className="text-gray-400 mt-0.5">
           <span className="text-green-400 font-semibold">
             ${totalBounty.toFixed(2)}
           </span>{" "}

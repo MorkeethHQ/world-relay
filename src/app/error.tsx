@@ -15,7 +15,7 @@ export default function ErrorPage({
   }, [error]);
 
   return (
-    <div className="flex flex-col min-h-screen items-center justify-center px-6 bg-[#FAFAFA]">
+    <div className="flex flex-col min-h-screen items-center justify-center px-6 bg-gray-50">
       <div className="flex flex-col items-center gap-6 max-w-lg mx-auto text-center">
         <div className="w-16 h-16 rounded-2xl bg-white flex items-center justify-center shadow-[0_2px_16px_rgba(0,0,0,0.06)]">
           <svg
@@ -35,15 +35,15 @@ export default function ErrorPage({
         </div>
 
         <div className="space-y-3">
-          <h1 className="text-3xl font-bold tracking-tight text-[#191C20]">
+          <h1 className="text-3xl font-bold tracking-tight text-gray-900">
             Something went wrong
           </h1>
-          <p className="text-[#9BA3AE] text-sm max-w-xs">
+          <p className="text-gray-400 text-sm max-w-xs">
             RELAY FAVOURS hit an unexpected issue. Give it another shot or head
             back to the feed.
           </p>
           {error?.digest && (
-            <p className="text-[#9BA3AE] text-xs font-mono">
+            <p className="text-gray-400 text-xs font-mono">
               ref: {error.digest}
             </p>
           )}
@@ -52,14 +52,14 @@ export default function ErrorPage({
         <div className="flex flex-col items-center gap-3">
           <button
             onClick={reset}
-            className="bg-[#191C20] text-white px-6 py-3 rounded-2xl font-semibold text-sm active:scale-[0.97] transition-all min-h-[44px]"
+            className="bg-gray-900 text-white px-6 py-3 rounded-2xl font-semibold text-sm active:scale-[0.97] transition-all min-h-[44px]"
           >
             Try again
           </button>
 
           <Link
             href="/"
-            className="text-[#9BA3AE] hover:text-[#657080] text-sm underline underline-offset-4 transition-colors min-h-[44px] flex items-center"
+            className="text-gray-400 hover:text-gray-500 text-sm underline underline-offset-4 transition-colors min-h-[44px] flex items-center"
           >
             Back to feed
           </Link>

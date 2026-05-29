@@ -7,6 +7,7 @@ import type { Task, VerificationResult, AiFollowUp } from "@/lib/types";
 import { VerificationBadge, RequiredTierBadge } from "@/components/VerificationBadge";
 import { hapticTap, hapticSuccess, shareTask } from "@/lib/minikit-helpers";
 import { useWorldUsers, displayName } from "@/hooks/useWorldUser";
+import { TopBar, Button, Typography, Spinner, Pill, Input, CircularIcon } from "@worldcoin/mini-apps-ui-kit-react";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -64,34 +65,34 @@ const CATEGORY_ICONS: Record<string, string> = {
 };
 
 const STATUS_STYLES: Record<string, { bg: string; text: string; label: string }> = {
-  open: { bg: "bg-[#191C20]/15", text: "text-[#657080]", label: "Open" },
+  open: { bg: "bg-gray-900/15", text: "text-gray-500", label: "Open" },
   claimed: { bg: "bg-yellow-500/15", text: "text-yellow-400", label: "Claimed" },
   completed: { bg: "bg-green-500/15", text: "text-green-400", label: "Completed" },
   failed: { bg: "bg-red-500/15", text: "text-red-400", label: "Failed" },
-  expired: { bg: "bg-[#F7F8FA]0/15", text: "text-[#9BA3AE]", label: "Expired" },
+  expired: { bg: "bg-gray-500/15", text: "text-gray-400", label: "Expired" },
 };
 
 function verdictColor(v: string): string {
   if (v === "pass") return "text-green-400";
-  if (v === "flag") return "text-[#F59E0B]";
+  if (v === "flag") return "text-warning-600";
   return "text-red-400";
 }
 
 function verdictBg(v: string): string {
   if (v === "pass") return "bg-green-500";
-  if (v === "flag") return "bg-[#F59E0B]";
+  if (v === "flag") return "bg-warning-600";
   return "bg-red-500";
 }
 
 function verdictBgLight(v: string): string {
   if (v === "pass") return "bg-green-500/10";
-  if (v === "flag") return "bg-[#FFF8E1]";
+  if (v === "flag") return "bg-warning-100";
   return "bg-red-500/10";
 }
 
 function verdictBorder(v: string): string {
   if (v === "pass") return "border-green-500/20";
-  if (v === "flag") return "border-[#FDE68A]";
+  if (v === "flag") return "border-warning-300";
   return "border-red-500/20";
 }
 
@@ -142,12 +143,12 @@ function TimelineStep({
   const dotColor = step.done
     ? "bg-green-400 border-green-400 shadow-[0_0_8px_rgba(74,222,128,0.3)]"
     : step.current
-    ? "bg-[#657080] border-[#9BA3AE] shadow-[0_0_8px_rgba(155,163,174,0.3)] animate-pulse"
-    : "bg-transparent border-[#9BA3AE]";
+    ? "bg-gray-500 border-gray-400 shadow-[0_0_8px_rgba(155,163,174,0.3)] animate-pulse"
+    : "bg-transparent border-gray-400";
 
   const lineColor = step.done
     ? "bg-gradient-to-b from-green-400/30 to-green-400/5"
-    : "bg-[#E9ECF0]";
+    : "bg-gray-200";
 
   return (
     <div className="flex gap-3 group">
@@ -173,7 +174,7 @@ function TimelineStep({
             </svg>
           )}
           {step.current && (
-            <div className="absolute -inset-1 rounded-full bg-[#657080]/20 animate-ping" />
+            <div className="absolute -inset-1 rounded-full bg-gray-500/20 animate-ping" />
           )}
         </div>
         {!isLast && (
@@ -190,22 +191,22 @@ function TimelineStep({
           <p
             className={`text-xs font-semibold ${
               step.done
-                ? "text-[#191C20]"
+                ? "text-gray-900"
                 : step.current
-                ? "text-[#191C20]"
-                : "text-[#9BA3AE]"
+                ? "text-gray-900"
+                : "text-gray-400"
             }`}
           >
             {step.label}
           </p>
         </div>
         {step.detail && (
-          <p className="text-xs text-[#9BA3AE] mt-0.5 leading-relaxed">
+          <p className="text-xs text-gray-400 mt-0.5 leading-relaxed">
             {step.detail}
           </p>
         )}
         {step.time && (
-          <p className="text-xs text-[#9BA3AE] mt-1 font-mono">
+          <p className="text-xs text-gray-400 mt-1 font-mono">
             {step.time}
           </p>
         )}
@@ -231,7 +232,7 @@ function ProofImage({ url }: { url: string }) {
         <img
           src={url}
           alt="Proof"
-          className="w-full rounded-xl border border-[#E9ECF0] object-cover max-h-72 transition-transform duration-200 group-hover:scale-[1.01]"
+          className="w-full rounded-xl border border-gray-200 object-cover max-h-72 transition-transform duration-200 group-hover:scale-[1.01]"
           loading="lazy"
         />
         <div className="absolute inset-0 rounded-xl bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
@@ -254,7 +255,7 @@ function ProofImage({ url }: { url: string }) {
         >
           <button
             onClick={() => setEnlarged(false)}
-            className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors z-10"
+            className="absolute top-4 right-4 w-11 h-11 min-h-[44px] rounded-full bg-white/10 flex items-center justify-center text-white hover:bg-white/20 transition-colors z-10"
             aria-label="Close"
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -372,7 +373,7 @@ function ConsensusLine({ models, consensusMethod, overallVerdict }: { models: im
       <div className="flex-1 min-w-0">
         <p className={`text-xs font-bold ${verdictColor(overallVerdict)}`}>{label}</p>
       </div>
-      <span className="text-xs text-[#9BA3AE] font-mono shrink-0">({sublabel})</span>
+      <span className="text-xs text-gray-400 font-mono shrink-0">({sublabel})</span>
     </div>
   );
 }
@@ -396,7 +397,7 @@ function AiVerdictCard({ result }: { result: VerificationResult }) {
               <p className={`text-sm font-bold ${verdictColor(result.verdict)}`}>
                 {verdictLabel}
               </p>
-              <p className="text-xs text-[#9BA3AE]">
+              <p className="text-xs text-gray-400">
                 {hasModels ? `${result.models!.length}-Model Panel` : "Verification"}
               </p>
             </div>
@@ -409,14 +410,14 @@ function AiVerdictCard({ result }: { result: VerificationResult }) {
         {/* Confidence bar */}
         <div className="mb-1">
           <div className="flex items-center justify-between mb-1.5">
-            <span className="text-xs text-[#9BA3AE] uppercase tracking-wider">
+            <span className="text-xs text-gray-400 uppercase tracking-wider">
               {hasModels ? "Aggregate Confidence" : "Confidence"}
             </span>
             <span className={`text-xs font-semibold ${verdictColor(result.verdict)}`}>
               {pct}%
             </span>
           </div>
-          <div className="h-1.5 bg-[#F0F2F5] rounded-full overflow-hidden">
+          <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
             <div
               className={`h-full rounded-full transition-all duration-1000 ease-out ${verdictBg(result.verdict)}`}
               style={{ width: `${pct}%` }}
@@ -429,19 +430,19 @@ function AiVerdictCard({ result }: { result: VerificationResult }) {
       {hasModels && (
         <div className="px-4 pb-4">
           {/* Section label */}
-          <div className="flex items-center gap-2 mb-3 pt-3 border-t border-[#E9ECF0]">
-            <div className="w-4 h-4 rounded bg-[#F0F2F5] flex items-center justify-center">
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#9BA3AE" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <div className="flex items-center gap-2 mb-3 pt-3 border-t border-gray-200">
+            <div className="w-4 h-4 rounded bg-gray-100 flex items-center justify-center">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="text-gray-400" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
                 <circle cx="9" cy="7" r="4" />
                 <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
                 <path d="M16 3.13a4 4 0 0 1 0 7.75" />
               </svg>
             </div>
-            <span className="text-xs text-[#9BA3AE] uppercase tracking-wider font-medium">
+            <span className="text-xs text-gray-400 uppercase tracking-wider font-medium">
               AI Judge Panel
             </span>
-            <span className="ml-auto text-xs text-[#9BA3AE] font-mono">
+            <span className="ml-auto text-xs text-gray-400 font-mono">
               {result.consensusMethod === "unanimous" ? "Unanimous" : "Majority"} rule
             </span>
           </div>
@@ -457,7 +458,7 @@ function AiVerdictCard({ result }: { result: VerificationResult }) {
                     m.verdict === "pass"
                       ? "border-green-500/15"
                       : m.verdict === "flag"
-                      ? "border-[#FDE68A]"
+                      ? "border-warning-300"
                       : "border-red-500/15"
                   }`}
                 >
@@ -468,7 +469,7 @@ function AiVerdictCard({ result }: { result: VerificationResult }) {
                         m.verdict === "pass"
                           ? "bg-green-500/15"
                           : m.verdict === "flag"
-                          ? "bg-[#FEF3C7]"
+                          ? "bg-warning-100"
                           : "bg-red-500/15"
                       }`}
                     >
@@ -492,7 +493,7 @@ function AiVerdictCard({ result }: { result: VerificationResult }) {
 
                     {/* Model name + verdict */}
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold text-[#191C20] truncate">{m.name}</p>
+                      <p className="text-xs font-semibold text-gray-900 truncate">{m.name}</p>
                       <p className={`text-xs font-medium ${verdictColor(m.verdict)}`}>
                         {m.verdict.toUpperCase()}
                       </p>
@@ -504,7 +505,7 @@ function AiVerdictCard({ result }: { result: VerificationResult }) {
 
                   {/* Per-model confidence bar */}
                   <div className="mt-2">
-                    <div className="h-1 bg-[#F0F2F5] rounded-full overflow-hidden">
+                    <div className="h-1 bg-gray-100 rounded-full overflow-hidden">
                       <div
                         className={`h-full rounded-full transition-all duration-1000 ease-out ${verdictBg(m.verdict)}`}
                         style={{ width: `${mPct}%` }}
@@ -514,7 +515,7 @@ function AiVerdictCard({ result }: { result: VerificationResult }) {
 
                   {/* Reasoning snippet */}
                   {m.reasoning && (
-                    <p className="text-xs text-[#9BA3AE] mt-1.5 leading-relaxed line-clamp-2 italic">
+                    <p className="text-xs text-gray-400 mt-1.5 leading-relaxed line-clamp-2 italic">
                       {m.reasoning}
                     </p>
                   )}
@@ -535,9 +536,9 @@ function AiVerdictCard({ result }: { result: VerificationResult }) {
       {/* Expandable reasoning */}
       <button
         onClick={() => setExpanded(!expanded)}
-        className="w-full px-4 py-2.5 border-t border-[#E9ECF0] flex items-center justify-between hover:bg-[#F7F8FA] transition-colors"
+        className="w-full px-4 py-2.5 min-h-[44px] border-t border-gray-200 flex items-center justify-between hover:bg-gray-50 transition-colors"
       >
-        <span className="text-xs text-[#9BA3AE] uppercase tracking-wider font-medium">
+        <span className="text-xs text-gray-400 uppercase tracking-wider font-medium">
           {hasModels ? "Overall Reasoning" : "Reasoning"}
         </span>
         <svg
@@ -549,24 +550,24 @@ function AiVerdictCard({ result }: { result: VerificationResult }) {
           strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"
-          className={`text-[#9BA3AE] transition-transform duration-200 ${expanded ? "rotate-180" : ""}`}
+          className={`text-gray-400 transition-transform duration-200 ${expanded ? "rotate-180" : ""}`}
         >
           <polyline points="6 9 12 15 18 9" />
         </svg>
       </button>
 
       {expanded && (
-        <div className="px-4 pb-4 border-t border-[#E9ECF0]">
-          <p className="text-xs text-[#657080] italic leading-relaxed pt-3">
+        <div className="px-4 pb-4 border-t border-gray-200">
+          <p className="text-xs text-gray-500 italic leading-relaxed pt-3">
             &ldquo;{result.reasoning}&rdquo;
           </p>
-          <div className="flex items-center gap-1.5 mt-3 pt-2 border-t border-[#E9ECF0]">
-            <div className="w-4 h-4 rounded bg-[#F0F2F5] flex items-center justify-center">
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#9BA3AE" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <div className="flex items-center gap-1.5 mt-3 pt-2 border-t border-gray-200">
+            <div className="w-4 h-4 rounded bg-gray-100 flex items-center justify-center">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="text-gray-400" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
               </svg>
             </div>
-            <span className="text-xs text-[#9BA3AE] font-medium">
+            <span className="text-xs text-gray-400 font-medium">
               {hasModels ? `${result.models!.length}-model consensus verification` : "Verified automatically"}
             </span>
           </div>
@@ -582,15 +583,15 @@ function AiVerdictCard({ result }: { result: VerificationResult }) {
 
 function FollowUpCard({ followUp }: { followUp: AiFollowUp }) {
   return (
-    <div className="bg-[#FFF8E1] border border-[#FDE68A] rounded-2xl p-4">
+    <div className="bg-warning-100 border border-warning-300 rounded-2xl p-4">
       <div className="flex items-center gap-2 mb-2">
-        <span className="text-[#F59E0B] text-sm">&#9888;&#65039;</span>
-        <span className="text-xs text-[#F59E0B] uppercase tracking-wider font-medium">
+        <span className="text-warning-600 text-sm">&#9888;&#65039;</span>
+        <span className="text-xs text-warning-600 uppercase tracking-wider font-medium">
           Follow-up &middot; {followUp.status}
         </span>
       </div>
-      <p className="text-xs text-[#657080] leading-relaxed">{followUp.question}</p>
-      <p className="text-xs text-[#9BA3AE] mt-2">
+      <p className="text-xs text-gray-500 leading-relaxed">{followUp.question}</p>
+      <p className="text-xs text-gray-400 mt-2">
         Initial confidence: {Math.round(followUp.initialConfidence * 100)}%
       </p>
     </div>
@@ -633,26 +634,26 @@ function ChatBubble({
       <div
         className={`max-w-[80%] rounded-xl px-3 py-2 ${
           isSystem
-            ? "bg-[#F7F8FA] border border-[#E9ECF0] rounded-tl-sm"
-            : "bg-[#F0F2F5] border border-[#E9ECF0] rounded-tr-sm"
+            ? "bg-gray-50 border border-gray-200 rounded-tl-sm"
+            : "bg-gray-100 border border-gray-200 rounded-tr-sm"
         }`}
       >
         <p
           className="text-xs font-bold mb-0.5 uppercase tracking-wide"
           style={isSystem && agentColor ? { color: agentColor } : undefined}
         >
-          <span className={isSystem ? "" : "text-[#657080]"}>{senderLabel}</span>
+          <span className={isSystem ? "" : "text-gray-500"}>{senderLabel}</span>
         </p>
-        <p className="text-xs text-[#657080] leading-relaxed whitespace-pre-wrap">
+        <p className="text-xs text-gray-500 leading-relaxed whitespace-pre-wrap">
           {msg.text}
         </p>
-        <p className="text-xs text-[#9BA3AE] mt-1 font-mono text-right">
+        <p className="text-xs text-gray-400 mt-1 font-mono text-right">
           {formatTimestamp(msg.timestamp)} &middot; {timeAgo(msg.timestamp)}
         </p>
       </div>
       {!isSystem && (
-        <div className="w-7 h-7 rounded-lg flex items-center justify-center text-xs shrink-0 ml-2 mt-0.5 bg-[#F0F2F5]">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9BA3AE" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <div className="w-7 h-7 rounded-lg flex items-center justify-center text-xs shrink-0 ml-2 mt-0.5 bg-gray-100">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="text-gray-400" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
             <circle cx="12" cy="7" r="4" />
           </svg>
@@ -711,25 +712,25 @@ function WorldChatThread({
   };
 
   return (
-    <div className="bg-white border border-[#E9ECF0] rounded-2xl overflow-hidden shadow-sm">
+    <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
       {/* Header */}
-      <div className="flex items-center justify-between px-6 py-4 border-b border-[#E9ECF0]">
+      <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
         <div className="flex items-center gap-2">
           <svg
             width="16"
             height="16"
             viewBox="0 0 24 24"
             fill="none"
-            stroke="#9BA3AE"
+            stroke="currentColor" className="text-gray-400"
             strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
           >
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
           </svg>
-          <span className="text-sm font-semibold text-[#191C20]">XMTP Thread</span>
+          <span className="text-sm font-semibold text-gray-900">XMTP Thread</span>
           {messages.length > 0 && (
-            <span className="text-xs text-[#9BA3AE] font-mono ml-1">
+            <span className="text-xs text-gray-400 font-mono ml-1">
               {messages.length} message{messages.length !== 1 ? "s" : ""}
             </span>
           )}
@@ -745,10 +746,10 @@ function WorldChatThread({
       {/* Message area */}
       {messages.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-10 px-4">
-          <div className="w-10 h-10 rounded-full bg-[#F7F8FA] flex items-center justify-center mb-3">
-            <div className="w-5 h-5 border-2 border-[#E9ECF0] border-t-[#9BA3AE] rounded-full animate-spin" />
+          <div className="mb-3">
+            <Spinner />
           </div>
-          <p className="text-xs text-[#9BA3AE] text-center leading-relaxed">
+          <p className="text-xs text-gray-400 text-center leading-relaxed">
             Waiting for XMTP thread...
           </p>
         </div>
@@ -765,7 +766,7 @@ function WorldChatThread({
 
       {/* Input bar */}
       {userId && (
-        <div className="border-t border-[#E9ECF0] px-3 py-2.5">
+        <div className="border-t border-gray-200 px-3 py-2.5">
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -778,16 +779,16 @@ function WorldChatThread({
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               placeholder="Type a message..."
-              className="flex-1 bg-[#F7F8FA] border border-[#E9ECF0] rounded-xl px-3 py-2 text-xs text-[#657080] placeholder-[#9BA3AE] outline-none focus:border-[#9BA3AE] transition-colors min-h-[40px]"
+              className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-xs text-gray-500 placeholder-gray-400 outline-none focus:border-gray-400 transition-colors min-h-[44px]"
               disabled={sending}
             />
             <button
               type="submit"
               disabled={!draft.trim() || sending}
-              className="shrink-0 w-9 h-9 rounded-xl bg-black flex items-center justify-center disabled:opacity-40 active:scale-95 transition-all"
+              className="shrink-0 w-11 h-11 min-h-[44px] rounded-xl bg-black flex items-center justify-center disabled:opacity-40 active:scale-95 transition-all"
             >
               {sending ? (
-                <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                <Spinner className="w-3.5 h-3.5" />
               ) : (
                 <svg
                   width="16"
@@ -831,12 +832,12 @@ function OnChainLink({
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      className="flex items-center justify-between bg-[#F7F8FA] border border-[#E9ECF0] rounded-xl px-3.5 py-3 hover:border-[#9BA3AE] transition-colors group"
+      className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-3 min-h-[44px] hover:border-gray-400 transition-colors group"
     >
       <div className="min-w-0 flex-1">
-        <p className="text-xs text-[#9BA3AE] uppercase tracking-wider mb-0.5">{label}</p>
+        <p className="text-xs text-gray-400 uppercase tracking-wider mb-0.5">{label}</p>
         {value && (
-          <p className={`text-xs text-[#657080] group-hover:text-[#191C20] transition-colors truncate ${mono ? "font-mono" : ""}`}>
+          <p className={`text-xs text-gray-500 group-hover:text-gray-900 transition-colors truncate ${mono ? "font-mono" : ""}`}>
             {value}
           </p>
         )}
@@ -850,7 +851,7 @@ function OnChainLink({
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"
-        className="text-[#9BA3AE] group-hover:text-[#191C20] transition-colors ml-3 shrink-0"
+        className="text-gray-400 group-hover:text-gray-900 transition-colors ml-3 shrink-0"
       >
         <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
         <polyline points="15 3 21 3 21 9" />
@@ -866,12 +867,12 @@ function OnChainLink({
 
 function AgentCard({ agent, personality }: { agent: { id: string; name: string; icon: string; color: string }; personality?: string }) {
   return (
-    <div className="bg-white border border-[#E9ECF0] rounded-2xl p-4 shadow-sm">
+    <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm">
       <div className="flex items-center justify-between mb-3">
-        <p className="text-xs text-[#9BA3AE] uppercase tracking-wider font-medium">
+        <p className="text-xs text-gray-400 uppercase tracking-wider font-medium">
           Posted by Agent
         </p>
-        <span className="text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[#F0F2F5] text-[#657080] border border-[#E9ECF0]">
+        <span className="text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 border border-gray-200">
           Task reward
         </span>
       </div>
@@ -887,7 +888,7 @@ function AgentCard({ agent, personality }: { agent: { id: string; name: string; 
             {agent.name}
           </p>
           {personality && (
-            <p className="text-xs text-[#9BA3AE] mt-0.5 italic leading-relaxed">
+            <p className="text-xs text-gray-400 mt-0.5 italic leading-relaxed">
               {personality}
             </p>
           )}
@@ -1014,11 +1015,11 @@ function DisputeActions({ task, onAction }: { task: Task; onAction: () => void }
   const pct = Math.round(confidence * 100);
 
   return (
-    <div className="bg-[#FFF8E1] border border-[#FDE68A] rounded-2xl overflow-hidden">
+    <div className="bg-warning-100 border border-warning-300 rounded-2xl overflow-hidden">
       {/* Header */}
       <div className="px-4 pt-4 pb-3">
         <div className="flex items-center gap-2 mb-2">
-          <div className="w-6 h-6 rounded-lg bg-[#F59E0B] flex items-center justify-center">
+          <div className="w-6 h-6 rounded-lg bg-warning-600 flex items-center justify-center">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
               <line x1="12" y1="9" x2="12" y2="13" />
@@ -1026,29 +1027,29 @@ function DisputeActions({ task, onAction }: { task: Task; onAction: () => void }
             </svg>
           </div>
           <div>
-            <p className="text-sm font-bold text-[#F59E0B]">Proof Flagged</p>
-            <p className="text-xs text-[#9BA3AE]">AI confidence: {pct}% — resolve this dispute</p>
+            <p className="text-sm font-bold text-warning-600">Proof Flagged</p>
+            <p className="text-xs text-gray-400">AI confidence: {pct}% — resolve this dispute</p>
           </div>
         </div>
       </div>
 
       {/* UMA Status (if active) */}
       {umaState?.dispute && (
-        <div className="mx-4 mb-3 bg-[#F7F8FA] border border-[#E9ECF0] rounded-xl p-3">
+        <div className="mx-4 mb-3 bg-gray-50 border border-gray-200 rounded-xl p-3">
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs font-bold text-[#657080] uppercase tracking-wider">UMA Oracle</span>
+            <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">UMA Oracle</span>
             <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${
-              umaState.dispute.status === "asserted" ? "bg-[#191C20]/15 text-[#657080]" :
+              umaState.dispute.status === "asserted" ? "bg-gray-900/15 text-gray-500" :
               umaState.dispute.status === "disputed" ? "bg-red-500/15 text-red-400" :
               umaState.dispute.status === "settled_true" ? "bg-green-500/15 text-green-400" :
-              "bg-[#F7F8FA]0/15 text-[#9BA3AE]"
+              "bg-gray-500/15 text-gray-400"
             }`}>
               {umaState.dispute.status.replace("_", " ").toUpperCase()}
             </span>
           </div>
-          <p className="text-xs text-[#9BA3AE]">Bond: ${umaState.dispute.bondUsdc} USDC</p>
+          <p className="text-xs text-gray-400">Bond: ${umaState.dispute.bondUsdc} USDC</p>
           {umaState.dispute.status === "asserted" && (
-            <p className="text-xs text-[#9BA3AE]">
+            <p className="text-xs text-gray-400">
               Challenge window ends: {new Date(umaState.dispute.expirationTime * 1000).toLocaleString()}
             </p>
           )}
@@ -1059,27 +1060,33 @@ function DisputeActions({ task, onAction }: { task: Task; onAction: () => void }
       <div className="px-4 pb-4 flex flex-col gap-2">
         {/* Poster actions: Approve / Reject */}
         <div className="flex gap-2">
-          <button
+          <Button
+            variant="primary"
+            fullWidth
+            size="lg"
             onClick={() => handleConfirm(true)}
             disabled={!!acting}
-            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-green-500 text-white text-xs font-semibold disabled:opacity-40 active:scale-[0.98] transition-all"
+            className="flex-1 min-h-[44px] !bg-green-500"
           >
             {acting === "approve" ? (
-              <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              <Spinner className="w-3.5 h-3.5" />
             ) : (
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="20 6 9 17 4 12" />
               </svg>
             )}
             Approve
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="secondary"
+            fullWidth
+            size="lg"
             onClick={() => handleConfirm(false)}
             disabled={!!acting}
-            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-red-500 text-white text-xs font-semibold disabled:opacity-40 active:scale-[0.98] transition-all"
+            className="flex-1 min-h-[44px] !bg-red-500 !text-white !border-red-500"
           >
             {acting === "reject" ? (
-              <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              <Spinner className="w-3.5 h-3.5" />
             ) : (
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="18" y1="6" x2="6" y2="18" />
@@ -1087,34 +1094,40 @@ function DisputeActions({ task, onAction }: { task: Task; onAction: () => void }
               </svg>
             )}
             Reject
-          </button>
+          </Button>
         </div>
 
         {/* AI Mediation */}
-        <button
+        <Button
+          variant="tertiary"
+          fullWidth
+          size="lg"
           onClick={handleMediation}
           disabled={!!acting}
-          className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-[#F0F2F5] border border-[#E9ECF0] text-[#657080] text-xs font-semibold disabled:opacity-40 active:scale-[0.98] transition-all"
+          className="min-h-[44px]"
         >
           {acting === "mediate" ? (
-            <div className="w-3.5 h-3.5 border-2 border-[#E9ECF0] border-t-[#657080] rounded-full animate-spin" />
+            <Spinner className="w-3.5 h-3.5" />
           ) : (
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
             </svg>
           )}
           AI Mediation (Claude Opus)
-        </button>
+        </Button>
 
         {/* UMA Escalation */}
         {umaState?.umaEnabled && !umaState.dispute && (
-          <button
+          <Button
+            variant="tertiary"
+            fullWidth
+            size="lg"
             onClick={handleUmaEscalate}
             disabled={!!acting}
-            className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-[#F0F2F5] border border-[#E9ECF0] text-[#657080] text-xs font-semibold disabled:opacity-40 active:scale-[0.98] transition-all"
+            className="min-h-[44px]"
           >
             {acting === "uma" ? (
-              <div className="w-3.5 h-3.5 border-2 border-[#E9ECF0] border-t-[#657080] rounded-full animate-spin" />
+              <Spinner className="w-3.5 h-3.5" />
             ) : (
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="12" cy="12" r="10" />
@@ -1124,13 +1137,13 @@ function DisputeActions({ task, onAction }: { task: Task; onAction: () => void }
               </svg>
             )}
             Escalate to UMA Oracle ($5 bond)
-          </button>
+          </Button>
         )}
 
         {/* Chainlink badge */}
         <div className="flex items-center justify-center gap-2 pt-1">
-          <span className="text-xs text-[#9BA3AE]">Dispute resolution powered by</span>
-          <span className="text-xs font-bold text-[#9BA3AE]">AI + UMA + Chainlink</span>
+          <span className="text-xs text-gray-400">Dispute resolution powered by</span>
+          <span className="text-xs font-bold text-gray-400">AI + UMA + Chainlink</span>
         </div>
       </div>
 
@@ -1211,15 +1224,12 @@ export default function TaskDetailPage() {
   // ---- Loading state ----
   if (loading && !task) {
     return (
-      <div className="min-h-screen bg-[#FAFAFA] text-[#191C20] flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 text-gray-900 flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
-          <div className="relative">
-            <div className="w-10 h-10 border-2 border-[#E9ECF0] border-t-[#191C20] rounded-full animate-spin" />
-            <div className="absolute inset-0 w-10 h-10 border-2 border-transparent border-b-[#191C20] rounded-full animate-spin" style={{ animationDirection: "reverse", animationDuration: "1.5s" }} />
-          </div>
+          <Spinner />
           <div className="text-center">
-            <p className="text-xs text-[#9BA3AE] font-medium">Loading task</p>
-            <p className="text-xs text-[#9BA3AE] mt-0.5 font-mono">{id?.slice(0, 16)}...</p>
+            <p className="text-xs text-gray-400 font-medium">Loading task</p>
+            <p className="text-xs text-gray-400 mt-0.5 font-mono">{id?.slice(0, 16)}...</p>
           </div>
         </div>
       </div>
@@ -1229,7 +1239,7 @@ export default function TaskDetailPage() {
   // ---- Error state ----
   if (error && !task) {
     return (
-      <div className="min-h-screen bg-[#FAFAFA] text-[#191C20] flex flex-col items-center justify-center gap-4 px-6">
+      <div className="min-h-screen bg-gray-50 text-gray-900 flex flex-col items-center justify-center gap-4 px-6">
         <div className="w-14 h-14 rounded-full bg-red-500/10 flex items-center justify-center mb-2">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#f87171" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="12" cy="12" r="10" />
@@ -1239,9 +1249,9 @@ export default function TaskDetailPage() {
         </div>
         <p className="text-sm text-red-400 font-medium">{error}</p>
         <Link href="/">
-          <span className="text-sm text-[#9BA3AE] hover:text-[#191C20] transition-colors">
+          <Button variant="tertiary" size="lg" className="min-h-[44px]">
             Back to feed
-          </span>
+          </Button>
         </Link>
       </div>
     );
@@ -1374,29 +1384,33 @@ export default function TaskDetailPage() {
   // ---- Render ----
 
   return (
-    <div className="min-h-screen bg-white text-[#191C20] max-w-lg mx-auto">
+    <div className="min-h-screen bg-white text-gray-900 max-w-lg mx-auto">
       {/* Sticky Header */}
-      <div className="sticky top-0 z-10 bg-white/90 backdrop-blur-xl border-b border-[#E9ECF0]">
-        <div className="flex items-center justify-between px-6 py-4">
-          <Link href="/" className="flex items-center gap-1.5 text-[#9BA3AE] hover:text-[#191C20] transition-colors active:scale-95 py-1 px-2 -ml-2 rounded-lg hover:bg-[#F0F2F5]">
-            <svg
-              width="18"
-              height="18"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <polyline points="15 18 9 12 15 6" />
-            </svg>
-            <span className="text-sm font-medium">Back</span>
+      <TopBar
+        title={`${categoryIcon} Task Detail`}
+        startAdornment={
+          <Link href="/">
+            <Button variant="tertiary" size="sm" className="min-h-[44px]">
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <polyline points="15 18 9 12 15 6" />
+              </svg>
+            </Button>
           </Link>
-          <h1 className="text-sm font-bold tracking-tight flex items-center gap-1.5">
-            <span>{categoryIcon}</span> Task Detail
-          </h1>
-          <button
+        }
+        endAdornment={
+          <Button
+            variant="tertiary"
+            size="sm"
+            className="min-h-[44px]"
             onClick={() => {
               hapticTap();
               shareTask({
@@ -1406,7 +1420,6 @@ export default function TaskDetailPage() {
                 taskId: task.id,
               });
             }}
-            className="flex items-center gap-1.5 text-[#9BA3AE] hover:text-[#191C20] transition-colors py-1 px-2 -mr-2 rounded-lg hover:bg-[#F0F2F5]"
             aria-label="Share task"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1416,10 +1429,9 @@ export default function TaskDetailPage() {
               <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
               <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
             </svg>
-            <span className="text-sm font-medium">Share</span>
-          </button>
-        </div>
-      </div>
+          </Button>
+        }
+      />
 
       <div className="px-6 py-4 flex flex-col gap-4">
 
@@ -1431,13 +1443,13 @@ export default function TaskDetailPage() {
             ? "bg-red-500/5 border-red-500/15"
             : task.status === "claimed"
             ? "bg-yellow-500/5 border-yellow-500/15"
-            : "bg-[#191C20]/5 border-[#E9ECF0]"
+            : "bg-gray-900/5 border-gray-200"
         }`}>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <StatusBadge status={task.status} />
               {task.taskType === "double-or-nothing" && (
-                <span className="flex items-center gap-0.5 text-xs text-[#F59E0B] font-bold bg-[#FFF8E1] border border-[#FDE68A] rounded-full px-1.5 py-0.5">
+                <span className="flex items-center gap-0.5 text-xs text-warning-600 font-bold bg-warning-100 border border-warning-300 rounded-full px-1.5 py-0.5">
                   &#x1f3b2; Double-or-Nothing
                 </span>
               )}
@@ -1447,10 +1459,13 @@ export default function TaskDetailPage() {
                 </span>
               )}
             </div>
-            <span className="text-xs text-[#9BA3AE] font-mono">{task.id.slice(0, 16)}</span>
+            <span className="text-xs text-gray-400 font-mono">{task.id.slice(0, 16)}</span>
           </div>
           {task.status === "completed" && task.verificationResult?.verdict === "pass" && (
-            <button
+            <Button
+              variant="primary"
+              fullWidth
+              size="lg"
               onClick={() => {
                 hapticTap();
                 shareTask({
@@ -1460,7 +1475,7 @@ export default function TaskDetailPage() {
                   taskId: task.id,
                 });
               }}
-              className="mt-3 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-green-500/20 bg-green-500/5 hover:bg-green-500/10 transition-all text-sm text-green-400 active:scale-[0.98]"
+              className="mt-3 min-h-[44px]"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="18" cy="5" r="3" />
@@ -1470,15 +1485,15 @@ export default function TaskDetailPage() {
                 <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
               </svg>
               Share Verified Completion
-            </button>
+            </Button>
           )}
         </div>
 
         {/* Restricted badge */}
         {task.claimCode !== null && (
-          <div className="bg-[#F0F2F5] border border-[#E9ECF0] rounded-xl px-3 py-2 flex items-center gap-2">
+          <div className="bg-gray-100 border border-gray-200 rounded-xl px-3 py-2 flex items-center gap-2">
             <span className="text-sm">{"\u{1F512}"}</span>
-            <span className="text-xs text-[#9BA3AE] font-medium uppercase tracking-wider">
+            <span className="text-xs text-gray-400 font-medium uppercase tracking-wider">
               Access Code Required
             </span>
           </div>
@@ -1490,28 +1505,28 @@ export default function TaskDetailPage() {
         )}
 
         {/* ===== TASK INFO CARD ===== */}
-        <div className="bg-white border border-[#E9ECF0] rounded-2xl p-4 shadow-sm">
-          <p className="text-xs text-[#9BA3AE] uppercase tracking-wider font-medium mb-3">
+        <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm">
+          <p className="text-xs text-gray-400 uppercase tracking-wider font-medium mb-3">
             Task Details
           </p>
 
-          <p className="text-sm text-[#191C20] leading-relaxed mb-4 break-words">{task.description}</p>
+          <p className="text-sm text-gray-900 leading-relaxed mb-4 break-words">{task.description}</p>
 
           <div className="grid grid-cols-2 gap-y-3 gap-x-3 sm:gap-x-4">
             <div>
-              <p className="text-xs text-[#9BA3AE] uppercase tracking-wider">Location</p>
-              <p className="text-xs text-[#657080] mt-0.5">{task.location}</p>
+              <p className="text-xs text-gray-400 uppercase tracking-wider">Location</p>
+              <p className="text-xs text-gray-500 mt-0.5">{task.location}</p>
             </div>
             <div>
-              <p className="text-xs text-[#9BA3AE] uppercase tracking-wider">
+              <p className="text-xs text-gray-400 uppercase tracking-wider">
                 {task.taskType === "double-or-nothing" ? "Double-or-Nothing" : "Bounty"}
               </p>
               {task.taskType === "double-or-nothing" ? (
                 <>
-                  <p className="text-sm text-[#F59E0B] font-bold mt-0.5">
+                  <p className="text-sm text-warning-600 font-bold mt-0.5">
                     ${task.bountyUsdc * 2} USDC
                   </p>
-                  <p className="text-xs text-[#F59E0B]/60">
+                  <p className="text-xs text-warning-600/60">
                     ${task.bountyUsdc} poster + ${task.bountyUsdc} runner stake
                   </p>
                 </>
@@ -1523,24 +1538,24 @@ export default function TaskDetailPage() {
               <RequiredTierBadge bountyUsdc={task.bountyUsdc} />
             </div>
             <div>
-              <p className="text-xs text-[#9BA3AE] uppercase tracking-wider">Category</p>
-              <p className="text-xs text-[#657080] mt-0.5 capitalize">
+              <p className="text-xs text-gray-400 uppercase tracking-wider">Category</p>
+              <p className="text-xs text-gray-500 mt-0.5 capitalize">
                 {categoryIcon} {task.category}
               </p>
             </div>
             <div>
-              <p className="text-xs text-[#9BA3AE] uppercase tracking-wider">Deadline</p>
-              <p className="text-xs text-[#657080] mt-0.5">{formatDate(task.deadline)}</p>
+              <p className="text-xs text-gray-400 uppercase tracking-wider">Deadline</p>
+              <p className="text-xs text-gray-500 mt-0.5">{formatDate(task.deadline)}</p>
             </div>
             <div>
-              <p className="text-xs text-[#9BA3AE] uppercase tracking-wider">Poster</p>
-              <p className="text-xs text-[#657080] mt-0.5 font-mono">{truncate(task.poster)}</p>
+              <p className="text-xs text-gray-400 uppercase tracking-wider">Poster</p>
+              <p className="text-xs text-gray-500 mt-0.5 font-mono">{truncate(task.poster)}</p>
             </div>
             {task.claimant && (
               <div>
-                <p className="text-xs text-[#9BA3AE] uppercase tracking-wider">Runner</p>
+                <p className="text-xs text-gray-400 uppercase tracking-wider">Runner</p>
                 <div className="flex items-center gap-1.5 mt-0.5">
-                  <p className="text-xs text-[#657080] font-mono">
+                  <p className="text-xs text-gray-500 font-mono">
                     {truncate(task.claimant)}
                   </p>
                   <VerificationBadge level={task.claimantVerification} size="sm" />
@@ -1551,12 +1566,12 @@ export default function TaskDetailPage() {
         </div>
 
         {/* ===== LIFECYCLE TIMELINE ===== */}
-        <div className="bg-white border border-[#E9ECF0] rounded-2xl p-4 shadow-sm">
+        <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm">
           <div className="flex items-center justify-between mb-4">
-            <p className="text-xs text-[#9BA3AE] uppercase tracking-wider font-medium">
+            <p className="text-xs text-gray-400 uppercase tracking-wider font-medium">
               Lifecycle Timeline
             </p>
-            <span className="text-xs text-[#9BA3AE] font-mono">
+            <span className="text-xs text-gray-400 font-mono">
               {steps.filter((s) => s.done).length}/{steps.length} steps
             </span>
           </div>
@@ -1572,9 +1587,9 @@ export default function TaskDetailPage() {
 
         {/* ===== PROOF PHOTO SECTION ===== */}
         {(task.proofImages || task.proofImageUrl) && (
-          <div className="bg-white border border-[#E9ECF0] rounded-2xl overflow-hidden shadow-sm">
+          <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
             <div className="px-4 pt-4 pb-3">
-              <p className="text-xs text-[#9BA3AE] uppercase tracking-wider font-medium">
+              <p className="text-xs text-gray-400 uppercase tracking-wider font-medium">
                 Submitted Proof
               </p>
             </div>
@@ -1597,7 +1612,7 @@ export default function TaskDetailPage() {
             {/* Proof note */}
             {task.proofNote && (
               <div className="px-4 pt-2">
-                <p className="text-xs text-[#9BA3AE] italic leading-relaxed">
+                <p className="text-xs text-gray-400 italic leading-relaxed">
                   &ldquo;{task.proofNote}&rdquo;
                 </p>
               </div>
@@ -1621,10 +1636,10 @@ export default function TaskDetailPage() {
                 <span className={`text-xs font-bold ${verdictColor(task.verificationResult.verdict)}`}>
                   {task.verificationResult.verdict.toUpperCase()}
                 </span>
-                <span className="text-xs text-[#9BA3AE]">
+                <span className="text-xs text-gray-400">
                   {Math.round(task.verificationResult.confidence * 100)}% confidence
                 </span>
-                <span className="text-xs text-[#9BA3AE] ml-auto">Verification engine</span>
+                <span className="text-xs text-gray-400 ml-auto">Verification engine</span>
               </div>
             )}
           </div>
@@ -1654,21 +1669,21 @@ export default function TaskDetailPage() {
 
         {/* ===== PAYMENT RECORD ===== */}
         {(task.escrowTxHash || task.attestationTxHash || task.onChainId !== null) && (
-          <div className="bg-white border border-[#E9ECF0] rounded-2xl p-4 shadow-sm">
+          <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
-                <div className="w-5 h-5 rounded-md bg-[#E8F8EE] flex items-center justify-center">
+                <div className="w-5 h-5 rounded-md bg-success-100 flex items-center justify-center">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#34d399" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
                     <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
                   </svg>
                 </div>
-                <p className="text-xs font-semibold text-[#191C20]">
+                <p className="text-xs font-semibold text-gray-900">
                   Payment Record
                 </p>
               </div>
               {task.status === "completed" && (
-                <span className="text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[#E8F8EE] text-[#29A352] border border-[#D4F5E0]">
+                <span className="text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-success-100 text-success-700 border border-success-200">
                   Paid on World Chain
                 </span>
               )}
@@ -1676,8 +1691,8 @@ export default function TaskDetailPage() {
 
             <div className="flex flex-col gap-2">
               {/* Amount */}
-              <div className="bg-[#F7F8FA] border border-[#E9ECF0] rounded-xl px-3.5 py-3">
-                <p className="text-xs text-[#9BA3AE] uppercase tracking-wider mb-0.5">Amount</p>
+              <div className="bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-3">
+                <p className="text-xs text-gray-400 uppercase tracking-wider mb-0.5">Amount</p>
                 <p className="text-sm text-green-400 font-bold">${task.bountyUsdc} USDC</p>
               </div>
 
@@ -1711,9 +1726,9 @@ export default function TaskDetailPage() {
 
               {/* On-chain task ID */}
               {task.onChainId !== null && (
-                <div className="bg-[#F7F8FA] border border-[#E9ECF0] rounded-xl px-3.5 py-3">
-                  <p className="text-xs text-[#9BA3AE] uppercase tracking-wider mb-0.5">On-Chain Task ID</p>
-                  <p className="text-xs text-[#657080] font-mono">#{task.onChainId}</p>
+                <div className="bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-3">
+                  <p className="text-xs text-gray-400 uppercase tracking-wider mb-0.5">On-Chain Task ID</p>
+                  <p className="text-xs text-gray-500 font-mono">#{task.onChainId}</p>
                 </div>
               )}
             </div>

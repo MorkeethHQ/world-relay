@@ -130,9 +130,9 @@ export function FeedbackTasks({ address, onComplete }: Props) {
 
   if (loading) {
     return (
-      <div className="rounded-2xl bg-white border border-[#E9ECF0] shadow-sm p-4">
-        <div className="h-4 w-32 bg-[#F0F2F5] rounded-md animate-pulse mb-3" />
-        <div className="h-16 bg-[#F7F8FA] rounded-xl animate-pulse" />
+      <div className="rounded-2xl bg-white border border-gray-200 shadow-sm p-4">
+        <div className="h-4 w-32 bg-gray-100 rounded-md animate-pulse mb-3" />
+        <div className="h-16 bg-gray-50 rounded-xl animate-pulse" />
       </div>
     );
   }
@@ -142,10 +142,10 @@ export function FeedbackTasks({ address, onComplete }: Props) {
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between px-1">
-        <p className="text-xs text-[#9BA3AE] uppercase tracking-wider font-medium">
+        <p className="text-xs text-gray-400 uppercase tracking-wider font-medium">
           Try something — earn points
         </p>
-        <span className="text-xs text-[#9BA3AE]">no wallet needed</span>
+        <span className="text-xs text-gray-400">no wallet needed</span>
       </div>
 
       {templates.map((t) => {
@@ -164,7 +164,7 @@ export function FeedbackTasks({ address, onComplete }: Props) {
                 </svg>
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-[#191C20]">{t.title}</p>
+                <p className="text-sm font-medium text-gray-900">{t.title}</p>
                 <p className="text-xs text-green-600 font-medium">+{completed.get(t.id)} points earned</p>
               </div>
             </div>
@@ -175,7 +175,7 @@ export function FeedbackTasks({ address, onComplete }: Props) {
           <div
             key={t.id}
             className={`rounded-2xl bg-white border shadow-sm transition-all duration-200 ${
-              isActive ? "border-[#9BA3AE] ring-1 ring-[#E9ECF0]" : "border-[#E9ECF0]"
+              isActive ? "border-gray-400 ring-1 ring-gray-200" : "border-gray-200"
             }`}
           >
             <button
@@ -188,15 +188,15 @@ export function FeedbackTasks({ address, onComplete }: Props) {
               }}
               className="w-full px-4 py-3.5 flex items-center gap-3 text-left"
             >
-              <div className="w-10 h-10 rounded-xl bg-[#F7F8FA] border border-[#E9ECF0] flex items-center justify-center text-lg shrink-0">
+              <div className="w-10 h-10 rounded-xl bg-gray-50 border border-gray-200 flex items-center justify-center text-lg shrink-0">
                 {t.icon}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-[#191C20] leading-snug">{t.title}</p>
+                <p className="text-sm font-medium text-gray-900 leading-snug">{t.title}</p>
                 <div className="flex items-center gap-2 mt-0.5">
-                  <span className="text-xs text-[#9BA3AE]">+{t.pointsReward} pts</span>
+                  <span className="text-xs text-gray-400">+{t.pointsReward} pts</span>
                   {t.requiresPhoto && (
-                    <span className="text-xs text-[#9BA3AE] flex items-center gap-0.5">
+                    <span className="text-xs text-gray-400 flex items-center gap-0.5">
                       <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
                         <circle cx="12" cy="13" r="4" />
@@ -215,7 +215,7 @@ export function FeedbackTasks({ address, onComplete }: Props) {
                 strokeWidth="2"
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                className={`text-[#9BA3AE] transition-transform duration-200 shrink-0 ${isActive ? "rotate-180" : ""}`}
+                className={`text-gray-400 transition-transform duration-200 shrink-0 ${isActive ? "rotate-180" : ""}`}
               >
                 <polyline points="6 9 12 15 18 9" />
               </svg>
@@ -223,7 +223,7 @@ export function FeedbackTasks({ address, onComplete }: Props) {
 
             {isActive && (
               <div className="px-4 pb-4 animate-[fadeIn_0.2s_ease-out]">
-                <p className="text-xs text-[#9BA3AE] leading-relaxed mb-3">{t.description}</p>
+                <p className="text-xs text-gray-400 leading-relaxed mb-3">{t.description}</p>
 
                 <div className="flex flex-col gap-2.5">
                   {t.requiresPhoto && (
@@ -240,7 +240,7 @@ export function FeedbackTasks({ address, onComplete }: Props) {
                         <button
                           type="button"
                           onClick={() => fileInputRef.current?.click()}
-                          className="relative w-full h-32 rounded-xl overflow-hidden border border-[#E9ECF0] group"
+                          className="relative w-full h-32 rounded-xl overflow-hidden border border-gray-200 group"
                         >
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img src={imageData} alt="Proof" className="w-full h-full object-cover" />
@@ -252,13 +252,13 @@ export function FeedbackTasks({ address, onComplete }: Props) {
                         <button
                           type="button"
                           onClick={() => fileInputRef.current?.click()}
-                          className="w-full h-20 rounded-xl border-2 border-dashed border-[#E9ECF0] flex items-center justify-center gap-2 hover:border-[#9BA3AE] hover:bg-[#F7F8FA] transition-colors"
+                          className="w-full h-20 rounded-xl border-2 border-dashed border-gray-200 flex items-center justify-center gap-2 hover:border-gray-400 hover:bg-gray-50 transition-colors"
                         >
                           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9BA3AE" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
                             <circle cx="12" cy="13" r="4" />
                           </svg>
-                          <span className="text-xs text-[#9BA3AE]">Tap to take a photo</span>
+                          <span className="text-xs text-gray-400">Tap to take a photo</span>
                         </button>
                       )}
                     </div>
@@ -269,7 +269,7 @@ export function FeedbackTasks({ address, onComplete }: Props) {
                     onChange={(e) => setResponse(e.target.value)}
                     placeholder={t.requiresPhoto ? "Add a note (optional)" : "Type your response..."}
                     rows={2}
-                    className="w-full resize-none rounded-xl border border-[#E9ECF0] bg-[#F7F8FA] px-3 py-2.5 text-sm text-[#191C20] placeholder:text-[#9BA3AE] outline-none focus:ring-2 focus:ring-[#191C20]/10 focus:border-[#9BA3AE] transition-all"
+                    className="w-full resize-none rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 outline-none focus:ring-2 focus:ring-gray-900/10 focus:border-gray-400 transition-all"
                   />
 
                   {error && <p className="text-xs text-red-500">{error}</p>}
@@ -278,7 +278,7 @@ export function FeedbackTasks({ address, onComplete }: Props) {
                     type="button"
                     onClick={() => handleSubmit(t.id)}
                     disabled={submitting || (!address)}
-                    className="w-full py-2.5 rounded-xl bg-[#191C20] text-white text-sm font-semibold disabled:bg-[#E9ECF0] disabled:text-[#9BA3AE] active:scale-[0.98] transition-all"
+                    className="w-full py-2.5 rounded-xl bg-gray-900 text-white text-sm font-semibold disabled:bg-gray-200 disabled:text-gray-400 active:scale-[0.98] transition-all"
                   >
                     {submitting ? (
                       <span className="flex items-center justify-center gap-2">
