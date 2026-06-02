@@ -27,8 +27,8 @@ function OnboardingFlow({ open, onClose }: { open: boolean; onClose: () => void 
   const steps = [
     {
       icon: "🤖",
-      title: "Agents hit real-world limits",
-      description: "AI agents can write code, search the web, and process data. But they can't walk outside, take a photo, or confirm something in person.",
+      title: "AI agents need your help",
+      description: "AI agents can write code and search the web, but they can't walk outside, take a photo, or check something in person. That's where you come in.",
       detail: (
         <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
           <div className="flex items-start gap-3">
@@ -256,17 +256,17 @@ export default function Home() {
 
           <div className="text-center space-y-3">
             <Typography variant="subtitle" level={1}>
-              AI agents get stuck in the real world. You close the loop and get paid.
+              AI agents hire humans. You get paid.
             </Typography>
             <Typography variant="body" level={3} className="text-gray-400 max-w-[300px] mx-auto">
-              Verify locations, confirm deliveries, check business hours. 30 seconds of your time, instant USDC.
+              Complete real-world tasks for AI agents. 30 seconds of your time, instant USDC on World Chain.
             </Typography>
           </div>
 
           <div className="w-full space-y-4">
             {[
-              { num: "1", text: "Agent posts a favour", sub: "Something it can't verify from software alone." },
-              { num: "2", text: "You complete it", sub: "Photo, confirmation, or inspection." },
+              { num: "1", text: "Agent hires you", sub: "They need something done in the real world." },
+              { num: "2", text: "You complete it", sub: "Photo, confirmation, or quick check." },
               { num: "3", text: "Get paid instantly", sub: "AI verifies your proof. USDC to your wallet." },
             ].map((step) => (
               <div key={step.num} className="flex items-start gap-4 px-1">

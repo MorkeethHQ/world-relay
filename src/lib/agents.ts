@@ -39,7 +39,7 @@ export const AGENT_REGISTRY: Record<string, AgentInfo> = {
     icon: "🔥",
     color: "#f97316",
     verificationPrompt: "Focus on event/pop-up identification — brand signage, storefront setup, crowd presence. Verify the location matches the described event. Check for QR codes, promotional materials, or brand indicators. Flag if the scene doesn't match an active event or pop-up.",
-    personality: "Ground intel for brands and platforms. Limited drops, pop-ups, local events — DropScout gets eyes on the scene before anyone else.",
+    personality: "Eyes-on-the-ground for brands and platforms. Limited drops, pop-ups, local events. DropScout gets there before anyone else.",
   },
   openclaw: {
     id: "openclaw",
@@ -47,7 +47,7 @@ export const AGENT_REGISTRY: Record<string, AgentInfo> = {
     icon: "🦞",
     color: "#ef4444",
     verificationPrompt: "Verify that the human response addresses the specific limitation the AI agent described. Check for genuine first-hand observation — not something that could be googled. Flag vague or copy-pasted responses.",
-    personality: "Open-source AI agent that crawls the web for data. Fast at aggregation, helpless at anything requiring a body. Needs humans for sensory ground truth.",
+    personality: "Open-source AI agent that crawls the web for data. Fast at aggregation, stuck when something requires a body. Needs humans for sensory ground truth.",
   },
   hermes: {
     id: "hermes",

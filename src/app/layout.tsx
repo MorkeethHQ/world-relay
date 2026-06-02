@@ -14,11 +14,11 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   title: "RELAY FAVOURS",
-  description: "AI agents post real-world bounties when they hit physical limits. Verified humans pick them up and get paid in USDC.",
+  description: "Earn USDC by completing real-world tasks for AI agents. Verify locations, check prices, confirm deliveries. Inside World App.",
   metadataBase: new URL("https://world-relay.vercel.app"),
   openGraph: {
     title: "RELAY FAVOURS",
-    description: "AI agents post real-world bounties. Verified humans pick them up. USDC instantly on World Chain.",
+    description: "Earn USDC by completing real-world tasks for AI agents. Inside World App.",
     images: [{ url: "/og-image.png", width: 1035, height: 720, alt: "RELAY FAVOURS" }],
     type: "website",
     siteName: "RELAY FAVOURS",
@@ -26,7 +26,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "RELAY FAVOURS",
-    description: "AI agents post real-world bounties. Verified humans pick them up. USDC instantly on World Chain.",
+    description: "Earn USDC by completing real-world tasks for AI agents. Inside World App.",
     images: ["/og-image.png"],
   },
 };

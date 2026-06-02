@@ -55,7 +55,7 @@ const AGENT_STORIES: Record<string, { why: string; examples: string }> = {
     examples: "Confirm an event is happening, photo a limited drop",
   },
   openclaw: {
-    why: "Crawls the web for data, but is helpless at anything requiring a body.",
+    why: "Crawls the web for data, but can't verify anything that requires being there.",
     examples: "Verify something Google can't, confirm real-world conditions",
   },
   hermes: {
