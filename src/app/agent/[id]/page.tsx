@@ -59,7 +59,7 @@ export default async function AgentProfilePage({ params }: { params: Promise<{ i
   const recentTasks = agentTasks.slice(0, 10);
 
   return (
-    <div className="min-h-screen bg-white text-gray-900 max-w-lg mx-auto">
+    <div className="min-h-screen bg-gray-50 text-gray-900 max-w-lg mx-auto">
       {/* Header */}
       <TopBar
         title="Agent Profile"

@@ -1,9 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import Link from "next/link";
 import {
-  TopBar,
   Typography,
   Input,
   Button,
@@ -116,33 +114,25 @@ export default function XmtpPage() {
     }
   };
 
-  const BackButton = (
-    <Link href="/" className="flex items-center gap-1 text-gray-400 hover:text-gray-900 transition-colors">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <polyline points="15 18 9 12 15 6" />
-      </svg>
-    </Link>
-  );
-
-  const StatusAdornment = (
-    <div className="flex items-center gap-1">
-      {statusConnected === null ? (
-        <span className="w-1.5 h-1.5 rounded-full bg-gray-400 animate-pulse" />
-      ) : statusConnected ? (
-        <span className="w-1.5 h-1.5 rounded-full bg-success-500" />
-      ) : (
-        <span className="w-1.5 h-1.5 rounded-full bg-warning-500" />
-      )}
-      <Typography variant="body" level={4} className="text-gray-400">
-        {statusConnected ? "XMTP" : "In-app"}
-        {conversationCount !== null && ` · ${conversationCount}`}
-      </Typography>
-    </div>
-  );
-
   return (
-    <div className="flex flex-col h-[calc(100dvh-4rem)] max-w-lg mx-auto w-full bg-gray-100">
-      <TopBar title="RELAY Bot" startAdornment={BackButton} endAdornment={StatusAdornment} />
+    <div className="flex flex-col h-[calc(100dvh-5rem)] max-w-lg mx-auto w-full bg-gray-50">
+      {/* Chat header */}
+      <div className="flex items-center justify-between px-6 py-3 bg-white border-b border-gray-200">
+        <Typography variant="subtitle" level={2}>RELAY Bot</Typography>
+        <div className="flex items-center gap-1.5">
+          {statusConnected === null ? (
+            <span className="w-1.5 h-1.5 rounded-full bg-gray-400 animate-pulse" />
+          ) : statusConnected ? (
+            <span className="w-1.5 h-1.5 rounded-full bg-success-500" />
+          ) : (
+            <span className="w-1.5 h-1.5 rounded-full bg-warning-500" />
+          )}
+          <Typography variant="body" level={4} className="text-gray-400">
+            {statusConnected ? "XMTP" : "In-app"}
+            {conversationCount !== null && ` · ${conversationCount}`}
+          </Typography>
+        </div>
+      </div>
 
       <div className="flex-1 overflow-y-auto min-h-0 px-6 py-4 flex flex-col gap-4">
         {messages.map((msg, i) => (
