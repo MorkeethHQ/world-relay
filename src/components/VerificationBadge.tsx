@@ -60,6 +60,8 @@ export function VerificationBadge({ level, size = "sm" }: Props) {
     return (
       <span
         className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 border ${config.bg} ${config.border}`}
+        role="status"
+        aria-label={config.label}
       >
         <ShieldIcon level={level} size={12} />
         <span className={`text-xs font-semibold ${config.color}`}>
@@ -72,6 +74,8 @@ export function VerificationBadge({ level, size = "sm" }: Props) {
   return (
     <span
       className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 border ${config.bg} ${config.border}`}
+      role="status"
+      aria-label={config.label}
     >
       <ShieldIcon level={level} size={9} />
       <span className={`text-xs font-semibold ${config.color}`}>
@@ -95,6 +99,8 @@ export function RequiredTierBadge({
   return (
     <span
       className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 border ${config.bg} ${config.border}`}
+      role="status"
+      aria-label={label}
     >
       <span className="text-xs">{"\u{1F512}"}</span>
       <span className={`text-xs font-semibold ${config.color}`}>

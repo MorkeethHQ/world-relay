@@ -421,7 +421,7 @@ export function ProofOfFavourCard({ address, compact = false }: Props) {
   // Error state
   if (error || !data) {
     return (
-      <div className="rounded-xl px-3 py-2 bg-red-50 border border-red-200 text-red-600 text-xs">
+      <div className="rounded-xl px-3 py-2 bg-red-50 border border-red-200 text-red-600 text-xs" role="alert">
         Failed to load profile{error ? `: ${error}` : ""}
       </div>
     );
@@ -503,7 +503,12 @@ function CompactCard({
 
       {/* Progress bar (fills remaining space) */}
       <div className="flex-1 min-w-[40px]">
-        <div className={`h-1.5 rounded-full ${config.progressBg} overflow-hidden`}>
+        <div
+          className={`h-1.5 rounded-full ${config.progressBg} overflow-hidden`}
+          role="progressbar"
+          aria-valuenow={Math.round(nextLevel.progress * 100)}
+          aria-valuemax={100}
+        >
           <div
             className={`h-full rounded-full ${config.progressColor} transition-all duration-1000 ease-out`}
             style={{
@@ -595,7 +600,12 @@ function FullCard({
         </div>
 
         {/* Progress bar */}
-        <div className={`h-2 rounded-full ${config.progressBg} overflow-hidden`}>
+        <div
+          className={`h-2 rounded-full ${config.progressBg} overflow-hidden`}
+          role="progressbar"
+          aria-valuenow={Math.round(nextLevel.progress * 100)}
+          aria-valuemax={100}
+        >
           <div
             className={`h-full rounded-full ${config.progressColor} transition-all duration-1000 ease-out`}
             style={{

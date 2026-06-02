@@ -97,6 +97,61 @@ function verdictBorder(v: string): string {
 }
 
 // ---------------------------------------------------------------------------
+// Collapsible Section
+// ---------------------------------------------------------------------------
+
+function CollapsibleSection({
+  title,
+  icon,
+  badge,
+  defaultOpen = false,
+  children,
+}: {
+  title: string;
+  icon?: React.ReactNode;
+  badge?: React.ReactNode;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
+      <button
+        onClick={() => setOpen(!open)}
+        className="w-full px-4 py-3.5 min-h-[44px] flex items-center gap-3 hover:bg-gray-50 transition-colors"
+        aria-expanded={open}
+        aria-label={`${open ? "Collapse" : "Expand"} ${title}`}
+      >
+        {icon && <span className="shrink-0">{icon}</span>}
+        <span className="text-xs text-gray-400 uppercase tracking-wider font-medium flex-1 text-left">
+          {title}
+        </span>
+        {badge && <span className="shrink-0">{badge}</span>}
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className={`text-gray-400 transition-transform duration-200 shrink-0 ${open ? "rotate-180" : ""}`}
+        >
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </button>
+      {open && (
+        <div className="border-t border-gray-200">
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Components
 // ---------------------------------------------------------------------------
 
@@ -1175,16 +1230,17 @@ export default function TaskDetailPage() {
 
   const fetchData = useCallback(async () => {
     try {
-      const [tasksRes, msgsRes] = await Promise.all([
-        fetch("/api/tasks"),
+      const [taskRes, msgsRes] = await Promise.all([
+        fetch(`/api/tasks/${id}`),
         fetch(`/api/tasks/${id}/messages`),
       ]);
 
-      if (tasksRes.ok) {
-        const data = await tasksRes.json();
-        const found = (data.tasks as Task[])?.find((t) => t.id === id);
-        if (found) setTask(found);
+      if (taskRes.ok) {
+        const data = await taskRes.json();
+        if (data.task) setTask(data.task as Task);
         else if (!task) setError("Task not found");
+      } else if (!task) {
+        setError("Task not found");
       }
 
       if (msgsRes.ok) {
@@ -1217,7 +1273,7 @@ export default function TaskDetailPage() {
 
   useEffect(() => {
     fetchData();
-    const interval = setInterval(fetchData, 3000);
+    const interval = setInterval(fetchData, 5000);
     return () => clearInterval(interval);
   }, [fetchData]);
 
@@ -1384,13 +1440,13 @@ export default function TaskDetailPage() {
   // ---- Render ----
 
   return (
-    <div className="min-h-screen bg-white text-gray-900 max-w-lg mx-auto">
+    <div className="min-h-screen bg-gray-50 text-gray-900 max-w-lg mx-auto">
       {/* Sticky Header */}
       <TopBar
         title={`${categoryIcon} Task Detail`}
         startAdornment={
-          <Link href="/">
-            <Button variant="tertiary" size="sm" className="min-h-[44px]">
+          <Link href="/" aria-label="Back to feed">
+            <Button variant="tertiary" size="sm" className="min-h-[44px]" aria-label="Back to feed">
               <svg
                 width="20"
                 height="20"
@@ -1566,24 +1622,25 @@ export default function TaskDetailPage() {
         </div>
 
         {/* ===== LIFECYCLE TIMELINE ===== */}
-        <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <p className="text-xs text-gray-400 uppercase tracking-wider font-medium">
-              Lifecycle Timeline
-            </p>
+        <CollapsibleSection
+          title="Lifecycle Timeline"
+          badge={
             <span className="text-xs text-gray-400 font-mono">
-              {steps.filter((s) => s.done).length}/{steps.length} steps
+              {steps.filter((s) => s.done).length}/{steps.length}
             </span>
+          }
+        >
+          <div className="p-4">
+            {steps.map((step, i) => (
+              <TimelineStep
+                key={`${step.label}-${i}`}
+                step={step}
+                isLast={i === steps.length - 1}
+                index={i}
+              />
+            ))}
           </div>
-          {steps.map((step, i) => (
-            <TimelineStep
-              key={`${step.label}-${i}`}
-              step={step}
-              isLast={i === steps.length - 1}
-              index={i}
-            />
-          ))}
-        </div>
+        </CollapsibleSection>
 
         {/* ===== PROOF PHOTO SECTION ===== */}
         {(task.proofImages || task.proofImageUrl) && (
@@ -1645,13 +1702,26 @@ export default function TaskDetailPage() {
           </div>
         )}
 
-        {/* ===== AI VERDICT (full card) ===== */}
-        {task.verificationResult && <AiVerdictCard result={task.verificationResult} />}
+        {/* ===== AI VERDICT (collapsible) ===== */}
+        {task.verificationResult && (
+          <CollapsibleSection
+            title="AI Verification"
+            badge={
+              <span className={`text-xs font-bold ${verdictColor(task.verificationResult.verdict)}`}>
+                {task.verificationResult.verdict.toUpperCase()} {Math.round(task.verificationResult.confidence * 100)}%
+              </span>
+            }
+          >
+            <div className="p-4">
+              <AiVerdictCard result={task.verificationResult} />
+            </div>
+          </CollapsibleSection>
+        )}
 
         {/* ===== AI FOLLOW-UP ===== */}
         {task.aiFollowUp && <FollowUpCard followUp={task.aiFollowUp} />}
 
-        {/* ===== DISPUTE ACTIONS (flagged tasks) ===== */}
+        {/* ===== DISPUTE ACTIONS (flagged tasks - always visible, actionable) ===== */}
         {task.verificationResult?.verdict === "flag" && task.status !== "completed" && task.status !== "failed" && (
           <DisputeActions
             task={task}
@@ -1659,44 +1729,43 @@ export default function TaskDetailPage() {
           />
         )}
 
-        {/* ===== WORLD CHAT THREAD ===== */}
-        <WorldChatThread
-          messages={messages}
-          agent={task.agent}
-          userId={task.claimant || task.poster}
-          onSend={sendMessage}
-        />
+        {/* ===== WORLD CHAT THREAD (collapsible) ===== */}
+        <CollapsibleSection
+          title="XMTP Chat"
+          badge={
+            messages.length > 0 ? (
+              <span className="text-xs text-gray-400 font-mono">
+                {messages.length} message{messages.length !== 1 ? "s" : ""}
+              </span>
+            ) : undefined
+          }
+        >
+          <WorldChatThread
+            messages={messages}
+            agent={task.agent}
+            userId={task.claimant || task.poster}
+            onSend={sendMessage}
+          />
+        </CollapsibleSection>
 
-        {/* ===== PAYMENT RECORD ===== */}
+        {/* ===== PAYMENT RECORD (collapsible) ===== */}
         {(task.escrowTxHash || task.attestationTxHash || task.onChainId !== null) && (
-          <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <div className="w-5 h-5 rounded-md bg-success-100 flex items-center justify-center">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#34d399" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
-                    <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
-                  </svg>
-                </div>
-                <p className="text-xs font-semibold text-gray-900">
-                  Payment Record
-                </p>
-              </div>
-              {task.status === "completed" && (
-                <span className="text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-success-100 text-success-700 border border-success-200">
-                  Paid on World Chain
-                </span>
-              )}
-            </div>
-
-            <div className="flex flex-col gap-2">
-              {/* Amount */}
+          <CollapsibleSection
+            title="Payment Record"
+            badge={
+              task.status === "completed" ? (
+                <span className="text-xs font-bold text-success-700">Paid</span>
+              ) : (
+                <span className="text-xs text-gray-400">${task.bountyUsdc}</span>
+              )
+            }
+          >
+            <div className="p-4 flex flex-col gap-2">
               <div className="bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-3">
                 <p className="text-xs text-gray-400 uppercase tracking-wider mb-0.5">Amount</p>
-                <p className="text-sm text-green-400 font-bold">${task.bountyUsdc} USDC</p>
+                <p className="text-sm text-success-600 font-bold">${task.bountyUsdc} USDC</p>
               </div>
 
-              {/* Payment TX */}
               {task.escrowTxHash && (
                 <OnChainLink
                   label="Payment Transaction"
@@ -1706,7 +1775,6 @@ export default function TaskDetailPage() {
                 />
               )}
 
-              {/* Contract address */}
               <OnChainLink
                 label="Payment Contract"
                 value={`${ESCROW_ADDRESS.slice(0, 10)}...${ESCROW_ADDRESS.slice(-8)}`}
@@ -1714,7 +1782,6 @@ export default function TaskDetailPage() {
                 mono
               />
 
-              {/* Attestation */}
               {task.attestationTxHash && (
                 <OnChainLink
                   label="Attestation TX"
@@ -1724,7 +1791,6 @@ export default function TaskDetailPage() {
                 />
               )}
 
-              {/* On-chain task ID */}
               {task.onChainId !== null && (
                 <div className="bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-3">
                   <p className="text-xs text-gray-400 uppercase tracking-wider mb-0.5">On-Chain Task ID</p>
@@ -1732,7 +1798,7 @@ export default function TaskDetailPage() {
                 </div>
               )}
             </div>
-          </div>
+          </CollapsibleSection>
         )}
 
         {/* Bottom spacer */}

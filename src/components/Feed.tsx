@@ -514,7 +514,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
               <Typography variant="subtitle" level={2} as="h1">RELAY FAVOURS</Typography>
               {userId && (
                 <div className="flex items-center gap-2 mt-0.5">
-                  <button onClick={onLogout} className="text-xs text-gray-500 hover:text-gray-900 transition-colors min-h-[44px] flex items-center">
+                  <button onClick={onLogout} aria-label="Sign out" className="text-xs text-gray-500 hover:text-gray-900 transition-colors min-h-[44px] flex items-center">
                     {shortId(userId)}
                   </button>
                   <VerificationBadge level={verificationLevel} />
@@ -534,7 +534,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
         </div>
 
         {/* Tabs */}
-        <div className="flex px-6 gap-0 items-center">
+        <div className="flex px-6 gap-0 items-center" role="tablist">
           {(["available", "mine", "completed"] as Tab[]).map((t) => {
             const label = t === "available" ? "Favours" : t === "mine" ? "Mine" : "History";
             const count = t === "mine" ? myTaskCount : null;
@@ -542,6 +542,8 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
               <button
                 key={t}
                 onClick={() => { hapticSelection(); setTab(t); }}
+                role="tab"
+                aria-selected={tab === t}
                 className={`flex-1 text-sm min-h-[44px] py-3 font-medium transition-all relative flex items-center justify-center ${
                   tab === t ? "text-gray-900" : "text-gray-400"
                 }`}
@@ -578,6 +580,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
       <div
         className="flex items-center justify-center overflow-hidden transition-all duration-200 ease-out"
         style={{ height: pullDistance > 0 || isRefreshing ? `${Math.max(pullDistance, isRefreshing ? 40 : 0)}px` : "0px" }}
+        aria-live="polite"
       >
         {isRefreshing ? (
           <svg className="w-5 h-5 text-gray-400 animate-spin" viewBox="0 0 24 24" fill="none">
@@ -644,7 +647,35 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
         </div>
       )}
 
-      {/* Removed: Hero card, Stats bar, Inline chat, Feedback tasks - clean feed per World guidelines */}
+      {/* First-time user guide */}
+      {tab === "available" && !loading && tasks.filter(t => t.claimant === userId).length === 0 && (
+        <div className="px-6 pt-4">
+          <div className="bg-white border border-gray-200 rounded-2xl p-4 flex flex-col gap-3">
+            <div className="flex items-center gap-2">
+              <CircularIcon size="sm" className="bg-info-100">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgb(var(--info-600))" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" />
+                </svg>
+              </CircularIcon>
+              <Typography variant="body" level={2} className="font-semibold text-gray-900">How it works</Typography>
+            </div>
+            <div className="flex flex-col gap-2">
+              {[
+                { num: "1", text: "AI agents post favours they can't do remotely" },
+                { num: "2", text: "Tap a favour below, go complete it, submit proof" },
+                { num: "3", text: "AI verifies your proof, USDC hits your wallet" },
+              ].map((s) => (
+                <div key={s.num} className="flex items-center gap-3">
+                  <span className="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
+                    <Typography variant="label" level={2} className="text-gray-500">{s.num}</Typography>
+                  </span>
+                  <Typography variant="body" level={3} className="text-gray-600">{s.text}</Typography>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Content */}
       <div className="flex-1 px-6 py-4">
@@ -982,12 +1013,18 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
                           setUpgradePrompt({ required: err.required, current: err.current });
                           return;
                         }
+                        setStatusToast({ message: err.error || "Claim failed. Try again.", color: "text-error-600", visible: true });
+                        if (statusToastTimer.current) clearTimeout(statusToastTimer.current);
+                        statusToastTimer.current = setTimeout(() => setStatusToast(prev => ({ ...prev, visible: false })), 4000);
                         return;
                       }
                       hapticSuccess();
+                      setStatusToast({ message: `Claimed! Go to "Mine" tab to submit proof.`, color: "text-success-600", visible: true });
+                      if (statusToastTimer.current) clearTimeout(statusToastTimer.current);
+                      statusToastTimer.current = setTimeout(() => setStatusToast(prev => ({ ...prev, visible: false })), 5000);
                       fetchTasks();
-                    } catch {
-                      // Silently handle any unexpected errors
+                    } catch (err) {
+                      setClaimTxError({ message: err instanceof Error ? err.message : "Claim failed. Try again.", taskId: task.id, retry: () => {} });
                     }
                   }}
                   onSubmitProof={() => {
@@ -1203,9 +1240,15 @@ function TaskCard({
           )}
         </div>
         {task.escrowTxHash ? (
-          <span className="text-sm font-semibold text-gray-900">${task.bountyUsdc} USDC</span>
+          <span className="flex items-center gap-1.5">
+            <span className="text-sm font-semibold text-gray-900">${task.bountyUsdc} USDC</span>
+            <span className="w-2 h-2 rounded-full bg-success-500" />
+          </span>
         ) : (
-          <span className="text-sm font-medium text-gray-400">{task.bountyUsdc * 10} pts</span>
+          <span className="flex items-center gap-1.5">
+            <span className="text-sm font-semibold text-gray-900">${task.bountyUsdc}</span>
+            <span className="text-xs text-warning-600 font-medium bg-warning-100 rounded px-1.5 py-0.5">Pending</span>
+          </span>
         )}
       </div>
 
@@ -1231,9 +1274,13 @@ function TaskCard({
           <StatusBadge status={task.status} />
           {isOwnTask && <span className="text-xs text-gray-500">You posted</span>}
           {isClaimant && task.status === "claimed" && <span className="text-xs text-gray-500">You claimed</span>}
-          {task.escrowTxHash && (
+          {task.escrowTxHash ? (
             <span className="flex items-center gap-1 text-xs text-success-700 font-semibold bg-success-100 rounded-full px-2 py-0.5">
-              On-chain
+              Funded
+            </span>
+          ) : (
+            <span className="flex items-center gap-1 text-xs text-warning-600 font-medium bg-warning-100 rounded-full px-2 py-0.5">
+              Awaiting funds
             </span>
           )}
         </div>
@@ -1251,7 +1298,9 @@ function TaskCard({
             ? "Claim (Code Required)"
             : task.taskType === "double-or-nothing"
               ? `Stake $${task.bountyUsdc} & Claim`
-              : "Claim Favour"}
+              : task.escrowTxHash
+                ? `Claim — $${task.bountyUsdc} USDC`
+                : "Claim Favour"}
         </Button>
       )}
 
@@ -1332,6 +1381,15 @@ function AgentBadge({ agent }: { agent: AgentInfo }) {
 
 // VerificationBadge and RequiredTierBadge are imported from @/components/VerificationBadge
 
+const POST_TEMPLATES = [
+  { emoji: "\u{1F37D}️", label: "Is this place open?", desc: "Walk past and confirm if this place is currently open. Photo the entrance or posted hours.", category: "check-in" as const, bounty: "2" },
+  { emoji: "\u{1F4F8}", label: "Photo check", desc: "Take a clear photo of ", category: "photo" as const, bounty: "2" },
+  { emoji: "\u{1F465}", label: "Queue length", desc: "How long is the line at ", category: "photo" as const, bounty: "1.50" },
+  { emoji: "\u{1F3E0}", label: "Verify a listing", desc: "Walk past this address and photograph the building entrance. Confirm the listing is real.", category: "check-in" as const, bounty: "3" },
+  { emoji: "\u{1F4E6}", label: "Delivery check", desc: "Check if a package was delivered to ", category: "delivery" as const, bounty: "2" },
+  { emoji: "\u{1F3B6}", label: "What's the vibe?", desc: "Go to this location and describe the atmosphere. Photo the crowd, setup, or signage.", category: "photo" as const, bounty: "2.50" },
+];
+
 function PostTask({
   userId,
   onDone,
@@ -1341,18 +1399,15 @@ function PostTask({
   onDone: () => void;
   onCancel: () => void;
 }) {
-  const [category, setCategory] = useState<"photo" | "delivery" | "check-in" | "custom">("photo");
-  const [taskType, setTaskType] = useState<"standard" | "double-or-nothing">("standard");
   const [description, setDescription] = useState("");
   const [location, setLocation] = useState("");
   const [bounty, setBounty] = useState("");
+  const [category, setCategory] = useState<"photo" | "delivery" | "check-in" | "custom">("photo");
   const [submitting, setSubmitting] = useState(false);
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [escrowSuccess, setEscrowSuccess] = useState<string | null>(null);
   const [txError, setTxError] = useState<string | null>(null);
-  const [enhancing, setEnhancing] = useState(false);
-  const [enhanced, setEnhanced] = useState(false);
-  const enhancedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [selectedTemplate, setSelectedTemplate] = useState<number | null>(null);
 
   useEffect(() => {
     if (!navigator.geolocation) return;
@@ -1363,28 +1418,12 @@ function PostTask({
     );
   }, []);
 
-  const handleEnhance = async () => {
-    if (!description.trim() || enhancing) return;
-    setEnhancing(true);
-    setEnhanced(false);
-    try {
-      const res = await fetch("/api/enhance-description", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ description, category, location }),
-      });
-      const data = await res.json();
-      if (data.enhanced) {
-        setDescription(data.enhanced);
-        setEnhanced(true);
-        if (enhancedTimer.current) clearTimeout(enhancedTimer.current);
-        enhancedTimer.current = setTimeout(() => setEnhanced(false), 2000);
-      }
-    } catch {
-      /* silently fail — user keeps their original description */
-    } finally {
-      setEnhancing(false);
-    }
+  const handleTemplate = (idx: number) => {
+    const t = POST_TEMPLATES[idx];
+    setSelectedTemplate(idx);
+    setDescription(t.desc);
+    setBounty(t.bounty);
+    setCategory(t.category);
   };
 
   const handleSubmit = async () => {
@@ -1393,62 +1432,31 @@ function PostTask({
 
     let onChainId: number | null = null;
     let escrowTxHash: string | null = null;
-    let donOnChainId: number | null = null;
 
-    const isDoN = taskType === "double-or-nothing";
-
-    if (isMiniKit()) {
-      if (isDoN && DOUBLE_OR_NOTHING_ADDRESS) {
-        const txPayload = encodeCreateDoubleOrNothing(description, parseFloat(bounty), 24);
-        if (txPayload) {
-          try {
-            const countBefore = await readDonTaskCount().catch(() => 0);
-            const txResult = await MiniKit.sendTransaction(txPayload);
-            if (txResult) {
-              donOnChainId = countBefore;
-              escrowTxHash = extractTxHash(txResult);
-              if (escrowTxHash) {
-                hapticSuccess();
-                setEscrowSuccess(escrowTxHash);
-              }
-            } else {
-              hapticError();
-              setTxError("Transaction was rejected. Please try again.");
-              setSubmitting(false);
-              return;
+    if (isMiniKit() && RELAY_ESCROW_ADDRESS) {
+      const txPayload = encodeCreateTask(description, parseFloat(bounty), 24);
+      if (txPayload) {
+        try {
+          const countBefore = await readTaskCount().catch(() => 0);
+          const txResult = await MiniKit.sendTransaction(txPayload);
+          if (txResult) {
+            onChainId = countBefore;
+            escrowTxHash = extractTxHash(txResult);
+            if (escrowTxHash) {
+              hapticSuccess();
+              setEscrowSuccess(escrowTxHash);
             }
-          } catch (err) {
+          } else {
             hapticError();
-            setTxError(err instanceof Error ? err.message : "Transaction failed. Please try again.");
+            setTxError("Transaction was rejected. Your USDC was not charged.");
             setSubmitting(false);
             return;
           }
-        }
-      } else if (RELAY_ESCROW_ADDRESS) {
-        const txPayload = encodeCreateTask(description, parseFloat(bounty), 24);
-        if (txPayload) {
-          try {
-            const countBefore = await readTaskCount().catch(() => 0);
-            const txResult = await MiniKit.sendTransaction(txPayload);
-            if (txResult) {
-              onChainId = countBefore;
-              escrowTxHash = extractTxHash(txResult);
-              if (escrowTxHash) {
-                hapticSuccess();
-                setEscrowSuccess(escrowTxHash);
-              }
-            } else {
-              hapticError();
-              setTxError("Transaction was rejected. Please try again.");
-              setSubmitting(false);
-              return;
-            }
-          } catch (err) {
-            hapticError();
-            setTxError(err instanceof Error ? err.message : "Transaction failed. Please try again.");
-            setSubmitting(false);
-            return;
-          }
+        } catch (err) {
+          hapticError();
+          setTxError(err instanceof Error ? err.message : "Transaction failed. Your USDC was not charged.");
+          setSubmitting(false);
+          return;
         }
       }
     }
@@ -1468,88 +1476,153 @@ function PostTask({
           deadlineHours: 24,
           onChainId,
           escrowTxHash,
-          taskType,
-          donOnChainId,
         }),
       });
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
         hapticError();
-        setTxError(errData.error || "Failed to create task. Please try again.");
+        setTxError(errData.error || "Failed to create task.");
         setSubmitting(false);
         return;
       }
       hapticSuccess();
     } catch {
       hapticError();
-      setTxError("Network error. Please check your connection and try again.");
+      setTxError("Network error. Please try again.");
       setSubmitting(false);
       return;
     }
     onDone();
   };
 
-  const isValid = description && location && bounty;
+  const isInWorld = isMiniKit();
+  const isValid = description && location && bounty && parseFloat(bounty) > 0;
 
   return (
-    <div className="flex flex-col min-h-screen max-w-lg mx-auto w-full">
+    <div className="flex flex-col min-h-screen max-w-lg mx-auto w-full bg-gray-50">
       <TopBar
-        title="New Request"
+        title="Post a Favour"
         startAdornment={
-          <Button variant="tertiary" size="sm" onClick={onCancel}>Cancel</Button>
+          <Button variant="tertiary" size="sm" onClick={onCancel} aria-label="Cancel">Cancel</Button>
         }
       />
 
-      <div className="flex-1 px-6 py-6 flex flex-col gap-6">
+      <div className="flex-1 px-6 py-5 flex flex-col gap-6 overflow-y-auto">
+        {/* Templates */}
         <div>
-          <label className="text-xs text-gray-400 uppercase tracking-wider font-medium block mb-2">What do you need?</label>
+          <Typography variant="label" level={2} className="text-gray-400 mb-3">What do you need?</Typography>
+          <div className="grid grid-cols-3 gap-2">
+            {POST_TEMPLATES.map((t, i) => (
+              <button
+                key={i}
+                onClick={() => handleTemplate(i)}
+                className={`flex flex-col items-center gap-1.5 rounded-xl border px-2 py-3 transition-all min-h-[44px] ${
+                  selectedTemplate === i
+                    ? "border-gray-900 bg-white"
+                    : "border-gray-200 bg-white hover:border-gray-300"
+                }`}
+              >
+                <span className="text-lg">{t.emoji}</span>
+                <Typography variant="body" level={4} className="text-center text-gray-700 leading-tight">{t.label}</Typography>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Description */}
+        <div>
+          <Typography variant="label" level={2} className="text-gray-400 mb-2">Description</Typography>
           <textarea
-            placeholder="Confirm if the package was delivered to the front door"
+            placeholder="Describe exactly what you need someone to check, photo, or confirm..."
             value={description}
-            onChange={(e) => { setDescription(e.target.value); setEnhanced(false); }}
+            onChange={(e) => setDescription(e.target.value)}
             rows={3}
-            autoFocus
-            className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm resize-none focus:outline-none focus:border-gray-400 transition-colors placeholder:text-gray-400"
+            className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm resize-none focus:outline-none focus:border-gray-400 transition-colors placeholder:text-gray-400"
           />
         </div>
+
+        {/* Location */}
         <div>
-          <label className="text-xs text-gray-400 uppercase tracking-wider font-medium block mb-2">Location</label>
+          <Typography variant="label" level={2} className="text-gray-400 mb-2">Where?</Typography>
           <input
             type="text"
-            placeholder="City or address"
+            placeholder="Address, venue name, or area"
             value={location}
             onChange={(e) => setLocation(e.target.value)}
-            className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-gray-400 transition-colors placeholder:text-gray-400"
+            className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-gray-400 transition-colors placeholder:text-gray-400 min-h-[44px]"
           />
         </div>
+
+        {/* Bounty */}
         <div>
-          <label className="text-xs text-gray-400 uppercase tracking-wider font-medium block mb-2">Reward</label>
-          <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3">
-            <span className="text-sm text-gray-400">$</span>
-            <input
-              type="number"
-              placeholder="5"
-              min="0.01"
-              step="0.01"
-              value={bounty}
-              onChange={(e) => setBounty(e.target.value)}
-              className="flex-1 bg-transparent text-sm focus:outline-none placeholder:text-gray-400"
-            />
-            <span className="text-xs text-gray-400">USDC</span>
+          <Typography variant="label" level={2} className="text-gray-400 mb-2">Reward</Typography>
+          <div className="flex items-center gap-3">
+            {["1", "2", "5"].map((amt) => (
+              <button
+                key={amt}
+                onClick={() => setBounty(amt)}
+                className={`flex-1 rounded-xl border py-3 text-center transition-all min-h-[44px] ${
+                  bounty === amt
+                    ? "border-gray-900 bg-white"
+                    : "border-gray-200 bg-white hover:border-gray-300"
+                }`}
+              >
+                <Typography variant="number" level={3} className={bounty === amt ? "text-gray-900" : "text-gray-500"}>${amt}</Typography>
+              </button>
+            ))}
+            <div className="flex-1 flex items-center gap-1 bg-white border border-gray-200 rounded-xl px-3 py-3 min-h-[44px]">
+              <span className="text-sm text-gray-400">$</span>
+              <input
+                type="number"
+                placeholder="Other"
+                min="0.50"
+                step="0.50"
+                value={!["1", "2", "5"].includes(bounty) ? bounty : ""}
+                onChange={(e) => setBounty(e.target.value)}
+                className="flex-1 bg-transparent text-sm focus:outline-none placeholder:text-gray-400 w-12"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Escrow explainer */}
+        <div className="bg-white border border-gray-200 rounded-xl p-4">
+          <div className="flex items-start gap-3">
+            <span className="text-base mt-0.5">{isInWorld ? "\u{1F512}" : "\u{2139}️"}</span>
+            <div>
+              {isInWorld ? (
+                <>
+                  <Typography variant="body" level={3} className="text-gray-700 font-medium">Your USDC goes to escrow</Typography>
+                  <Typography variant="body" level={4} className="text-gray-400 mt-0.5">
+                    Held in a smart contract. Released to the runner when AI verifies their proof. Returned to you if no one completes it in 24h.
+                  </Typography>
+                </>
+              ) : (
+                <>
+                  <Typography variant="body" level={3} className="text-gray-700 font-medium">Funding requires World App</Typography>
+                  <Typography variant="body" level={4} className="text-gray-400 mt-0.5">
+                    Your task will be posted but unfunded. Open it in World App to deposit USDC and make it live.
+                  </Typography>
+                </>
+              )}
+            </div>
           </div>
         </div>
       </div>
 
+      {/* Submit */}
       <div className="px-6 pb-8 pt-2" style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 24px)" }}>
         {txError && (
-          <div className="mb-4 bg-red-50 border border-red-200 rounded-xl p-4 flex items-center justify-between">
-            <span className="text-sm text-red-600 font-medium">{txError}</span>
-            <button onClick={() => setTxError(null)} className="text-sm text-red-400 hover:text-red-600 min-w-[44px] min-h-[44px] flex items-center justify-center">✕</button>
+          <div className="mb-4 bg-error-100 border border-error-200 rounded-xl p-4 flex items-center justify-between">
+            <Typography variant="body" level={3} className="text-error-700 font-medium">{txError}</Typography>
+            <button onClick={() => setTxError(null)} className="min-w-[44px] min-h-[44px] flex items-center justify-center" aria-label="Dismiss error">
+              <Typography variant="body" level={3} className="text-error-400">&#x2715;</Typography>
+            </button>
           </div>
         )}
         {escrowSuccess && (
           <div className="mb-4 bg-success-100 border border-success-200 rounded-xl p-4 flex items-center justify-between">
-            <span className="text-sm text-success-700 font-medium">Deposited on-chain</span>
+            <Typography variant="body" level={3} className="text-success-700 font-medium">USDC deposited on-chain</Typography>
             <a
               href={`https://worldscan.org/tx/${escrowSuccess}`}
               target="_blank"
@@ -1568,7 +1641,7 @@ function PostTask({
             fullWidth
             size="lg"
           >
-            {submitting ? "Posting..." : "Post Favour"}
+            {submitting ? "Posting..." : isInWorld ? `Post & Fund $${bounty || "0"} USDC` : "Post Favour"}
           </Button>
         </LiveFeedback>
       </div>
@@ -2152,16 +2225,17 @@ function TaskDetail({
   }, [task.id]);
 
   const fetchTask = useCallback(async () => {
-    const res = await fetch(`/api/tasks`);
-    const data = await res.json();
-    const updated = data.tasks?.find((t: Task) => t.id === task.id);
-    if (updated) setCurrentTask(updated);
+    const res = await fetch(`/api/tasks/${task.id}`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data.task) setCurrentTask(data.task);
+    }
   }, [task.id]);
 
   useEffect(() => {
     fetchMessages();
     fetchTask();
-    const interval = setInterval(() => { fetchMessages(); fetchTask(); }, 2000);
+    const interval = setInterval(() => { fetchMessages(); fetchTask(); }, 5000);
     return () => clearInterval(interval);
   }, [fetchMessages, fetchTask]);
 
