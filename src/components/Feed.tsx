@@ -1384,12 +1384,12 @@ function AgentBadge({ agent }: { agent: AgentInfo }) {
 // VerificationBadge and RequiredTierBadge are imported from @/components/VerificationBadge
 
 const POST_TEMPLATES = [
-  { emoji: "\u{1F37D}️", label: "Is this place open?", desc: "Walk past and confirm if this place is currently open. Photo the entrance or posted hours.", category: "check-in" as const, bounty: "2" },
-  { emoji: "\u{1F4F8}", label: "Photo check", desc: "Take a clear photo of ", category: "photo" as const, bounty: "2" },
-  { emoji: "\u{1F465}", label: "Queue length", desc: "How long is the line at ", category: "photo" as const, bounty: "1.50" },
-  { emoji: "\u{1F3E0}", label: "Verify a listing", desc: "Walk past this address and photograph the building entrance. Confirm the listing is real.", category: "check-in" as const, bounty: "3" },
-  { emoji: "\u{1F4E6}", label: "Delivery check", desc: "Check if a package was delivered to ", category: "delivery" as const, bounty: "2" },
-  { emoji: "\u{1F3B6}", label: "What's the vibe?", desc: "Go to this location and describe the atmosphere. Photo the crowd, setup, or signage.", category: "photo" as const, bounty: "2.50" },
+  { emoji: "\u{1F3AC}", label: "Film a review", desc: "Visit this place, try it out, and film a 30-60 second honest review. Show yourself there.", category: "photo" as const, bounty: "25" },
+  { emoji: "\u{1F3B6}", label: "Scout the vibe", desc: "Go to this event or venue. Film the crowd, the setup, the energy. Show what it's actually like.", category: "photo" as const, bounty: "10" },
+  { emoji: "\u{1F4F8}", label: "Photo proof", desc: "Photograph this location, product, or setup. Clear, well-lit, showing exactly what was asked.", category: "photo" as const, bounty: "5" },
+  { emoji: "\u{1F4F1}", label: "Test an app", desc: "Open this app on your phone, try the main flow, and screen-record what happens.", category: "custom" as const, bounty: "15" },
+  { emoji: "\u{1F3E0}", label: "Verify a listing", desc: "Walk past this address and photograph the building entrance. Confirm if the listing is real.", category: "check-in" as const, bounty: "5" },
+  { emoji: "\u{1F6D2}", label: "Check a price", desc: "Go to this store and photograph the current price of a specific product on the shelf.", category: "photo" as const, bounty: "3" },
 ];
 
 function PostTask({
@@ -1559,7 +1559,7 @@ function PostTask({
         <div>
           <Typography variant="label" level={2} className="text-gray-400 mb-2">Reward</Typography>
           <div className="flex items-center gap-3">
-            {["1", "2", "5"].map((amt) => (
+            {["5", "15", "25"].map((amt) => (
               <button
                 key={amt}
                 onClick={() => setBounty(amt)}
@@ -1579,7 +1579,7 @@ function PostTask({
                 placeholder="Other"
                 min="0.50"
                 step="0.50"
-                value={!["1", "2", "5"].includes(bounty) ? bounty : ""}
+                value={!["5", "15", "25"].includes(bounty) ? bounty : ""}
                 onChange={(e) => setBounty(e.target.value)}
                 className="flex-1 bg-transparent text-sm focus:outline-none placeholder:text-gray-400 w-12"
               />
