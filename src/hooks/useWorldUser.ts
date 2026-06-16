@@ -87,7 +87,7 @@ export function useWorldUsers(addresses: string[]) {
   }, [addresses]);
 
   useEffect(() => {
-    const key = addresses.sort().join(",");
+    const key = [...addresses].sort().join(",");
     if (key === prevAddrs.current) return;
     prevAddrs.current = key;
     resolve();

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import dynamic from "next/dynamic";
 import { MiniKit } from "@worldcoin/minikit-js";
 import type { Task, AgentInfo } from "@/lib/types";
@@ -223,7 +223,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
   const feedTopRef = useRef<HTMLDivElement>(null);
   const userLocation = useUserLocation();
 
-  const allAddresses = [...new Set(tasks.flatMap(t => [t.poster, t.claimant].filter(Boolean) as string[]))];
+  const allAddresses = useMemo(() => [...new Set(tasks.flatMap(t => [t.poster, t.claimant].filter(Boolean) as string[]))], [tasks]);
   useWorldUsers(allAddresses);
 
   const fetchTasks = useCallback(async () => {
@@ -286,9 +286,18 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
     setLoading(false);
   }, []);
 
+  // Debounced fetchTasks: at most once every 2s even if multiple SSE events fire
+  const fetchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const debouncedFetchTasks = useCallback(() => {
+    if (fetchDebounceRef.current) return;
+    fetchTasks();
+    fetchDebounceRef.current = setTimeout(() => {
+      fetchDebounceRef.current = null;
+    }, 2000);
+  }, [fetchTasks]);
+
   useEffect(() => {
     fetchTasks();
-    const interval = setInterval(fetchTasks, 5000);
 
     // Trigger XMTP sync every 30s so DMs get processed in near-real-time
     // (Vercel hobby cron is daily — this compensates)
@@ -297,10 +306,10 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
     const syncInterval = setInterval(syncXmtp, 30_000);
 
     return () => {
-      clearInterval(interval);
       clearInterval(syncInterval);
       if (toastTimer.current) clearTimeout(toastTimer.current);
       if (statusToastTimer.current) clearTimeout(statusToastTimer.current);
+      if (fetchDebounceRef.current) clearTimeout(fetchDebounceRef.current);
     };
   }, [fetchTasks]);
 
@@ -328,15 +337,16 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
       };
 
       es.onmessage = () => {
-        // Any message (including unnamed events) triggers a refresh
-        fetchTasks();
+        // Any message (including unnamed events) triggers a debounced refresh
+        debouncedFetchTasks();
       };
 
       // Listen for all named task events as refresh signals
+      // Using debouncedFetchTasks so rapid SSE bursts collapse into one fetch
       const eventTypes = ["task:created", "task:claimed", "task:proof", "task:verified", "task:completed", "task:failed"];
       for (const type of eventTypes) {
         es.addEventListener(type, () => {
-          fetchTasks();
+          debouncedFetchTasks();
         });
       }
 
@@ -364,7 +374,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
       }
       setSseConnected(false);
     };
-  }, [view, fetchTasks]);
+  }, [view, debouncedFetchTasks]);
 
   useEffect(() => {
     fetch("/api/xmtp-status")
@@ -412,7 +422,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
     setPullDistance(0);
   }, [pullDistance, isRefreshing, fetchTasks]);
 
-  const filtered = tasks.filter((t) => {
+  const filtered = useMemo(() => tasks.filter((t) => {
     if (t.status === "expired") return false;
     const deadlinePassed = new Date(t.deadline).getTime() < Date.now();
     if (deadlinePassed && t.status === "open") return false;
@@ -447,14 +457,20 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
       }
     }
     return 0;
-  });
+  }), [tasks, tab, userLocation, userId]);
 
   const [heroVisible, setHeroVisible] = useState(true);
-  const myTaskCount = tasks.filter(t => t.poster === userId || t.claimant === userId).length;
-  const completedByClaiming = tasks.filter(t => t.claimant === userId && t.status === "completed");
-  const totalEarned = completedByClaiming.reduce((sum, t) => sum + t.bountyUsdc, 0);
-  const totalPosted = tasks.filter(t => t.poster === userId).length;
-  const totalClaimed = tasks.filter(t => t.claimant === userId).length;
+  const { myTaskCount, completedByClaiming, totalEarned, totalPosted, totalClaimed } = useMemo(() => {
+    const myTasks = tasks.filter(t => t.poster === userId || t.claimant === userId);
+    const completed = tasks.filter(t => t.claimant === userId && t.status === "completed");
+    return {
+      myTaskCount: myTasks.length,
+      completedByClaiming: completed,
+      totalEarned: completed.reduce((sum, t) => sum + t.bountyUsdc, 0),
+      totalPosted: tasks.filter(t => t.poster === userId).length,
+      totalClaimed: tasks.filter(t => t.claimant === userId).length,
+    };
+  }, [tasks, userId]);
 
   async function handleChatQuery() {
     if (!chatQuery.trim() || chatLoading) return;
