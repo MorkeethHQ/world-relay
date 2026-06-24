@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTask, posterConfirm } from "@/lib/store";
-import { postVerificationResult } from "@/lib/xmtp";
+import { postVerificationResult, postSettlementConfirmation } from "@/lib/xmtp";
 import { fireWebhook } from "@/lib/webhooks";
+import { releaseEscrow } from "@/lib/escrow";
+import { getRedis } from "@/lib/redis";
 
 export async function POST(
   req: NextRequest,
@@ -26,6 +28,26 @@ export async function POST(
 
   if (approved) {
     await postVerificationResult(id, "pass", "Poster confirmed proof manually", task.bountyUsdc);
+
+    // Release escrow if this task was pending poster confirmation (high-value auto-release)
+    if ((task as any).pendingRelease && task.onChainId !== null) {
+      const escrowTx = await releaseEscrow(task.onChainId).catch((err) => {
+        console.error("[Escrow] Release on confirm failed:", err);
+        return null;
+      });
+      if (escrowTx) {
+        postSettlementConfirmation(id, task.bountyUsdc, escrowTx).catch(console.error);
+      }
+      // Clear the pendingRelease flag
+      const redis = getRedis();
+      if (redis) {
+        const latest = await getTask(id);
+        if (latest) {
+          (latest as any).pendingRelease = false;
+          await redis.set(`task:${id}`, JSON.stringify(latest));
+        }
+      }
+    }
   } else {
     await postVerificationResult(id, "fail", "Poster rejected proof", task.bountyUsdc);
   }

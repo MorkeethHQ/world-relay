@@ -10,7 +10,9 @@ import { sanitizeInput } from "@/lib/sanitize";
 
 export async function GET() {
   const tasks = await listTasks();
-  return NextResponse.json({ tasks });
+  return NextResponse.json({ tasks }, {
+    headers: { "Cache-Control": "public, s-maxage=5, stale-while-revalidate=10" },
+  });
 }
 
 export async function POST(req: NextRequest) {

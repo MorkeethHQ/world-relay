@@ -1273,7 +1273,7 @@ export default function TaskDetailPage() {
 
   useEffect(() => {
     fetchData();
-    const interval = setInterval(fetchData, 5000);
+    const interval = setInterval(fetchData, 30_000); // 30s — was 5s, SSE handles real-time
     return () => clearInterval(interval);
   }, [fetchData]);
 

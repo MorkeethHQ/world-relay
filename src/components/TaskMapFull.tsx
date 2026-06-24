@@ -112,10 +112,10 @@ export default function TaskMapFull() {
     }
   }, []);
 
-  // Initial fetch + auto-refresh every 10s
+  // Initial fetch + auto-refresh every 60s (was 10s)
   useEffect(() => {
     fetchTasks();
-    const interval = setInterval(fetchTasks, 10_000);
+    const interval = setInterval(fetchTasks, 60_000);
     return () => clearInterval(interval);
   }, [fetchTasks]);
 

@@ -74,7 +74,9 @@ export async function POST(req: NextRequest) {
   const proofNote = body.proofNote ? sanitizeInput(body.proofNote, 1000) : undefined;
   const ADMIN_SECRET = process.env.ADMIN_SECRET;
   const authHeader = req.headers.get("authorization") || "";
-  const demoMode = authHeader === `Bearer ${ADMIN_SECRET}` && !!ADMIN_SECRET;
+  // Demo mode only allowed outside production, or when explicitly enabled via env var
+  const demoAllowed = process.env.NODE_ENV !== "production" || process.env.ALLOW_DEMO_MODE === "true";
+  const demoMode = demoAllowed && authHeader === `Bearer ${ADMIN_SECRET}` && !!ADMIN_SECRET;
   const submitter = body.submitter;
   if (!submitter && !demoMode) {
     return NextResponse.json({ error: "Submitter identity required" }, { status: 401 });
@@ -128,15 +130,18 @@ export async function POST(req: NextRequest) {
   if (!task) {
     return NextResponse.json({ error: "Task not found" }, { status: 404 });
   }
-  if (!demoMode && task.requiresClaim && task.claimant && submitter !== task.claimant) {
+  // Always check submitter identity when task is claimed, regardless of requiresClaim
+  if (!demoMode && task.status === "claimed" && task.claimant && submitter !== task.claimant) {
     return NextResponse.json({ error: "Only the task claimant can submit proof" }, { status: 403 });
   }
+  // requiresClaim controls whether the task must be claimed first
   const needsClaim = task.requiresClaim !== false;
   if (needsClaim && task.status !== "claimed" && !demoMode) {
     return NextResponse.json({ error: "Task not in claimed state" }, { status: 400 });
   }
-  if (!needsClaim && task.status === "completed") {
-    return NextResponse.json({ error: "Task already completed" }, { status: 400 });
+  // For tasks that don't require claiming, they must be open (not completed/cancelled)
+  if (!needsClaim && task.status !== "open" && task.status !== "claimed") {
+    return NextResponse.json({ error: "Task is not available for proof submission" }, { status: 400 });
   }
 
   let locationVerified: boolean | null = null;
@@ -314,14 +319,28 @@ export async function POST(req: NextRequest) {
   }
 
   // Auto-release escrow when verdict is pass and task has on-chain ID
+  // For high-value tasks (>= $10), require poster confirmation before release
   let escrowReleaseTxHash: string | null = null;
   if (result.verdict === "pass" && task.onChainId !== null) {
-    escrowReleaseTxHash = await releaseEscrow(task.onChainId).catch((err) => {
-      console.error("[Escrow] Auto-release failed:", err);
-      return null;
-    });
-    if (escrowReleaseTxHash) {
-      postSettlementConfirmation(taskId, task.bountyUsdc, escrowReleaseTxHash).catch(console.error);
+    if (task.bountyUsdc >= 10) {
+      // High-value: set pendingRelease flag, poster must confirm via /confirm endpoint
+      const redisForRelease = getRedis();
+      if (redisForRelease) {
+        const updatedForRelease = await getTask(taskId);
+        if (updatedForRelease) {
+          (updatedForRelease as any).pendingRelease = true;
+          await redisForRelease.set(`task:${taskId}`, JSON.stringify(updatedForRelease));
+        }
+      }
+    } else {
+      // Low-value: auto-release immediately
+      escrowReleaseTxHash = await releaseEscrow(task.onChainId).catch((err) => {
+        console.error("[Escrow] Auto-release failed:", err);
+        return null;
+      });
+      if (escrowReleaseTxHash) {
+        postSettlementConfirmation(taskId, task.bountyUsdc, escrowReleaseTxHash).catch(console.error);
+      }
     }
   }
 

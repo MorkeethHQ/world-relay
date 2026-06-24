@@ -33,7 +33,9 @@ const CACHE_TTL = 30_000;
 
 export async function GET() {
   if (cache && Date.now() - cache.ts < CACHE_TTL) {
-    return NextResponse.json(cache.data);
+    return NextResponse.json(cache.data, {
+      headers: { "Cache-Control": "public, s-maxage=30, stale-while-revalidate=60" },
+    });
   }
 
   try {
@@ -79,7 +81,9 @@ export async function GET() {
     };
 
     cache = { data, ts: Date.now() };
-    return NextResponse.json(data);
+    return NextResponse.json(data, {
+      headers: { "Cache-Control": "public, s-maxage=30, stale-while-revalidate=60" },
+    });
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 });
   }

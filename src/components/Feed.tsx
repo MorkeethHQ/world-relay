@@ -12,7 +12,6 @@ import {
   SkeletonTypography,
   TopBar,
   Pill,
-  Input,
   TextArea,
   AlertDialog,
   AlertDialogContent,
@@ -29,7 +28,6 @@ function isMiniKit(): boolean {
   try { return typeof window !== "undefined" && MiniKit.isInstalled(); } catch { return false; }
 }
 import { VerificationBadge, RequiredTierBadge } from "@/components/VerificationBadge";
-import { FeedbackTasks } from "@/components/FeedbackTasks";
 import { ProofOfFavourCard } from "@/components/ProofOfFavourCard";
 import { encodeCreateTask, encodeClaimTask, encodeReleasePayment, encodeUniswapSwap, readTaskCount, RELAY_ESCROW_ADDRESS, DOUBLE_OR_NOTHING_ADDRESS, encodeCreateDoubleOrNothing, encodeStakeAndClaimWithApproval, readDonTaskCount, type SwapToken } from "@/lib/contracts";
 import { hapticSuccess, hapticError, hapticTap, hapticHeavy, hapticMedium, hapticSelection, shareTask } from "@/lib/minikit-helpers";
@@ -208,6 +206,10 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
   const [changedTaskIds, setChangedTaskIds] = useState<Set<string>>(new Set());
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState(false);
+  const [claimConfirmTask, setClaimConfirmTask] = useState<Task | null>(null);
+  const [claimCodeTask, setClaimCodeTask] = useState<Task | null>(null);
+  const [claimCodeInput, setClaimCodeInput] = useState("");
   const [pullDistance, setPullDistance] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const touchStartY = useRef(0);
@@ -227,63 +229,69 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
   useWorldUsers(allAddresses);
 
   const fetchTasks = useCallback(async () => {
-    const res = await fetch("/api/tasks");
-    const data = await res.json();
-    const incoming: Task[] = data.tasks;
+    try {
+      const res = await fetch("/api/tasks");
+      const data = await res.json();
+      const incoming: Task[] = data.tasks;
 
-    // Detect genuinely new task IDs
-    if (knownTaskIds.current.size > 0) {
-      const newIds = incoming.filter((t) => !knownTaskIds.current.has(t.id));
-      if (newIds.length > 0) {
-        // Clear any existing dismiss timer
-        if (toastTimer.current) clearTimeout(toastTimer.current);
-        setNewTaskToast({ count: newIds.length, visible: true });
-        toastTimer.current = setTimeout(() => {
-          setNewTaskToast((prev) => ({ ...prev, visible: false }));
-        }, 3000);
-      }
-    }
-
-    // Detect status changes (open->claimed, claimed->completed)
-    if (prevTaskStatuses.current.size > 0) {
-      const changed: string[] = [];
-      let statusMsg = "";
-      let statusColor = "";
-
-      for (const task of incoming) {
-        const prevStatus = prevTaskStatuses.current.get(task.id);
-        if (prevStatus && prevStatus !== task.status) {
-          changed.push(task.id);
-          if (prevStatus === "open" && task.status === "claimed") {
-            statusMsg = `Favour claimed: "${task.description.slice(0, 40)}${task.description.length > 40 ? "..." : ""}"`;
-            statusColor = "text-yellow-600";
-          } else if (prevStatus === "claimed" && task.status === "completed") {
-            statusMsg = `Favour completed: "${task.description.slice(0, 40)}${task.description.length > 40 ? "..." : ""}"`;
-
-            statusColor = "text-green-600";
-          }
+      // Detect genuinely new task IDs
+      if (knownTaskIds.current.size > 0) {
+        const newIds = incoming.filter((t) => !knownTaskIds.current.has(t.id));
+        if (newIds.length > 0) {
+          // Clear any existing dismiss timer
+          if (toastTimer.current) clearTimeout(toastTimer.current);
+          setNewTaskToast({ count: newIds.length, visible: true });
+          toastTimer.current = setTimeout(() => {
+            setNewTaskToast((prev) => ({ ...prev, visible: false }));
+          }, 3000);
         }
       }
 
-      if (changed.length > 0) {
-        setChangedTaskIds(new Set(changed));
-        setTimeout(() => setChangedTaskIds(new Set()), 2000);
+      // Detect status changes (open->claimed, claimed->completed)
+      if (prevTaskStatuses.current.size > 0) {
+        const changed: string[] = [];
+        let statusMsg = "";
+        let statusColor = "";
+
+        for (const task of incoming) {
+          const prevStatus = prevTaskStatuses.current.get(task.id);
+          if (prevStatus && prevStatus !== task.status) {
+            changed.push(task.id);
+            if (prevStatus === "open" && task.status === "claimed") {
+              statusMsg = `Favour claimed: "${task.description.slice(0, 40)}${task.description.length > 40 ? "..." : ""}"`;
+              statusColor = "text-yellow-600";
+            } else if (prevStatus === "claimed" && task.status === "completed") {
+              statusMsg = `Favour completed: "${task.description.slice(0, 40)}${task.description.length > 40 ? "..." : ""}"`;
+
+              statusColor = "text-green-600";
+            }
+          }
+        }
+
+        if (changed.length > 0) {
+          setChangedTaskIds(new Set(changed));
+          setTimeout(() => setChangedTaskIds(new Set()), 2000);
+        }
+
+        if (statusMsg) {
+          if (statusToastTimer.current) clearTimeout(statusToastTimer.current);
+          setStatusToast({ message: statusMsg, color: statusColor, visible: true });
+          statusToastTimer.current = setTimeout(() => {
+            setStatusToast((prev) => ({ ...prev, visible: false }));
+          }, 4000);
+        }
       }
 
-      if (statusMsg) {
-        if (statusToastTimer.current) clearTimeout(statusToastTimer.current);
-        setStatusToast({ message: statusMsg, color: statusColor, visible: true });
-        statusToastTimer.current = setTimeout(() => {
-          setStatusToast((prev) => ({ ...prev, visible: false }));
-        }, 4000);
-      }
+      // Update the known set and previous statuses
+      knownTaskIds.current = new Set(incoming.map((t) => t.id));
+      prevTaskStatuses.current = new Map(incoming.map((t) => [t.id, t.status]));
+      setTasks(incoming);
+      setFetchError(false);
+      setLoading(false);
+    } catch {
+      setFetchError(true);
+      setLoading(false);
     }
-
-    // Update the known set and previous statuses
-    knownTaskIds.current = new Set(incoming.map((t) => t.id));
-    prevTaskStatuses.current = new Map(incoming.map((t) => [t.id, t.status]));
-    setTasks(incoming);
-    setLoading(false);
   }, []);
 
   // Debounced fetchTasks: at most once every 2s even if multiple SSE events fire
@@ -299,11 +307,13 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
   useEffect(() => {
     fetchTasks();
 
-    // Trigger XMTP sync every 30s so DMs get processed in near-real-time
-    // (Vercel hobby cron is daily — this compensates)
+    // Trigger XMTP sync every 5 minutes. Previously 30s, but every connected
+    // client fires this independently — with N tabs open that's N serverless
+    // invocations per interval. 5 min keeps DMs reasonably fresh while cutting
+    // Vercel CPU usage by ~10x per client.
     const syncXmtp = () => fetch("/api/xmtp-sync", { method: "POST" }).catch(() => {});
     syncXmtp();
-    const syncInterval = setInterval(syncXmtp, 30_000);
+    const syncInterval = setInterval(syncXmtp, 300_000);
 
     return () => {
       clearInterval(syncInterval);
@@ -490,6 +500,72 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
     setChatLoading(false);
   }
 
+  const executeClaimTask = useCallback(async (task: Task, claimCode?: string) => {
+    try {
+      hapticTap();
+      setClaimTxError(null);
+      setClaimTxSuccess(null);
+
+      try {
+        if (task.taskType === "double-or-nothing" && isMiniKit() && DOUBLE_OR_NOTHING_ADDRESS && task.donOnChainId !== null) {
+          const txPayload = encodeStakeAndClaimWithApproval(task.donOnChainId, task.bountyUsdc);
+          if (txPayload) {
+            const txResult = await MiniKit.sendTransaction(txPayload);
+            if (!txResult) {
+              setClaimTxError({ message: `Staking $${task.bountyUsdc} USDC failed. Please try again.`, taskId: task.id, retry: () => {} });
+              hapticError();
+              return;
+            }
+          }
+        } else if (isMiniKit() && RELAY_ESCROW_ADDRESS && task.onChainId !== null) {
+          const txPayload = encodeClaimTask(task.onChainId);
+          if (txPayload) {
+            const txResult = await MiniKit.sendTransaction(txPayload);
+            if (!txResult) {
+              setClaimTxError({ message: "On-chain claim failed. Please try again.", taskId: task.id, retry: () => {} });
+              hapticError();
+              return;
+            }
+          }
+        }
+      } catch (err) {
+        if (isMiniKit()) {
+          setClaimTxError({ message: err instanceof Error ? err.message : "Transaction failed. Please try again.", taskId: task.id, retry: () => {} });
+          hapticError();
+          return;
+        }
+      }
+
+      const res = await fetch(`/api/tasks/${task.id}/claim`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ claimant: userId, claimCode }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        if (err.requiresCode) {
+          setClaimTxError({ message: "Wrong access code. Try again.", taskId: task.id, retry: () => {} });
+          return;
+        }
+        if (err.required) {
+          setUpgradePrompt({ required: err.required, current: err.current });
+          return;
+        }
+        setStatusToast({ message: err.error || "Claim failed. Try again.", color: "text-error-600", visible: true });
+        if (statusToastTimer.current) clearTimeout(statusToastTimer.current);
+        statusToastTimer.current = setTimeout(() => setStatusToast(prev => ({ ...prev, visible: false })), 4000);
+        return;
+      }
+      hapticSuccess();
+      setStatusToast({ message: `Claimed! Scroll down to submit your proof.`, color: "text-success-600", visible: true });
+      if (statusToastTimer.current) clearTimeout(statusToastTimer.current);
+      statusToastTimer.current = setTimeout(() => setStatusToast(prev => ({ ...prev, visible: false })), 5000);
+      fetchTasks();
+    } catch (err) {
+      setClaimTxError({ message: err instanceof Error ? err.message : "Claim failed. Try again.", taskId: task.id, retry: () => {} });
+    }
+  }, [userId, fetchTasks]);
+
   if (view === "post") {
     return <PostTask userId={userId} onDone={() => { setView("board"); fetchTasks(); }} onCancel={() => setView("board")} />;
   }
@@ -593,6 +669,9 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
         </div>
 
       </div>
+
+      {/* Activity ticker (M3) */}
+      {tasks.length > 0 && <ActivityTicker tasks={tasks} />}
 
       {/* Pull-to-refresh indicator */}
       <div
@@ -798,6 +877,29 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
               </div>
             ))}
           </div>
+        ) : fetchError && tasks.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 gap-4">
+            <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" />
+              </svg>
+            </div>
+            <div className="text-center">
+              <p className="text-sm text-gray-400 font-medium">Failed to load favours</p>
+              <p className="text-xs text-gray-500 mt-1">Check your connection and try again.</p>
+            </div>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                setLoading(true);
+                setFetchError(false);
+                fetchTasks();
+              }}
+            >
+              Retry
+            </Button>
+          </div>
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 gap-4">
             {tab === "available" ? (
@@ -973,76 +1075,13 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
                     setSelectedTask(task);
                     setView("detail");
                   }}
-                  onClaim={async () => {
-                    try {
-                      hapticTap();
-                      let claimCode: string | undefined;
-                      if (task.claimCode) {
-                        const code = prompt("This bounty requires an access code:");
-                        if (!code) return;
-                        claimCode = code;
-                      }
-
-                      setClaimTxError(null);
-                      setClaimTxSuccess(null);
-
-                      try {
-                        if (task.taskType === "double-or-nothing" && isMiniKit() && DOUBLE_OR_NOTHING_ADDRESS && task.donOnChainId !== null) {
-                          const txPayload = encodeStakeAndClaimWithApproval(task.donOnChainId, task.bountyUsdc);
-                          if (txPayload) {
-                            const txResult = await MiniKit.sendTransaction(txPayload);
-                            if (!txResult) {
-                              setClaimTxError({ message: `Staking $${task.bountyUsdc} USDC failed. Please try again.`, taskId: task.id, retry: () => {} });
-                              hapticError();
-                              return;
-                            }
-                          }
-                        } else if (isMiniKit() && RELAY_ESCROW_ADDRESS && task.onChainId !== null) {
-                          const txPayload = encodeClaimTask(task.onChainId);
-                          if (txPayload) {
-                            const txResult = await MiniKit.sendTransaction(txPayload);
-                            if (!txResult) {
-                              setClaimTxError({ message: "On-chain claim failed. Please try again.", taskId: task.id, retry: () => {} });
-                              hapticError();
-                              return;
-                            }
-                          }
-                        }
-                      } catch (err) {
-                        if (isMiniKit()) {
-                          setClaimTxError({ message: err instanceof Error ? err.message : "Transaction failed. Please try again.", taskId: task.id, retry: () => {} });
-                          hapticError();
-                          return;
-                        }
-                      }
-
-                      const res = await fetch(`/api/tasks/${task.id}/claim`, {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ claimant: userId, claimCode }),
-                      });
-                      if (!res.ok) {
-                        const err = await res.json().catch(() => ({}));
-                        if (err.requiresCode) {
-                          setClaimTxError({ message: "Wrong access code. Try again.", taskId: task.id, retry: () => {} });
-                          return;
-                        }
-                        if (err.required) {
-                          setUpgradePrompt({ required: err.required, current: err.current });
-                          return;
-                        }
-                        setStatusToast({ message: err.error || "Claim failed. Try again.", color: "text-error-600", visible: true });
-                        if (statusToastTimer.current) clearTimeout(statusToastTimer.current);
-                        statusToastTimer.current = setTimeout(() => setStatusToast(prev => ({ ...prev, visible: false })), 4000);
-                        return;
-                      }
-                      hapticSuccess();
-                      setStatusToast({ message: `Claimed! Go to "Mine" tab to submit proof.`, color: "text-success-600", visible: true });
-                      if (statusToastTimer.current) clearTimeout(statusToastTimer.current);
-                      statusToastTimer.current = setTimeout(() => setStatusToast(prev => ({ ...prev, visible: false })), 5000);
-                      fetchTasks();
-                    } catch (err) {
-                      setClaimTxError({ message: err instanceof Error ? err.message : "Claim failed. Try again.", taskId: task.id, retry: () => {} });
+                  onClaim={() => {
+                    hapticTap();
+                    if (task.claimCode) {
+                      setClaimCodeInput("");
+                      setClaimCodeTask(task);
+                    } else {
+                      setClaimConfirmTask(task);
                     }
                   }}
                   onSubmitProof={() => {
@@ -1193,6 +1232,82 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
             <AlertDialogClose asChild>
               <Button fullWidth variant="primary" size="lg">Got it</Button>
             </AlertDialogClose>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Claim confirmation dialog (C2) */}
+      <AlertDialog open={!!claimConfirmTask} onOpenChange={() => setClaimConfirmTask(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Claim this favour?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {claimConfirmTask?.taskType === "double-or-nothing"
+                ? `You'll stake $${claimConfirmTask?.bountyUsdc} USDC to claim this favour. Complete it to earn double, or lose your stake.`
+                : `You'll be assigned this favour. Complete it and submit proof to earn $${claimConfirmTask?.bountyUsdc} USDC.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogClose asChild>
+              <Button fullWidth variant="secondary" size="lg">Cancel</Button>
+            </AlertDialogClose>
+            <Button
+              fullWidth
+              variant="primary"
+              size="lg"
+              onClick={() => {
+                const task = claimConfirmTask;
+                setClaimConfirmTask(null);
+                if (task) executeClaimTask(task);
+              }}
+            >
+              Claim
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Claim code dialog (H6) */}
+      <AlertDialog open={!!claimCodeTask} onOpenChange={() => { setClaimCodeTask(null); setClaimCodeInput(""); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Access code required</AlertDialogTitle>
+            <AlertDialogDescription>
+              This favour requires an access code to claim.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="px-6 pb-4">
+            <input
+              type="text"
+              placeholder="Enter access code"
+              value={claimCodeInput}
+              onChange={(e) => setClaimCodeInput(e.target.value)}
+              className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-gray-400 transition-colors placeholder:text-gray-400 min-h-[44px]"
+              autoFocus
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogClose asChild>
+              <Button fullWidth variant="secondary" size="lg">Cancel</Button>
+            </AlertDialogClose>
+            <Button
+              fullWidth
+              variant="primary"
+              size="lg"
+              disabled={!claimCodeInput.trim()}
+              onClick={() => {
+                const task = claimCodeTask;
+                const code = claimCodeInput.trim();
+                setClaimCodeTask(null);
+                setClaimCodeInput("");
+                if (task && code) {
+                  setClaimConfirmTask(null);
+                  executeClaimTask(task, code);
+                }
+              }}
+            >
+              Claim
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -2273,7 +2388,7 @@ function TaskDetail({
   useEffect(() => {
     fetchMessages();
     fetchTask();
-    const interval = setInterval(() => { fetchMessages(); fetchTask(); }, 5000);
+    const interval = setInterval(() => { fetchMessages(); fetchTask(); }, 30_000); // 30s — was 5s
     return () => clearInterval(interval);
   }, [fetchMessages, fetchTask]);
 
@@ -2293,7 +2408,7 @@ function TaskDetail({
   return (
     <div className="flex flex-col min-h-screen max-w-lg mx-auto w-full">
       <TopBar
-        title="Task Detail"
+        title="Favour Detail"
         startAdornment={
           <Button variant="tertiary" size="sm" onClick={onBack}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

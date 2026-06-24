@@ -11,7 +11,9 @@ export async function GET(req: NextRequest) {
       getPlatformStats(),
     ]);
 
-    return NextResponse.json({ agents, platform });
+    return NextResponse.json({ agents, platform }, {
+      headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=120" },
+    });
   } catch (error) {
     console.error("[Analytics] Error:", error);
     return NextResponse.json(

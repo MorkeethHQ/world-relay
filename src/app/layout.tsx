@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import { MiniKitProvider } from "@/lib/minikit-provider";
 import { BottomNav } from "@/components/BottomNav";
@@ -45,6 +46,7 @@ export default function RootLayout({
             <BottomNav />
             <Toaster />
           </MiniKitProvider>
+          <Analytics />
         </ErrorBoundary>
       </body>
     </html>

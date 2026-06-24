@@ -24,7 +24,7 @@ export async function GET() {
       if (cached) {
         const data = typeof cached === "string" ? JSON.parse(cached) : cached;
         return NextResponse.json(data, {
-          headers: { "X-Cache": "HIT" },
+          headers: { "X-Cache": "HIT", "Cache-Control": "public, s-maxage=60, stale-while-revalidate=120" },
         });
       }
     }
@@ -54,7 +54,7 @@ export async function GET() {
     }
 
     return NextResponse.json(response, {
-      headers: { "X-Cache": "MISS" },
+      headers: { "X-Cache": "MISS", "Cache-Control": "public, s-maxage=60, stale-while-revalidate=120" },
     });
   } catch (error) {
     console.error("[Leaderboard] Error:", error);

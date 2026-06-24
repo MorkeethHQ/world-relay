@@ -12,6 +12,11 @@ export async function GET(req: NextRequest) {
 
   const missedEvents = since ? await getRecentEvents(since) : [];
 
+  // Cap SSE connections at 30 seconds. On Vercel, long-lived serverless
+  // functions burn CPU the entire time they're open. The client-side
+  // EventSource will auto-reconnect when the connection closes.
+  const MAX_CONNECTION_MS = 30_000;
+
   const stream = new ReadableStream({
     start(controller) {
       addClient(controller);
@@ -24,6 +29,16 @@ export async function GET(req: NextRequest) {
         const message = `event: ${event.type}\ndata: ${JSON.stringify(event.data)}\n\n`;
         controller.enqueue(encoder.encode(message));
       }
+
+      // Auto-close after MAX_CONNECTION_MS to free the serverless function
+      setTimeout(() => {
+        try {
+          controller.close();
+        } catch {
+          // already closed
+        }
+        removeClient(controller);
+      }, MAX_CONNECTION_MS);
     },
     cancel(controller) {
       removeClient(controller as ReadableStreamDefaultController);

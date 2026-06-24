@@ -41,6 +41,9 @@ function normalizeTask(task: Task): Task {
   if ((task as any).requiresClaim === undefined) {
     (task as any).requiresClaim = false;
   }
+  if ((task as any).pendingRelease === undefined) {
+    (task as any).pendingRelease = false;
+  }
   return task;
 }
 
@@ -102,6 +105,7 @@ export async function createTask(input: {
     donStakeTxHash: null,
     claimantVerification: null,
     requiresClaim: input.requiresClaim ?? false,
+    pendingRelease: false,
     createdAt: new Date().toISOString(),
   };
   await persistTask(task);
@@ -219,6 +223,9 @@ export async function claimTask(
     const task = await getTask(id);
     if (!task || task.status !== "open") return null;
     if (task.poster === claimant) return null;
+    // Reject if this claimant previously failed verification on this task
+    const hasFailed = await redis.sismember(`failed_claimants:${id}`, claimant);
+    if (hasFailed) return null;
     task.claimant = claimant;
     task.status = "claimed";
     task.claimantVerification = verificationLevel ?? null;
@@ -254,6 +261,11 @@ export async function completeTask(
   if (result.verdict === "pass") {
     task.status = "completed";
   } else if (result.verdict === "fail") {
+    // Track the failed claimant before clearing
+    const redis = getRedis();
+    if (redis && task.claimant) {
+      await redis.sadd(`failed_claimants:${id}`, task.claimant);
+    }
     task.status = "open";
     task.claimant = null;
     task.claimantVerification = null;

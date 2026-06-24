@@ -94,9 +94,9 @@ export default function ProfilePage() {
   const addresses = userId ? [userId] : [];
   useWorldUsers(addresses);
 
-  const appCompleted = tasks.filter(t => t.status === "completed");
-  const openTasks = tasks.filter(t => t.status === "open");
-  const funded = tasks.filter(t => t.escrowTxHash);
+  const appCompleted = tasks.filter(t => t.claimant === userId && t.status === "completed");
+  const openTasks = tasks.filter(t => t.poster === userId);
+  const funded = tasks.filter(t => t.status === "open");
 
   const userName = userId ? displayName(userId) : "Anonymous";
   const userAvatar = userId ? profilePicture(userId) : null;
@@ -143,15 +143,15 @@ export default function ProfilePage() {
             <div className="grid grid-cols-3 gap-3 mt-5">
               <div className="text-center">
                 <Typography variant="number" level={2} className="text-gray-900">{appCompleted.length}</Typography>
-                <Typography variant="body" level={4} className="text-gray-400 mt-0.5">Completed</Typography>
+                <Typography variant="body" level={4} className="text-gray-400 mt-0.5">My completed</Typography>
               </div>
               <div className="text-center">
                 <Typography variant="number" level={2} className="text-gray-900">{openTasks.length}</Typography>
-                <Typography variant="body" level={4} className="text-gray-400 mt-0.5">Open</Typography>
+                <Typography variant="body" level={4} className="text-gray-400 mt-0.5">My posted</Typography>
               </div>
               <div className="text-center">
                 <Typography variant="number" level={2} className="text-gray-900">{funded.length}</Typography>
-                <Typography variant="body" level={4} className="text-gray-400 mt-0.5">Funded</Typography>
+                <Typography variant="body" level={4} className="text-gray-400 mt-0.5">Available</Typography>
               </div>
             </div>
           </div>

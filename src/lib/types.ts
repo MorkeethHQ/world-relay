@@ -70,5 +70,6 @@ export type Task = {
   donStakeTxHash: string | null;
   claimantVerification?: "orb" | "device" | "wallet" | null;
   requiresClaim: boolean;
+  pendingRelease: boolean;
   createdAt: string;
 };

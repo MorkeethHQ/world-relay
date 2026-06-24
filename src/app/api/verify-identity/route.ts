@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getRedis } from "@/lib/redis";
+import { trackVisitor } from "@/lib/track";
 
 const VERIFIED_PREFIX = "verified:";
 const NULLIFIER_PREFIX = "nullifier:";
@@ -89,6 +90,8 @@ export async function POST(req: NextRequest) {
       verifiedAt: new Date().toISOString(),
     });
 
+    trackVisitor(address).catch(() => {});
+
     return NextResponse.json({
       verified: true,
       verification_level: identifier,
@@ -104,6 +107,8 @@ export async function POST(req: NextRequest) {
       verifiedAt: new Date().toISOString(),
     });
 
+    trackVisitor(body.address).catch(() => {});
+
     return NextResponse.json({
       verified: true,
       verification_level: "wallet",
@@ -117,6 +122,8 @@ export async function POST(req: NextRequest) {
       verificationLevel: "dev",
       verifiedAt: new Date().toISOString(),
     });
+
+    trackVisitor(body.address).catch(() => {});
 
     return NextResponse.json({
       verified: true,

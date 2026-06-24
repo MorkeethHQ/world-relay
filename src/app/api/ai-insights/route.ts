@@ -38,7 +38,9 @@ export async function GET(request: Request) {
         if (cached) {
           const parsed: CachedInsight =
             typeof cached === "string" ? JSON.parse(cached) : (cached as CachedInsight);
-          return NextResponse.json(parsed);
+          return NextResponse.json(parsed, {
+            headers: { "Cache-Control": "public, s-maxage=120, stale-while-revalidate=300" },
+          });
         }
       } catch (err) {
         console.error("[AI Insights] Redis cache read failed:", err);
@@ -106,7 +108,9 @@ export async function GET(request: Request) {
       insight: `The RELAY FAVOURS network currently has ${total} tasks across ${cities.size} cities with $${totalUsdc.toFixed(0)} in total bounties. ${completed} tasks have been completed with a ${completionRate}% completion rate, showing steady growth in the decentralized task marketplace.`,
       generatedAt: new Date().toISOString(),
     };
-    return NextResponse.json(fallback);
+    return NextResponse.json(fallback, {
+      headers: { "Cache-Control": "public, s-maxage=120, stale-while-revalidate=300" },
+    });
   }
 
   try {
@@ -139,13 +143,17 @@ export async function GET(request: Request) {
       }
     }
 
-    return NextResponse.json(result);
+    return NextResponse.json(result, {
+      headers: { "Cache-Control": "public, s-maxage=120, stale-while-revalidate=300" },
+    });
   } catch (err) {
     console.error("[AI Insights] Anthropic API error:", err);
     const fallback: CachedInsight = {
       insight: `The RELAY FAVOURS network currently has ${total} tasks across ${cities.size} cities with $${totalUsdc.toFixed(0)} in total bounties. ${completed} tasks have been completed with a ${completionRate}% completion rate.`,
       generatedAt: new Date().toISOString(),
     };
-    return NextResponse.json(fallback);
+    return NextResponse.json(fallback, {
+      headers: { "Cache-Control": "public, s-maxage=120, stale-while-revalidate=300" },
+    });
   }
 }

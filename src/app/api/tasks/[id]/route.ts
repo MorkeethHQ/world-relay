@@ -35,6 +35,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     return NextResponse.json({ error: "Task not found" }, { status: 404 });
   }
 
+  // Auth: only the original poster or admin can PATCH
+  const ADMIN_SECRET = process.env.ADMIN_SECRET;
+  const authHeader = req.headers.get("authorization") || "";
+  const isAdmin = !!ADMIN_SECRET && authHeader === `Bearer ${ADMIN_SECRET}`;
+  const isPoster = body.poster && body.poster === task.poster;
+  if (!isAdmin && !isPoster) {
+    return NextResponse.json({ error: "Unauthorized: only the task poster or admin can modify this task" }, { status: 403 });
+  }
+
   if (typeof body.onChainId === "number" && typeof body.escrowTxHash === "string") {
     await setOnChainId(id, body.onChainId, body.escrowTxHash);
     task.onChainId = body.onChainId;
