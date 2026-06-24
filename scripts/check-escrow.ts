@@ -3,7 +3,7 @@ import { worldchain } from "viem/chains";
 
 const RPC_URL = "https://worldchain-mainnet.g.alchemy.com/public";
 const USDC_ADDRESS = "0x79A02482A880bCE3F13e09Da970dC34db4CD24d1" as const;
-const ESCROW_ADDRESS = "0xc976e463bD209E09cb15a168A275890b872AA1F0" as `0x${string}`;
+const ESCROW_ADDRESS = "0x274C38eA9944f57D24A59fbEf558bba2264f9351" as `0x${string}`;
 const WALLET = "0x1101158041Fd96f21CBcbb0E752a9A2303E6D70e" as `0x${string}`;
 
 const STATUS_LABELS = ["Open", "Claimed", "Completed", "Failed", "Expired"];

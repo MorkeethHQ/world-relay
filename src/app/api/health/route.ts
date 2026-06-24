@@ -6,7 +6,7 @@ export async function GET() {
     service: "relay",
     version: "1.0.0",
     chain: "world-chain",
-    escrow: "0xc976e463bD209E09cb15a168A275890b872AA1F0",
+    escrow: "0x274C38eA9944f57D24A59fbEf558bba2264f9351",
     xmtp: "production",
     timestamp: new Date().toISOString(),
   });

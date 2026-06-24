@@ -177,7 +177,7 @@ export async function POST(req: NextRequest) {
         error: `No wallet registered for agent "${agentId}"`,
         hint: `Set AGENT_WALLET_${(agentId || "DEFAULT").toUpperCase().replace(/-/g, "_")} on the server, OR fund the task yourself and pass escrow_tx_hash`,
         alternatives: {
-          self_fund: `Call RelayEscrow.createTask("${description.slice(0, 50)}...", ${Number(bounty_usdc) * 1e6}, deadline) at ${process.env.NEXT_PUBLIC_ESCROW_ADDRESS || "0xc976e463bD209E09cb15a168A275890b872AA1F0"}`,
+          self_fund: `Call RelayEscrow.createTask("${description.slice(0, 50)}...", ${Number(bounty_usdc) * 1e6}, deadline) at ${process.env.NEXT_PUBLIC_ESCROW_ADDRESS || "0x274C38eA9944f57D24A59fbEf558bba2264f9351"}`,
           human_fund: "Remove fund=true and a human will fund it from the World App",
         },
       }, { status: 400 });
@@ -267,7 +267,7 @@ export async function POST(req: NextRequest) {
         message: `Task funded with $${bounty_usdc} USDC on-chain`,
       }),
     },
-    escrow_contract: process.env.NEXT_PUBLIC_ESCROW_ADDRESS || "0xc976e463bD209E09cb15a168A275890b872AA1F0",
+    escrow_contract: process.env.NEXT_PUBLIC_ESCROW_ADDRESS || "0x274C38eA9944f57D24A59fbEf558bba2264f9351",
     ...(callback_url ? { callback_url_registered: true } : {}),
   }, { status: 201 });
 }

@@ -21,7 +21,7 @@ type Message = {
   timestamp: string;
 };
 
-const ESCROW_ADDRESS = "0xc976e463bD209E09cb15a168A275890b872AA1F0";
+const ESCROW_ADDRESS = "0x274C38eA9944f57D24A59fbEf558bba2264f9351";
 const WORLDSCAN_TX = "https://worldscan.org/tx";
 const WORLDSCAN_ADDR = "https://worldscan.org/address";
 

@@ -10,7 +10,7 @@ contract DeployV2 is Script {
     address constant USDC = 0x79A02482A880bCE3F13e09Da970dC34db4CD24d1;
 
     function run() external {
-        uint256 deployerKey = vm.envUint("DEPLOYER_KEY");
+        uint256 deployerKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
         address deployer = vm.addr(deployerKey);
 
         vm.startBroadcast(deployerKey);

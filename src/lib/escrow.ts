@@ -1,13 +1,27 @@
-import { createWalletClient, createPublicClient, http, encodeFunctionData, parseUnits, formatUnits } from "viem";
+import { createWalletClient, createPublicClient, http, parseUnits, formatUnits } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { worldchain } from "viem/chains";
 
 const RPC_URL = "https://worldchain-mainnet.g.alchemy.com/public";
 
 export const USDC_ADDRESS = "0x79A02482A880bCE3F13e09Da970dC34db4CD24d1" as const;
-export const ESCROW_ADDRESS = (process.env.NEXT_PUBLIC_ESCROW_ADDRESS || "0xc976e463bD209E09cb15a168A275890b872AA1F0") as `0x${string}`;
+export const ESCROW_ADDRESS = (process.env.NEXT_PUBLIC_ESCROW_ADDRESS || "0x274C38eA9944f57D24A59fbEf558bba2264f9351") as `0x${string}`;
 
 const ESCROW_ABI = [
+  {
+    name: "deposit",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [{ name: "amount", type: "uint256" }],
+    outputs: [],
+  },
+  {
+    name: "withdraw",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [{ name: "amount", type: "uint256" }],
+    outputs: [],
+  },
   {
     name: "createTask",
     type: "function",
@@ -18,6 +32,28 @@ const ESCROW_ABI = [
       { name: "_deadline", type: "uint256" },
     ],
     outputs: [{ name: "", type: "uint256" }],
+  },
+  {
+    name: "createTaskFor",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "_agent", type: "address" },
+      { name: "_description", type: "string" },
+      { name: "_bounty", type: "uint256" },
+      { name: "_deadline", type: "uint256" },
+    ],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+  {
+    name: "fundTask",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "_taskId", type: "uint256" },
+      { name: "_amount", type: "uint256" },
+    ],
+    outputs: [],
   },
   {
     name: "releasePayment",
@@ -42,7 +78,7 @@ const ESCROW_ABI = [
       name: "",
       type: "tuple",
       components: [
-        { name: "poster", type: "address" },
+        { name: "agent", type: "address" },
         { name: "claimant", type: "address" },
         { name: "description", type: "string" },
         { name: "bounty", type: "uint256" },
@@ -50,6 +86,41 @@ const ESCROW_ABI = [
         { name: "status", type: "uint8" },
       ],
     }],
+  },
+  {
+    name: "balances",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ name: "", type: "address" }],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+  {
+    name: "feeRate",
+    type: "function",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+  {
+    name: "communityRate",
+    type: "function",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+  {
+    name: "totalFeesCollected",
+    type: "function",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+  {
+    name: "version",
+    type: "function",
+    stateMutability: "view",
+    inputs: [],
+    outputs: [{ name: "", type: "string" }],
   },
 ] as const;
 
@@ -119,13 +190,7 @@ export async function releaseEscrow(onChainId: number): Promise<string | null> {
       args: [BigInt(onChainId)],
     });
 
-    // Status 1 = Claimed (required for release)
     if (onChainTask.status !== 1) {
-      return null;
-    }
-
-    if (onChainTask.poster.toLowerCase() !== wallet.account.address.toLowerCase()) {
-      console.error(`[Escrow] Task ${onChainId} poster ${onChainTask.poster} !== signer ${wallet.account.address}`);
       return null;
     }
 
@@ -156,7 +221,6 @@ export async function createEscrowTask(
   const bountyWei = parseUnits(bountyUsdc.toString(), 6);
 
   try {
-    // Check USDC balance
     const balance = await pub.readContract({
       address: USDC_ADDRESS,
       abi: ERC20_ABI,
@@ -169,7 +233,6 @@ export async function createEscrowTask(
       return null;
     }
 
-    // Check allowance, approve if needed
     const allowance = await pub.readContract({
       address: USDC_ADDRESS,
       abi: ERC20_ABI,
@@ -182,12 +245,20 @@ export async function createEscrowTask(
         address: USDC_ADDRESS,
         abi: ERC20_ABI,
         functionName: "approve",
-        args: [ESCROW_ADDRESS, parseUnits("100", 6)],
+        args: [ESCROW_ADDRESS, parseUnits("1000", 6)],
       });
       await pub.waitForTransactionReceipt({ hash: approveTx });
     }
 
-    // Read current count to know our task ID
+    // V2: deposit first, then create task from balance
+    const depositTx = await wallet.client.writeContract({
+      address: ESCROW_ADDRESS,
+      abi: ESCROW_ABI,
+      functionName: "deposit",
+      args: [bountyWei],
+    });
+    await pub.waitForTransactionReceipt({ hash: depositTx });
+
     const countBefore = await pub.readContract({
       address: ESCROW_ADDRESS,
       abi: ESCROW_ABI,
@@ -254,6 +325,15 @@ export async function createEscrowTaskWithKey(
       });
       await pub.waitForTransactionReceipt({ hash: approveTx });
     }
+
+    // V2: deposit then create
+    const depositTx = await client.writeContract({
+      address: ESCROW_ADDRESS,
+      abi: ESCROW_ABI,
+      functionName: "deposit",
+      args: [bountyWei],
+    });
+    await pub.waitForTransactionReceipt({ hash: depositTx });
 
     const countBefore = await pub.readContract({
       address: ESCROW_ADDRESS,

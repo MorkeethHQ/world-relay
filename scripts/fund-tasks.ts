@@ -8,7 +8,7 @@ config({ path: resolve(__dirname, "../.env.local") });
 
 const RPC_URL = "https://worldchain-mainnet.g.alchemy.com/public";
 const USDC_ADDRESS = "0x79A02482A880bCE3F13e09Da970dC34db4CD24d1" as const;
-const ESCROW_ADDRESS = (process.env.NEXT_PUBLIC_ESCROW_ADDRESS || "0xc976e463bD209E09cb15a168A275890b872AA1F0") as `0x${string}`;
+const ESCROW_ADDRESS = (process.env.NEXT_PUBLIC_ESCROW_ADDRESS || "0x274C38eA9944f57D24A59fbEf558bba2264f9351") as `0x${string}`;
 
 const ESCROW_ABI = [
   {

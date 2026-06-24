@@ -2,7 +2,7 @@ import { createPublicClient, http, formatUnits } from "viem";
 import { worldchain } from "viem/chains";
 
 const RPC_URL = "https://worldchain-mainnet.g.alchemy.com/public";
-const ESCROW_ADDRESS = "0xc976e463bD209E09cb15a168A275890b872AA1F0" as `0x${string}`;
+const ESCROW_ADDRESS = "0x274C38eA9944f57D24A59fbEf558bba2264f9351" as `0x${string}`;
 
 const ESCROW_ABI = [
   { name: "taskCount", type: "function", stateMutability: "view", inputs: [], outputs: [{ name: "", type: "uint256" }] },
