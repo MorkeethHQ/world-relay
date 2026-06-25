@@ -71,5 +71,7 @@ export type Task = {
   claimantVerification?: "orb" | "device" | "wallet" | null;
   requiresClaim: boolean;
   pendingRelease: boolean;
+  maxCompletions: number;
+  completionCount: number;
   createdAt: string;
 };

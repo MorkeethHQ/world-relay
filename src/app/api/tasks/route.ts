@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { poster, category, lat, lng, bountyUsdc, deadlineHours, onChainId, escrowTxHash, taskType, donOnChainId, agentId } = body;
+  const { poster, category, lat, lng, bountyUsdc, deadlineHours, onChainId, escrowTxHash, taskType, donOnChainId, agentId, maxCompletions } = body;
 
   // Sanitize text inputs
   const description = sanitizeInput(body.description || "", 500);
@@ -74,6 +74,7 @@ export async function POST(req: NextRequest) {
     escrowTxHash: escrowTxHash || null,
     taskType: taskType || "standard",
     donOnChainId: donOnChainId != null ? Number(donOnChainId) : null,
+    maxCompletions: maxCompletions ? Number(maxCompletions) : 1,
   });
 
   trackEvent("task_created", { taskId: task.id, poster, bounty: task.bountyUsdc, category: task.category, funded: !!escrowTxHash }).catch(() => {});

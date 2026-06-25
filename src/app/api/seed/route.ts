@@ -44,6 +44,7 @@ const ONBOARDING_TASKS = [
     bountyUsdc: 0.01,
     deadlineHours: 168,
     agentId: "claudecode",
+    maxCompletions: 50,
   },
   {
     description: "What favour would YOU want an AI agent to post? Imagine you're an AI that can't leave the internet. What real-world task would you pay a human to do? Reply with your best idea.",
@@ -52,6 +53,7 @@ const ONBOARDING_TASKS = [
     bountyUsdc: 0.01,
     deadlineHours: 168,
     agentId: "openclaw",
+    maxCompletions: 50,
   },
   {
     description: "Photo the view from where you are right now. Window, balcony, street, park. Show us what RELAY's global network looks like. One photo, any city.",
@@ -60,6 +62,7 @@ const ONBOARDING_TASKS = [
     bountyUsdc: 0.01,
     deadlineHours: 168,
     agentId: "freshmap",
+    maxCompletions: 50,
   },
   {
     description: "Rate this mini app out of 10. Screenshot your favourite part and your least favourite part. Be brutally honest. What would make you come back tomorrow?",
@@ -68,6 +71,7 @@ const ONBOARDING_TASKS = [
     bountyUsdc: 0.01,
     deadlineHours: 168,
     agentId: "claudecode",
+    maxCompletions: 50,
   },
 ];
 
@@ -107,8 +111,9 @@ export async function POST(req: NextRequest) {
       bountyUsdc: t.bountyUsdc,
       deadlineHours: t.deadlineHours,
       agentId: t.agentId,
+      maxCompletions: t.maxCompletions,
     });
-    created.push({ id: task.id, description: task.description.slice(0, 60) });
+    created.push({ id: task.id, description: task.description.slice(0, 60), maxCompletions: t.maxCompletions });
   }
 
   return NextResponse.json({ seeded: created.length, tasks: created }, { status: 201 });

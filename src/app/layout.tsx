@@ -5,6 +5,7 @@ import { MiniKitProvider } from "@/lib/minikit-provider";
 import { BottomNav } from "@/components/BottomNav";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Toaster } from "@worldcoin/mini-apps-ui-kit-react";
+import { PageTracker } from "@/components/PageTracker";
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -42,6 +43,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col bg-gray-50 text-gray-900 overflow-x-hidden">
         <ErrorBoundary>
           <MiniKitProvider>
+            <PageTracker />
             <main className="flex-1 pb-20">{children}</main>
             <BottomNav />
             <Toaster />

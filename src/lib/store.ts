@@ -44,6 +44,12 @@ function normalizeTask(task: Task): Task {
   if ((task as any).pendingRelease === undefined) {
     (task as any).pendingRelease = false;
   }
+  if ((task as any).maxCompletions === undefined) {
+    (task as any).maxCompletions = 1;
+  }
+  if ((task as any).completionCount === undefined) {
+    (task as any).completionCount = 0;
+  }
   return task;
 }
 
@@ -65,6 +71,7 @@ export async function createTask(input: {
   taskType?: TaskType;
   donOnChainId?: number | null;
   requiresClaim?: boolean;
+  maxCompletions?: number;
 }): Promise<Task> {
   const id = crypto.randomUUID();
   const agent = input.agentId ? getAgent(input.agentId) : null;
@@ -106,6 +113,8 @@ export async function createTask(input: {
     claimantVerification: null,
     requiresClaim: input.requiresClaim ?? false,
     pendingRelease: false,
+    maxCompletions: input.maxCompletions ?? 1,
+    completionCount: 0,
     createdAt: new Date().toISOString(),
   };
   await persistTask(task);
@@ -259,7 +268,18 @@ export async function completeTask(
   if (!task) return null;
   task.verificationResult = result;
   if (result.verdict === "pass") {
-    task.status = "completed";
+    task.completionCount = (task.completionCount || 0) + 1;
+    if (task.maxCompletions > 1 && task.completionCount < task.maxCompletions) {
+      task.status = "open";
+      task.claimant = null;
+      task.claimantVerification = null;
+      task.proofImageUrl = null;
+      task.proofImages = null;
+      task.proofNote = null;
+      task.verificationResult = null;
+    } else {
+      task.status = "completed";
+    }
   } else if (result.verdict === "fail") {
     // Track the failed claimant before clearing
     const redis = getRedis();

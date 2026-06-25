@@ -131,18 +131,26 @@ export async function POST(req: NextRequest) {
   if (!task) {
     return NextResponse.json({ error: "Task not found" }, { status: 404 });
   }
-  // Always check submitter identity when task is claimed, regardless of requiresClaim
-  if (!demoMode && task.status === "claimed" && task.claimant && submitter !== task.claimant) {
-    return NextResponse.json({ error: "Only the task claimant can submit proof" }, { status: 403 });
-  }
-  // requiresClaim controls whether the task must be claimed first
-  const needsClaim = task.requiresClaim !== false;
-  if (needsClaim && task.status !== "claimed" && !demoMode) {
-    return NextResponse.json({ error: "Task not in claimed state" }, { status: 400 });
-  }
-  // For tasks that don't require claiming, they must be open (not completed/cancelled)
-  if (!needsClaim && task.status !== "open" && task.status !== "claimed") {
-    return NextResponse.json({ error: "Task is not available for proof submission" }, { status: 400 });
+  const isMultiCompletion = (task.maxCompletions || 1) > 1;
+
+  if (isMultiCompletion) {
+    if (task.status !== "open" && task.status !== "claimed") {
+      return NextResponse.json({ error: "Task is no longer accepting submissions" }, { status: 400 });
+    }
+    if (submitter) {
+      task.claimant = submitter;
+    }
+  } else {
+    if (!demoMode && task.status === "claimed" && task.claimant && submitter !== task.claimant) {
+      return NextResponse.json({ error: "Only the task claimant can submit proof" }, { status: 403 });
+    }
+    const needsClaim = task.requiresClaim !== false;
+    if (needsClaim && task.status !== "claimed" && !demoMode) {
+      return NextResponse.json({ error: "Task not in claimed state" }, { status: 400 });
+    }
+    if (!needsClaim && task.status !== "open" && task.status !== "claimed") {
+      return NextResponse.json({ error: "Task is not available for proof submission" }, { status: 400 });
+    }
   }
 
   let locationVerified: boolean | null = null;
