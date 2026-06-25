@@ -557,7 +557,8 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
         return;
       }
       hapticSuccess();
-      setStatusToast({ message: `Claimed! Scroll down to submit your proof.`, color: "text-success-600", visible: true });
+      setTab("mine");
+      setStatusToast({ message: `Claimed! Tap "Submit Proof" to complete it.`, color: "text-success-600", visible: true });
       if (statusToastTimer.current) clearTimeout(statusToastTimer.current);
       statusToastTimer.current = setTimeout(() => setStatusToast(prev => ({ ...prev, visible: false })), 5000);
       fetchTasks();
@@ -1420,7 +1421,7 @@ function TaskCard({
         <span className="text-xs text-gray-400">{timeAgo(task.createdAt)}</span>
       </div>
 
-      {task.status === "open" && userId && !isOwnTask && (
+      {task.status === "open" && userId && !isOwnTask && (task.maxCompletions || 1) === 1 && (
         <Button
           onClick={(e) => { e.stopPropagation(); onClaim(); }}
           variant="primary"
@@ -1445,6 +1446,17 @@ function TaskCard({
           size="lg"
         >
           Submit Proof
+        </Button>
+      )}
+
+      {(task.maxCompletions || 1) > 1 && task.status === "open" && userId && !isOwnTask && (
+        <Button
+          onClick={(e) => { e.stopPropagation(); onSubmitProof(); }}
+          variant="primary"
+          fullWidth
+          size="lg"
+        >
+          Submit Response{task.completionCount ? ` (${task.completionCount}/${task.maxCompletions} done)` : ""}
         </Button>
       )}
 
