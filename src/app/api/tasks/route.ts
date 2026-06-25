@@ -7,8 +7,10 @@ import { broadcastEvent } from "@/lib/sse";
 import { recordFavourPosted } from "@/lib/proof-of-favour";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { sanitizeInput } from "@/lib/sanitize";
+import { trackEvent } from "@/lib/track";
 
 export async function GET() {
+  trackEvent("feed_loaded").catch(() => {});
   const tasks = await listTasks();
   return NextResponse.json({ tasks }, {
     headers: { "Cache-Control": "public, s-maxage=5, stale-while-revalidate=10" },
@@ -74,7 +76,7 @@ export async function POST(req: NextRequest) {
     donOnChainId: donOnChainId != null ? Number(donOnChainId) : null,
   });
 
-  // Post task creation to XMTP thread
+  trackEvent("task_created", { taskId: task.id, poster, bounty: task.bountyUsdc, category: task.category, funded: !!escrowTxHash }).catch(() => {});
   postTaskCreated(task).catch(console.error);
 
   // Award Proof of Favour points for posting a task

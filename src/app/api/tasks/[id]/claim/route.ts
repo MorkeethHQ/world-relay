@@ -8,6 +8,7 @@ import { getRedis } from "@/lib/redis";
 import { broadcastEvent } from "@/lib/sse";
 import { recordFavourClaimed } from "@/lib/proof-of-favour";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
+import { trackEvent } from "@/lib/track";
 
 const VERIFICATION_TIERS: Record<string, number> = {
   orb: 3,
@@ -102,6 +103,7 @@ export async function POST(
     return NextResponse.json({ error: "Cannot claim task" }, { status: 400 });
   }
 
+  trackEvent("task_claimed", { taskId: id, claimant, bounty: updated.bountyUsdc, category: updated.category }).catch(() => {});
   await postClaimNotification(updated, claimant);
   notifyTaskClaimed(updated.poster, updated.description).catch(console.error);
 

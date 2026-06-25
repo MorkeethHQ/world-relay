@@ -16,6 +16,7 @@ import { broadcastEvent } from "@/lib/sse";
 import { uploadProofImage } from "@/lib/image-upload";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { sanitizeInput } from "@/lib/sanitize";
+import { trackEvent } from "@/lib/track";
 
 const RATE_LIMIT_KEY = "ratelimit:verify";
 
@@ -155,6 +156,7 @@ export async function POST(req: NextRequest) {
     proofImages.map((img: string, i: number) => uploadProofImage(img, taskId, i))
   );
   await submitProof(taskId, proofImageUrls[0] || null, proofNote || null, proofImageUrls.length > 0 ? proofImageUrls : null);
+  trackEvent("proof_submitted", { taskId, submitter: submitter || "", hasImages: proofImageUrls.length > 0, bounty: task.bountyUsdc }).catch(() => {});
   await postProofSubmitted(taskId, proofNote);
 
   // Award Proof of Favour points for proof upload
@@ -254,6 +256,7 @@ export async function POST(req: NextRequest) {
     }
   } else {
     await completeTask(taskId, result);
+    trackEvent("verification_result", { taskId, verdict: result.verdict, confidence: result.confidence, bounty: task.bountyUsdc }).catch(() => {});
     await postVerificationResult(taskId, result.verdict, result.reasoning, task.bountyUsdc, result.confidence);
 
     if (result.verdict === "pass" && task.claimant) {
