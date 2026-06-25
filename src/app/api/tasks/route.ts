@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
   const description = sanitizeInput(body.description || "", 500);
   const location = sanitizeInput(body.location || "", 200);
 
-  if (!poster || !description || !location || !bountyUsdc) {
+  if (!poster || !description || !bountyUsdc) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
   }
 
@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
     poster,
     category: category || "custom",
     description,
-    location,
+    location: location || "Anywhere",
     lat: lat ? Number(lat) : null,
     lng: lng ? Number(lng) : null,
     bountyUsdc: Number(bountyUsdc),

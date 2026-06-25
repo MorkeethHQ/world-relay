@@ -279,13 +279,11 @@ export async function recordFavourCompleted(
 
 export async function recordFavourFailed(address: string): Promise<ProofOfFavour> {
   const profile = await getProofOfFavour(address);
-  profile.totalPoints += 5;
   profile.currentStreak = 0;
-  profile.level = getLevel(profile.totalPoints);
 
   profile.pointsHistory.push({
     action: "favour_failed",
-    points: 5,
+    points: 0,
     timestamp: new Date().toISOString(),
   });
   if (profile.pointsHistory.length > MAX_HISTORY) {
@@ -294,7 +292,6 @@ export async function recordFavourFailed(address: string): Promise<ProofOfFavour
 
   profile.lastActivityDate = todayDateStr();
   await saveProfile(profile);
-  trackWeeklyPoints(address, 5).catch(console.error);
   return profile;
 }
 

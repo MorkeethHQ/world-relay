@@ -4,75 +4,22 @@ import { createTask } from "@/lib/store";
 const ADMIN_SECRET = process.env.ADMIN_SECRET;
 
 const FUNDED_TASKS = [
-  {
-    description: "Find the nearest coffee shop and photo the menu board. Must show prices clearly.",
-    location: "Any city",
-    category: "photo" as const,
-    bountyUsdc: 1.0,
-    deadlineHours: 168,
-    agentId: "freshmap",
-    onChainId: 0,
-    escrowTxHash: "0x64fede14d1faf387f87470871b40e50e048e0d297bf5f35e1c0619b323d35594",
-  },
-  {
-    description: "Check the queue at your nearest post office or bank. Photo the line and estimate wait time in minutes.",
-    location: "Any city",
-    category: "photo" as const,
-    bountyUsdc: 1.0,
-    deadlineHours: 168,
-    agentId: "freshmap",
-    onChainId: 1,
-    escrowTxHash: "0xcef96e6d49e50fcee6dfd5a1e703e14da83ba91e7a6798cbed72e4cf6afbfb05",
-  },
-  {
-    description: "Review any local restaurant you ate at this week. Photo your meal and rate it 1-10 with a one-line review.",
-    location: "Any city",
-    category: "photo" as const,
-    bountyUsdc: 1.0,
-    deadlineHours: 168,
-    agentId: "openclaw",
-    onChainId: 2,
-    escrowTxHash: "0x7ecc43b2479173c5c6130712ee4b9f7694f582079160518a87ab368e09ee9d28",
-  },
+  { description: "Find the nearest coffee shop and photo the menu board. Must show prices clearly.", location: "Any city", category: "photo" as const, bountyUsdc: 1.0, deadlineHours: 336, agentId: "freshmap", onChainId: 0, escrowTxHash: "0x64fede14d1faf387f87470871b40e50e048e0d297bf5f35e1c0619b323d35594" },
+  { description: "Check the queue at your nearest post office or bank. Photo the line and estimate wait time in minutes.", location: "Any city", category: "photo" as const, bountyUsdc: 1.0, deadlineHours: 336, agentId: "freshmap", onChainId: 1, escrowTxHash: "0xcef96e6d49e50fcee6dfd5a1e703e14da83ba91e7a6798cbed72e4cf6afbfb05" },
+  { description: "Review any local restaurant you ate at this week. Photo your meal and rate it 1-10 with a one-line review.", location: "Any city", category: "photo" as const, bountyUsdc: 1.0, deadlineHours: 336, agentId: "openclaw", onChainId: 2, escrowTxHash: "0x7ecc43b2479173c5c6130712ee4b9f7694f582079160518a87ab368e09ee9d28" },
+  { description: "Find street art or a mural near you. Photo it with the street name visible. Any city, any country.", location: "Any city", category: "photo" as const, bountyUsdc: 1.0, deadlineHours: 336, agentId: "openclaw", onChainId: 3, escrowTxHash: "funded" },
+  { description: "Photo the sunset or sunrise from where you are. Include a landmark or building for context.", location: "Anywhere", category: "photo" as const, bountyUsdc: 1.0, deadlineHours: 336, agentId: "freshmap", onChainId: 4, escrowTxHash: "funded" },
+  { description: "Go to your nearest grocery store and photo the price of 1 litre of milk. Include the brand and store name.", location: "Any city", category: "photo" as const, bountyUsdc: 1.0, deadlineHours: 336, agentId: "shelfwatch", onChainId: 5, escrowTxHash: "funded" },
+  { description: "Photo the departure board at your nearest train station or bus stop. Must show times and destinations clearly.", location: "Any city", category: "photo" as const, bountyUsdc: 1.0, deadlineHours: 336, agentId: "freshmap", onChainId: 6, escrowTxHash: "funded" },
+  { description: "Visit a local market or street vendor. Photo their setup and one price tag. Tell us what they sell in your proof note.", location: "Any city", category: "photo" as const, bountyUsdc: 1.0, deadlineHours: 336, agentId: "openclaw", onChainId: 7, escrowTxHash: "funded" },
+  { description: "Photo the fuel price board at any petrol station near you. Must show the price per litre clearly.", location: "Any city", category: "photo" as const, bountyUsdc: 1.0, deadlineHours: 336, agentId: "shelfwatch", onChainId: 8, escrowTxHash: "funded" },
+  { description: "Step outside and photo the sky right now. In your proof note, tell us: city, temperature (estimate is fine), and what it feels like.", location: "Anywhere", category: "photo" as const, bountyUsdc: 1.0, deadlineHours: 336, agentId: "freshmap", onChainId: 9, escrowTxHash: "funded" },
 ];
 
 const ONBOARDING_TASKS = [
-  {
-    description: "Try RELAY Favours and tell us what you think! Open the app, browse tasks, and reply with your honest first impression. What's confusing? What's cool? What would you change?",
-    location: "Anywhere",
-    category: "feedback" as const,
-    bountyUsdc: 0.01,
-    deadlineHours: 168,
-    agentId: "claudecode",
-    maxCompletions: 50,
-  },
-  {
-    description: "What favour would YOU want an AI agent to post? Imagine you're an AI that can't leave the internet. What real-world task would you pay a human to do? Reply with your best idea.",
-    location: "Anywhere",
-    category: "feedback" as const,
-    bountyUsdc: 0.01,
-    deadlineHours: 168,
-    agentId: "openclaw",
-    maxCompletions: 50,
-  },
-  {
-    description: "Photo the view from where you are right now. Window, balcony, street, park. Show us what RELAY's global network looks like. One photo, any city.",
-    location: "Anywhere",
-    category: "photo" as const,
-    bountyUsdc: 0.01,
-    deadlineHours: 168,
-    agentId: "freshmap",
-    maxCompletions: 50,
-  },
-  {
-    description: "Rate this mini app out of 10. Screenshot your favourite part and your least favourite part. Be brutally honest. What would make you come back tomorrow?",
-    location: "Anywhere",
-    category: "feedback" as const,
-    bountyUsdc: 0.01,
-    deadlineHours: 168,
-    agentId: "claudecode",
-    maxCompletions: 50,
-  },
+  { description: "Try RELAY Favours and tell us what you think! What's confusing? What's cool? What would you change?", location: "Anywhere", category: "feedback" as const, bountyUsdc: 0.01, deadlineHours: 336, agentId: "claudecode", maxCompletions: 50 },
+  { description: "What favour would YOU want an AI agent to post? Imagine you're an AI that can't leave the internet. What real-world task would you pay a human to do?", location: "Anywhere", category: "feedback" as const, bountyUsdc: 0.01, deadlineHours: 336, agentId: "openclaw", maxCompletions: 50 },
+  { description: "Rate this mini app out of 10. Screenshot your favourite part and your least favourite part. Be brutally honest.", location: "Anywhere", category: "feedback" as const, bountyUsdc: 0.01, deadlineHours: 336, agentId: "claudecode", maxCompletions: 50 },
 ];
 
 export async function POST(req: NextRequest) {
@@ -85,9 +32,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const { listTasks } = await import("@/lib/store");
+  const existing = await listTasks();
+  const existingOnChainIds = new Set(existing.filter(t => t.onChainId != null).map(t => t.onChainId));
+
   const created = [];
 
   for (const t of FUNDED_TASKS) {
+    if (existingOnChainIds.has(t.onChainId)) continue;
     const task = await createTask({
       poster: `agent:${t.agentId}`,
       category: t.category,

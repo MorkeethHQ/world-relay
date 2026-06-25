@@ -131,7 +131,7 @@ export async function POST(req: NextRequest) {
   if (!task) {
     return NextResponse.json({ error: "Task not found" }, { status: 404 });
   }
-  const isMultiCompletion = (task.maxCompletions || 1) > 1;
+  const isMultiCompletion = (task.maxCompletions || 1) > 1 && !task.escrowTxHash;
 
   if (isMultiCompletion) {
     if (task.status !== "open" && task.status !== "claimed") {
