@@ -118,13 +118,44 @@ function updateStreak(profile: ProofOfFavour): void {
 
 // --- Redis persistence ---
 
+function weekKey(): string {
+  const now = new Date();
+  const jan1 = new Date(now.getFullYear(), 0, 1);
+  const week = Math.ceil(((now.getTime() - jan1.getTime()) / 86400000 + jan1.getDay() + 1) / 7);
+  return `pof:weekly:${now.getFullYear()}-W${String(week).padStart(2, "0")}`;
+}
+
+async function trackWeeklyPoints(address: string, points: number): Promise<void> {
+  const redis = getRedis();
+  if (!redis) return;
+  const key = weekKey();
+  await redis.zincrby(key, points, address).catch(console.error);
+  await redis.expire(key, 14 * 86400).catch(console.error);
+}
+
 async function saveProfile(profile: ProofOfFavour): Promise<void> {
   const redis = getRedis();
   if (!redis) return;
   const key = `${POF_PREFIX}${profile.address}`;
   await redis.set(key, JSON.stringify(profile)).catch(console.error);
-  // Maintain an index set for leaderboard queries
   await redis.sadd(POF_INDEX_KEY, profile.address).catch(console.error);
+}
+
+export async function getWeeklyLeaderboard(limit = 10): Promise<Array<{ address: string; weeklyPoints: number }>> {
+  const redis = getRedis();
+  if (!redis) return [];
+  try {
+    const key = weekKey();
+    const results = await redis.zrange(key, 0, limit - 1, { rev: true, withScores: true });
+    const entries: Array<{ address: string; weeklyPoints: number }> = [];
+    for (let i = 0; i < results.length; i += 2) {
+      entries.push({ address: String(results[i]), weeklyPoints: Number(results[i + 1]) });
+    }
+    return entries;
+  } catch (err) {
+    console.error("[PoF] Weekly leaderboard failed:", err);
+    return [];
+  }
 }
 
 // --- Public API ---
@@ -164,10 +195,10 @@ export async function awardPoints(
     profile.pointsHistory = profile.pointsHistory.slice(-MAX_HISTORY);
   }
 
-  // Update streak based on date
   updateStreak(profile);
 
   await saveProfile(profile);
+  trackWeeklyPoints(address, points).catch(console.error);
   return profile;
 }
 
@@ -187,6 +218,7 @@ export async function recordFavourClaimed(address: string): Promise<ProofOfFavou
 
   updateStreak(profile);
   await saveProfile(profile);
+  trackWeeklyPoints(address, 5).catch(console.error);
   return profile;
 }
 
@@ -207,6 +239,7 @@ export async function recordFavourAttempted(address: string): Promise<ProofOfFav
 
   updateStreak(profile);
   await saveProfile(profile);
+  trackWeeklyPoints(address, 10).catch(console.error);
   return profile;
 }
 
@@ -240,6 +273,7 @@ export async function recordFavourCompleted(
 
   updateStreak(profile);
   await saveProfile(profile);
+  trackWeeklyPoints(address, totalAwarded).catch(console.error);
   return profile;
 }
 
@@ -260,6 +294,7 @@ export async function recordFavourFailed(address: string): Promise<ProofOfFavour
 
   profile.lastActivityDate = todayDateStr();
   await saveProfile(profile);
+  trackWeeklyPoints(address, 5).catch(console.error);
   return profile;
 }
 
@@ -280,6 +315,7 @@ export async function recordFavourPosted(address: string): Promise<ProofOfFavour
 
   updateStreak(profile);
   await saveProfile(profile);
+  trackWeeklyPoints(address, 5).catch(console.error);
   return profile;
 }
 
@@ -306,6 +342,7 @@ export async function recordDailyActivity(address: string): Promise<ProofOfFavou
 
   updateStreak(profile);
   await saveProfile(profile);
+  trackWeeklyPoints(address, 3).catch(console.error);
   return profile;
 }
 
