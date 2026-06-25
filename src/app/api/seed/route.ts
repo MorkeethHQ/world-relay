@@ -35,6 +35,7 @@ export async function POST(req: NextRequest) {
   const { listTasks } = await import("@/lib/store");
   const existing = await listTasks();
   const existingOnChainIds = new Set(existing.filter(t => t.onChainId != null).map(t => t.onChainId));
+  const existingDescriptions = new Set(existing.map(t => t.description.slice(0, 80)));
 
   const created = [];
 
@@ -55,6 +56,7 @@ export async function POST(req: NextRequest) {
   }
 
   for (const t of ONBOARDING_TASKS) {
+    if (existingDescriptions.has(t.description.slice(0, 80))) continue;
     const task = await createTask({
       poster: `agent:${t.agentId}`,
       category: t.category,

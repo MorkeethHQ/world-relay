@@ -85,14 +85,15 @@ export async function POST(req: NextRequest) {
 
   // Prevent double-verification race condition
   const redis = getRedis();
-  if (redis && taskId) {
-    const verifyLock = `lock:verify:${taskId}`;
+  const verifyLock = redis && taskId ? `lock:verify:${taskId}` : null;
+  if (redis && verifyLock) {
     const acquired = await redis.set(verifyLock, "1", { nx: true, px: 120000 });
     if (!acquired) {
       return NextResponse.json({ error: "Verification already in progress" }, { status: 409 });
     }
   }
 
+  try {
   // Accept proofImages array, fall back to single proofImageBase64
   let proofImages: string[] = body.proofImages || [];
   if (proofImages.length === 0 && proofImageBase64) {
@@ -416,4 +417,9 @@ export async function POST(req: NextRequest) {
     nextRecurringTaskId,
     task: finalTask,
   });
+  } finally {
+    if (redis && verifyLock) {
+      await redis.del(verifyLock).catch(console.error);
+    }
+  }
 }

@@ -2,6 +2,62 @@ import { NextRequest, NextResponse } from "next/server";
 import { getRedis } from "@/lib/redis";
 import { listTasks } from "@/lib/store";
 
+export async function POST(req: NextRequest) {
+  const secret = req.headers.get("authorization")?.replace("Bearer ", "");
+  if (!secret || secret !== process.env.ADMIN_SECRET) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const body = await req.json().catch(() => ({}));
+  const redis = getRedis();
+  if (!redis) return NextResponse.json({ error: "No redis" }, { status: 500 });
+
+  if (body.action === "cleanup-unfunded") {
+    const tasks = await listTasks();
+    const toRemove = tasks.filter(t =>
+      t.status === "open" &&
+      (t as any).agent &&
+      !(t as any).escrowTxHash
+    );
+    for (const t of toRemove) {
+      await redis.del(`task:${t.id}`);
+      await redis.srem("task_ids", t.id);
+    }
+    return NextResponse.json({ removed: toRemove.length, ids: toRemove.map(t => t.id) });
+  }
+
+  if (body.action !== "dedup") {
+    return NextResponse.json({ error: "Unknown action" }, { status: 400 });
+  }
+
+  const tasks = await listTasks();
+  const seen = new Map<string, string>();
+  const toRemove: string[] = [];
+
+  for (const t of tasks) {
+    const key = t.description.slice(0, 80);
+    if (seen.has(key)) {
+      const existing = tasks.find(x => x.id === seen.get(key))!;
+      const keepExisting = existing.onChainId != null || existing.status !== "open" || new Date(existing.createdAt) < new Date(t.createdAt);
+      if (keepExisting) {
+        toRemove.push(t.id);
+      } else {
+        toRemove.push(existing.id);
+        seen.set(key, t.id);
+      }
+    } else {
+      seen.set(key, t.id);
+    }
+  }
+
+  for (const id of toRemove) {
+    await redis.del(`task:${id}`);
+    await redis.srem("task_ids", id);
+  }
+
+  return NextResponse.json({ removed: toRemove.length, ids: toRemove });
+}
+
 export async function GET(req: NextRequest) {
   const secret = req.headers.get("authorization")?.replace("Bearer ", "");
   if (!secret || secret !== process.env.ADMIN_SECRET) {

@@ -83,8 +83,67 @@ function formatDistance(km: number): string {
 
 function rewardLabel(task: Task): string {
   if (task.escrowTxHash) return `$${task.bountyUsdc} USDC`;
-  if (task.agent && !task.escrowTxHash) return `$${task.bountyUsdc} — needs funding`;
-  return `${task.bountyUsdc * 10} pts`;
+  if ((task.maxCompletions || 1) > 1) return `${Math.round(task.bountyUsdc * 10)} pts`;
+  if (task.bountyUsdc >= 1) return `$${task.bountyUsdc} USDC`;
+  return `${Math.round(task.bountyUsdc * 10)} pts`;
+}
+
+function proofInstructions(task: Task): { short: string; steps: string[]; tip: string } {
+  const cat = task.category || "custom";
+  const hasLocation = !!(task.lat && task.lng);
+
+  switch (cat) {
+    case "photo":
+      return {
+        short: "Take a photo at the location",
+        steps: [
+          `Go to ${task.location}`,
+          "Take a clear photo showing what was requested",
+          "Come back and tap Submit Proof",
+        ],
+        tip: hasLocation ? "Your location is verified. Submit from near the task location." : "Include clear visual proof.",
+      };
+    case "check-in":
+      return {
+        short: "Visit and confirm in person",
+        steps: [
+          `Go to ${task.location}`,
+          "Take a photo proving you were there",
+          "Submit with any relevant notes",
+        ],
+        tip: hasLocation ? "Your location is verified. Be at the spot when you submit." : "Photo proof of your visit is required.",
+      };
+    case "delivery":
+      return {
+        short: "Complete delivery and photograph",
+        steps: [
+          "Pick up or complete the delivery",
+          "Take a photo of the completed delivery",
+          "Submit proof showing completion",
+        ],
+        tip: "Include a clear photo of the delivered item at its destination.",
+      };
+    case "feedback":
+      return {
+        short: "Share your honest feedback",
+        steps: [
+          "Read the description carefully",
+          "Write detailed, honest feedback",
+          "Submit your response",
+        ],
+        tip: "Be specific. Longer, thoughtful responses score higher.",
+      };
+    default:
+      return {
+        short: "Complete the task and submit proof",
+        steps: [
+          "Read the task description carefully",
+          "Complete what's asked and gather proof",
+          "Submit a photo or detailed note",
+        ],
+        tip: hasLocation ? "Submit from near the task location for faster verification." : "Include clear proof of completion.",
+      };
+  }
 }
 
 const CATEGORY_ICONS: Record<string, string> = {
@@ -208,6 +267,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(false);
   const [claimConfirmTask, setClaimConfirmTask] = useState<Task | null>(null);
+  const [claimSuccessTask, setClaimSuccessTask] = useState<Task | null>(null);
   const [claimCodeTask, setClaimCodeTask] = useState<Task | null>(null);
   const [claimCodeInput, setClaimCodeInput] = useState("");
   const [pullDistance, setPullDistance] = useState(0);
@@ -387,11 +447,6 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
   }, [view, debouncedFetchTasks]);
 
   useEffect(() => {
-    fetch("/api/xmtp-status")
-      .then((res) => res.json())
-      .then((data) => setXmtpStatus({ connected: data.connected, inboxId: data.inboxId }))
-      .catch(() => setXmtpStatus({ connected: false, inboxId: null }));
-
     if (isMiniKit()) {
       setNotificationsEnabled(true);
     }
@@ -441,7 +496,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
 
     if (tab === "available") {
       if (t.status === "open") {
-        if (!t.escrowTxHash && t.category !== "feedback" && !t.agent) return false;
+        if (!t.escrowTxHash && t.category !== "feedback") return false;
       }
       else if (t.status === "claimed" && t.claimant === userId) { /* show my active claims */ }
       else return false;
@@ -557,10 +612,8 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
         return;
       }
       hapticSuccess();
-      setTab("mine");
-      setStatusToast({ message: `Claimed! Tap "Submit Proof" to complete it.`, color: "text-success-600", visible: true });
-      if (statusToastTimer.current) clearTimeout(statusToastTimer.current);
-      statusToastTimer.current = setTimeout(() => setStatusToast(prev => ({ ...prev, visible: false })), 5000);
+      const claimed = await res.json();
+      setClaimSuccessTask(claimed.task || task);
       fetchTasks();
     } catch (err) {
       setClaimTxError({ message: err instanceof Error ? err.message : "Claim failed. Try again.", taskId: task.id, retry: () => {} });
@@ -1151,44 +1204,12 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
         </div>
       )}
 
-      {/* World Chat Status + Powered by footer */}
+      {/* Footer */}
       <div className="px-4 py-4 border-t border-gray-200">
-        {xmtpStatus && (
-          xmtpStatus.connected ? (
-            <div className="flex items-center justify-center gap-1.5 mb-2 flex-wrap">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
-              </span>
-              <span className="text-xs font-medium text-green-600">XMTP Connected</span>
-              {xmtpStatus.inboxId && (
-                <span className="text-xs text-gray-400 font-mono truncate max-w-[120px]">
-                  {xmtpStatus.inboxId.slice(0, 8)}...{xmtpStatus.inboxId.slice(-4)}
-                </span>
-              )}
-            </div>
-          ) : (
-            <div className="flex items-center justify-center gap-2 mb-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-gray-500" />
-              <span className="text-xs text-gray-400">XMTP connecting...</span>
-            </div>
-          )
-        )}
-        <div className="flex items-center justify-center gap-3 sm:gap-4 flex-wrap">
-          <div className="flex items-center gap-1.5">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>
-            <span className="text-xs text-gray-400">World ID</span>
-          </div>
-          <span className="text-gray-400">·</span>
-          <div className="flex items-center gap-1.5">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9BA3AE" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>
-            <span className="text-xs text-gray-400">XMTP</span>
-          </div>
-          <span className="text-gray-400">·</span>
-          <div className="flex items-center gap-1.5">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2" /><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" /></svg>
-            <span className="text-xs text-gray-400">World Chain</span>
-          </div>
+        <div className="flex items-center justify-center gap-2">
+          <span className="text-xs text-gray-300">RELAY FAVOURS</span>
+          <span className="text-xs text-gray-300">&#x00B7;</span>
+          <span className="text-xs text-gray-300">World Chain</span>
         </div>
       </div>
 
@@ -1312,6 +1333,58 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Post-claim guidance dialog */}
+      <AlertDialog open={!!claimSuccessTask} onOpenChange={() => { setClaimSuccessTask(null); setTab("mine"); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <div className="flex flex-col items-center gap-2 pt-2">
+              <div className="w-12 h-12 rounded-full bg-success-100 flex items-center justify-center">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="rgb(var(--success-600))" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
+                </svg>
+              </div>
+              <AlertDialogTitle>Favour claimed!</AlertDialogTitle>
+            </div>
+            <AlertDialogDescription>
+              {claimSuccessTask ? `Here's how to earn ${rewardLabel(claimSuccessTask)}` : ""}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          {claimSuccessTask && (() => {
+            const info = proofInstructions(claimSuccessTask);
+            return (
+              <div className="px-6 pb-4 flex flex-col gap-3">
+                {info.steps.map((step, i) => (
+                  <div key={i} className="flex items-start gap-3">
+                    <span className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center shrink-0 mt-0.5">
+                      <span className="text-xs font-bold text-gray-500">{i + 1}</span>
+                    </span>
+                    <Typography variant="body" level={3} className="text-gray-700">{step}</Typography>
+                  </div>
+                ))}
+                <div className="bg-info-50 border border-info-200 rounded-xl px-3 py-2 mt-1">
+                  <Typography variant="body" level={4} className="text-info-600">{info.tip}</Typography>
+                </div>
+              </div>
+            );
+          })()}
+
+          <AlertDialogFooter>
+            <Button
+              fullWidth
+              variant="primary"
+              size="lg"
+              onClick={() => {
+                setClaimSuccessTask(null);
+                setTab("mine");
+              }}
+            >
+              Got it
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -1401,6 +1474,12 @@ function TaskCard({
             </>
           )}
         </div>
+        {task.status === "open" && (
+          <p className="text-xs text-gray-400 mt-1.5 flex items-center gap-1.5">
+            <span>{CATEGORY_ICONS[task.category] || "📋"}</span>
+            {proofInstructions(task).short}
+          </p>
+        )}
       </div>
 
       <div className="flex items-center justify-between">
@@ -1811,6 +1890,7 @@ function SubmitProof({
   const [proofCoords, setProofCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [preCheck, setPreCheck] = useState<{ assessment: string; likely: "pass" | "marginal" | "retake" } | null>(null);
   const [preChecking, setPreChecking] = useState(false);
+  const hasAutoChecked = useRef(false);
 
   useEffect(() => {
     if (!navigator.geolocation) return;
@@ -1820,6 +1900,30 @@ function SubmitProof({
       { enableHighAccuracy: true, timeout: 10000 }
     );
   }, []);
+
+  useEffect(() => {
+    if (images.length > 0 && !hasAutoChecked.current && !result && !submitting) {
+      hasAutoChecked.current = true;
+      setPreChecking(true);
+      setPreCheck(null);
+      fetch("/api/proof-precheck", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          imageBase64: images[0].base64,
+          taskDescription: task.description,
+        }),
+      })
+        .then(res => res.ok ? res.json() : Promise.reject())
+        .then(data => setPreCheck({ assessment: data.assessment, likely: data.likely }))
+        .catch(() => {})
+        .finally(() => setPreChecking(false));
+    }
+    if (images.length === 0) {
+      hasAutoChecked.current = false;
+      setPreCheck(null);
+    }
+  }, [images, result, submitting, task.description]);
 
   const extractVideoFrame = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -1964,6 +2068,10 @@ function SubmitProof({
             <span className="text-xs text-gray-400 mx-0.5">·</span>
             <span className="text-xs font-medium text-gray-900">{rewardLabel(task)}</span>
           </div>
+          <p className="text-xs text-gray-400 mt-2 flex items-center gap-1.5">
+            <span>{CATEGORY_ICONS[task.category] || "📋"}</span>
+            {proofInstructions(task).short}
+          </p>
         </div>
 
         {/* Photo upload — multi-image */}
@@ -2017,6 +2125,24 @@ function SubmitProof({
           )}
         </div>
 
+        {/* Location warning */}
+        {proofCoords && task.lat && task.lng && (() => {
+          const dist = haversineKm(proofCoords.lat, proofCoords.lng, task.lat!, task.lng!);
+          if (dist <= 2) return null;
+          return (
+            <div className="bg-warning-50 border border-warning-200 rounded-xl p-3 flex items-start gap-2.5">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 mt-0.5">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
+              </svg>
+              <div>
+                <p className="text-xs font-medium text-warning-700">You're {formatDistance(dist)} from this task</p>
+                <p className="text-xs text-warning-600">Location is verified during review. Go to {task.location} before submitting.</p>
+              </div>
+            </div>
+          );
+        })()}
+
         <input
           type="text"
           placeholder="Add a note (optional)"
@@ -2025,47 +2151,13 @@ function SubmitProof({
           className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-gray-400 transition-colors placeholder:text-gray-400"
         />
 
-        {/* AI Pre-Check */}
-        {images.length > 0 && !result && !submitting && (
+        {/* AI Pre-Check (auto-triggered) */}
+        {!result && !submitting && (preChecking || preCheck) && (
           <div className="flex flex-col gap-2">
-            {!preCheck && !preChecking && (
-              <button
-                onClick={async () => {
-                  setPreChecking(true);
-                  setPreCheck(null);
-                  try {
-                    const res = await fetch("/api/proof-precheck", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({
-                        imageBase64: images[0].base64,
-                        taskDescription: task.description,
-                      }),
-                    });
-                    if (!res.ok) throw new Error("precheck failed");
-                    const data = await res.json();
-                    setPreCheck({ assessment: data.assessment, likely: data.likely });
-                  } catch {
-                    setPreCheck({ assessment: "Pre-check unavailable. You can still submit.", likely: "marginal" });
-                  } finally {
-                    setPreChecking(false);
-                  }
-                }}
-                className="flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl border border-gray-200 bg-gray-50 hover:bg-gray-100 transition-all text-sm text-gray-500 active:scale-[0.98]"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9BA3AE" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="11" cy="11" r="8" />
-                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                </svg>
-                Pre-check with AI
-                <span className="text-xs text-gray-400 ml-1">optional</span>
-              </button>
-            )}
-
             {preChecking && (
               <div className="flex items-center justify-center gap-2 py-3">
                 <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
-                <span className="text-xs text-gray-400">Checking your photo...</span>
+                <span className="text-xs text-gray-400">AI is checking your photo...</span>
               </div>
             )}
 
@@ -2102,10 +2194,10 @@ function SubmitProof({
                       : "text-red-600"
                   }`}>
                     {preCheck.likely === "pass"
-                      ? "Looks good — likely to pass verification"
+                      ? "Looks good"
                       : preCheck.likely === "marginal"
-                      ? "Marginal — consider adding more detail or another angle"
-                      : "This may not pass — consider retaking the photo"}
+                      ? "May need improvement"
+                      : "Retake recommended"}
                   </span>
                 </div>
                 <p className="text-xs text-gray-500 leading-relaxed">{preCheck.assessment}</p>
@@ -2220,10 +2312,25 @@ function SubmitProof({
               </div>
             )}
             {result.verdict === "flag" && (
-              <p className="mt-2 text-xs text-yellow-600">Waiting for poster to review...</p>
+              <div className="mt-2">
+                <p className="text-xs text-yellow-600">Under review. You'll be notified of the result.</p>
+              </div>
             )}
             {result.verdict === "fail" && (
-              <p className="mt-2 text-xs text-red-600">Bounty reopened for new claims.</p>
+              <div className="mt-2 flex flex-col gap-2">
+                <p className="text-xs text-red-600 font-medium">How to improve:</p>
+                <ul className="text-xs text-gray-500 list-disc pl-4 space-y-0.5">
+                  <li>Make sure you're at the exact location</li>
+                  <li>Take a clearer photo showing the requested detail</li>
+                  <li>Add a note explaining what you found</li>
+                </ul>
+                <button
+                  onClick={() => { setResult(null); setImages([]); setProofNote(""); setPreCheck(null); hasAutoChecked.current = false; }}
+                  className="mt-1 w-full py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm text-gray-700 font-medium active:scale-[0.98] transition-all"
+                >
+                  Try Again
+                </button>
+              </div>
             )}
           </div>
         )}
@@ -2233,12 +2340,12 @@ function SubmitProof({
         <div className="px-6 pb-8 pt-2" style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 32px)" }}>
           <Button
             onClick={handleSubmit}
-            disabled={images.length === 0 && !proofNote.trim()}
+            disabled={task.category !== "feedback" ? images.length === 0 : (images.length === 0 && !proofNote.trim())}
             variant="primary"
             fullWidth
             size="lg"
           >
-            {images.length > 0 ? "Submit for Verification" : "Submit Text Report"}
+            {images.length > 0 ? "Submit for Verification" : task.category === "feedback" ? "Submit Response" : "Add a photo to submit"}
           </Button>
         </div>
       )}
@@ -2448,6 +2555,24 @@ function TaskDetail({
             <span className="text-xs text-gray-400">{timeLeft(currentTask.deadline)}</span>
           </div>
         </div>
+
+        {/* What to do */}
+        {(currentTask.status === "open" || (currentTask.status === "claimed" && isClaimant)) && (
+          <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
+            <p className="text-xs text-gray-400 uppercase tracking-wider font-medium mb-2">What to do</p>
+            <div className="flex flex-col gap-2">
+              {proofInstructions(currentTask).steps.map((step, i) => (
+                <div key={i} className="flex items-start gap-2.5">
+                  <span className="w-5 h-5 rounded-full bg-white border border-gray-200 flex items-center justify-center shrink-0 mt-0.5">
+                    <span className="text-xs font-bold text-gray-400">{i + 1}</span>
+                  </span>
+                  <span className="text-sm text-gray-600">{step}</span>
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-gray-400 mt-2">{proofInstructions(currentTask).tip}</p>
+          </div>
+        )}
 
         {/* Lifecycle timeline */}
         <TaskTimeline task={currentTask} />

@@ -1,12 +1,7 @@
 export const dynamic = "force-dynamic";
 
-import Link from "next/link";
-import {
-  Typography,
-  CircularIcon,
-  Pill,
-} from "@worldcoin/mini-apps-ui-kit-react";
-import { getTopRunners, getWeeklyLeaderboard, getLevel } from "@/lib/proof-of-favour";
+import { getTopRunners, getWeeklyLeaderboard } from "@/lib/proof-of-favour";
+import { getAgentAnalytics, getPlatformStats } from "@/lib/agent-analytics";
 
 type AgentStats = {
   agentId: string;
@@ -25,21 +20,6 @@ type PlatformStats = {
   activeAgents: number;
 };
 
-async function fetchAnalytics(): Promise<{ agents: AgentStats[]; platform: PlatformStats }> {
-  try {
-    const baseUrl =
-      process.env.NEXT_PUBLIC_APP_URL ||
-      (process.env.VERCEL_URL
-        ? `https://${process.env.VERCEL_URL}`
-        : "http://localhost:3000");
-    const res = await fetch(`${baseUrl}/api/agent/analytics`, { cache: "no-store" });
-    if (!res.ok) return { agents: [], platform: { totalTasks: 0, totalCompleted: 0, totalBountyUsdc: 0, activeAgents: 0 } };
-    return res.json();
-  } catch {
-    return { agents: [], platform: { totalTasks: 0, totalCompleted: 0, totalBountyUsdc: 0, activeAgents: 0 } };
-  }
-}
-
 function truncateAddr(addr: string): string {
   if (addr.length <= 12) return addr;
   return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
@@ -48,37 +28,41 @@ function truncateAddr(addr: string): string {
 const MEDAL = ["gold", "silver", "#CD7F32"] as const;
 
 export default async function LeaderboardPage() {
-  const [{ agents, platform }, topRunners, weeklyRunners] = await Promise.all([
-    fetchAnalytics(),
-    getTopRunners(10),
-    getWeeklyLeaderboard(10),
-  ]);
+  let agents: AgentStats[] = [];
+  let platform: PlatformStats = { totalTasks: 0, totalCompleted: 0, totalBountyUsdc: 0, activeAgents: 0 };
+  let topRunners: Awaited<ReturnType<typeof getTopRunners>> = [];
+  let weeklyRunners: Awaited<ReturnType<typeof getWeeklyLeaderboard>> = [];
+
+  try {
+    [agents, platform, topRunners, weeklyRunners] = await Promise.all([
+      getAgentAnalytics() as Promise<AgentStats[]>,
+      getPlatformStats(),
+      getTopRunners(10),
+      getWeeklyLeaderboard(10),
+    ]);
+  } catch (err) {
+    console.error("[Leaderboard] Data fetch failed:", err);
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 max-w-lg mx-auto">
       <div className="px-6 pt-6 pb-28 flex flex-col gap-6">
 
-        {/* Weekly Competition Banner */}
         <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-2xl p-5 text-white">
           <div className="flex items-center gap-3 mb-2">
             <span className="text-2xl">&#x1F3C6;</span>
             <div>
-              <Typography variant="heading" level={4} className="text-white">Weekly Competition</Typography>
-              <Typography variant="body" level={3} className="text-gray-400">
-                Top runner this week wins bragging rights
-              </Typography>
+              <h3 className="text-lg font-bold text-white">Weekly Competition</h3>
+              <p className="text-sm text-gray-400">Top runner this week wins bragging rights</p>
             </div>
           </div>
-          <Typography variant="body" level={3} className="text-gray-300 mt-2">
+          <p className="text-sm text-gray-300 mt-2">
             Earn points: claim (+5), submit proof (+10), get verified (+25), streak bonuses (+2/day). Resets every Monday.
-          </Typography>
+          </p>
         </div>
 
-        {/* This Week's Top Runners */}
         <div>
-          <Typography variant="subtitle" level={2} className="text-gray-900 mb-3 px-1">
-            This week
-          </Typography>
+          <h4 className="text-base font-semibold text-gray-900 mb-3 px-1">This week</h4>
           {weeklyRunners.length > 0 ? (
             <div className="flex flex-col gap-2">
               {weeklyRunners.map((entry, i) => (
@@ -103,17 +87,14 @@ export default async function LeaderboardPage() {
             </div>
           ) : (
             <div className="bg-white border border-gray-200 rounded-xl p-6 text-center">
-              <Typography variant="body" level={2} className="text-gray-400">No activity this week yet</Typography>
-              <Typography variant="body" level={3} className="text-gray-400 mt-1">Be the first to earn points!</Typography>
+              <p className="text-sm text-gray-400">No activity this week yet</p>
+              <p className="text-xs text-gray-400 mt-1">Be the first to earn points!</p>
             </div>
           )}
         </div>
 
-        {/* All-Time Top Runners */}
         <div>
-          <Typography variant="subtitle" level={2} className="text-gray-900 mb-3 px-1">
-            All-time runners
-          </Typography>
+          <h4 className="text-base font-semibold text-gray-900 mb-3 px-1">All-time runners</h4>
           {topRunners.length > 0 ? (
             <div className="flex flex-col gap-2">
               {topRunners.map((runner, i) => (
@@ -137,13 +118,12 @@ export default async function LeaderboardPage() {
             </div>
           ) : (
             <div className="bg-white border border-gray-200 rounded-xl p-6 text-center">
-              <Typography variant="body" level={2} className="text-gray-400">No runners yet</Typography>
-              <Typography variant="body" level={3} className="text-gray-400 mt-1">Complete a favour to appear here</Typography>
+              <p className="text-sm text-gray-400">No runners yet</p>
+              <p className="text-xs text-gray-400 mt-1">Complete a favour to appear here</p>
             </div>
           )}
         </div>
 
-        {/* Platform Stats */}
         <div className="grid grid-cols-2 gap-3">
           {[
             { value: platform.totalTasks, label: "Tasks posted" },
@@ -152,18 +132,15 @@ export default async function LeaderboardPage() {
             { value: platform.activeAgents, label: "Active agents" },
           ].map((stat) => (
             <div key={stat.label} className="bg-white border border-gray-200 rounded-2xl py-4 px-4 text-center">
-              <Typography variant="number" level={2} className="text-gray-900">{stat.value}</Typography>
-              <Typography variant="body" level={4} className="text-gray-400 mt-0.5">{stat.label}</Typography>
+              <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
+              <p className="text-xs text-gray-400 mt-0.5">{stat.label}</p>
             </div>
           ))}
         </div>
 
-        {/* Active Agents */}
         {agents.length > 0 && (
           <div>
-            <Typography variant="subtitle" level={2} className="text-gray-900 mb-3 px-1">
-              AI Agents
-            </Typography>
+            <h4 className="text-base font-semibold text-gray-900 mb-3 px-1">AI Agents</h4>
             <div className="flex flex-col gap-2">
               {agents.map((agent) => (
                 <div key={agent.agentId} className="bg-white border border-gray-200 rounded-xl p-4 flex items-center gap-3">
@@ -173,7 +150,7 @@ export default async function LeaderboardPage() {
                     <span className="text-xs text-gray-400 ml-2">{agent.totalTasks} tasks, ${agent.totalSpentUsdc} spent</span>
                   </div>
                   {agent.successRate >= 70 && (
-                    <Pill checked>{agent.successRate}%</Pill>
+                    <span className="text-xs font-medium bg-green-100 text-green-700 rounded-full px-2 py-0.5">{agent.successRate}%</span>
                   )}
                 </div>
               ))}
@@ -182,9 +159,9 @@ export default async function LeaderboardPage() {
         )}
 
         <div className="flex items-center justify-center gap-2 pt-2">
-          <Typography variant="body" level={4} className="text-gray-300">RELAY FAVOURS</Typography>
-          <Typography variant="body" level={4} className="text-gray-300">&#x00B7;</Typography>
-          <Typography variant="body" level={4} className="text-gray-300">World Chain</Typography>
+          <span className="text-xs text-gray-300">RELAY FAVOURS</span>
+          <span className="text-xs text-gray-300">&#x00B7;</span>
+          <span className="text-xs text-gray-300">World Chain</span>
         </div>
       </div>
     </div>

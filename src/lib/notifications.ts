@@ -86,3 +86,12 @@ export async function notifyFlagged(posterAddress: string, taskDescription: stri
     "/"
   );
 }
+
+export async function notifyClaimReminder(claimantAddress: string, taskDescription: string, bountyUsdc: number): Promise<void> {
+  await sendNotification(
+    [claimantAddress],
+    "Don't forget your favour!",
+    `Submit proof for "${taskDescription.slice(0, 100)}" to earn $${bountyUsdc} USDC.`,
+    "/"
+  );
+}

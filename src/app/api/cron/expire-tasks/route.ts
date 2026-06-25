@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { listTasks } from "@/lib/store";
 import { getRedis } from "@/lib/redis";
 import { broadcastEvent } from "@/lib/sse";
-import { seedDemoTasks } from "@/lib/seed-agents";
+import { notifyClaimReminder } from "@/lib/notifications";
 
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
@@ -13,10 +13,28 @@ export async function GET(req: NextRequest) {
   const tasks = await listTasks();
   const now = Date.now();
   const expired: string[] = [];
+  const reminded: string[] = [];
 
   const redis = getRedis();
 
   for (const task of tasks) {
+    if (task.status === "claimed" && task.claimant) {
+      const claimedAge = now - new Date(task.createdAt).getTime();
+      const deadline = new Date(task.deadline).getTime();
+      const twoHours = 2 * 3600_000;
+      if (claimedAge > twoHours && deadline > now && !task.proofImageUrl) {
+        const reminderKey = `reminder:${task.id}`;
+        if (redis) {
+          const alreadySent = await redis.get(reminderKey);
+          if (!alreadySent) {
+            await redis.set(reminderKey, "1", { ex: 86400 });
+            notifyClaimReminder(task.claimant, task.description, task.bountyUsdc).catch(console.error);
+            reminded.push(task.id);
+          }
+        }
+      }
+    }
+
     if (task.status !== "open" && task.status !== "claimed") continue;
     const deadline = new Date(task.deadline).getTime();
     if (deadline > now) continue;
@@ -33,20 +51,10 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  // Seed fresh demo tasks after cleanup
-  let seedResult: { created: string[]; skipped: boolean; reason?: string } = { created: [], skipped: true };
-  try {
-    seedResult = await seedDemoTasks();
-  } catch (err) {
-    console.error("[Cron] Seed failed:", err);
-  }
-
   return NextResponse.json({
     expired: expired.length,
     expiredTaskIds: expired,
-    seeded: seedResult.created.length,
-    seededTasks: seedResult.created,
-    seedSkipped: seedResult.skipped,
+    reminded: reminded.length,
     checkedAt: new Date().toISOString(),
   });
 }
