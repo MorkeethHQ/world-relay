@@ -27,6 +27,13 @@ const TOKEN_DECIMALS: Record<SwapToken, number> = {
 
 const ESCROW_ABI = [
   {
+    name: "deposit",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [{ name: "amount", type: "uint256" }],
+    outputs: [],
+  },
+  {
     name: "createTask",
     type: "function",
     stateMutability: "nonpayable",
@@ -60,6 +67,19 @@ const ESCROW_ABI = [
   },
 ] as const;
 
+const ERC20_ABI = [
+  {
+    name: "approve",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "spender", type: "address" },
+      { name: "amount", type: "uint256" },
+    ],
+    outputs: [{ name: "", type: "bool" }],
+  },
+] as const;
+
 const PERMIT2_ABI = [
   {
     name: "approve",
@@ -80,12 +100,17 @@ export function encodeCreateTask(description: string, bountyUsdc: number, deadli
 
   const bountyWei = parseUnits(bountyUsdc.toString(), 6);
   const deadline = BigInt(Math.floor(Date.now() / 1000) + deadlineHours * 3600);
-  const expiration = Math.floor(Date.now() / 1000) + 86400;
 
   const approveData = encodeFunctionData({
-    abi: PERMIT2_ABI,
+    abi: ERC20_ABI,
     functionName: "approve",
-    args: [USDC_ADDRESS, RELAY_ESCROW_ADDRESS, bountyWei, expiration],
+    args: [RELAY_ESCROW_ADDRESS, bountyWei],
+  });
+
+  const depositData = encodeFunctionData({
+    abi: ESCROW_ABI,
+    functionName: "deposit",
+    args: [bountyWei],
   });
 
   const createData = encodeFunctionData({
@@ -97,7 +122,8 @@ export function encodeCreateTask(description: string, bountyUsdc: number, deadli
   return {
     chainId: WORLD_CHAIN_ID,
     transactions: [
-      { to: PERMIT2_ADDRESS, data: approveData },
+      { to: USDC_ADDRESS, data: approveData },
+      { to: RELAY_ESCROW_ADDRESS, data: depositData },
       { to: RELAY_ESCROW_ADDRESS, data: createData },
     ],
   };
