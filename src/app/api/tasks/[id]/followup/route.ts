@@ -68,7 +68,7 @@ export async function POST(
     if (txHash) await setAttestationHash(id, txHash);
 
     if (task.onChainId !== null) {
-      releaseEscrow(task.onChainId).then((releaseTx) => {
+      releaseEscrow(task.onChainId, task.claimant).then((releaseTx) => {
         void releaseTx;
       }).catch(console.error);
     }

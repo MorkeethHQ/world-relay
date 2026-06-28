@@ -280,12 +280,19 @@ export async function POST(req: NextRequest) {
     } else if (result.verdict === "flag") {
       notifyFlagged(task.poster, task.description).catch(console.error);
 
-      // In-app notification for flagged proof
       addNotification({
         userId: task.poster,
         type: "flagged",
         title: "Proof flagged",
         body: `A submission needs your review for "${task.description.slice(0, 40)}..."`,
+        taskId,
+      }).catch(console.error);
+    } else if (result.verdict === "fail" && task.claimant) {
+      addNotification({
+        userId: task.claimant,
+        type: "proof_rejected",
+        title: "Proof not accepted",
+        body: `Your submission for "${task.description.slice(0, 40)}..." didn't pass. Try again with better proof.`,
         taskId,
       }).catch(console.error);
     }
@@ -313,35 +320,24 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Auto-release escrow FIRST (payment is the priority)
+  // Auto-release escrow (payment is the priority)
   let escrowReleaseTxHash: string | null = null;
   if (result.verdict === "pass" && task.onChainId !== null) {
-    if (task.bountyUsdc >= 10) {
-      const redisForRelease = getRedis();
-      if (redisForRelease) {
-        const updatedForRelease = await getTask(taskId);
-        if (updatedForRelease) {
-          (updatedForRelease as any).pendingRelease = true;
-          await redisForRelease.set(`task:${taskId}`, JSON.stringify(updatedForRelease));
-        }
-      }
-    } else {
-      escrowReleaseTxHash = await releaseEscrow(task.onChainId, task.claimant).catch((err) => {
-        console.error("[Escrow] Auto-release failed:", err);
-        return null;
-      });
-      if (escrowReleaseTxHash) {
-        postSettlementConfirmation(taskId, task.bountyUsdc, escrowReleaseTxHash).catch(console.error);
-        if (task.claimant) {
-          notifyPaymentReleased(task.claimant, task.bountyUsdc).catch(console.error);
-          addNotification({
-            userId: task.claimant,
-            type: "payment_released",
-            title: "Payment released!",
-            body: `$${task.bountyUsdc} USDC sent to your wallet.`,
-            taskId,
-          }).catch(console.error);
-        }
+    escrowReleaseTxHash = await releaseEscrow(task.onChainId, task.claimant).catch((err) => {
+      console.error("[Escrow] Auto-release failed:", err);
+      return null;
+    });
+    if (escrowReleaseTxHash) {
+      postSettlementConfirmation(taskId, task.bountyUsdc, escrowReleaseTxHash).catch(console.error);
+      if (task.claimant) {
+        notifyPaymentReleased(task.claimant, task.bountyUsdc).catch(console.error);
+        addNotification({
+          userId: task.claimant,
+          type: "payment_released",
+          title: "Payment released!",
+          body: `$${task.bountyUsdc} USDC sent to your wallet.`,
+          taskId,
+        }).catch(console.error);
       }
     }
   }

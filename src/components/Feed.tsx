@@ -665,7 +665,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
   }
 
   if (view === "proof" && selectedTask) {
-    return <SubmitProof task={selectedTask} onDone={() => { setView("board"); fetchTasks(); }} onCancel={() => setView("board")} onCreateTask={() => { setView("post"); }} />;
+    return <SubmitProof task={selectedTask} userId={userId} onDone={() => { setView("board"); fetchTasks(); }} onCancel={() => setView("board")} onCreateTask={() => { setView("post"); }} />;
   }
 
   if (view === "detail" && selectedTask) {
@@ -1658,12 +1658,12 @@ function AgentBadge({ agent }: { agent: AgentInfo }) {
 // VerificationBadge and RequiredTierBadge are imported from @/components/VerificationBadge
 
 const POST_TEMPLATES = [
-  { emoji: "\u{2B50}", label: "Get a review", desc: "Visit and review [place/product]. Photo it and share your honest opinion.", category: "review" as const, bounty: "5" },
-  { emoji: "\u{1F4E3}", label: "Spread the word", desc: "Post about [topic] on X or Instagram. Screenshot your published post.", category: "social" as const, bounty: "3" },
-  { emoji: "\u{1F4F1}", label: "Test my product", desc: "Try [app/website] and share your first impressions. What works? What doesn't?", category: "custom" as const, bounty: "10" },
-  { emoji: "\u{1F4AC}", label: "Give feedback", desc: "Share your honest opinion on [topic]. Detailed answers earn more.", category: "feedback" as const, bounty: "2" },
-  { emoji: "\u{1F4CD}", label: "Check something IRL", desc: "Go to [location] and photograph or confirm [what] in person.", category: "check-in" as const, bounty: "5" },
-  { emoji: "\u{1F3C3}", label: "Run an errand", desc: "Pick up [item] from [place] and deliver it to [destination].", category: "errand" as const, bounty: "15" },
+  { emoji: "\u{1F525}", label: "Dare someone", desc: "I dare you to do something bold in public. Photo the proof.", category: "custom" as const, bounty: "1" },
+  { emoji: "\u{2B50}", label: "Review a spot", desc: "Go to a place nearby and review it honestly. Photo your experience and rate it.", category: "review" as const, bounty: "1" },
+  { emoji: "\u{1F4E3}", label: "Post about this", desc: "Post about something you care about on X or Instagram. Screenshot it.", category: "social" as const, bounty: "2" },
+  { emoji: "\u{1F4F1}", label: "Test my product", desc: "Try an app or website and share your first impressions. What works? What breaks?", category: "custom" as const, bounty: "5" },
+  { emoji: "\u{1F4CD}", label: "Check IRL", desc: "Go somewhere in person and photograph what you find.", category: "check-in" as const, bounty: "2" },
+  { emoji: "\u{1F4AC}", label: "Quick opinion", desc: "Share your honest take on something. Detailed answers earn more.", category: "feedback" as const, bounty: "1" },
 ];
 
 function PostTask({
@@ -1772,7 +1772,7 @@ function PostTask({
   };
 
   const isInWorld = isMiniKit();
-  const isValid = description && location && bounty && parseFloat(bounty) > 0;
+  const isValid = description && location && bounty && parseFloat(bounty) >= 0.5;
 
   return (
     <div className="flex flex-col min-h-screen max-w-lg mx-auto w-full bg-gray-50">
@@ -1932,11 +1932,13 @@ function PostTask({
 
 function SubmitProof({
   task,
+  userId,
   onDone,
   onCancel,
   onCreateTask,
 }: {
   task: Task;
+  userId: string | null;
   onDone: () => void;
   onCancel: () => void;
   onCreateTask?: () => void;
@@ -2062,7 +2064,7 @@ function SubmitProof({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           taskId: task.id,
-          submitter: task.claimant || "anonymous",
+          submitter: userId || task.claimant,
           proofImageBase64: proofImages[0] || null,
           proofImages: proofImages.length > 0 ? proofImages : [],
           proofNote: proofNote || null,
@@ -2092,7 +2094,7 @@ function SubmitProof({
 
       if (data.verification.verdict === "pass") {
         hapticSuccess();
-        setTimeout(onDone, 2500);
+        setTimeout(onDone, 5000);
       } else if (data.verification.verdict === "fail") {
         hapticError();
       } else {
@@ -2730,7 +2732,7 @@ function TaskDetail({
                   await fetch(`/api/tasks/${currentTask.id}`, {
                     method: "PATCH",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ onChainId, escrowTxHash: hash }),
+                    body: JSON.stringify({ poster: userId, onChainId, escrowTxHash: hash }),
                   });
                   setCurrentTask(prev => ({ ...prev, onChainId, escrowTxHash: hash }));
                   setTxSuccess(hash);
@@ -2883,36 +2885,7 @@ function TaskDetail({
           </div>
         )}
 
-        {/* On-chain release -- poster confirms settlement */}
-        {currentTask.status === "completed" && isPoster && isMiniKit() && RELAY_ESCROW_ADDRESS && currentTask.onChainId !== null && (
-          <button
-            onClick={async () => {
-              const txPayload = encodeReleasePayment(currentTask.onChainId!);
-              if (txPayload) {
-                try {
-                  const result = await MiniKit.sendTransaction(txPayload);
-                  if (!result) {
-                    setTxSuccess(null);
-                    alert("Release transaction failed. Please try again.");
-                  } else {
-                    const hash = extractTxHash(result);
-                    if (hash) setTxSuccess(hash);
-                  }
-                } catch (err) {
-                  alert(err instanceof Error ? err.message : "Release transaction rejected by wallet.");
-                }
-              }
-            }}
-            className="w-full bg-green-600 hover:bg-green-500 text-white px-4 py-3 rounded-2xl text-sm font-semibold active:scale-[0.98] transition-all flex items-center justify-center gap-2 min-h-[44px] flex-wrap"
-          >
-            <svg className="shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="12" y1="1" x2="12" y2="23" />
-              <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-            </svg>
-            <span>Release ${currentTask.bountyUsdc} USDC</span>
-            <span className="text-xs opacity-70 font-normal">via World Chain</span>
-          </button>
-        )}
+        {/* Payment auto-releases via server - no manual release needed */}
 
         {/* Uniswap swap — claimant can convert received USDC */}
         {currentTask.status === "completed" && isClaimant && isMiniKit() && (
@@ -3100,6 +3073,27 @@ function TaskDetail({
               )}
             </button>
           </div>
+        )}
+
+        {/* Cancel task - poster can cancel open/claimed tasks */}
+        {isPoster && (currentTask.status === "open" || currentTask.status === "claimed") && (
+          <button
+            onClick={async () => {
+              if (!confirm("Cancel this favour? If funded, your USDC will be refunded.")) return;
+              const res = await fetch(`/api/tasks/${currentTask.id}/cancel`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ poster: userId }),
+              });
+              if (res.ok) {
+                const data = await res.json();
+                if (data.task) setCurrentTask(data.task);
+              }
+            }}
+            className="w-full min-h-[44px] border border-red-200 text-red-600 px-4 py-3 rounded-2xl text-sm font-medium active:scale-[0.98] transition-all hover:bg-red-50"
+          >
+            Cancel favour
+          </button>
         )}
 
       </div>

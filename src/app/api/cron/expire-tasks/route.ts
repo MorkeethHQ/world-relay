@@ -113,6 +113,22 @@ export async function GET(req: NextRequest) {
     }
     expired.push(task.id);
 
+    if (task.onChainId !== null) {
+      const refundTx = await refundEscrow(task.onChainId).catch((err) => {
+        console.error(`[Cron] Refund on expiry failed for task ${task.id}:`, err);
+        return null;
+      });
+      if (refundTx) {
+        addNotification({
+          userId: task.poster,
+          type: "task_expired",
+          title: "Task expired",
+          body: `"${task.description.slice(0, 40)}..." expired. $${task.bountyUsdc} USDC refunded.`,
+          taskId: task.id,
+        }).catch(console.error);
+      }
+    }
+
     broadcastEvent("task:expired", {
       taskId: task.id,
       description: task.description.slice(0, 60),
