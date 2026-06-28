@@ -3,7 +3,7 @@ import { getRedis } from "@/lib/redis";
 export type InAppNotification = {
   id: string;
   userId: string; // wallet address or "agent:id"
-  type: "task_claimed" | "proof_submitted" | "verified" | "flagged" | "funded" | "cancelled";
+  type: "task_claimed" | "proof_submitted" | "verified" | "flagged" | "funded" | "cancelled" | "payment_released" | "task_stale" | "task_archived";
   title: string;
   body: string;
   taskId: string;

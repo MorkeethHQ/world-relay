@@ -61,8 +61,17 @@ const FEEDBACK_TEMPLATES: FeedbackTemplate[] = [
     title: "Rate the vibe: 1-10",
     description: "Give RELAY FAVOURS a vibe rating from 1-10 and tell us why. What would make this a 10? We're building this in public and your take matters.",
     category: "feedback",
-    icon: "⭐",
+    icon: "\u{2B50}",
     pointsReward: 15,
+    requiresPhoto: false,
+  },
+  {
+    id: "feature_request",
+    title: "Feature request",
+    description: "Tell us what you want RELAY to do.",
+    category: "feedback",
+    icon: "\u{1F4A1}",
+    pointsReward: 5,
     requiresPhoto: false,
   },
 ];

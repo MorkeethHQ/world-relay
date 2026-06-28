@@ -253,19 +253,30 @@ export async function submitProof(
   submitter?: string | null,
   verificationLevel?: "orb" | "device" | "wallet" | null
 ): Promise<Task | null> {
-  const task = await getTask(id);
-  if (!task) return null;
-  if (task.status !== "open" && task.status !== "claimed") return null;
-  if (task.status === "open" && submitter) {
-    task.claimant = submitter;
-    task.status = "claimed";
-    task.claimantVerification = verificationLevel ?? null;
+  const redis = getRedis();
+  const lockKey = `lock:proof:${id}`;
+  if (redis) {
+    const acquired = await redis.set(lockKey, "1", { nx: true, px: 30000 });
+    if (!acquired) return null;
   }
-  task.proofImageUrl = proofImageUrl;
-  task.proofImages = proofImages && proofImages.length > 0 ? proofImages : proofImageUrl ? [proofImageUrl] : null;
-  task.proofNote = proofNote;
-  await persistTask(task);
-  return task;
+
+  try {
+    const task = await getTask(id);
+    if (!task) return null;
+    if (task.status !== "open" && task.status !== "claimed") return null;
+    if (task.status === "open" && submitter) {
+      task.claimant = submitter;
+      task.status = "claimed";
+      task.claimantVerification = verificationLevel ?? null;
+    }
+    task.proofImageUrl = proofImageUrl;
+    task.proofImages = proofImages && proofImages.length > 0 ? proofImages : proofImageUrl ? [proofImageUrl] : null;
+    task.proofNote = proofNote;
+    await persistTask(task);
+    return task;
+  } finally {
+    if (redis) await redis.del(lockKey);
+  }
 }
 
 export async function completeTask(

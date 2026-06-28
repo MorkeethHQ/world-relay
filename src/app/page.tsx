@@ -26,37 +26,35 @@ function OnboardingFlow({ open, onClose }: { open: boolean; onClose: () => void 
 
   const steps = [
     {
-      icon: "🤖",
-      title: "AI agents need your help",
-      description: "AI agents can write code and search the web, but they can't walk outside, take a photo, or check something in person. That's where you come in.",
+      icon: "\u{1F91D}",
+      title: "People helping people",
+      description: "Need a review, a photo, feedback, or an errand done? Post a favour and someone nearby will handle it.",
       detail: (
-        <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-          <div className="flex items-start gap-3">
-            <span className="text-lg">🗺️</span>
-            <div>
-              <Typography variant="body" level={2} className="text-gray-900 font-medium">FreshMap</Typography>
-              <Typography variant="body" level={3} className="text-gray-500 mt-0.5">
-                &ldquo;Is this restaurant still open? Google says yes, but the last review is 6 months old.&rdquo;
-              </Typography>
-              <div className="mt-2 flex items-center gap-2">
-                <Pill>$2 USDC</Pill>
-                <Typography variant="body" level={4} className="text-gray-400">Photo required</Typography>
-              </div>
+        <div className="flex flex-col gap-2">
+          {[
+            { emoji: "\u{2B50}", text: "Get a review of a place", reward: "$5" },
+            { emoji: "\u{1F4E3}", text: "Get a social media post", reward: "$3" },
+            { emoji: "\u{1F3C3}", text: "Run a quick errand", reward: "$15" },
+          ].map((ex) => (
+            <div key={ex.text} className="flex items-center gap-3 bg-gray-50 rounded-xl px-4 py-3 border border-gray-200">
+              <span className="text-base">{ex.emoji}</span>
+              <Typography variant="body" level={3} className="flex-1 text-gray-700">{ex.text}</Typography>
+              <Pill>{ex.reward}</Pill>
             </div>
-          </div>
+          ))}
         </div>
       ),
     },
     {
-      icon: "📸",
-      title: "You complete the favour",
-      description: "Pick a favour near you. Walk over, take a photo, or confirm something the agent can't verify remotely. Tasks take 30 seconds to 5 minutes.",
+      icon: "\u{1F4F8}",
+      title: "Complete and submit proof",
+      description: "Pick a favour, do it, and submit your proof. Photo, screenshot, or written response. Most take under 5 minutes.",
       detail: (
         <div className="flex flex-col gap-2">
           {[
-            { emoji: "🏷️", text: "Check a shelf price", time: "30 sec" },
-            { emoji: "📍", text: "Confirm a storefront is open", time: "1 min" },
-            { emoji: "📦", text: "Verify a delivery arrived", time: "2 min" },
+            { emoji: "\u{1F4F1}", text: "Test an app and screen-record", time: "3 min" },
+            { emoji: "\u{1F4AC}", text: "Give honest feedback", time: "2 min" },
+            { emoji: "\u{1F4CD}", text: "Check something in person", time: "5 min" },
           ].map((ex) => (
             <div key={ex.text} className="flex items-center gap-3 bg-gray-50 rounded-xl px-4 py-3 border border-gray-200">
               <span className="text-base">{ex.emoji}</span>
@@ -68,15 +66,15 @@ function OnboardingFlow({ open, onClose }: { open: boolean; onClose: () => void 
       ),
     },
     {
-      icon: "💰",
-      title: "AI verifies, you get paid",
-      description: "Submit your proof. AI reviews it instantly. If it checks out, USDC goes straight to your wallet. Higher verification unlocks bigger bounties.",
+      icon: "\u{1F4B0}",
+      title: "AI verifies, you earn USDC",
+      description: "Three AI models review your proof instantly. Pass verification and USDC goes straight to your wallet. Higher World ID tiers unlock bigger rewards.",
       detail: (
         <div className="flex flex-col gap-2">
           {[
-            { tier: "Wallet", desc: "Favours up to $5", color: "bg-gray-50" },
-            { tier: "Device", desc: "Favours up to $20", color: "bg-gray-50" },
-            { tier: "Orb", desc: "All favours, no limit", color: "bg-success-50" },
+            { tier: "Wallet", desc: "Favours up to $5" },
+            { tier: "Device", desc: "Favours up to $20" },
+            { tier: "Orb", desc: "All favours, no limit" },
           ].map((t) => (
             <div key={t.tier} className="flex items-center gap-3 rounded-xl px-4 py-3 border border-gray-200 bg-gray-50">
               <Pill checked>{t.tier}</Pill>
@@ -256,18 +254,18 @@ export default function Home() {
 
           <div className="text-center space-y-3">
             <Typography variant="subtitle" level={1}>
-              AI agents hire humans. You get paid.
+              Ask a favour. Get it done.
             </Typography>
             <Typography variant="body" level={3} className="text-gray-400 max-w-[300px] mx-auto">
-              Complete real-world tasks for AI agents. 30 seconds of your time, instant USDC on World Chain.
+              Post tasks, complete favours, earn USDC. AI verifies everything instantly.
             </Typography>
           </div>
 
           <div className="w-full space-y-4">
             {[
-              { num: "1", text: "Agent hires you", sub: "They need something done in the real world." },
-              { num: "2", text: "You complete it", sub: "Photo, confirmation, or quick check." },
-              { num: "3", text: "Get paid instantly", sub: "AI verifies your proof. USDC to your wallet." },
+              { num: "1", text: "Post or pick up a favour", sub: "Reviews, errands, feedback, social posts." },
+              { num: "2", text: "Complete it and submit proof", sub: "Photo, screenshot, or written response." },
+              { num: "3", text: "AI verifies, you get paid", sub: "USDC straight to your World App wallet." },
             ].map((step) => (
               <div key={step.num} className="flex items-start gap-4 px-1">
                 <CircularIcon size="sm" className="bg-gray-100 mt-0.5">

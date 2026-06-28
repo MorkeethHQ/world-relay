@@ -93,13 +93,43 @@ function proofInstructions(task: Task): { short: string; steps: string[]; tip: s
   const hasLocation = !!(task.lat && task.lng);
 
   switch (cat) {
+    case "review":
+      return {
+        short: "Try it and share your honest review",
+        steps: [
+          "Experience the place, product, or service",
+          "Take a photo showing you were there",
+          "Write your honest review in the proof note",
+        ],
+        tip: "Real opinions win. Include both what you liked and what could be better.",
+      };
+    case "social":
+      return {
+        short: "Post on social media and screenshot it",
+        steps: [
+          "Read what the poster wants you to share",
+          "Create your post on X, Instagram, or TikTok",
+          "Screenshot your published post as proof",
+        ],
+        tip: "Make sure your post is public and the screenshot shows it's live.",
+      };
+    case "errand":
+      return {
+        short: "Complete the errand and photo the result",
+        steps: [
+          "Read exactly what needs to be done",
+          hasLocation ? `Head to ${task.location}` : "Go to the specified location",
+          "Complete the task and photograph the result",
+        ],
+        tip: "Photo proof of the completed errand is required. Show the end result clearly.",
+      };
     case "photo":
       return {
         short: "Take a photo at the location",
         steps: [
-          `Go to ${task.location}`,
+          hasLocation ? `Go to ${task.location}` : "Go to the specified location",
           "Take a clear photo showing what was requested",
-          "Come back and tap Submit Proof",
+          "Submit with any relevant notes",
         ],
         tip: hasLocation ? "Your location is verified. Submit from near the task location." : "Include clear visual proof.",
       };
@@ -107,7 +137,7 @@ function proofInstructions(task: Task): { short: string; steps: string[]; tip: s
       return {
         short: "Visit and confirm in person",
         steps: [
-          `Go to ${task.location}`,
+          hasLocation ? `Go to ${task.location}` : "Go to the specified location",
           "Take a photo proving you were there",
           "Submit with any relevant notes",
         ],
@@ -147,12 +177,33 @@ function proofInstructions(task: Task): { short: string; steps: string[]; tip: s
 }
 
 const CATEGORY_ICONS: Record<string, string> = {
-  photo: "📸",
-  delivery: "📦",
-  "check-in": "📍",
-  custom: "✏️",
-  feedback: "💬",
+  photo: "\u{1F4F8}",
+  delivery: "\u{1F4E6}",
+  "check-in": "\u{1F4CD}",
+  custom: "\u{1F4F1}",
+  feedback: "\u{1F4AC}",
+  review: "\u{2B50}",
+  social: "\u{1F4E3}",
+  errand: "\u{1F3C3}",
 };
+
+type TaskTier = "quick" | "medium" | "effort";
+
+function getTaskTier(category: string): TaskTier {
+  if (category === "feedback" || category === "social") return "quick";
+  if (category === "review" || category === "custom" || category === "check-in") return "medium";
+  return "effort";
+}
+
+const TIER_CONFIG: Record<TaskTier, { label: string; color: string; bg: string; time: string }> = {
+  quick: { label: "Quick", color: "text-green-700", bg: "bg-green-50 border-green-200", time: "~2 min" },
+  medium: { label: "Medium", color: "text-blue-700", bg: "bg-blue-50 border-blue-200", time: "~10 min" },
+  effort: { label: "Full effort", color: "text-orange-700", bg: "bg-orange-50 border-orange-200", time: "30+ min" },
+};
+
+function tierRequiresPhoto(category: string): boolean {
+  return ["photo", "delivery", "errand", "check-in"].includes(category);
+}
 
 function SkeletonCard() {
   return (
@@ -200,24 +251,24 @@ function ActivityTicker({ tasks }: { tasks: Task[] }) {
   for (const t of sorted.slice(0, 20)) {
     if (t.status === "completed" && t.verificationResult) {
       events.push({
-        icon: "✅",
-        text: `${t.agent ? t.agent.name : shortId(t.poster)} favour verified${t.verificationResult.confidence ? ` · ${Math.round(t.verificationResult.confidence * 100)}%` : ""}`,
+        icon: "\u{2705}",
+        text: `Favour verified${t.verificationResult.confidence ? ` · ${Math.round(t.verificationResult.confidence * 100)}%` : ""} · $${t.bountyUsdc}`,
         color: "text-green-600",
         time: timeAgo(t.createdAt),
       });
     }
     if (t.claimant) {
       events.push({
-        icon: "⚡",
-        text: `${shortId(t.claimant)} claimed ${t.agent ? t.agent.name : ""} favour · $${t.bountyUsdc}`,
+        icon: "\u{26A1}",
+        text: `${shortId(t.claimant)} picked up a favour · $${t.bountyUsdc}`,
         color: "text-gray-900",
         time: timeAgo(t.createdAt),
       });
     }
-    if (t.agent && t.status === "open") {
+    if (t.status === "open") {
       events.push({
-        icon: t.agent.icon,
-        text: `${t.agent.name} posted a favour · ${t.location}`,
+        icon: CATEGORY_ICONS[t.category] || "\u{2728}",
+        text: `New favour · ${t.description.slice(0, 40)}${t.description.length > 40 ? "…" : ""}`,
         color: "text-gray-400",
         time: timeAgo(t.createdAt),
       });
@@ -251,12 +302,6 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [tab, setTab] = useState<Tab>("available");
   const [mapMode, setMapMode] = useState(false);
-  const [agentFilter] = useState<"all">("all");
-  const [xmtpStatus, setXmtpStatus] = useState<{ connected: boolean; inboxId: string | null } | null>(null);
-  const [botAddrCopied, setBotAddrCopied] = useState(false);
-  const [chatQuery, setChatQuery] = useState("");
-  const [chatReply, setChatReply] = useState("");
-  const [chatLoading, setChatLoading] = useState(false);
   const [upgradePrompt, setUpgradePrompt] = useState<{ required: string; current: string } | null>(null);
   const [claimTxSuccess, setClaimTxSuccess] = useState<{ hash: string; taskId: string } | null>(null);
   const [claimTxError, setClaimTxError] = useState<{ message: string; taskId: string; retry: () => void } | null>(null);
@@ -272,6 +317,11 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
   const [claimCodeInput, setClaimCodeInput] = useState("");
   const [pullDistance, setPullDistance] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [featureRequest, setFeatureRequest] = useState("");
+  const [featureSubmitting, setFeatureSubmitting] = useState(false);
+  const [featureSubmitted, setFeatureSubmitted] = useState(false);
+  const [showCreateNudge, setShowCreateNudge] = useState(false);
+  const prevCompletedCount = useRef(0);
   const touchStartY = useRef(0);
   const isPulling = useRef(false);
   const feedContainerRef = useRef<HTMLDivElement>(null);
@@ -318,7 +368,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
           if (prevStatus && prevStatus !== task.status) {
             changed.push(task.id);
             if (prevStatus === "open" && task.status === "claimed") {
-              statusMsg = `Favour claimed: "${task.description.slice(0, 40)}${task.description.length > 40 ? "..." : ""}"`;
+              statusMsg = `In progress: "${task.description.slice(0, 40)}${task.description.length > 40 ? "..." : ""}"`;
               statusColor = "text-yellow-600";
             } else if (prevStatus === "claimed" && task.status === "completed") {
               statusMsg = `Favour completed: "${task.description.slice(0, 40)}${task.description.length > 40 ? "..." : ""}"`;
@@ -367,16 +417,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
   useEffect(() => {
     fetchTasks();
 
-    // Trigger XMTP sync every 5 minutes. Previously 30s, but every connected
-    // client fires this independently — with N tabs open that's N serverless
-    // invocations per interval. 5 min keeps DMs reasonably fresh while cutting
-    // Vercel CPU usage by ~10x per client.
-    const syncXmtp = () => fetch("/api/xmtp-sync", { method: "POST" }).catch(() => {});
-    syncXmtp();
-    const syncInterval = setInterval(syncXmtp, 300_000);
-
     return () => {
-      clearInterval(syncInterval);
       if (toastTimer.current) clearTimeout(toastTimer.current);
       if (statusToastTimer.current) clearTimeout(statusToastTimer.current);
       if (fetchDebounceRef.current) clearTimeout(fetchDebounceRef.current);
@@ -487,12 +528,13 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
     setPullDistance(0);
   }, [pullDistance, isRefreshing, fetchTasks]);
 
+  const SEVEN_DAYS_MS = 7 * 24 * 3600_000;
+
   const filtered = useMemo(() => tasks.filter((t) => {
     if (t.status === "expired") return false;
+    if (t.status === "cancelled") return false;
     const deadlinePassed = new Date(t.deadline).getTime() < Date.now();
     if (deadlinePassed && t.status === "open") return false;
-    const taskAge = Date.now() - new Date(t.createdAt).getTime();
-    if (taskAge > 7 * 24 * 3600_000 && t.status === "open") return false;
 
     if (tab === "available") {
       if (t.status === "open") {
@@ -508,6 +550,13 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
   }).sort((a, b) => {
     if (tab === "available") {
       const now = Date.now();
+      // Stale tasks (>7 days, no claims) sort to the bottom
+      const aAge = now - new Date(a.createdAt).getTime();
+      const bAge = now - new Date(b.createdAt).getTime();
+      const aStale = a.status === "open" && !a.claimant && aAge > SEVEN_DAYS_MS;
+      const bStale = b.status === "open" && !b.claimant && bAge > SEVEN_DAYS_MS;
+      if (aStale !== bStale) return aStale ? 1 : -1;
+
       const aHoursLeft = (new Date(a.deadline).getTime() - now) / 3600_000;
       const bHoursLeft = (new Date(b.deadline).getTime() - now) / 3600_000;
       const aUrgent = aHoursLeft < 4 || a.bountyUsdc >= 15;
@@ -537,23 +586,14 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
     };
   }, [tasks, userId]);
 
-  async function handleChatQuery() {
-    if (!chatQuery.trim() || chatLoading) return;
-    setChatLoading(true);
-    setChatReply("");
-    try {
-      const res = await fetch("/api/xmtp-agent", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: chatQuery }),
-      });
-      const data = await res.json();
-      setChatReply(data.response || "No response.");
-    } catch {
-      setChatReply("Something went wrong.");
+  // Detect first-time completion and show "create a task" nudge
+  useEffect(() => {
+    const currentCount = completedByClaiming.length;
+    if (prevCompletedCount.current === 0 && currentCount > 0 && totalPosted === 0) {
+      setShowCreateNudge(true);
     }
-    setChatLoading(false);
-  }
+    prevCompletedCount.current = currentCount;
+  }, [completedByClaiming.length, totalPosted]);
 
   const executeClaimTask = useCallback(async (task: Task, claimCode?: string) => {
     try {
@@ -625,7 +665,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
   }
 
   if (view === "proof" && selectedTask) {
-    return <SubmitProof task={selectedTask} onDone={() => { setView("board"); fetchTasks(); }} onCancel={() => setView("board")} />;
+    return <SubmitProof task={selectedTask} onDone={() => { setView("board"); fetchTasks(); }} onCancel={() => setView("board")} onCreateTask={() => { setView("post"); }} />;
   }
 
   if (view === "detail" && selectedTask) {
@@ -812,9 +852,9 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
             </div>
             <div className="flex flex-col gap-2">
               {[
-                { num: "1", text: "AI agents post favours they can't do remotely" },
-                { num: "2", text: "Tap a favour below, go complete it, submit proof" },
-                { num: "3", text: "AI verifies your proof, USDC hits your wallet" },
+                { num: "1", text: "Pick a favour below and tap Do it" },
+                { num: "2", text: "Submit proof (photo or text)" },
+                { num: "3", text: "AI verifies, USDC hits your wallet" },
               ].map((s) => (
                 <div key={s.num} className="flex items-center gap-3">
                   <span className="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
@@ -968,7 +1008,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
                 <div className="text-center">
                   <p className="text-sm text-gray-400 font-medium">No favours nearby right now</p>
                   <p className="text-xs text-gray-500 mt-1 max-w-[260px]">
-                    AI agents ask for favours when they need a human on the ground. Check back soon.
+                    Post one yourself or check back soon.
                   </p>
                 </div>
               </>
@@ -1129,15 +1169,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
                     setSelectedTask(task);
                     setView("detail");
                   }}
-                  onClaim={() => {
-                    hapticTap();
-                    if (task.claimCode) {
-                      setClaimCodeInput("");
-                      setClaimCodeTask(task);
-                    } else {
-                      setClaimConfirmTask(task);
-                    }
-                  }}
+                  onClaim={() => {}}
                   onSubmitProof={() => {
                     setSelectedTask(task);
                     setView("proof");
@@ -1156,7 +1188,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
             <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
           </svg>
           <div className="flex-1 min-w-0">
-            <p className="text-xs text-green-600 font-medium">Claim confirmed on World Chain</p>
+            <p className="text-xs text-green-600 font-medium">Confirmed on World Chain</p>
             <p className="text-xs text-gray-400 font-mono truncate">{claimTxSuccess.hash}</p>
           </div>
           <a
@@ -1204,9 +1236,62 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
         </div>
       )}
 
-      {/* Footer */}
-      <div className="px-4 py-4 border-t border-gray-200">
-        <div className="flex items-center justify-center gap-2">
+      {/* Feature request */}
+      <div className="px-4 py-4 border-t border-gray-100">
+        {featureSubmitted ? (
+          <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-center">
+            <p className="text-sm text-green-700 font-medium">Thanks! We read every request.</p>
+          </div>
+        ) : (
+          <div className="bg-white border border-gray-200 rounded-xl p-4">
+            <p className="text-xs text-gray-400 font-medium mb-2">What would make RELAY better?</p>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={featureRequest}
+                onChange={(e) => setFeatureRequest(e.target.value)}
+                placeholder="I wish I could..."
+                className="flex-1 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-gray-400 placeholder:text-gray-300 min-h-[44px]"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && featureRequest.trim() && !featureSubmitting) {
+                    setFeatureSubmitting(true);
+                    fetch("/api/feedback-tasks", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ address: userId || "anon", templateId: "feature_request", response: featureRequest.trim() }),
+                    }).finally(() => {
+                      setFeatureSubmitting(false);
+                      setFeatureSubmitted(true);
+                      setFeatureRequest("");
+                      setTimeout(() => setFeatureSubmitted(false), 5000);
+                    });
+                  }
+                }}
+              />
+              <button
+                disabled={!featureRequest.trim() || featureSubmitting}
+                onClick={() => {
+                  if (!featureRequest.trim() || featureSubmitting) return;
+                  setFeatureSubmitting(true);
+                  fetch("/api/feedback-tasks", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ address: userId || "anon", templateId: "feature_request", response: featureRequest.trim() }),
+                  }).finally(() => {
+                    setFeatureSubmitting(false);
+                    setFeatureSubmitted(true);
+                    setFeatureRequest("");
+                    setTimeout(() => setFeatureSubmitted(false), 5000);
+                  });
+                }}
+                className="bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-medium min-h-[44px] disabled:opacity-30 active:scale-95 transition-all"
+              >
+                {featureSubmitting ? "..." : "Send"}
+              </button>
+            </div>
+          </div>
+        )}
+        <div className="flex items-center justify-center gap-2 mt-3">
           <span className="text-xs text-gray-300">RELAY FAVOURS</span>
           <span className="text-xs text-gray-300">&#x00B7;</span>
           <span className="text-xs text-gray-300">World Chain</span>
@@ -1258,82 +1343,6 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Claim confirmation dialog (C2) */}
-      <AlertDialog open={!!claimConfirmTask} onOpenChange={() => setClaimConfirmTask(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Claim this favour?</AlertDialogTitle>
-            <AlertDialogDescription>
-              {claimConfirmTask?.taskType === "double-or-nothing"
-                ? `You'll stake $${claimConfirmTask?.bountyUsdc} USDC to claim this favour. Complete it to earn double, or lose your stake.`
-                : `You'll be assigned this favour. Complete it and submit proof to earn $${claimConfirmTask?.bountyUsdc} USDC.`}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogClose asChild>
-              <Button fullWidth variant="secondary" size="lg">Cancel</Button>
-            </AlertDialogClose>
-            <Button
-              fullWidth
-              variant="primary"
-              size="lg"
-              onClick={() => {
-                const task = claimConfirmTask;
-                setClaimConfirmTask(null);
-                if (task) executeClaimTask(task);
-              }}
-            >
-              Claim
-            </Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Claim code dialog (H6) */}
-      <AlertDialog open={!!claimCodeTask} onOpenChange={() => { setClaimCodeTask(null); setClaimCodeInput(""); }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Access code required</AlertDialogTitle>
-            <AlertDialogDescription>
-              This favour requires an access code to claim.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <div className="px-6 pb-4">
-            <input
-              type="text"
-              placeholder="Enter access code"
-              value={claimCodeInput}
-              onChange={(e) => setClaimCodeInput(e.target.value)}
-              className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-gray-400 transition-colors placeholder:text-gray-400 min-h-[44px]"
-              autoFocus
-            />
-          </div>
-          <AlertDialogFooter>
-            <AlertDialogClose asChild>
-              <Button fullWidth variant="secondary" size="lg">Cancel</Button>
-            </AlertDialogClose>
-            <Button
-              fullWidth
-              variant="primary"
-              size="lg"
-              disabled={!claimCodeInput.trim()}
-              onClick={() => {
-                const task = claimCodeTask;
-                const code = claimCodeInput.trim();
-                setClaimCodeTask(null);
-                setClaimCodeInput("");
-                if (task && code) {
-                  setClaimConfirmTask(null);
-                  executeClaimTask(task, code);
-                }
-              }}
-            >
-              Claim
-            </Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
       {/* Post-claim guidance dialog */}
       <AlertDialog open={!!claimSuccessTask} onOpenChange={() => { setClaimSuccessTask(null); setTab("mine"); }}>
         <AlertDialogContent>
@@ -1344,7 +1353,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
                   <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
                 </svg>
               </div>
-              <AlertDialogTitle>Favour claimed!</AlertDialogTitle>
+              <AlertDialogTitle>Favour accepted!</AlertDialogTitle>
             </div>
             <AlertDialogDescription>
               {claimSuccessTask ? `Here's how to earn ${rewardLabel(claimSuccessTask)}` : ""}
@@ -1381,6 +1390,44 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
               }}
             >
               Got it
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* "Create a task" nudge after first completion */}
+      <AlertDialog open={showCreateNudge} onOpenChange={() => setShowCreateNudge(false)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <div className="flex flex-col items-center gap-2 pt-2">
+              <div className="w-12 h-12 rounded-full bg-info-100 flex items-center justify-center">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="rgb(var(--info-600))" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="12" y1="8" x2="12" y2="16" />
+                  <line x1="8" y1="12" x2="16" y2="12" />
+                </svg>
+              </div>
+              <AlertDialogTitle>Nice work!</AlertDialogTitle>
+            </div>
+            <AlertDialogDescription>
+              You just completed your first favour. Now create one for someone else. Post a task and let others help you out.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogClose asChild>
+              <Button fullWidth variant="secondary" size="lg">Maybe later</Button>
+            </AlertDialogClose>
+            <Button
+              fullWidth
+              variant="primary"
+              size="lg"
+              onClick={() => {
+                setShowCreateNudge(false);
+                hapticTap();
+                setView("post");
+              }}
+            >
+              + Create a Favour
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1429,6 +1476,8 @@ function TaskCard({
   const hoursLeft = (new Date(task.deadline).getTime() - Date.now()) / 3600_000;
   const isUrgent = task.status === "open" && (hoursLeft < 4 || task.bountyUsdc >= 15);
   const isAgentTask = !!(task.agent || task.poster?.startsWith("agent_"));
+  const taskAgeDays = (Date.now() - new Date(task.createdAt).getTime()) / (24 * 3600_000);
+  const isStale = task.status === "open" && !task.claimant && taskAgeDays >= 7;
 
   return (
     <div
@@ -1474,19 +1523,30 @@ function TaskCard({
             </>
           )}
         </div>
-        {task.status === "open" && (
-          <p className="text-xs text-gray-400 mt-1.5 flex items-center gap-1.5">
-            <span>{CATEGORY_ICONS[task.category] || "📋"}</span>
-            {proofInstructions(task).short}
-          </p>
-        )}
+        {task.status === "open" && (() => {
+          const tier = getTaskTier(task.category);
+          const tc = TIER_CONFIG[tier];
+          return (
+            <div className="flex items-center gap-2 mt-1.5">
+              <span className={`text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded border ${tc.bg} ${tc.color}`}>
+                {tc.label}
+              </span>
+              <span className="text-[10px] text-gray-400">{tc.time}</span>
+              <span className="text-xs text-gray-300">·</span>
+              <span className="text-xs text-gray-400 flex items-center gap-1">
+                <span>{CATEGORY_ICONS[task.category] || "\u{1F4CB}"}</span>
+                {tierRequiresPhoto(task.category) ? "Photo required" : "Text OK"}
+              </span>
+            </div>
+          );
+        })()}
       </div>
 
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <StatusBadge status={task.status} />
           {isOwnTask && <span className="text-xs text-gray-500">You posted</span>}
-          {isClaimant && task.status === "claimed" && <span className="text-xs text-gray-500">You claimed</span>}
+          {isClaimant && task.status === "claimed" && <span className="text-xs text-gray-500">In progress</span>}
           {task.escrowTxHash ? (
             <span className="flex items-center gap-1 text-xs text-success-700 font-semibold bg-success-100 rounded-full px-2 py-0.5">
               Funded
@@ -1496,24 +1556,27 @@ function TaskCard({
               Awaiting funds
             </span>
           )}
+          {isStale && (
+            <span className="flex items-center gap-1 text-xs text-orange-600 font-medium bg-orange-50 border border-orange-200 rounded-full px-2 py-0.5 animate-pulse">
+              Going stale
+            </span>
+          )}
         </div>
         <span className="text-xs text-gray-400">{timeAgo(task.createdAt)}</span>
       </div>
 
-      {task.status === "open" && userId && !isOwnTask && (task.maxCompletions || 1) === 1 && (
+      {task.status === "open" && userId && !isOwnTask && (
         <Button
-          onClick={(e) => { e.stopPropagation(); onClaim(); }}
+          onClick={(e) => { e.stopPropagation(); onSubmitProof(); }}
           variant="primary"
           fullWidth
           size="lg"
         >
-          {task.claimCode
-            ? "Claim (Code Required)"
-            : task.taskType === "double-or-nothing"
-              ? `Stake $${task.bountyUsdc} & Claim`
-              : task.escrowTxHash
-                ? `Claim — $${task.bountyUsdc} USDC`
-                : "Claim Favour"}
+          {task.escrowTxHash
+            ? `Do it — earn $${task.bountyUsdc} USDC`
+            : (task.maxCompletions || 1) > 1
+              ? `Submit Response${task.completionCount ? ` (${task.completionCount}/${task.maxCompletions})` : ""}`
+              : "Do it"}
         </Button>
       )}
 
@@ -1525,17 +1588,6 @@ function TaskCard({
           size="lg"
         >
           Submit Proof
-        </Button>
-      )}
-
-      {(task.maxCompletions || 1) > 1 && task.status === "open" && userId && !isOwnTask && (
-        <Button
-          onClick={(e) => { e.stopPropagation(); onSubmitProof(); }}
-          variant="primary"
-          fullWidth
-          size="lg"
-        >
-          Submit Response{task.completionCount ? ` (${task.completionCount}/${task.maxCompletions} done)` : ""}
         </Button>
       )}
 
@@ -1570,7 +1622,7 @@ function TaskCard({
 function StatusBadge({ status }: { status: string }) {
   const labels: Record<string, string> = {
     open: "Open",
-    claimed: "Claimed",
+    claimed: "In progress",
     completed: "Done",
     failed: "Failed",
     expired: "Expired",
@@ -1606,12 +1658,12 @@ function AgentBadge({ agent }: { agent: AgentInfo }) {
 // VerificationBadge and RequiredTierBadge are imported from @/components/VerificationBadge
 
 const POST_TEMPLATES = [
-  { emoji: "\u{1F3AC}", label: "Film a review", desc: "Visit this place, try it out, and film a 30-60 second honest review. Show yourself there.", category: "photo" as const, bounty: "25" },
-  { emoji: "\u{1F3B6}", label: "Scout the vibe", desc: "Go to this event or venue. Film the crowd, the setup, the energy. Show what it's actually like.", category: "photo" as const, bounty: "10" },
-  { emoji: "\u{1F4F8}", label: "Photo proof", desc: "Photograph this location, product, or setup. Clear, well-lit, showing exactly what was asked.", category: "photo" as const, bounty: "5" },
-  { emoji: "\u{1F4F1}", label: "Test an app", desc: "Open this app on your phone, try the main flow, and screen-record what happens.", category: "custom" as const, bounty: "15" },
-  { emoji: "\u{1F3E0}", label: "Verify a listing", desc: "Walk past this address and photograph the building entrance. Confirm if the listing is real.", category: "check-in" as const, bounty: "5" },
-  { emoji: "\u{1F6D2}", label: "Check a price", desc: "Go to this store and photograph the current price of a specific product on the shelf.", category: "photo" as const, bounty: "3" },
+  { emoji: "\u{2B50}", label: "Get a review", desc: "Visit and review [place/product]. Photo it and share your honest opinion.", category: "review" as const, bounty: "5" },
+  { emoji: "\u{1F4E3}", label: "Spread the word", desc: "Post about [topic] on X or Instagram. Screenshot your published post.", category: "social" as const, bounty: "3" },
+  { emoji: "\u{1F4F1}", label: "Test my product", desc: "Try [app/website] and share your first impressions. What works? What doesn't?", category: "custom" as const, bounty: "10" },
+  { emoji: "\u{1F4AC}", label: "Give feedback", desc: "Share your honest opinion on [topic]. Detailed answers earn more.", category: "feedback" as const, bounty: "2" },
+  { emoji: "\u{1F4CD}", label: "Check something IRL", desc: "Go to [location] and photograph or confirm [what] in person.", category: "check-in" as const, bounty: "5" },
+  { emoji: "\u{1F3C3}", label: "Run an errand", desc: "Pick up [item] from [place] and deliver it to [destination].", category: "errand" as const, bounty: "15" },
 ];
 
 function PostTask({
@@ -1626,7 +1678,7 @@ function PostTask({
   const [description, setDescription] = useState("");
   const [location, setLocation] = useState("");
   const [bounty, setBounty] = useState("");
-  const [category, setCategory] = useState<"photo" | "delivery" | "check-in" | "custom">("photo");
+  const [category, setCategory] = useState<"photo" | "delivery" | "check-in" | "custom" | "feedback" | "review" | "social" | "errand">("review");
   const [submitting, setSubmitting] = useState(false);
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [escrowSuccess, setEscrowSuccess] = useState<string | null>(null);
@@ -1736,20 +1788,25 @@ function PostTask({
         <div>
           <Typography variant="label" level={2} className="text-gray-400 mb-3">What do you need?</Typography>
           <div className="grid grid-cols-3 gap-2">
-            {POST_TEMPLATES.map((t, i) => (
-              <button
-                key={i}
-                onClick={() => handleTemplate(i)}
-                className={`flex flex-col items-center gap-1.5 rounded-xl border px-2 py-3 transition-all min-h-[44px] ${
-                  selectedTemplate === i
-                    ? "border-gray-900 bg-white"
-                    : "border-gray-200 bg-white hover:border-gray-300"
-                }`}
-              >
-                <span className="text-lg">{t.emoji}</span>
-                <Typography variant="body" level={4} className="text-center text-gray-700 leading-tight">{t.label}</Typography>
-              </button>
-            ))}
+            {POST_TEMPLATES.map((t, i) => {
+              const tier = getTaskTier(t.category);
+              const tc = TIER_CONFIG[tier];
+              return (
+                <button
+                  key={i}
+                  onClick={() => handleTemplate(i)}
+                  className={`flex flex-col items-center gap-1 rounded-xl border px-2 py-3 transition-all min-h-[44px] ${
+                    selectedTemplate === i
+                      ? "border-gray-900 bg-white"
+                      : "border-gray-200 bg-white hover:border-gray-300"
+                  }`}
+                >
+                  <span className="text-lg">{t.emoji}</span>
+                  <Typography variant="body" level={4} className="text-center text-gray-700 leading-tight">{t.label}</Typography>
+                  <span className={`text-[9px] font-semibold uppercase tracking-wider ${tc.color}`}>{tc.label}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -1757,7 +1814,7 @@ function PostTask({
         <div>
           <Typography variant="label" level={2} className="text-gray-400 mb-2">Description</Typography>
           <textarea
-            placeholder="Describe exactly what you need someone to check, photo, or confirm..."
+            placeholder="Describe exactly what you need done..."
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={3}
@@ -1877,10 +1934,12 @@ function SubmitProof({
   task,
   onDone,
   onCancel,
+  onCreateTask,
 }: {
   task: Task;
   onDone: () => void;
   onCancel: () => void;
+  onCreateTask?: () => void;
 }) {
   const MAX_PHOTOS = 3;
   const [proofNote, setProofNote] = useState("");
@@ -2056,100 +2115,175 @@ function SubmitProof({
       />
 
       <div className="flex-1 px-6 py-6 flex flex-col gap-5">
-        {/* Task context */}
-        <div className="bg-white border border-gray-200 rounded-2xl p-4">
-          <p className="text-sm font-medium leading-snug text-gray-900">{task.description}</p>
-          <div className="flex items-center gap-2 mt-2">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9BA3AE" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-              <circle cx="12" cy="10" r="3" />
-            </svg>
-            <span className="text-xs text-gray-500">{task.location}</span>
-            <span className="text-xs text-gray-400 mx-0.5">·</span>
-            <span className="text-xs font-medium text-gray-900">{rewardLabel(task)}</span>
-          </div>
-          <p className="text-xs text-gray-400 mt-2 flex items-center gap-1.5">
-            <span>{CATEGORY_ICONS[task.category] || "📋"}</span>
-            {proofInstructions(task).short}
-          </p>
-        </div>
-
-        {/* Photo upload — multi-image */}
-        <div>
-          <label className="text-xs text-gray-400 uppercase tracking-wider block mb-2">
-            Photos ({images.length}/{MAX_PHOTOS})
-          </label>
-
-          {images.length > 0 && (
-            <div className="flex gap-2 mb-3 overflow-x-auto pb-1">
-              {images.map((img, i) => (
-                <div key={i} className="relative shrink-0 w-24 h-24 rounded-xl overflow-hidden border border-gray-200">
-                  <img src={img.preview} alt={`Proof ${i + 1}`} className="w-full h-full object-cover" loading="lazy" />
-                  {img.isVideo && (
-                    <div className="absolute bottom-1 left-1 bg-black/70 rounded px-1 py-0.5">
-                      <svg width="10" height="10" viewBox="0 0 24 24" fill="white" stroke="none">
-                        <polygon points="5 3 19 12 5 21 5 3" />
-                      </svg>
-                    </div>
-                  )}
-                  <button
-                    onClick={() => removeImage(i)}
-                    className="absolute -top-1 -right-1 w-7 h-7 bg-black/70 backdrop-blur-sm rounded-full flex items-center justify-center text-white text-xs font-bold hover:bg-red-500/80 transition-colors"
-                  >
-                    x
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {images.length < MAX_PHOTOS && (
-            <label className="flex flex-col items-center justify-center border border-dashed border-gray-200 rounded-2xl p-8 cursor-pointer hover:border-gray-400 transition-all bg-gray-50 active:scale-[0.99]">
-              <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center mb-2">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9BA3AE" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
-                  <circle cx="12" cy="13" r="4" />
-                </svg>
-              </div>
-              <span className="text-sm text-gray-400">
-                {images.length === 0 ? "Take photo or choose from library" : "Add another"}
-              </span>
-              <input
-                type="file"
-                accept="image/*,video/*"
-                capture="environment"
-                onChange={handleFileChange}
-                className="hidden"
-              />
-            </label>
-          )}
-        </div>
-
-        {/* Location warning */}
-        {proofCoords && task.lat && task.lng && (() => {
-          const dist = haversineKm(proofCoords.lat, proofCoords.lng, task.lat!, task.lng!);
-          if (dist <= 2) return null;
+        {/* Task context with tier badge */}
+        {(() => {
+          const tier = getTaskTier(task.category);
+          const tc = TIER_CONFIG[tier];
+          const instructions = proofInstructions(task);
+          const needsPhoto = tierRequiresPhoto(task.category);
           return (
-            <div className="bg-warning-50 border border-warning-200 rounded-xl p-3 flex items-start gap-2.5">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 mt-0.5">
-                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-                <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
-              </svg>
-              <div>
-                <p className="text-xs font-medium text-warning-700">You're {formatDistance(dist)} from this task</p>
-                <p className="text-xs text-warning-600">Location is verified during review. Go to {task.location} before submitting.</p>
+            <>
+              <div className="bg-white border border-gray-200 rounded-2xl p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded border ${tc.bg} ${tc.color}`}>
+                    {tc.label} · {tc.time}
+                  </span>
+                  <span className="text-xs font-medium text-gray-900">{rewardLabel(task)}</span>
+                </div>
+                <p className="text-sm font-medium leading-snug text-gray-900">{task.description}</p>
+                <div className="flex items-center gap-2 mt-2">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9BA3AE" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                    <circle cx="12" cy="10" r="3" />
+                  </svg>
+                  <span className="text-xs text-gray-500">{task.location}</span>
+                </div>
               </div>
-            </div>
+
+              {/* Steps checklist */}
+              <div className="bg-gray-50 rounded-xl p-3.5">
+                <p className="text-xs font-semibold text-gray-700 mb-2">{instructions.short}</p>
+                <ol className="space-y-1.5">
+                  {instructions.steps.map((step, i) => (
+                    <li key={i} className="flex items-start gap-2 text-xs text-gray-500">
+                      <span className="shrink-0 w-4 h-4 rounded-full bg-gray-200 flex items-center justify-center text-[9px] font-bold text-gray-500 mt-0.5">{i + 1}</span>
+                      {step}
+                    </li>
+                  ))}
+                </ol>
+                <p className="text-[10px] text-gray-400 mt-2 italic">{instructions.tip}</p>
+              </div>
+
+              {/* LOW-FRICTION: text first, photo optional */}
+              {!needsPhoto && (
+                <>
+                  <div>
+                    <label className="text-xs text-gray-400 uppercase tracking-wider block mb-2">
+                      Your response {task.category === "social" ? "(or paste link)" : ""}
+                    </label>
+                    <textarea
+                      placeholder={task.category === "feedback" ? "Type your feedback here..." : task.category === "social" ? "Paste your post link or describe what you shared..." : "Write your response..."}
+                      value={proofNote}
+                      onChange={(e) => setProofNote(e.target.value)}
+                      rows={4}
+                      className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-gray-400 transition-colors placeholder:text-gray-400 resize-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-400 uppercase tracking-wider block mb-2">
+                      {task.category === "social" ? "Screenshot (recommended)" : "Photo (optional)"}
+                    </label>
+                    {images.length > 0 ? (
+                      <div className="flex gap-2 mb-2 overflow-x-auto pb-1">
+                        {images.map((img, i) => (
+                          <div key={i} className="relative shrink-0 w-20 h-20 rounded-xl overflow-hidden border border-gray-200">
+                            <img src={img.preview} alt={`Proof ${i + 1}`} className="w-full h-full object-cover" loading="lazy" />
+                            <button
+                              onClick={() => removeImage(i)}
+                              className="absolute -top-1 -right-1 w-6 h-6 bg-black/70 backdrop-blur-sm rounded-full flex items-center justify-center text-white text-[10px] font-bold"
+                            >
+                              x
+                            </button>
+                          </div>
+                        ))}
+                        {images.length < MAX_PHOTOS && (
+                          <label className="shrink-0 w-20 h-20 rounded-xl border border-dashed border-gray-200 flex items-center justify-center cursor-pointer bg-gray-50">
+                            <span className="text-gray-400 text-lg">+</span>
+                            <input type="file" accept="image/*,video/*" capture="environment" onChange={handleFileChange} className="hidden" />
+                          </label>
+                        )}
+                      </div>
+                    ) : (
+                      <label className="flex items-center gap-3 border border-dashed border-gray-200 rounded-xl p-4 cursor-pointer hover:border-gray-400 transition-all bg-gray-50 active:scale-[0.99]">
+                        <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9BA3AE" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                            <circle cx="12" cy="13" r="4" />
+                          </svg>
+                        </div>
+                        <span className="text-sm text-gray-400">Add a screenshot</span>
+                        <input type="file" accept="image/*,video/*" capture="environment" onChange={handleFileChange} className="hidden" />
+                      </label>
+                    )}
+                  </div>
+                </>
+              )}
+
+              {/* HIGH-FRICTION: photo first, note secondary */}
+              {needsPhoto && (
+                <>
+                  <div>
+                    <label className="text-xs text-gray-400 uppercase tracking-wider block mb-2">
+                      Photo proof ({images.length}/{MAX_PHOTOS}) — required
+                    </label>
+                    {images.length > 0 && (
+                      <div className="flex gap-2 mb-3 overflow-x-auto pb-1">
+                        {images.map((img, i) => (
+                          <div key={i} className="relative shrink-0 w-24 h-24 rounded-xl overflow-hidden border border-gray-200">
+                            <img src={img.preview} alt={`Proof ${i + 1}`} className="w-full h-full object-cover" loading="lazy" />
+                            {img.isVideo && (
+                              <div className="absolute bottom-1 left-1 bg-black/70 rounded px-1 py-0.5">
+                                <svg width="10" height="10" viewBox="0 0 24 24" fill="white" stroke="none">
+                                  <polygon points="5 3 19 12 5 21 5 3" />
+                                </svg>
+                              </div>
+                            )}
+                            <button
+                              onClick={() => removeImage(i)}
+                              className="absolute -top-1 -right-1 w-7 h-7 bg-black/70 backdrop-blur-sm rounded-full flex items-center justify-center text-white text-xs font-bold hover:bg-red-500/80 transition-colors"
+                            >
+                              x
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {images.length < MAX_PHOTOS && (
+                      <label className="flex flex-col items-center justify-center border border-dashed border-gray-200 rounded-2xl p-8 cursor-pointer hover:border-gray-400 transition-all bg-gray-50 active:scale-[0.99]">
+                        <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center mb-2">
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9BA3AE" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                            <circle cx="12" cy="13" r="4" />
+                          </svg>
+                        </div>
+                        <span className="text-sm text-gray-400">
+                          {images.length === 0 ? "Take photo or choose from library" : "Add another"}
+                        </span>
+                        <input type="file" accept="image/*,video/*" capture="environment" onChange={handleFileChange} className="hidden" />
+                      </label>
+                    )}
+                  </div>
+
+                  <input
+                    type="text"
+                    placeholder="Add a note (optional)"
+                    value={proofNote}
+                    onChange={(e) => setProofNote(e.target.value)}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-gray-400 transition-colors placeholder:text-gray-400"
+                  />
+                </>
+              )}
+
+              {/* Location warning */}
+              {proofCoords && task.lat && task.lng && (() => {
+                const dist = haversineKm(proofCoords.lat, proofCoords.lng, task.lat!, task.lng!);
+                if (dist <= 2) return null;
+                return (
+                  <div className="bg-warning-50 border border-warning-200 rounded-xl p-3 flex items-start gap-2.5">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 mt-0.5">
+                      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                      <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
+                    </svg>
+                    <div>
+                      <p className="text-xs font-medium text-warning-700">You&apos;re {formatDistance(dist)} from this task</p>
+                      <p className="text-xs text-warning-600">Location is verified during review. Go to {task.location} before submitting.</p>
+                    </div>
+                  </div>
+                );
+              })()}
+            </>
           );
         })()}
-
-        <input
-          type="text"
-          placeholder="Add a note (optional)"
-          value={proofNote}
-          onChange={(e) => setProofNote(e.target.value)}
-          className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-gray-400 transition-colors placeholder:text-gray-400"
-        />
 
         {/* AI Pre-Check (auto-triggered) */}
         {!result && !submitting && (preChecking || preCheck) && (
@@ -2212,7 +2346,9 @@ function SubmitProof({
             <Spinner />
             <div className="text-center">
               <Typography variant="body" level={2}>Verifying proof...</Typography>
-              <Typography variant="body" level={4} className="text-gray-400 mt-1">Analyzing your photo{images.length > 1 ? "s" : ""}</Typography>
+              <Typography variant="body" level={4} className="text-gray-400 mt-1">
+                {images.length > 0 ? `Analyzing your photo${images.length > 1 ? "s" : ""}` : "Reviewing your response"}
+              </Typography>
             </div>
           </div>
         )}
@@ -2288,27 +2424,36 @@ function SubmitProof({
                 ) : (
                   <p className="font-semibold text-sm text-green-600">${task.bountyUsdc} USDC earned</p>
                 )}
-                <button
-                  onClick={() => {
-                    hapticTap();
-                    shareTask({
-                      taskDescription: task.description,
-                      bountyUsdc: task.bountyUsdc,
-                      verdict: "pass",
-                      taskId: task.id,
-                    });
-                  }}
-                  className="flex items-center justify-center gap-2 py-2 rounded-xl border border-green-200 bg-green-50 hover:bg-green-100 transition-all text-xs text-green-600 active:scale-[0.98]"
-                >
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="18" cy="5" r="3" />
-                    <circle cx="6" cy="12" r="3" />
-                    <circle cx="18" cy="19" r="3" />
-                    <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
-                    <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
-                  </svg>
-                  Share
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      hapticTap();
+                      shareTask({
+                        taskDescription: task.description,
+                        bountyUsdc: task.bountyUsdc,
+                        verdict: "pass",
+                        taskId: task.id,
+                      });
+                    }}
+                    className="flex-1 flex items-center justify-center gap-2 py-2 rounded-xl border border-green-200 bg-green-50 hover:bg-green-100 transition-all text-xs text-green-600 active:scale-[0.98]"
+                  >
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="18" cy="5" r="3" />
+                      <circle cx="6" cy="12" r="3" />
+                      <circle cx="18" cy="19" r="3" />
+                      <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+                      <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+                    </svg>
+                    Share
+                  </button>
+                  <button
+                    onClick={() => { hapticTap(); onCreateTask ? onCreateTask() : onDone(); }}
+                    className="flex-1 flex items-center justify-center gap-2 py-2 rounded-xl border border-gray-900 bg-gray-900 hover:bg-gray-800 transition-all text-xs text-white font-semibold active:scale-[0.98]"
+                  >
+                    + Post a favour
+                  </button>
+                </div>
+                <p className="text-[10px] text-green-600/70 text-center mt-1">Now ask someone to help you with something</p>
               </div>
             )}
             {result.verdict === "flag" && (
@@ -2338,15 +2483,19 @@ function SubmitProof({
 
       {!result && !submitting && (
         <div className="px-6 pb-8 pt-2" style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 32px)" }}>
-          <Button
-            onClick={handleSubmit}
-            disabled={task.category !== "feedback" ? images.length === 0 : (images.length === 0 && !proofNote.trim())}
-            variant="primary"
-            fullWidth
-            size="lg"
-          >
-            {images.length > 0 ? "Submit for Verification" : task.category === "feedback" ? "Submit Response" : "Add a photo to submit"}
-          </Button>
+          {(() => {
+            const needsPhoto = tierRequiresPhoto(task.category);
+            const hasContent = images.length > 0 || proofNote.trim().length > 0;
+            const disabled = needsPhoto ? images.length === 0 : !hasContent;
+            const label = needsPhoto
+              ? (images.length > 0 ? "Submit for Verification" : "Add a photo to submit")
+              : (proofNote.trim() ? "Submit Response" : "Write your response to submit");
+            return (
+              <Button onClick={handleSubmit} disabled={disabled} variant="primary" fullWidth size="lg">
+                {label}
+              </Button>
+            );
+          })()}
         </div>
       )}
     </div>
@@ -2355,98 +2504,35 @@ function SubmitProof({
 
 function TaskTimeline({ task }: { task: Task }) {
   const steps = [
+    { label: "Posted", done: true },
+    { label: "Accepted", done: !!task.claimant },
+    { label: "Proof", done: !!task.proofImageUrl },
     {
-      label: "Posted",
-      time: task.createdAt,
-      done: true,
-      icon: (
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
-        </svg>
-      ),
-    },
-    {
-      label: "Claimed",
-      time: task.claimant ? task.createdAt : null,
-      done: !!task.claimant,
-      icon: (
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="8.5" cy="7" r="4" />
-        </svg>
-      ),
-    },
-    {
-      label: "Proof",
-      time: task.proofImageUrl ? task.createdAt : null,
-      done: !!task.proofImageUrl,
-      icon: (
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" /><circle cx="12" cy="13" r="4" />
-        </svg>
-      ),
-    },
-    {
-      label: task.verificationResult?.verdict === "pass" ? "Verified" : task.verificationResult?.verdict === "flag" ? "Flagged" : task.verificationResult ? "Rejected" : "Pending Review",
-      time: task.verificationResult ? task.createdAt : null,
+      label: task.verificationResult?.verdict === "pass" ? "Verified" :
+             task.verificationResult?.verdict === "flag" ? "Flagged" :
+             task.verificationResult ? "Rejected" : "Review",
       done: !!task.verificationResult,
-      icon: (
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M12 2a4 4 0 0 0-4 4v2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10a2 2 0 0 0-2-2h-2V6a4 4 0 0 0-4-4z" />
-        </svg>
-      ),
     },
-    {
-      label: "Settled",
-      time: task.status === "completed" ? task.createdAt : null,
-      done: task.status === "completed",
-      icon: (
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
-        </svg>
-      ),
-    },
+    { label: "Paid", done: task.status === "completed" },
   ];
 
-  const currentStepIndex = steps.findIndex(s => !s.done);
-  const activeIndex = currentStepIndex === -1 ? steps.length - 1 : currentStepIndex;
+  const doneCount = steps.filter(s => s.done).length;
+  const progress = (doneCount / steps.length) * 100;
+  const isFlagged = steps[3].label === "Flagged";
+  const isRejected = steps[3].label === "Rejected";
+  const barColor = isRejected ? "bg-red-500" : isFlagged ? "bg-yellow-500" : "bg-green-500";
 
   return (
-    <div className="bg-white border border-gray-200 rounded-2xl p-3 sm:p-4 overflow-x-auto">
-      <div className="flex items-center justify-between min-w-0">
-        {steps.map((step, i) => {
-          const isActive = i === activeIndex && !step.done;
-          const isDone = step.done;
-          const isFlagged = step.label === "Flagged";
-          const isRejected = step.label === "Rejected";
-          return (
-            <div key={step.label} className="flex items-center flex-1 last:flex-none min-w-0">
-              <div className="flex flex-col items-center gap-1 sm:gap-1.5">
-                <div className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center transition-all ${
-                  isDone
-                    ? isFlagged ? "bg-yellow-100 text-yellow-600" :
-                      isRejected ? "bg-red-100 text-red-600" :
-                      "bg-green-100 text-green-600"
-                    : isActive
-                    ? "bg-gray-200 text-gray-900 animate-[pulse-dot_2s_ease-in-out_infinite]"
-                    : "bg-gray-50 text-gray-500"
-                }`}>
-                  {step.icon}
-                </div>
-                <span className={`text-xs font-medium ${
-                  isDone ? isFlagged ? "text-yellow-600" : isRejected ? "text-red-600" : "text-green-600"
-                  : isActive ? "text-gray-500" : "text-gray-500"
-                }`}>
-                  {step.label}
-                </span>
-              </div>
-              {i < steps.length - 1 && (
-                <div className={`flex-1 h-px mx-0.5 sm:mx-1.5 ${
-                  i < activeIndex ? "bg-green-300" : "bg-gray-200"
-                }`} />
-              )}
-            </div>
-          );
-        })}
+    <div className="bg-white border border-gray-200 rounded-xl p-4">
+      <div className="flex items-center justify-between mb-2">
+        {steps.map((step, i) => (
+          <span key={i} className={`text-[10px] font-medium ${step.done ? (isRejected && i === 3 ? "text-red-600" : isFlagged && i === 3 ? "text-yellow-600" : "text-green-600") : "text-gray-300"}`}>
+            {step.label}
+          </span>
+        ))}
+      </div>
+      <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+        <div className={`h-full ${barColor} rounded-full transition-all duration-500`} style={{ width: `${progress}%` }} />
       </div>
     </div>
   );
@@ -2662,48 +2748,47 @@ function TaskDetail({
           </button>
         )}
 
-        {/* Agent info or People */}
-        {currentTask.agent ? (
-          <div className="rounded-xl p-4 border border-gray-200 bg-gray-50">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl bg-white border border-gray-200">
-                {currentTask.agent.icon}
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-bold text-gray-900">{currentTask.agent.name}</span>
-                  <span className="text-xs font-medium text-gray-400 bg-white border border-gray-200 rounded px-1 py-px">AI</span>
-                </div>
-                <p className="text-xs text-gray-400 mt-0.5">Favour · Pays on completion</p>
-              </div>
+        {/* People */}
+        <div className="flex items-center gap-3 bg-white rounded-xl p-3 border border-gray-200">
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
+              {currentTask.agent ? (
+                <span className="text-sm">{currentTask.agent.icon}</span>
+              ) : (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
+                </svg>
+              )}
             </div>
-            {currentTask.claimant && (
-              <div className="mt-3 pt-3 border-t border-gray-200">
-                <p className="text-xs text-gray-400 uppercase tracking-wider font-medium mb-1">Claimed by</p>
-                <div className="flex items-center gap-2">
-                  <p className="text-xs font-medium">{shortId(currentTask.claimant)}</p>
-                  <VerificationBadge level={currentTask.claimantVerification} size="sm" />
-                </div>
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-3">
-            <div className="bg-white rounded-xl p-3 border border-gray-200 min-w-0">
-              <p className="text-xs text-gray-400 uppercase tracking-wider font-medium mb-1">Poster</p>
-              <p className="text-xs font-medium truncate">{shortId(currentTask.poster)}</p>
+            <div className="min-w-0">
+              <p className="text-xs text-gray-400">Posted by</p>
+              <p className="text-sm font-medium truncate">
+                {currentTask.agent ? currentTask.agent.name : shortId(currentTask.poster)}
+              </p>
             </div>
-            {currentTask.claimant && (
-              <div className="bg-white rounded-xl p-3 border border-gray-200 min-w-0">
-                <p className="text-xs text-gray-400 uppercase tracking-wider font-medium mb-1">Claimant</p>
-                <div className="flex items-center gap-2">
-                  <p className="text-xs font-medium truncate">{shortId(currentTask.claimant)}</p>
-                  <VerificationBadge level={currentTask.claimantVerification} size="sm" />
+          </div>
+          {currentTask.claimant && (
+            <>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ccc" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
+                <polyline points="9 18 15 12 9 6" />
+              </svg>
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                <div className="w-8 h-8 rounded-full bg-green-50 flex items-center justify-center shrink-0">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
+                  </svg>
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs text-gray-400">Doing it</p>
+                  <div className="flex items-center gap-1">
+                    <p className="text-sm font-medium truncate">{shortId(currentTask.claimant)}</p>
+                    <VerificationBadge level={currentTask.claimantVerification} size="sm" />
+                  </div>
                 </div>
               </div>
-            )}
-          </div>
-        )}
+            </>
+          )}
+        </div>
 
         {/* Proof image */}
         {currentTask.proofImageUrl && (
@@ -2889,6 +2974,14 @@ function TaskDetail({
         )}
 
         {/* Action buttons */}
+        {currentTask.status === "open" && userId && !isPoster && (
+          <button
+            onClick={onSubmitProof}
+            className="w-full bg-gray-900 hover:bg-gray-900 text-white font-semibold rounded-xl px-4 py-3 min-h-[44px] transition-colors active:scale-[0.98]"
+          >
+            {currentTask.escrowTxHash ? `Do it — earn $${currentTask.bountyUsdc} USDC` : "Do it"}
+          </button>
+        )}
         {currentTask.status === "claimed" && isClaimant && !isFlagged && !hasFollowUp && (
           <button
             onClick={onSubmitProof}
@@ -3009,70 +3102,10 @@ function TaskDetail({
           </div>
         )}
 
-        {/* XMTP Thread */}
-        <div className="flex flex-col gap-2 mt-2">
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-400 uppercase tracking-wider font-medium">Thread</span>
-            <span className="flex-1 h-px bg-gray-50" />
-            <div className="flex items-center gap-1">
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#9BA3AE" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
-              <span className="text-xs text-gray-500">XMTP Encrypted</span>
-              <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-[pulse-dot_2s_ease-in-out_infinite]" />
-            </div>
-          </div>
-          {messages.length === 0 ? (
-            <div className="text-center py-6">
-              <p className="text-xs text-gray-500">No messages yet</p>
-            </div>
-          ) : (
-            messages.map((msg) => {
-              const isAiBriefing = msg.sender === "relay-bot" && (msg.text.includes("BRIEFING") && !msg.text.includes("SCOUT"));
-              const isAiFollowUp = msg.sender === "relay-bot" && msg.text.includes("FOLLOW-UP");
-              const isAiDispute = msg.sender === "relay-bot" && msg.text.includes("DISPUTE RESOLUTION");
-              const isAiReEval = msg.sender === "relay-bot" && msg.text.includes("RE-EVALUATION");
-              const isAiMessage = isAiBriefing || isAiFollowUp || isAiDispute || isAiReEval;
-
-              return (
-                <div
-                  key={msg.id}
-                  className={`rounded-2xl p-4 ${
-                    isAiMessage
-                      ? "bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200"
-                      : msg.sender === "relay-bot"
-                      ? "bg-white border border-gray-200"
-                      : msg.sender === userId
-                      ? "bg-gray-100 border border-gray-200 ml-4"
-                      : "bg-white border border-gray-200 mr-4"
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className={`text-xs font-semibold flex items-center gap-1.5 ${
-                      isAiMessage ? "text-gray-500" :
-                      msg.sender === "relay-bot" ? "text-gray-500" :
-                      msg.sender === userId ? "text-gray-500" : "text-gray-400"
-                    }`}>
-                      {isAiMessage && (
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M12 2a4 4 0 0 0-4 4v2H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V10a2 2 0 0 0-2-2h-2V6a4 4 0 0 0-4-4z" />
-                        </svg>
-                      )}
-                      {msg.sender === "relay-bot" ? (isAiMessage ? "RELAY AI" : "RELAY") : msg.sender === userId ? "You" : shortId(msg.sender)}
-                    </span>
-                    <span className="text-xs text-gray-500">
-                      {new Date(msg.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                    </span>
-                  </div>
-                  <p className="text-sm text-gray-500 whitespace-pre-line leading-relaxed break-words">{typeof msg.text === "string" ? msg.text : String(msg.text)}</p>
-                </div>
-              );
-            })
-          )}
-          <div ref={messagesEndRef} />
-        </div>
       </div>
 
-      {/* Chat input */}
-      {isParticipant && currentTask.status !== "completed" && currentTask.status !== "failed" && (
+      {/* Chat input - only show when there are messages */}
+      {isParticipant && messages.length > 0 && currentTask.status !== "completed" && currentTask.status !== "failed" && (
         <div className="sticky bottom-14 bg-white border-t border-gray-200 px-4 py-3">
           <div className="flex gap-2">
             <input

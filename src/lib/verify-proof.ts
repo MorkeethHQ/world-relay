@@ -22,30 +22,25 @@ export type ConsensusResult = {
   consensusMethod: "majority" | "unanimous";
 };
 
-const SYSTEM_PROMPT = `You are a proof verification agent for RELAY, a real-world micro-task network.
+const SYSTEM_PROMPT = `You are a proof verification agent for RELAY, a real-world task network.
 Your job: determine if submitted proof plausibly demonstrates that a task was completed.
 
-Tasks may require photos, text reports, price checks, reviews, or research. You will receive:
+You will receive:
 - A task description (what was requested)
+- A category hint (how strict to be)
 - Proof: one or more photos AND/OR a written text response
 
-For PHOTO proofs, evaluate STRICTLY:
-1. AUTHENTICITY — Is this a genuine camera photo taken by the claimant?
-   - FAIL if it looks AI-generated (smooth textures, impossible details, DALL-E/Midjourney artifacts, too-perfect composition)
-   - FAIL if it's a screenshot of another photo, a photo of a screen, or clearly downloaded
-   - FAIL if it appears to be a stock photo (watermarks, overly professional staging)
-   - FLAG if the lighting/shadows are inconsistent or metadata seems wrong
-2. RELEVANCE — Does it show what the task asked for?
-   - Look for specific details mentioned in the task (store name, sign text, location markers)
-   - Check that environmental context is consistent (weather, time of day, surroundings)
-3. FRESHNESS — Does it appear to be taken recently/now?
-   - Look for current-date indicators (newspaper dates, digital displays, seasonal cues)
-   - FLAG if the photo could easily be months/years old
+For PHOTO proofs:
+1. AUTHENTICITY — Is this a genuine photo, not AI-generated or stolen?
+   - FAIL only if clearly AI-generated (DALL-E artifacts, impossible details) or stock photo with watermarks
+   - Screenshots of social media posts ARE valid proof for social tasks
+2. RELEVANCE — Does it relate to what the task asked for?
+3. A photo doesn't need to be perfect. Real phone photos are messy — that's fine.
 
-For TEXT proofs (no photos), evaluate:
-- Does the response answer what the task asked?
-- Is it specific enough to be credible (names, numbers, details)?
-- Does it seem like firsthand observation vs. generic info from the internet?
+For TEXT proofs (no photos):
+- Does the response address the task?
+- Is it a genuine attempt, not copy-pasted spam?
+- Short answers are fine if they're honest and on-topic.
 
 Respond with JSON only:
 {
@@ -54,12 +49,11 @@ Respond with JSON only:
   "confidence": 0.0-1.0
 }
 
-- "pass": Photo is clearly authentic AND shows the task was completed
-- "flag": Could be valid but has authenticity concerns — needs human review
-- "fail": Photo is fake, AI-generated, stolen, or does not match the task
+- "pass": The proof shows a genuine attempt to complete the task
+- "flag": Ambiguous — could be valid, needs human review
+- "fail": Clearly fake, spam, or completely unrelated to the task
 
-IMPORTANT: Real USDC payments are released based on your verdict. Err heavily on the side of caution.
-When in doubt, FLAG. Only PASS when you are confident the photo is authentic and task-relevant.`;
+DEFAULT TO PASS for genuine attempts. Only fail obvious fraud or spam.`;
 
 function extractJson(text: string): string {
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
@@ -80,6 +74,10 @@ const CATEGORY_HINTS: Record<string, string> = {
   delivery: "This is a DELIVERY task. Look for evidence that an item was delivered — packaging, receipt, handoff, or the item at the destination.",
   "check-in": "This is a CHECK-IN task. The claimant was asked to confirm a status at a location. Look for signs, current conditions, or timestamps.",
   custom: "",
+  review: "This is a REVIEW task. The claimant was asked to share an honest opinion. Be LENIENT — any genuine personal opinion counts. A short honest response is fine. Don't require photos unless the task explicitly asks for them.",
+  social: "This is a SOCIAL MEDIA task. The claimant should provide a screenshot of their published post. Verify the screenshot looks like a real social media post (X/Instagram/TikTok). Don't verify the content quality — just that a post was made.",
+  feedback: "This is a FEEDBACK task. Be VERY LENIENT. Any genuine response that addresses the question counts as a pass. Short answers are fine. The bar is: did they engage with the question at all? If yes, pass.",
+  errand: "This is an ERRAND task. The claimant was asked to complete a physical task. Look for photo evidence of the completed errand.",
 };
 
 export async function verifyProof(
@@ -156,7 +154,7 @@ export async function verifyProof(
 
 // --- Multi-model consensus verification ---
 
-const MODEL_TIMEOUT_MS = 15000;
+const MODEL_TIMEOUT_MS = 30000;
 
 async function callClaude(
   systemPrompt: string,
@@ -169,11 +167,9 @@ async function callClaude(
     | { type: "text"; text: string }
     | {
         type: "image";
-        source: {
-          type: "base64";
-          media_type: "image/jpeg" | "image/png" | "image/gif" | "image/webp";
-          data: string;
-        };
+        source:
+          | { type: "base64"; media_type: "image/jpeg" | "image/png" | "image/gif" | "image/webp"; data: string }
+          | { type: "url"; url: string };
       }
   > = [{ type: "text" as const, text: userText }];
 
@@ -184,13 +180,12 @@ async function callClaude(
         text: `Photo ${i + 1} of ${images.length}:`,
       });
     }
+    const isUrl = images[i].startsWith("http://") || images[i].startsWith("https://");
     userContent.push({
       type: "image" as const,
-      source: {
-        type: "base64" as const,
-        media_type: detectMediaType(images[i]),
-        data: images[i],
-      },
+      source: isUrl
+        ? { type: "url" as const, url: images[i] }
+        : { type: "base64" as const, media_type: detectMediaType(images[i]), data: images[i] },
     });
   }
 
@@ -242,10 +237,10 @@ async function callOpenRouter(
     if (images.length > 1) {
       content.push({ type: "text", text: `Photo ${i + 1} of ${images.length}:` });
     }
-    const mediaType = detectMediaType(images[i]);
+    const isUrl = images[i].startsWith("http://") || images[i].startsWith("https://");
     content.push({
       type: "image_url",
-      image_url: { url: `data:${mediaType};base64,${images[i]}` },
+      image_url: { url: isUrl ? images[i] : `data:${detectMediaType(images[i])};base64,${images[i]}` },
     });
   }
 
@@ -291,13 +286,14 @@ async function callOpenRouter(
 }
 
 function aggregateResults(results: ModelResult[]): ConsensusResult {
-  // Count verdicts
+  const available = results.filter(r => r.confidence > 0 || !r.reasoning.includes("unavailable"));
+  const toCount = available.length > 0 ? available : results;
+
   const verdictCounts: Record<string, number> = { pass: 0, flag: 0, fail: 0 };
-  for (const r of results) {
+  for (const r of toCount) {
     verdictCounts[r.verdict] = (verdictCounts[r.verdict] || 0) + 1;
   }
 
-  // Find majority verdict
   let majorityVerdict: "pass" | "flag" | "fail" = "flag";
   let maxCount = 0;
   for (const v of ["pass", "flag", "fail"] as const) {
@@ -307,15 +303,17 @@ function aggregateResults(results: ModelResult[]): ConsensusResult {
     }
   }
 
-  const isUnanimous = maxCount === results.length;
+  if (verdictCounts["pass"] > 0 && verdictCounts["pass"] >= verdictCounts["fail"]) {
+    majorityVerdict = "pass";
+  }
 
-  // Average confidence
+  const isUnanimous = maxCount === toCount.length;
+
   const avgConfidence =
     Math.round(
-      (results.reduce((sum, r) => sum + r.confidence, 0) / results.length) * 100
+      (toCount.reduce((sum, r) => sum + r.confidence, 0) / toCount.length) * 100
     ) / 100;
 
-  // Combine reasonings
   const combinedReasoning = results
     .map((r) => `[${r.name}] ${r.reasoning}`)
     .join(" | ");
@@ -381,8 +379,8 @@ export async function verifyProofConsensus(
       };
     }),
     callOpenRouter(
-      "google/gemini-2.0-flash-001",
-      "Gemini 2.0 Flash",
+      "google/gemini-2.5-flash",
+      "Gemini 2.5 Flash",
       systemPrompt,
       userText,
       images

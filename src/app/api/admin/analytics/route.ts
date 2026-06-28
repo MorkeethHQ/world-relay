@@ -12,6 +12,29 @@ export async function POST(req: NextRequest) {
   const redis = getRedis();
   if (!redis) return NextResponse.json({ error: "No redis" }, { status: 500 });
 
+  if (body.action === "reset-verification" && Array.isArray(body.ids)) {
+    const tasks = await listTasks();
+    let reset = 0;
+    for (const id of body.ids) {
+      const task = tasks.find(t => t.id === id);
+      if (task) {
+        (task as any).verificationResult = null;
+        (task as any).status = task.claimant ? "claimed" : "open";
+        await redis.set(`task:${id}`, JSON.stringify(task));
+        reset++;
+      }
+    }
+    return NextResponse.json({ reset });
+  }
+
+  if (body.action === "delete-tasks" && Array.isArray(body.ids)) {
+    for (const id of body.ids) {
+      await redis.del(`task:${id}`);
+      await redis.srem("task_ids", id);
+    }
+    return NextResponse.json({ removed: body.ids.length });
+  }
+
   if (body.action === "cleanup-unfunded") {
     const tasks = await listTasks();
     const toRemove = tasks.filter(t =>
@@ -24,6 +47,35 @@ export async function POST(req: NextRequest) {
       await redis.srem("task_ids", t.id);
     }
     return NextResponse.json({ removed: toRemove.length, ids: toRemove.map(t => t.id) });
+  }
+
+  if (body.action === "update-task" && body.id && body.fields) {
+    const tasks = await listTasks();
+    const task = tasks.find(t => t.id === body.id);
+    if (!task) return NextResponse.json({ error: "Task not found" }, { status: 404 });
+    for (const [k, v] of Object.entries(body.fields)) {
+      (task as any)[k] = v;
+    }
+    await redis.set(`task:${body.id}`, JSON.stringify(task));
+    return NextResponse.json({ updated: body.id });
+  }
+
+  if (body.action === "auto-archive") {
+    const tasks = await listTasks();
+    const now = Date.now();
+    const FOURTEEN_DAYS = 14 * 24 * 3600_000;
+    const archived: string[] = [];
+
+    for (const t of tasks) {
+      const age = now - new Date(t.createdAt).getTime();
+      if (t.status === "open" && !t.claimant && age > FOURTEEN_DAYS) {
+        (t as any).status = "expired";
+        (t as any).archivedAt = new Date().toISOString();
+        await redis.set(`task:${t.id}`, JSON.stringify(t));
+        archived.push(t.id);
+      }
+    }
+    return NextResponse.json({ archived: archived.length, ids: archived });
   }
 
   if (body.action !== "dedup") {

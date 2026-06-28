@@ -4,6 +4,8 @@ import { postVerificationResult, postSettlementConfirmation } from "@/lib/xmtp";
 import { fireWebhook } from "@/lib/webhooks";
 import { releaseEscrow } from "@/lib/escrow";
 import { getRedis } from "@/lib/redis";
+import { notifyPaymentReleased } from "@/lib/notifications";
+import { addNotification } from "@/lib/notifications-store";
 
 export async function POST(
   req: NextRequest,
@@ -31,12 +33,22 @@ export async function POST(
 
     // Release escrow if this task was pending poster confirmation (high-value auto-release)
     if ((task as any).pendingRelease && task.onChainId !== null) {
-      const escrowTx = await releaseEscrow(task.onChainId).catch((err) => {
+      const escrowTx = await releaseEscrow(task.onChainId, task.claimant).catch((err) => {
         console.error("[Escrow] Release on confirm failed:", err);
         return null;
       });
       if (escrowTx) {
         postSettlementConfirmation(id, task.bountyUsdc, escrowTx).catch(console.error);
+        if (task.claimant) {
+          notifyPaymentReleased(task.claimant, task.bountyUsdc).catch(console.error);
+          addNotification({
+            userId: task.claimant,
+            type: "payment_released",
+            title: "Payment released!",
+            body: `$${task.bountyUsdc} USDC sent to your wallet.`,
+            taskId: id,
+          }).catch(console.error);
+        }
       }
       // Clear the pendingRelease flag
       const redis = getRedis();

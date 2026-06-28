@@ -4,7 +4,7 @@ import { verifyProof, verifyProofConsensus, verifyProofStub } from "@/lib/verify
 import type { ConsensusResult } from "@/lib/verify-proof";
 import { postProofSubmitted, postVerificationResult, postFollowUpQuestion, postSettlementConfirmation, syncAndProcessMessages } from "@/lib/xmtp";
 import { generateFollowUpQuestion } from "@/lib/ai-chat";
-import { notifyProofSubmitted, notifyVerified, notifyFlagged } from "@/lib/notifications";
+import { notifyProofSubmitted, notifyVerified, notifyFlagged, notifyPaymentReleased } from "@/lib/notifications";
 import { addNotification } from "@/lib/notifications-store";
 import { postAttestation } from "@/lib/attestation";
 import { recordCompletion, recordFailure, getReputation, getTrustScore, getVerificationMultiplier } from "@/lib/reputation";
@@ -17,6 +17,8 @@ import { uploadProofImage } from "@/lib/image-upload";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { sanitizeInput } from "@/lib/sanitize";
 import { trackEvent } from "@/lib/track";
+
+export const maxDuration = 60;
 
 const RATE_LIMIT_KEY = "ratelimit:verify";
 
@@ -132,26 +134,22 @@ export async function POST(req: NextRequest) {
   if (!task) {
     return NextResponse.json({ error: "Task not found" }, { status: 404 });
   }
-  const isMultiCompletion = (task.maxCompletions || 1) > 1 && !task.escrowTxHash;
 
-  if (isMultiCompletion) {
-    if (task.status !== "open" && task.status !== "claimed") {
-      return NextResponse.json({ error: "Task is no longer accepting submissions" }, { status: 400 });
-    }
-    if (submitter) {
-      task.claimant = submitter;
-    }
-  } else {
-    if (!demoMode && task.status === "claimed" && task.claimant && submitter !== task.claimant) {
-      return NextResponse.json({ error: "Only the task claimant can submit proof" }, { status: 403 });
-    }
-    const needsClaim = task.requiresClaim !== false;
-    if (needsClaim && task.status !== "claimed" && !demoMode) {
-      return NextResponse.json({ error: "Task not in claimed state" }, { status: 400 });
-    }
-    if (!needsClaim && task.status !== "open" && task.status !== "claimed") {
-      return NextResponse.json({ error: "Task is not available for proof submission" }, { status: 400 });
-    }
+  // Allow direct submission from open OR claimed status
+  if (task.status !== "open" && task.status !== "claimed") {
+    return NextResponse.json({ error: "Task is no longer accepting submissions" }, { status: 400 });
+  }
+  // If already claimed by someone else, only that person can submit
+  if (!demoMode && task.status === "claimed" && task.claimant && submitter !== task.claimant) {
+    return NextResponse.json({ error: "Someone else is already working on this" }, { status: 403 });
+  }
+  // Can't submit proof for your own task
+  if (submitter && task.poster === submitter) {
+    return NextResponse.json({ error: "Can't submit proof for your own task" }, { status: 403 });
+  }
+  // Set claimant on first submission (replaces the claim step)
+  if (task.status === "open" && submitter) {
+    task.claimant = submitter;
   }
 
   let locationVerified: boolean | null = null;
@@ -164,7 +162,7 @@ export async function POST(req: NextRequest) {
   const proofImageUrls = await Promise.all(
     proofImages.map((img: string, i: number) => uploadProofImage(img, taskId, i))
   );
-  await submitProof(taskId, proofImageUrls[0] || null, proofNote || null, proofImageUrls.length > 0 ? proofImageUrls : null);
+  await submitProof(taskId, proofImageUrls[0] || null, proofNote || null, proofImageUrls.length > 0 ? proofImageUrls : null, submitter);
   trackEvent("proof_submitted", { taskId, submitter: submitter || "", hasImages: proofImageUrls.length > 0, bounty: task.bountyUsdc }).catch(() => {});
   await postProofSubmitted(taskId, proofNote);
 
@@ -315,27 +313,10 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // On-chain attestation — fire and forget
-  let attestationTxHash: string | null = null;
-  if (result.verdict === "pass" || result.verdict === "flag") {
-    attestationTxHash = await postAttestation(
-      taskId,
-      task.description,
-      proofImages[0].slice(0, 100),
-      result.verdict,
-      result.confidence
-    ).catch(() => null);
-    if (attestationTxHash) {
-      await setAttestationHash(taskId, attestationTxHash);
-    }
-  }
-
-  // Auto-release escrow when verdict is pass and task has on-chain ID
-  // For high-value tasks (>= $10), require poster confirmation before release
+  // Auto-release escrow FIRST (payment is the priority)
   let escrowReleaseTxHash: string | null = null;
   if (result.verdict === "pass" && task.onChainId !== null) {
     if (task.bountyUsdc >= 10) {
-      // High-value: set pendingRelease flag, poster must confirm via /confirm endpoint
       const redisForRelease = getRedis();
       if (redisForRelease) {
         const updatedForRelease = await getTask(taskId);
@@ -345,14 +326,38 @@ export async function POST(req: NextRequest) {
         }
       }
     } else {
-      // Low-value: auto-release immediately
-      escrowReleaseTxHash = await releaseEscrow(task.onChainId).catch((err) => {
+      escrowReleaseTxHash = await releaseEscrow(task.onChainId, task.claimant).catch((err) => {
         console.error("[Escrow] Auto-release failed:", err);
         return null;
       });
       if (escrowReleaseTxHash) {
         postSettlementConfirmation(taskId, task.bountyUsdc, escrowReleaseTxHash).catch(console.error);
+        if (task.claimant) {
+          notifyPaymentReleased(task.claimant, task.bountyUsdc).catch(console.error);
+          addNotification({
+            userId: task.claimant,
+            type: "payment_released",
+            title: "Payment released!",
+            body: `$${task.bountyUsdc} USDC sent to your wallet.`,
+            taskId,
+          }).catch(console.error);
+        }
       }
+    }
+  }
+
+  // On-chain attestation (non-critical, after payment)
+  let attestationTxHash: string | null = null;
+  if (result.verdict === "pass" || result.verdict === "flag") {
+    attestationTxHash = await postAttestation(
+      taskId,
+      task.description,
+      (proofImages[0] || proofNote || "").slice(0, 100),
+      result.verdict,
+      result.confidence
+    ).catch(() => null);
+    if (attestationTxHash) {
+      await setAttestationHash(taskId, attestationTxHash);
     }
   }
 

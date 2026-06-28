@@ -56,6 +56,13 @@ const ESCROW_ABI = [
     outputs: [],
   },
   {
+    name: "claimTask",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [{ name: "_taskId", type: "uint256" }],
+    outputs: [],
+  },
+  {
     name: "releasePayment",
     type: "function",
     stateMutability: "nonpayable",
@@ -122,6 +129,13 @@ const ESCROW_ABI = [
     inputs: [],
     outputs: [{ name: "", type: "string" }],
   },
+  {
+    name: "refund",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [{ name: "_taskId", type: "uint256" }],
+    outputs: [],
+  },
 ] as const;
 
 const ERC20_ABI = [
@@ -155,7 +169,8 @@ const ERC20_ABI = [
 ] as const;
 
 function getSignerKey(): string | null {
-  return process.env.XMTP_WALLET_KEY || null;
+  const raw = process.env.XMTP_WALLET_KEY;
+  return raw ? raw.trim() : null;
 }
 
 function getPublicClient() {
@@ -173,7 +188,7 @@ function getWalletClient() {
   return { client: createWalletClient({ account, chain: worldchain, transport: http(RPC_URL) }), account };
 }
 
-export async function releaseEscrow(onChainId: number): Promise<string | null> {
+export async function releaseEscrow(onChainId: number, recipientAddress?: string | null): Promise<string | null> {
   const wallet = getWalletClient();
   if (!wallet) {
     console.error("[Escrow] No signer key — cannot release payment");
@@ -190,9 +205,23 @@ export async function releaseEscrow(onChainId: number): Promise<string | null> {
       args: [BigInt(onChainId)],
     });
 
-    if (onChainTask.status !== 1) {
+    // Task must be Open or Claimed to proceed
+    if (onChainTask.status !== 0 && onChainTask.status !== 1) {
       return null;
     }
+
+    // If Open, claim on-chain first (relayer claims on behalf of user)
+    if (onChainTask.status === 0) {
+      const claimHash = await wallet.client.writeContract({
+        address: ESCROW_ADDRESS,
+        abi: ESCROW_ABI,
+        functionName: "claimTask",
+        args: [BigInt(onChainId)],
+      });
+      await pub.waitForTransactionReceipt({ hash: claimHash });
+    }
+
+    const bountyAmount = onChainTask.bounty;
 
     const hash = await wallet.client.writeContract({
       address: ESCROW_ADDRESS,
@@ -202,9 +231,69 @@ export async function releaseEscrow(onChainId: number): Promise<string | null> {
     });
 
     await pub.waitForTransactionReceipt({ hash });
+
+    // Forward USDC to the actual user (releasePayment sends to relayer since relayer claimed)
+    if (recipientAddress && recipientAddress.startsWith("0x") && recipientAddress.length === 42) {
+      const feeRate = await pub.readContract({ address: ESCROW_ADDRESS, abi: ESCROW_ABI, functionName: "feeRate" });
+      const communityRate = await pub.readContract({ address: ESCROW_ADDRESS, abi: ESCROW_ABI, functionName: "communityRate" });
+      const payout = bountyAmount - (bountyAmount * feeRate) / BigInt(10000) - (bountyAmount * communityRate) / BigInt(10000);
+
+      const transferHash = await wallet.client.writeContract({
+        address: USDC_ADDRESS,
+        abi: [{
+          name: "transfer",
+          type: "function",
+          stateMutability: "nonpayable",
+          inputs: [{ name: "to", type: "address" }, { name: "amount", type: "uint256" }],
+          outputs: [{ name: "", type: "bool" }],
+        }],
+        functionName: "transfer",
+        args: [recipientAddress as `0x${string}`, payout],
+      });
+      await pub.waitForTransactionReceipt({ hash: transferHash });
+      return transferHash;
+    }
+
     return hash;
   } catch (err) {
     console.error(`[Escrow] Failed to release task ${onChainId}:`, err);
+    return null;
+  }
+}
+
+export async function refundEscrow(onChainId: number): Promise<string | null> {
+  const wallet = getWalletClient();
+  if (!wallet) {
+    console.error("[Escrow] No signer key — cannot refund");
+    return null;
+  }
+
+  try {
+    const pub = getPublicClient();
+
+    const onChainTask = await pub.readContract({
+      address: ESCROW_ADDRESS,
+      abi: ESCROW_ABI,
+      functionName: "getTask",
+      args: [BigInt(onChainId)],
+    });
+
+    // Only refund tasks that are still Open (0) or Claimed (1)
+    if (onChainTask.status !== 0 && onChainTask.status !== 1) {
+      return null;
+    }
+
+    const hash = await wallet.client.writeContract({
+      address: ESCROW_ADDRESS,
+      abi: ESCROW_ABI,
+      functionName: "refund",
+      args: [BigInt(onChainId)],
+    });
+
+    await pub.waitForTransactionReceipt({ hash });
+    return hash;
+  } catch (err) {
+    console.error(`[Escrow] Failed to refund task ${onChainId}:`, err);
     return null;
   }
 }
