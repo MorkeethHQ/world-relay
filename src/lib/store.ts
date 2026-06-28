@@ -249,10 +249,18 @@ export async function submitProof(
   id: string,
   proofImageUrl: string | null,
   proofNote: string | null,
-  proofImages?: string[] | null
+  proofImages?: string[] | null,
+  submitter?: string | null,
+  verificationLevel?: "orb" | "device" | "wallet" | null
 ): Promise<Task | null> {
   const task = await getTask(id);
-  if (!task || task.status !== "claimed") return null;
+  if (!task) return null;
+  if (task.status !== "open" && task.status !== "claimed") return null;
+  if (task.status === "open" && submitter) {
+    task.claimant = submitter;
+    task.status = "claimed";
+    task.claimantVerification = verificationLevel ?? null;
+  }
   task.proofImageUrl = proofImageUrl;
   task.proofImages = proofImages && proofImages.length > 0 ? proofImages : proofImageUrl ? [proofImageUrl] : null;
   task.proofNote = proofNote;
@@ -292,6 +300,7 @@ export async function completeTask(
     task.proofImageUrl = null;
     task.proofImages = null;
     task.proofNote = null;
+    task.verificationResult = null;
   }
   await persistTask(task);
   return task;

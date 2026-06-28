@@ -5,6 +5,10 @@ export async function uploadProofImage(
   taskId: string,
   index: number
 ): Promise<string> {
+  if (base64Data.startsWith("http://") || base64Data.startsWith("https://")) {
+    return base64Data;
+  }
+
   const blobToken = process.env.BLOB_READ_WRITE_TOKEN;
   if (!blobToken) {
     return `data:image/jpeg;base64,${base64Data}`;
