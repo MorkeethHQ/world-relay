@@ -387,7 +387,7 @@ export async function verifyProofConsensus(
     ).catch((err) => {
       console.error("[Consensus] Gemini failed:", err);
       return {
-        name: "Gemini 2.0 Flash",
+        name: "Gemini 2.5 Flash",
         verdict: "flag" as const,
         confidence: 0,
         reasoning: "Model unavailable — flagged for manual review",
@@ -396,6 +396,18 @@ export async function verifyProofConsensus(
   ];
 
   const results = await Promise.all(modelPromises);
+  const allFailed = results.every(r => r.confidence === 0 && r.reasoning.includes("unavailable"));
+
+  if (allFailed) {
+    console.error("[Consensus] All 3 models failed, attempting single-model fallback");
+    try {
+      const fallback = await callClaude(systemPrompt, userText, images);
+      return aggregateResults([fallback]);
+    } catch (fallbackErr) {
+      console.error("[Consensus] Fallback Claude also failed:", fallbackErr);
+    }
+  }
+
   return aggregateResults(results);
 }
 

@@ -28,11 +28,13 @@ function isMiniKit(): boolean {
   try { return typeof window !== "undefined" && MiniKit.isInstalled(); } catch { return false; }
 }
 import { VerificationBadge, RequiredTierBadge } from "@/components/VerificationBadge";
-import { ProofOfFavourCard } from "@/components/ProofOfFavourCard";
 import { encodeCreateTask, encodeClaimTask, encodeReleasePayment, encodeUniswapSwap, readTaskCount, RELAY_ESCROW_ADDRESS, DOUBLE_OR_NOTHING_ADDRESS, encodeCreateDoubleOrNothing, encodeStakeAndClaimWithApproval, readDonTaskCount, type SwapToken } from "@/lib/contracts";
 import { hapticSuccess, hapticError, hapticTap, hapticHeavy, hapticMedium, hapticSelection, shareTask } from "@/lib/minikit-helpers";
 import { TASK_TEMPLATES } from "@/lib/agents";
 import { useWorldUsers, displayName } from "@/hooks/useWorldUser";
+import { getFeaturedCampaign } from "@/lib/campaigns";
+import { CampaignPage, FeaturedCampaignBanner } from "@/components/CampaignPage";
+import { PollsFeed } from "@/components/Polls";
 
 function extractTxHash(result: unknown): string | null {
   if (typeof result !== "object" || result === null) return null;
@@ -292,13 +294,13 @@ function ActivityTicker({ tasks }: { tasks: Task[] }) {
   );
 }
 
-type Tab = "available" | "mine" | "completed";
+type Tab = "available" | "polls" | "mine" | "completed";
 
 const RELAY_BOT_ADDRESS = "0x1101158041fd96f21cbcbb0e752a9a2303e6d70e";
 
 export function Feed({ userId, verificationLevel, onLogout }: { userId: string | null; verificationLevel?: string | null; onLogout?: () => void }) {
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [view, setView] = useState<"board" | "post" | "proof" | "detail">("board");
+  const [view, setView] = useState<"board" | "post" | "proof" | "detail" | "campaign">("board");
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [tab, setTab] = useState<Tab>("available");
   const [mapMode, setMapMode] = useState(false);
@@ -317,9 +319,6 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
   const [claimCodeInput, setClaimCodeInput] = useState("");
   const [pullDistance, setPullDistance] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [featureRequest, setFeatureRequest] = useState("");
-  const [featureSubmitting, setFeatureSubmitting] = useState(false);
-  const [featureSubmitted, setFeatureSubmitted] = useState(false);
   const [showCreateNudge, setShowCreateNudge] = useState(false);
   const prevCompletedCount = useRef(0);
   const touchStartY = useRef(0);
@@ -660,6 +659,21 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
     }
   }, [userId, fetchTasks]);
 
+  const featuredCampaign = useMemo(() => getFeaturedCampaign(), []);
+
+  if (view === "campaign" && featuredCampaign) {
+    return (
+      <CampaignPage
+        campaign={featuredCampaign}
+        tasks={tasks}
+        userId={userId}
+        onBack={() => setView("board")}
+        onTaskTap={(task) => { setSelectedTask(task); setView("detail"); }}
+        onSubmitProof={(task) => { setSelectedTask(task); setView("proof"); }}
+      />
+    );
+  }
+
   if (view === "post") {
     return <PostTask userId={userId} onDone={() => { setView("board"); fetchTasks(); }} onCancel={() => setView("board")} />;
   }
@@ -687,85 +701,62 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      {/* Header */}
-      <div className="sticky top-0 z-10 bg-white border-b border-gray-200">
-        <div className="flex items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-3">
-            <CircularIcon size="sm" className="bg-gray-900">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 2L2 7l10 5 10-5-10-5z" />
-                <path d="M2 17l10 5 10-5" />
-                <path d="M2 12l10 5 10-5" />
-              </svg>
-            </CircularIcon>
-            <div>
-              <Typography variant="subtitle" level={2} as="h1">RELAY FAVOURS</Typography>
-              {userId && (
-                <div className="flex items-center gap-2 mt-0.5">
-                  <button onClick={onLogout} aria-label="Sign out" className="text-xs text-gray-500 hover:text-gray-900 transition-colors min-h-[44px] flex items-center">
-                    {shortId(userId)}
-                  </button>
-                  <VerificationBadge level={verificationLevel} />
-                </div>
-              )}
-            </div>
-          </div>
+      {/* Header - minimal */}
+      <div className="sticky top-0 z-10 bg-white/95 backdrop-blur-md border-b border-gray-100">
+        <div className="flex items-center justify-between px-6 py-3">
+          <h1 className="text-[18px] font-bold tracking-tight text-gray-900">RELAY</h1>
           {userId && (
-            <Button
+            <button
               onClick={() => { hapticTap(); setView("post"); }}
-              variant="primary"
-              size="sm"
+              className="bg-gray-900 text-white text-[13px] font-semibold px-4 py-2 rounded-full active:scale-95 transition-transform min-h-[36px]"
             >
-              + Request
-            </Button>
+              + New
+            </button>
           )}
         </div>
 
         {/* Tabs */}
         <div className="flex px-6 gap-0 items-center" role="tablist">
-          {(["available", "mine", "completed"] as Tab[]).map((t) => {
-            const label = t === "available" ? "Favours" : t === "mine" ? "Mine" : "History";
-            const count = t === "mine" ? myTaskCount : null;
+          {(["available", "polls", "mine", "completed"] as Tab[]).map((t) => {
+            const label = t === "available" ? "Tasks" : t === "polls" ? "Polls" : t === "mine" ? "Mine" : "History";
             return (
               <button
                 key={t}
                 onClick={() => { hapticSelection(); setTab(t); }}
                 role="tab"
                 aria-selected={tab === t}
-                className={`flex-1 text-sm min-h-[44px] py-3 font-medium transition-all relative flex items-center justify-center ${
+                className={`flex-1 text-[13px] min-h-[40px] py-2.5 font-medium transition-all relative flex items-center justify-center ${
                   tab === t ? "text-gray-900" : "text-gray-400"
                 }`}
               >
                 {label}
-                {count !== null && count > 0 && (
-                  <span className="ml-1.5 text-xs text-gray-400">{count}</span>
-                )}
                 {tab === t && (
                   <span className="absolute bottom-0 left-1/4 right-1/4 h-0.5 bg-gray-900 rounded-full" />
                 )}
               </button>
             );
           })}
-          {tab === "available" && (
-            <Button
-              onClick={() => setMapMode(!mapMode)}
-              variant={mapMode ? "secondary" : "tertiary"}
-              size="icon"
-              aria-label={mapMode ? "Switch to list view" : "Switch to map view"}
-            >
-              {mapMode ? (
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" /><line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" /></svg>
-              ) : (
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6" /><line x1="8" y1="2" x2="8" y2="18" /><line x1="16" y1="6" x2="16" y2="22" /></svg>
-              )}
-            </Button>
-          )}
         </div>
-
       </div>
 
-      {/* Activity ticker (M3) */}
-      {tasks.length > 0 && <ActivityTicker tasks={tasks} />}
+      {/* Animated hero - Tasks */}
+      {tab === "available" && !loading && (
+        <div className="px-6 pt-6 pb-2 animate-[fadeSlideIn_0.4s_ease-out]">
+          <p className="text-[32px] font-bold text-gray-900 tracking-tight leading-none">{tasks.filter(t => t.status === "open").length}</p>
+          <p className="text-[15px] text-gray-400 mt-1">open tasks right now</p>
+          <div className="flex items-center gap-5 mt-4">
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-[20px] font-bold text-gray-900">{tasks.filter(t => t.status === "completed").length}</span>
+              <span className="text-[12px] text-gray-400">verified</span>
+            </div>
+            <div className="w-1 h-1 rounded-full bg-gray-200" />
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-[20px] font-bold text-gray-900">${tasks.filter(t => t.status === "completed").reduce((s, t) => s + t.bountyUsdc, 0).toFixed(0)}</span>
+              <span className="text-[12px] text-gray-400">paid</span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Pull-to-refresh indicator */}
       <div
@@ -838,109 +829,59 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
         </div>
       )}
 
-      {/* First-time user guide */}
-      {tab === "available" && !loading && tasks.filter(t => t.claimant === userId).length === 0 && (
+      {/* Featured Campaign */}
+      {tab === "available" && featuredCampaign && !loading && (
         <div className="px-6 pt-4">
-          <div className="bg-white border border-gray-200 rounded-2xl p-4 flex flex-col gap-3">
-            <div className="flex items-center gap-2">
-              <CircularIcon size="sm" className="bg-info-100">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgb(var(--info-600))" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" />
-                </svg>
-              </CircularIcon>
-              <Typography variant="body" level={2} className="font-semibold text-gray-900">How it works</Typography>
-            </div>
-            <div className="flex flex-col gap-2">
-              {[
-                { num: "1", text: "Pick a favour below and tap Do it" },
-                { num: "2", text: "Submit proof (photo or text)" },
-                { num: "3", text: "AI verifies, USDC hits your wallet" },
-              ].map((s) => (
-                <div key={s.num} className="flex items-center gap-3">
-                  <span className="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
-                    <Typography variant="label" level={2} className="text-gray-500">{s.num}</Typography>
-                  </span>
-                  <Typography variant="body" level={3} className="text-gray-600">{s.text}</Typography>
-                </div>
-              ))}
-            </div>
-          </div>
+          <FeaturedCampaignBanner
+            campaign={featuredCampaign}
+            taskCount={tasks.length}
+            completedCount={tasks.filter(t => t.status === "completed").length}
+            onTap={() => { hapticTap(); setView("campaign"); }}
+          />
+        </div>
+      )}
+
+      {/* Polls tab */}
+      {tab === "polls" && (
+        <div className="flex-1 px-6 py-4">
+          <PollsFeed userId={userId} />
         </div>
       )}
 
       {/* Content */}
+      {tab !== "polls" && (
       <div className="flex-1 px-6 py-4">
-        {/* Profile + Reputation for "Yours" tab */}
+        {/* Profile summary for "Mine" tab */}
         {tab === "mine" && (
-          <div className="mb-4 flex flex-col gap-3">
-            {/* Identity card */}
+          <div className="mb-4">
             <div className="bg-white border border-gray-200 rounded-2xl p-5">
               <div className="flex items-center gap-3 mb-4">
-                <div className="w-12 h-12 rounded-full bg-gray-900 flex items-center justify-center">
-                  <span className="text-base font-bold text-white">{userId?.slice(-2).toUpperCase()}</span>
+                <div className="w-11 h-11 rounded-full bg-gray-900 flex items-center justify-center">
+                  <span className="text-sm font-bold text-white">{userId?.slice(-2).toUpperCase()}</span>
                 </div>
-                <div>
+                <div className="flex-1">
                   <p className="text-sm font-semibold text-gray-900">{userId ? shortId(userId) : ""}</p>
                   <VerificationBadge level={verificationLevel} size="md" />
                 </div>
+                <button onClick={onLogout} className="text-[11px] text-gray-400 min-h-[44px] flex items-center">
+                  Sign out
+                </button>
               </div>
-
-              <div className="grid grid-cols-3 gap-3 text-center bg-gray-50 rounded-xl p-3">
+              <div className="grid grid-cols-3 gap-3 text-center">
                 <div>
-                  <p className="text-lg font-semibold text-gray-900">${totalEarned.toFixed(2)}</p>
-                  <p className="text-xs text-gray-400 mt-0.5">Earned</p>
+                  <p className="text-2xl font-bold text-gray-900">${totalEarned.toFixed(0)}</p>
+                  <p className="text-[11px] text-gray-400 mt-0.5">Earned</p>
                 </div>
                 <div>
-                  <p className="text-lg font-semibold text-gray-900">{completedByClaiming.length}</p>
-                  <p className="text-xs text-gray-400 mt-0.5">Completed</p>
+                  <p className="text-2xl font-bold text-gray-900">{completedByClaiming.length}</p>
+                  <p className="text-[11px] text-gray-400 mt-0.5">Done</p>
                 </div>
                 <div>
-                  <p className="text-lg font-semibold text-gray-900">{totalPosted}</p>
-                  <p className="text-xs text-gray-400 mt-0.5">Posted</p>
+                  <p className="text-2xl font-bold text-gray-900">{totalPosted}</p>
+                  <p className="text-[11px] text-gray-400 mt-0.5">Posted</p>
                 </div>
               </div>
             </div>
-
-            {/* Trust level */}
-            <div className="bg-white border border-gray-200 rounded-2xl px-5 py-4 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-400 uppercase tracking-wider font-medium">Trust</span>
-                <span className={`text-sm font-medium ${
-                  verificationLevel === "orb" ? "text-success-600" :
-                  verificationLevel === "device" ? "text-info-600" :
-                  "text-gray-500"
-                }`}>
-                  {verificationLevel === "orb" ? "Orb Verified" :
-                   verificationLevel === "device" ? "Device Verified" :
-                   verificationLevel === "wallet" ? "Wallet" : "Not verified"}
-                </span>
-              </div>
-              <span className="text-xs text-gray-400">
-                {verificationLevel === "orb" ? "No limit" :
-                 verificationLevel === "device" ? "Up to $10" :
-                 verificationLevel === "wallet" ? "Up to $5" : "Verify to start"}
-              </span>
-            </div>
-
-            {/* Proof of Favour reputation */}
-            {userId && <ProofOfFavourCard address={userId} compact />}
-
-            {/* Recent activity summary */}
-            {completedByClaiming.length > 0 && (
-              <div className="bg-white border border-gray-200 rounded-2xl p-4">
-                <p className="text-xs text-gray-400 uppercase tracking-wider font-medium mb-2">Recent</p>
-                <div className="flex flex-col gap-2">
-                  {completedByClaiming.slice(0, 3).map(t => (
-                    <div key={t.id} className="flex items-center justify-between">
-                      <p className="text-xs text-gray-500 truncate max-w-[200px]">{t.description}</p>
-                      <span className={`text-xs font-medium ${t.escrowTxHash ? "text-gray-900" : "text-gray-400"}`}>
-                        {t.escrowTxHash ? `$${t.bountyUsdc}` : `${t.bountyUsdc * 10} pts`}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         )}
 
@@ -995,165 +936,44 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
             </Button>
           </div>
         ) : filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 gap-4">
-            {tab === "available" ? (
-              <>
-                <div className="flex items-center gap-2">
-                  {["🏷️", "🗺️", "⏱️", "♿", "🏢"].map((icon, i) => (
-                    <div key={i} className="w-10 h-10 rounded-xl bg-gray-50 border border-gray-200 flex items-center justify-center text-lg">
-                      {icon}
-                    </div>
-                  ))}
-                </div>
-                <div className="text-center">
-                  <p className="text-sm text-gray-400 font-medium">No favours nearby right now</p>
-                  <p className="text-xs text-gray-500 mt-1 max-w-[260px]">
-                    Post one yourself or check back soon.
-                  </p>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center">
-                  {tab === "mine" ? (
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#444" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                      <circle cx="12" cy="7" r="4" />
-                    </svg>
-                  ) : (
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#444" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                      <polyline points="22 4 12 14.01 9 11.01" />
-                    </svg>
-                  )}
-                </div>
-                <p className="text-sm text-gray-400">
-                  {tab === "mine" ? "You haven't picked up any favours yet" :
-                   "No completed favours yet"}
-                </p>
-              </>
-            )}
+          <div className="flex flex-col items-center justify-center py-20 gap-2 animate-[fadeSlideIn_0.4s_ease-out]">
+            <p className="text-[28px] font-bold text-gray-200 tracking-tight">
+              {tab === "available" ? "No tasks yet" : tab === "mine" ? "Nothing yet" : "No history"}
+            </p>
+            <p className="text-[14px] text-gray-400">
+              {tab === "available" ? "Check back soon or post one" : "Complete a task to see it here"}
+            </p>
           </div>
         ) : tab === "completed" ? (
-          <div className="flex flex-col gap-4">
-            {/* Gallery stats bar */}
-            <div className="flex items-center justify-between px-1">
-              <span className="text-xs text-gray-400">{filtered.length} completed</span>
-              <span className="text-xs text-green-600 font-semibold">
-                ${filtered.reduce((sum, t) => sum + t.bountyUsdc, 0).toFixed(2)} paid out
-              </span>
-            </div>
-            {filtered.map((task, i) => (
+          <div className="flex flex-col gap-2.5">
+            {filtered.map((task) => (
               <div
                 key={task.id}
-                style={{ animationDelay: `${i * 60}ms` }}
-                className={`rounded-2xl overflow-hidden bg-white cursor-pointer active:scale-[0.98] transition-all ${
-                  task.status === "completed"
-                    ? "border border-green-200"
-                    : "border border-gray-200"
-                }`}
+                className="rounded-2xl overflow-hidden bg-white border border-gray-200 cursor-pointer active:scale-[0.98] transition-all"
                 onClick={() => { setSelectedTask(task); setView("detail"); }}
               >
                 {task.proofImageUrl && (
                   <div className="relative">
-                    <img src={task.proofImageUrl} alt="Proof" className="w-full h-48 object-cover" loading="lazy" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-white to-transparent opacity-60" />
-                    <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between">
-                      <div className="bg-green-100 backdrop-blur-sm border border-green-300 rounded-lg px-2.5 py-1 flex items-center gap-1.5">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
-                        </svg>
-                        <span className="text-xs font-bold text-green-600">VERIFIED</span>
-                      </div>
-                      <span className="text-xs font-bold text-green-600 bg-white/80 backdrop-blur-sm rounded-lg px-2 py-1">
-                        {rewardLabel(task)}
-                      </span>
+                    <img src={task.proofImageUrl} alt="Proof" className="w-full h-40 object-cover" loading="lazy" />
+                    <div className="absolute bottom-2 left-2">
+                      <span className="text-[11px] font-bold text-white bg-black/50 backdrop-blur-sm rounded-full px-2.5 py-1">{rewardLabel(task)}</span>
                     </div>
                   </div>
                 )}
-                <div className="p-4 min-w-0">
-                  <p className="font-medium text-[15px] leading-snug break-words">{task.description}</p>
-                  <div className="flex items-center gap-1.5 mt-2 flex-wrap">
-                    {task.agent && <AgentBadge agent={task.agent} />}
-                    <svg className="shrink-0" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9BA3AE" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-                      <circle cx="12" cy="10" r="3" />
-                    </svg>
-                    <span className="text-xs text-gray-400 truncate max-w-[120px]">{task.location}</span>
-                    <span className="text-xs text-gray-500 mx-0.5">·</span>
+                <div className="p-4">
+                  <p className="text-[14px] font-medium leading-snug break-words text-gray-900">{task.description}</p>
+                  <div className="flex items-center gap-2 mt-1.5">
+                    <span className="text-xs text-gray-400 truncate max-w-[140px]">{task.location}</span>
+                    <span className="text-xs text-gray-300">&middot;</span>
                     <span className="text-xs text-gray-400">{timeAgo(task.createdAt)}</span>
+                    {!task.proofImageUrl && <span className="text-xs text-success-600 font-medium ml-auto">{rewardLabel(task)}</span>}
                   </div>
-                  {task.verificationResult && (
-                    <div className="mt-3 pt-3 border-t border-gray-200 min-w-0">
-                      <p className="text-xs text-gray-400 leading-relaxed italic break-words">&ldquo;{String(task.verificationResult.reasoning)}&rdquo;</p>
-                      <div className="flex items-center gap-2 mt-2 flex-wrap">
-                        <span className="text-xs text-gray-500 flex items-center gap-1 truncate max-w-full">
-                          {shortId(task.poster)} → {task.claimant ? shortId(task.claimant) : "?"}
-                          {task.claimantVerification && (
-                            <VerificationBadge level={task.claimantVerification} size="sm" />
-                          )}
-                        </span>
-                        <span className="text-xs text-gray-500">·</span>
-                        <span className="text-xs text-green-600 font-medium">
-                          {Math.round((task.verificationResult.confidence || 0) * 100)}% confidence
-                        </span>
-                        {task.attestationTxHash && (
-                          <>
-                            <span className="text-xs text-gray-500">·</span>
-                            <a href={`https://worldscan.org/tx/${task.attestationTxHash}`} target="_blank" rel="noopener noreferrer" className="text-xs text-gray-900 min-h-[44px] flex items-center">
-                              verified →
-                            </a>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                  {!task.proofImageUrl && (
-                    <div className="mt-3 flex items-center gap-2">
-                      <div className="bg-green-50 border border-green-200 rounded-lg px-2.5 py-1 flex items-center gap-1.5">
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
-                        </svg>
-                        <span className="text-xs font-bold text-green-600">VERIFIED</span>
-                      </div>
-                      <span className="text-xs font-semibold text-green-600">{rewardLabel(task)}</span>
-                    </div>
-                  )}
                 </div>
               </div>
             ))}
           </div>
         ) : (
           <div className="flex flex-col gap-2.5">
-            {/* Recently completed — show activity to judges */}
-            {tab === "available" && (() => {
-              const recent = tasks
-                .filter(t => t.status === "completed" && t.verificationResult)
-                .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-                .slice(0, 3);
-              if (recent.length === 0) return null;
-              return (
-                <div className="mb-2">
-                  <p className="text-xs text-gray-500 uppercase tracking-wider font-medium mb-3 px-1">Recently verified</p>
-                  <div className="flex flex-col gap-2">
-                    {recent.map(t => (
-                      <div
-                        key={t.id}
-                        className="flex items-center gap-3 bg-success-100 border border-success-200 rounded-xl px-4 py-3 cursor-pointer active:scale-[0.98] transition-all"
-                        onClick={() => { setSelectedTask(t); setView("detail"); }}
-                      >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#29A352" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-                          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
-                        </svg>
-                        <span className="text-sm text-gray-500 truncate flex-1">{t.description.slice(0, 55)}{t.description.length > 55 ? "…" : ""}</span>
-                        <span className="text-xs text-success-700 font-semibold shrink-0">{rewardLabel(t)}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="border-t border-gray-200 mt-4 mb-2" />
-                </div>
-              );
-            })()}
             {filtered.map((task, i) => (
               <div
                 key={task.id}
@@ -1180,6 +1000,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
           </div>
         )}
       </div>
+      )}
 
       {/* Claim transaction success banner */}
       {claimTxSuccess && (
@@ -1236,66 +1057,9 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
         </div>
       )}
 
-      {/* Feature request */}
-      <div className="px-4 py-4 border-t border-gray-100">
-        {featureSubmitted ? (
-          <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-center">
-            <p className="text-sm text-green-700 font-medium">Thanks! We read every request.</p>
-          </div>
-        ) : (
-          <div className="bg-white border border-gray-200 rounded-xl p-4">
-            <p className="text-xs text-gray-400 font-medium mb-2">What would make RELAY better?</p>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={featureRequest}
-                onChange={(e) => setFeatureRequest(e.target.value)}
-                placeholder="I wish I could..."
-                className="flex-1 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-gray-400 placeholder:text-gray-300 min-h-[44px]"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && featureRequest.trim() && !featureSubmitting) {
-                    setFeatureSubmitting(true);
-                    fetch("/api/feedback-tasks", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({ address: userId || "anon", templateId: "feature_request", response: featureRequest.trim() }),
-                    }).finally(() => {
-                      setFeatureSubmitting(false);
-                      setFeatureSubmitted(true);
-                      setFeatureRequest("");
-                      setTimeout(() => setFeatureSubmitted(false), 5000);
-                    });
-                  }
-                }}
-              />
-              <button
-                disabled={!featureRequest.trim() || featureSubmitting}
-                onClick={() => {
-                  if (!featureRequest.trim() || featureSubmitting) return;
-                  setFeatureSubmitting(true);
-                  fetch("/api/feedback-tasks", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ address: userId || "anon", templateId: "feature_request", response: featureRequest.trim() }),
-                  }).finally(() => {
-                    setFeatureSubmitting(false);
-                    setFeatureSubmitted(true);
-                    setFeatureRequest("");
-                    setTimeout(() => setFeatureSubmitted(false), 5000);
-                  });
-                }}
-                className="bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-medium min-h-[44px] disabled:opacity-30 active:scale-95 transition-all"
-              >
-                {featureSubmitting ? "..." : "Send"}
-              </button>
-            </div>
-          </div>
-        )}
-        <div className="flex items-center justify-center gap-2 mt-3">
-          <span className="text-xs text-gray-300">RELAY FAVOURS</span>
-          <span className="text-xs text-gray-300">&#x00B7;</span>
-          <span className="text-xs text-gray-300">World Chain</span>
-        </div>
+      {/* Footer */}
+      <div className="flex items-center justify-center py-6">
+        <span className="text-[10px] text-gray-300 tracking-wide">RELAY &middot; World Chain</span>
       </div>
 
       {/* Upgrade prompt modal */}
@@ -1482,138 +1246,55 @@ function TaskCard({
   return (
     <div
       onClick={onTap}
-      className="rounded-2xl p-5 flex flex-col gap-3 cursor-pointer active:scale-[0.98] transition-all bg-white border border-gray-200"
+      className="rounded-2xl p-4 flex flex-col gap-3 cursor-pointer active:scale-[0.98] transition-all bg-white border border-gray-200"
     >
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          {isAgentTask && task.agent ? (
-            <>
-              <span className="text-sm font-medium text-gray-900">{task.agent.name}</span>
-              <span className="text-xs font-medium text-gray-400 bg-gray-100 rounded px-1.5 py-0.5">AI</span>
-            </>
-          ) : (
-            <span className="text-sm text-gray-400">Community</span>
-          )}
+      <div className="flex items-start gap-3">
+        <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center text-lg shrink-0 mt-0.5">
+          {CATEGORY_ICONS[task.category] || "\u{1F4CB}"}
         </div>
-        {task.escrowTxHash ? (
-          <span className="flex items-center gap-1.5">
-            <span className="text-sm font-semibold text-gray-900">${task.bountyUsdc} USDC</span>
-            <span className="w-2 h-2 rounded-full bg-success-500" />
-          </span>
-        ) : (
-          <span className="flex items-center gap-1.5">
-            <span className="text-sm font-semibold text-gray-900">${task.bountyUsdc}</span>
-            <span className="text-xs text-warning-600 font-medium bg-warning-100 rounded px-1.5 py-0.5">Pending</span>
-          </span>
-        )}
-      </div>
-
-      <div className="flex-1 min-w-0">
-        <p className="text-[15px] leading-snug break-words text-gray-900">{task.description}</p>
-        <div className="flex items-center gap-2 mt-2 flex-wrap">
-          <svg className="shrink-0" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9BA3AE" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-            <circle cx="12" cy="10" r="3" />
-          </svg>
-          <span className="text-sm text-gray-500 truncate max-w-[180px]">{task.location}</span>
-          {distance !== null && (
-            <>
-              <span className="text-xs text-gray-300">·</span>
-              <span className="text-sm text-info-600 font-medium">{formatDistance(distance)}</span>
-            </>
-          )}
+        <div className="flex-1 min-w-0">
+          <p className="text-[15px] font-medium leading-snug break-words text-gray-900">{task.description}</p>
+          <div className="flex items-center gap-2 mt-1.5">
+            <span className="text-xs text-gray-400 truncate max-w-[140px]">{task.location}</span>
+            {distance !== null && (
+              <>
+                <span className="text-xs text-gray-300">&middot;</span>
+                <span className="text-xs text-info-600 font-medium">{formatDistance(distance)}</span>
+              </>
+            )}
+            <span className="text-xs text-gray-300">&middot;</span>
+            <span className="text-xs text-gray-400">{timeAgo(task.createdAt)}</span>
+          </div>
         </div>
-        {task.status === "open" && (() => {
-          const tier = getTaskTier(task.category);
-          const tc = TIER_CONFIG[tier];
-          return (
-            <div className="flex items-center gap-2 mt-1.5">
-              <span className={`text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded border ${tc.bg} ${tc.color}`}>
-                {tc.label}
-              </span>
-              <span className="text-[10px] text-gray-400">{tc.time}</span>
-              <span className="text-xs text-gray-300">·</span>
-              <span className="text-xs text-gray-400 flex items-center gap-1">
-                <span>{CATEGORY_ICONS[task.category] || "\u{1F4CB}"}</span>
-                {tierRequiresPhoto(task.category) ? "Photo required" : "Text OK"}
-              </span>
-            </div>
-          );
-        })()}
-      </div>
-
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 flex-wrap">
-          <StatusBadge status={task.status} />
-          {isOwnTask && <span className="text-xs text-gray-500">You posted</span>}
-          {isClaimant && task.status === "claimed" && <span className="text-xs text-gray-500">In progress</span>}
-          {task.escrowTxHash ? (
-            <span className="flex items-center gap-1 text-xs text-success-700 font-semibold bg-success-100 rounded-full px-2 py-0.5">
-              Funded
-            </span>
-          ) : (
-            <span className="flex items-center gap-1 text-xs text-warning-600 font-medium bg-warning-100 rounded-full px-2 py-0.5">
-              Awaiting funds
-            </span>
-          )}
-          {isStale && (
-            <span className="flex items-center gap-1 text-xs text-orange-600 font-medium bg-orange-50 border border-orange-200 rounded-full px-2 py-0.5 animate-pulse">
-              Going stale
-            </span>
-          )}
+        <div className="shrink-0 text-right">
+          <p className="text-[15px] font-bold text-gray-900">${task.bountyUsdc}</p>
+          {task.escrowTxHash && <p className="text-[10px] text-success-600 font-medium">USDC</p>}
         </div>
-        <span className="text-xs text-gray-400">{timeAgo(task.createdAt)}</span>
       </div>
 
       {task.status === "open" && userId && !isOwnTask && (
-        <Button
+        <button
           onClick={(e) => { e.stopPropagation(); onSubmitProof(); }}
-          variant="primary"
-          fullWidth
-          size="lg"
+          className="w-full bg-gray-900 text-white text-[13px] font-semibold py-3 rounded-xl active:scale-[0.98] transition-transform min-h-[44px]"
         >
-          {task.escrowTxHash
-            ? `Do it — earn $${task.bountyUsdc} USDC`
-            : (task.maxCompletions || 1) > 1
-              ? `Submit Response${task.completionCount ? ` (${task.completionCount}/${task.maxCompletions})` : ""}`
-              : "Do it"}
-        </Button>
+          Do it{task.escrowTxHash ? ` — earn $${task.bountyUsdc}` : ""}
+        </button>
       )}
 
       {task.status === "claimed" && isClaimant && (
-        <Button
+        <button
           onClick={(e) => { e.stopPropagation(); onSubmitProof(); }}
-          variant="secondary"
-          fullWidth
-          size="lg"
+          className="w-full border border-gray-200 text-gray-900 text-[13px] font-semibold py-3 rounded-xl active:scale-[0.98] transition-transform min-h-[44px]"
         >
           Submit Proof
-        </Button>
+        </button>
       )}
 
-      {task.status === "completed" && task.verificationResult?.verdict === "pass" && (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            hapticTap();
-            shareTask({
-              taskDescription: task.description,
-              bountyUsdc: task.bountyUsdc,
-              verdict: task.verificationResult?.verdict,
-              taskId: task.id,
-            });
-          }}
-          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-gray-200 bg-gray-50 hover:bg-gray-100 transition-all text-sm text-gray-400 hover:text-gray-900 active:scale-[0.98] min-h-[44px]"
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="18" cy="5" r="3" />
-            <circle cx="6" cy="12" r="3" />
-            <circle cx="18" cy="19" r="3" />
-            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
-            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
-          </svg>
-          Share Completion
-        </button>
+      {isOwnTask && task.status === "open" && (
+        <div className="flex items-center gap-1.5">
+          <span className="text-[11px] text-gray-400">You posted</span>
+          {!task.escrowTxHash && <span className="text-[11px] text-warning-600">&middot; Not funded yet</span>}
+        </div>
       )}
     </div>
   );

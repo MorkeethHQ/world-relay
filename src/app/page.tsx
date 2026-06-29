@@ -237,68 +237,44 @@ export default function Home() {
 
   if (!userId) {
     return (
-      <div className="flex flex-col min-h-screen max-w-lg mx-auto w-full items-center justify-center px-6">
-        <div className="flex flex-col items-center gap-8 w-full max-w-sm">
-          <div className="flex flex-col items-center gap-4">
-            <CircularIcon size="lg" className="bg-gray-900">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 2L2 7l10 5 10-5-10-5z" />
-                <path d="M2 17l10 5 10-5" />
-                <path d="M2 12l10 5 10-5" />
-              </svg>
-            </CircularIcon>
-            <Typography variant="heading" level={3} as="h1">
-              RELAY FAVOURS
-            </Typography>
-          </div>
+      <div className="flex flex-col min-h-screen max-w-lg mx-auto w-full bg-white items-center justify-between px-6 py-16">
+        <div />
 
-          <div className="text-center space-y-3">
-            <Typography variant="subtitle" level={1}>
-              Ask a favour. Get it done.
-            </Typography>
-            <Typography variant="body" level={3} className="text-gray-400 max-w-[300px] mx-auto">
-              Post tasks, complete favours, earn USDC. AI verifies everything instantly.
-            </Typography>
+        <div className="flex flex-col items-center gap-4 w-full max-w-sm">
+          <h1 className="text-[56px] font-bold tracking-tight text-gray-900 leading-none animate-[countUp_0.6s_ease-out]">
+            RELAY
+          </h1>
+          <p className="text-[15px] text-gray-400 text-center leading-relaxed max-w-[240px] animate-[fadeSlideIn_0.5s_ease-out_0.2s_both]">
+            Real tasks. Real people.<br />Verified on-chain.
+          </p>
+          <div className="flex items-center gap-3 mt-2 animate-[fadeSlideIn_0.5s_ease-out_0.4s_both]">
+            <span className="text-[11px] text-gray-300 uppercase tracking-widest">Tasks</span>
+            <span className="w-1 h-1 rounded-full bg-gray-200" />
+            <span className="text-[11px] text-gray-300 uppercase tracking-widest">Polls</span>
+            <span className="w-1 h-1 rounded-full bg-gray-200" />
+            <span className="text-[11px] text-gray-300 uppercase tracking-widest">Campaigns</span>
           </div>
+        </div>
 
-          <div className="w-full space-y-4">
-            {[
-              { num: "1", text: "Post or pick up a favour", sub: "Reviews, errands, feedback, social posts." },
-              { num: "2", text: "Complete it and submit proof", sub: "Photo, screenshot, or written response." },
-              { num: "3", text: "AI verifies, you get paid", sub: "USDC straight to your World App wallet." },
-            ].map((step) => (
-              <div key={step.num} className="flex items-start gap-4 px-1">
-                <CircularIcon size="sm" className="bg-gray-100 mt-0.5">
-                  <Typography variant="label" level={2}>{step.num}</Typography>
-                </CircularIcon>
-                <div>
-                  <Typography variant="body" level={2}>{step.text}</Typography>
-                  <Typography variant="body" level={3} className="text-gray-400">{step.sub}</Typography>
-                </div>
-              </div>
-            ))}
+        <div className="w-full max-w-sm space-y-3 animate-[fadeSlideIn_0.5s_ease-out_0.5s_both]">
+          <div aria-live="polite">
+            <LiveFeedback state={isVerifying ? "pending" : undefined}>
+              <Button
+                onClick={handleVerify}
+                disabled={isVerifying}
+                fullWidth
+                variant="primary"
+                size="lg"
+              >
+                {isInWorldApp ? "Sign in" : "Continue"}
+              </Button>
+            </LiveFeedback>
           </div>
-
-          <div className="w-full space-y-3">
-            <div aria-live="polite">
-              <LiveFeedback state={isVerifying ? "pending" : undefined}>
-                <Button
-                  onClick={handleVerify}
-                  disabled={isVerifying}
-                  fullWidth
-                  variant="primary"
-                  size="lg"
-                >
-                  {isInWorldApp ? "Get Started" : "Continue"}
-                </Button>
-              </LiveFeedback>
-            </div>
-            {!isInWorldApp && (
-              <Typography variant="body" level={4} className="text-gray-400 text-center">
-                Full features available in World App
-              </Typography>
-            )}
-          </div>
+          {!isInWorldApp && (
+            <p className="text-[12px] text-gray-300 text-center">
+              Full features available in World App
+            </p>
+          )}
         </div>
       </div>
     );
