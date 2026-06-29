@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Button, Typography } from "@worldcoin/mini-apps-ui-kit-react";
+import { Button, Typography, Input, TopBar } from "@worldcoin/mini-apps-ui-kit-react";
 import { hapticTap, hapticSuccess } from "@/lib/minikit-helpers";
 
 type Poll = {
@@ -190,48 +190,38 @@ function CreatePoll({
 
   return (
     <div className="flex flex-col gap-0 max-w-lg mx-auto w-full min-h-screen bg-gray-50">
-      <div className="sticky top-0 z-10 bg-white border-b border-gray-200">
-        <div className="flex items-center justify-between px-6 py-4">
+      <TopBar
+        title="New Poll"
+        startAdornment={
           <button onClick={onCancel} className="text-sm text-gray-500 min-h-[44px] flex items-center">
             Cancel
           </button>
-          <Typography variant="subtitle" level={2}>New Poll</Typography>
-          <div className="w-[60px]" />
-        </div>
-      </div>
+        }
+        endAdornment={<div className="w-[60px]" />}
+      />
 
       <div className="flex-1 px-6 py-6 flex flex-col gap-5">
-        <div>
-          <label className="text-xs text-gray-400 font-medium mb-1.5 block">Question</label>
-          <input
-            type="text"
-            value={question}
-            onChange={(e) => setQuestion(e.target.value)}
-            placeholder="Ask the community something..."
-            maxLength={200}
-            className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-gray-400 placeholder:text-gray-300 min-h-[48px]"
-          />
-        </div>
+        <Input
+          label="Question"
+          value={question}
+          onChange={(e) => setQuestion(e.target.value)}
+          maxLength={200}
+        />
 
-        <div>
-          <label className="text-xs text-gray-400 font-medium mb-1.5 block">Options</label>
-          <div className="flex flex-col gap-2">
-            {options.map((opt, i) => (
-              <input
-                key={i}
-                type="text"
-                value={opt}
-                onChange={(e) => updateOption(i, e.target.value)}
-                placeholder={`Option ${i + 1}`}
-                maxLength={100}
-                className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-gray-400 placeholder:text-gray-300 min-h-[48px]"
-              />
-            ))}
-          </div>
+        <div className="flex flex-col gap-2">
+          {options.map((opt, i) => (
+            <Input
+              key={i}
+              label={`Option ${i + 1}`}
+              value={opt}
+              onChange={(e) => updateOption(i, e.target.value)}
+              maxLength={100}
+            />
+          ))}
           {options.length < 4 && (
             <button
               onClick={addOption}
-              className="mt-2 text-sm text-gray-500 hover:text-gray-900 transition-colors min-h-[44px] flex items-center gap-1"
+              className="mt-1 text-sm text-gray-500 hover:text-gray-900 transition-colors min-h-[44px] flex items-center gap-1.5"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />

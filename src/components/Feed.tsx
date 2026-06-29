@@ -178,16 +178,7 @@ function proofInstructions(task: Task): { short: string; steps: string[]; tip: s
   }
 }
 
-const CATEGORY_ICONS: Record<string, string> = {
-  photo: "\u{1F4F8}",
-  delivery: "\u{1F4E6}",
-  "check-in": "\u{1F4CD}",
-  custom: "\u{1F4F1}",
-  feedback: "\u{1F4AC}",
-  review: "\u{2B50}",
-  social: "\u{1F4E3}",
-  errand: "\u{1F3C3}",
-};
+import { CategoryIcon } from "@/components/CategoryIcon";
 
 type TaskTier = "quick" | "medium" | "effort";
 
@@ -244,54 +235,6 @@ function useUserLocation() {
     );
   }, []);
   return coords;
-}
-
-function ActivityTicker({ tasks }: { tasks: Task[] }) {
-  const events: { icon: string; text: string; color: string; time: string }[] = [];
-
-  const sorted = [...tasks].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  for (const t of sorted.slice(0, 20)) {
-    if (t.status === "completed" && t.verificationResult) {
-      events.push({
-        icon: "\u{2705}",
-        text: `Favour verified${t.verificationResult.confidence ? ` · ${Math.round(t.verificationResult.confidence * 100)}%` : ""} · $${t.bountyUsdc}`,
-        color: "text-green-600",
-        time: timeAgo(t.createdAt),
-      });
-    }
-    if (t.claimant) {
-      events.push({
-        icon: "\u{26A1}",
-        text: `${shortId(t.claimant)} picked up a favour · $${t.bountyUsdc}`,
-        color: "text-gray-900",
-        time: timeAgo(t.createdAt),
-      });
-    }
-    if (t.status === "open") {
-      events.push({
-        icon: CATEGORY_ICONS[t.category] || "\u{2728}",
-        text: `New favour · ${t.description.slice(0, 40)}${t.description.length > 40 ? "…" : ""}`,
-        color: "text-gray-400",
-        time: timeAgo(t.createdAt),
-      });
-    }
-  }
-
-  if (events.length === 0) return null;
-
-  return (
-    <div className="overflow-hidden px-4 py-2">
-      <div className="flex gap-6 overflow-x-auto no-scrollbar">
-        {events.map((ev, i) => (
-          <span key={i} className={`text-xs whitespace-nowrap flex items-center gap-1.5 ${ev.color}`}>
-            <span>{ev.icon}</span>
-            {ev.text}
-            <span className="text-gray-500">{ev.time}</span>
-          </span>
-        ))}
-      </div>
-    </div>
-  );
 }
 
 type Tab = "available" | "polls" | "mine" | "completed";
@@ -1249,8 +1192,8 @@ function TaskCard({
       className="rounded-2xl p-4 flex flex-col gap-3 cursor-pointer active:scale-[0.98] transition-all bg-white border border-gray-200"
     >
       <div className="flex items-start gap-3">
-        <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center text-lg shrink-0 mt-0.5">
-          {CATEGORY_ICONS[task.category] || "\u{1F4CB}"}
+        <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center text-gray-500 shrink-0 mt-0.5">
+          <CategoryIcon category={task.category} size={18} />
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-[15px] font-medium leading-snug break-words text-gray-900">{task.description}</p>

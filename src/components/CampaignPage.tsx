@@ -5,6 +5,7 @@ import type { Task } from "@/lib/types";
 import type { Campaign } from "@/lib/campaigns";
 import { Button, Pill } from "@worldcoin/mini-apps-ui-kit-react";
 import { useWorldUsers, displayName } from "@/hooks/useWorldUser";
+import { CategoryIcon } from "@/components/CategoryIcon";
 
 function timeLeft(deadline: string): string {
   const ms = new Date(deadline).getTime() - Date.now();
@@ -25,16 +26,6 @@ function timeAgo(dateStr: string): string {
   return `${Math.floor(hours / 24)}d ago`;
 }
 
-const CATEGORY_ICONS: Record<string, string> = {
-  photo: "\u{1F4F8}",
-  delivery: "\u{1F4E6}",
-  "check-in": "\u{1F4CD}",
-  custom: "\u{1F4F1}",
-  feedback: "\u{1F4AC}",
-  review: "\u{2B50}",
-  social: "\u{1F4E3}",
-  errand: "\u{1F3C3}",
-};
 
 export function CampaignPage({
   campaign,
@@ -187,7 +178,7 @@ export function CampaignPage({
           </span>
           {campaign.categories.map((cat) => (
             <span key={cat} className="shrink-0 inline-flex items-center gap-1 bg-white border border-gray-200 rounded-full px-3 py-2 text-xs text-gray-500 shadow-sm">
-              {CATEGORY_ICONS[cat] || ""} {cat}
+              <CategoryIcon category={cat} size={12} /> {cat}
             </span>
           ))}
         </div>
@@ -267,8 +258,8 @@ export function CampaignPage({
                   className="bg-white border border-gray-200 rounded-2xl p-4 cursor-pointer active:scale-[0.98] transition-all shadow-sm"
                 >
                   <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-center text-lg shrink-0">
-                      {CATEGORY_ICONS[task.category] || "\u{1F4CB}"}
+                    <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center text-gray-500 shrink-0">
+                      <CategoryIcon category={task.category} size={18} />
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-[14px] font-medium text-gray-900 leading-snug break-words">{task.description}</p>
