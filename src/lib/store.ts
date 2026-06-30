@@ -1,4 +1,4 @@
-import type { Task, TaskStatus, TaskCategory, TaskType, AiFollowUp, RecurringConfig } from "./types";
+import type { Task, TaskStatus, TaskCategory, TaskType, RewardType, AiFollowUp, RecurringConfig } from "./types";
 import { getRedis } from "./redis";
 import { getAgent } from "./agents";
 export type { Task, TaskStatus, TaskCategory };
@@ -31,6 +31,9 @@ function normalizeTask(task: Task): Task {
   }
   if ((task as any).taskType === undefined) {
     (task as any).taskType = "standard";
+  }
+  if ((task as any).rewardType === undefined) {
+    (task as any).rewardType = (task as any).escrowTxHash ? "usdc" : "points";
   }
   if ((task as any).donOnChainId === undefined) {
     (task as any).donOnChainId = null;
@@ -69,6 +72,7 @@ export async function createTask(input: {
   escrowTxHash?: string | null;
   claimCode?: string | null;
   taskType?: TaskType;
+  rewardType?: RewardType;
   donOnChainId?: number | null;
   requiresClaim?: boolean;
   maxCompletions?: number;
@@ -108,6 +112,7 @@ export async function createTask(input: {
     escrowTxHash: input.escrowTxHash ?? null,
     claimCode: input.claimCode ?? null,
     taskType: input.taskType || "standard",
+    rewardType: input.rewardType || "usdc",
     donOnChainId: input.donOnChainId ?? null,
     donStakeTxHash: null,
     claimantVerification: null,

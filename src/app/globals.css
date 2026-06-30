@@ -99,6 +99,23 @@ input::placeholder, textarea::placeholder {
   to { opacity: 1; transform: translateX(0); }
 }
 
+/* Tab section transitions - World App style left/right phasing.
+   Classes + keyframes are defined together here so lightningcss keeps the
+   @keyframes linked (an arbitrary `animate-[...]` utility lives in a separate
+   chunk and gets its keyframes pruned). */
+@keyframes tabSlideRight {
+  from { opacity: 0; transform: translateX(28px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes tabSlideLeft {
+  from { opacity: 0; transform: translateX(-28px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.tab-slide-right { animation: tabSlideRight 0.28s ease-out; }
+.tab-slide-left { animation: tabSlideLeft 0.28s ease-out; }
+
 ::-webkit-scrollbar {
   width: 0;
   height: 0;

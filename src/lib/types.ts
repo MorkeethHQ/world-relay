@@ -4,6 +4,8 @@ export type TaskCategory = "photo" | "delivery" | "check-in" | "custom" | "feedb
 
 export type TaskType = "standard" | "double-or-nothing";
 
+export type RewardType = "usdc" | "points";
+
 export type ModelVerdict = {
   name: string;
   verdict: "pass" | "flag" | "fail";
@@ -66,6 +68,7 @@ export type Task = {
   escrowTxHash: string | null;
   claimCode: string | null;
   taskType: TaskType;
+  rewardType: RewardType;
   donOnChainId: number | null;
   donStakeTxHash: string | null;
   claimantVerification?: "orb" | "device" | "wallet" | null;
