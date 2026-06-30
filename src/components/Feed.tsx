@@ -84,8 +84,8 @@ function formatDistance(km: number): string {
 }
 
 function rewardLabel(task: Task): string {
+  if (task.rewardType === "points") return `${Math.round(task.bountyUsdc)} pts`;
   if (task.escrowTxHash) return `$${task.bountyUsdc} USDC`;
-  if ((task.maxCompletions || 1) > 1) return `${Math.round(task.bountyUsdc * 10)} pts`;
   if (task.bountyUsdc >= 1) return `$${task.bountyUsdc} USDC`;
   return `${Math.round(task.bountyUsdc * 10)} pts`;
 }
@@ -246,6 +246,13 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
   const [view, setView] = useState<"board" | "post" | "proof" | "detail" | "campaign">("board");
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [tab, setTab] = useState<Tab>("available");
+  const [tabDirection, setTabDirection] = useState<"left" | "right">("right");
+  // Direction-aware tab switch so content phases in from the correct side (World App style)
+  const changeTab = (next: Tab) => {
+    const order: Tab[] = ["available", "polls", "mine", "completed"];
+    setTabDirection(order.indexOf(next) >= order.indexOf(tab) ? "right" : "left");
+    setTab(next);
+  };
   const [mapMode, setMapMode] = useState(false);
   const [upgradePrompt, setUpgradePrompt] = useState<{ required: string; current: string } | null>(null);
   const [claimTxSuccess, setClaimTxSuccess] = useState<{ hash: string; taskId: string } | null>(null);
@@ -480,7 +487,8 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
 
     if (tab === "available") {
       if (t.status === "open") {
-        if (!t.escrowTxHash && t.category !== "feedback") return false;
+        const isPointTask = t.rewardType === "points";
+        if (!isPointTask && !t.escrowTxHash && t.category !== "feedback") return false;
       }
       else if (t.status === "claimed" && t.claimant === userId) { /* show my active claims */ }
       else return false;
@@ -665,7 +673,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
             return (
               <button
                 key={t}
-                onClick={() => { hapticSelection(); setTab(t); }}
+                onClick={() => { hapticSelection(); changeTab(t); }}
                 role="tab"
                 aria-selected={tab === t}
                 className={`flex-1 text-[13px] min-h-[40px] py-2.5 font-medium transition-all relative flex items-center justify-center ${
@@ -681,6 +689,12 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
           })}
         </div>
       </div>
+
+      {/* Tab content - phases left/right on tab change (World App style) */}
+      <div
+        key={tab}
+        className={`flex-1 flex flex-col ${tabDirection === "right" ? "tab-slide-right" : "tab-slide-left"}`}
+      >
 
       {/* Animated hero - Tasks */}
       {tab === "available" && !loading && (
@@ -1005,6 +1019,9 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
         <span className="text-[10px] text-gray-300 tracking-wide">RELAY &middot; World Chain</span>
       </div>
 
+      </div>
+      {/* End tab content */}
+
       {/* Upgrade prompt modal */}
       <AlertDialog open={!!upgradePrompt} onOpenChange={() => setUpgradePrompt(null)}>
         <AlertDialogContent>
@@ -1051,7 +1068,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
       </AlertDialog>
 
       {/* Post-claim guidance dialog */}
-      <AlertDialog open={!!claimSuccessTask} onOpenChange={() => { setClaimSuccessTask(null); setTab("mine"); }}>
+      <AlertDialog open={!!claimSuccessTask} onOpenChange={() => { setClaimSuccessTask(null); changeTab("mine"); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <div className="flex flex-col items-center gap-2 pt-2">
@@ -1093,7 +1110,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
               size="lg"
               onClick={() => {
                 setClaimSuccessTask(null);
-                setTab("mine");
+                changeTab("mine");
               }}
             >
               Got it
@@ -1210,8 +1227,9 @@ function TaskCard({
           </div>
         </div>
         <div className="shrink-0 text-right">
-          <p className="text-[15px] font-bold text-gray-900">${task.bountyUsdc}</p>
-          {task.escrowTxHash && <p className="text-[10px] text-success-600 font-medium">USDC</p>}
+          <p className="text-[15px] font-bold text-gray-900">{rewardLabel(task)}</p>
+          {task.rewardType !== "points" && task.escrowTxHash && <p className="text-[10px] text-success-600 font-medium">funded</p>}
+          {task.rewardType === "points" && <p className="text-[10px] text-purple-600 font-medium">points</p>}
         </div>
       </div>
 
@@ -1220,7 +1238,7 @@ function TaskCard({
           onClick={(e) => { e.stopPropagation(); onSubmitProof(); }}
           className="w-full bg-gray-900 text-white text-[13px] font-semibold py-3 rounded-xl active:scale-[0.98] transition-transform min-h-[44px]"
         >
-          Do it{task.escrowTxHash ? ` — earn $${task.bountyUsdc}` : ""}
+          Do it{(task.escrowTxHash || task.rewardType === "points") ? ` - earn ${rewardLabel(task)}` : ""}
         </button>
       )}
 
@@ -1236,7 +1254,7 @@ function TaskCard({
       {isOwnTask && task.status === "open" && (
         <div className="flex items-center gap-1.5">
           <span className="text-[11px] text-gray-400">You posted</span>
-          {!task.escrowTxHash && <span className="text-[11px] text-warning-600">&middot; Not funded yet</span>}
+          {task.rewardType !== "points" && !task.escrowTxHash && <span className="text-[11px] text-warning-600">&middot; Not funded yet</span>}
         </div>
       )}
     </div>
@@ -1302,6 +1320,7 @@ function PostTask({
   const [description, setDescription] = useState("");
   const [location, setLocation] = useState("");
   const [bounty, setBounty] = useState("");
+  const [rewardType, setRewardType] = useState<"usdc" | "points">("points");
   const [category, setCategory] = useState<"photo" | "delivery" | "check-in" | "custom" | "feedback" | "review" | "social" | "errand">("review");
   const [submitting, setSubmitting] = useState(false);
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
@@ -1333,7 +1352,7 @@ function PostTask({
     let onChainId: number | null = null;
     let escrowTxHash: string | null = null;
 
-    if (isMiniKit() && RELAY_ESCROW_ADDRESS) {
+    if (rewardType === "usdc" && isMiniKit() && RELAY_ESCROW_ADDRESS) {
       const txPayload = encodeCreateTask(description, parseFloat(bounty), 24);
       if (txPayload) {
         try {
@@ -1376,6 +1395,7 @@ function PostTask({
           deadlineHours: 24,
           onChainId,
           escrowTxHash,
+          rewardType,
         }),
       });
       if (!res.ok) {
@@ -1396,7 +1416,7 @@ function PostTask({
   };
 
   const isInWorld = isMiniKit();
-  const isValid = description && location && bounty && parseFloat(bounty) >= 0.5;
+  const isValid = description && location && bounty && parseFloat(bounty) >= (rewardType === "points" ? 1 : 0.5);
 
   return (
     <div className="flex flex-col min-h-screen max-w-lg mx-auto w-full bg-gray-50">
@@ -1458,11 +1478,40 @@ function PostTask({
           />
         </div>
 
+        {/* Reward type toggle */}
+        <div>
+          <Typography variant="label" level={2} className="text-gray-400 mb-2">Reward type</Typography>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setRewardType("points")}
+              className={`flex-1 rounded-xl border py-3 text-center transition-all min-h-[44px] ${
+                rewardType === "points"
+                  ? "border-gray-900 bg-white"
+                  : "border-gray-200 bg-white hover:border-gray-300"
+              }`}
+            >
+              <Typography variant="body" level={3} className={rewardType === "points" ? "text-gray-900 font-semibold" : "text-gray-500"}>Points</Typography>
+              <Typography variant="body" level={4} className="text-gray-400 mt-0.5">Free to post</Typography>
+            </button>
+            <button
+              onClick={() => setRewardType("usdc")}
+              className={`flex-1 rounded-xl border py-3 text-center transition-all min-h-[44px] ${
+                rewardType === "usdc"
+                  ? "border-gray-900 bg-white"
+                  : "border-gray-200 bg-white hover:border-gray-300"
+              }`}
+            >
+              <Typography variant="body" level={3} className={rewardType === "usdc" ? "text-gray-900 font-semibold" : "text-gray-500"}>USDC</Typography>
+              <Typography variant="body" level={4} className="text-gray-400 mt-0.5">On-chain escrow</Typography>
+            </button>
+          </div>
+        </div>
+
         {/* Bounty */}
         <div>
-          <Typography variant="label" level={2} className="text-gray-400 mb-2">Reward</Typography>
+          <Typography variant="label" level={2} className="text-gray-400 mb-2">{rewardType === "points" ? "Points amount" : "Reward"}</Typography>
           <div className="flex items-center gap-3">
-            {["5", "15", "25"].map((amt) => (
+            {(rewardType === "points" ? ["10", "25", "50"] : ["5", "15", "25"]).map((amt) => (
               <button
                 key={amt}
                 onClick={() => setBounty(amt)}
@@ -1472,20 +1521,21 @@ function PostTask({
                     : "border-gray-200 bg-white hover:border-gray-300"
                 }`}
               >
-                <Typography variant="number" level={3} className={bounty === amt ? "text-gray-900" : "text-gray-500"}>${amt}</Typography>
+                <Typography variant="number" level={3} className={bounty === amt ? "text-gray-900" : "text-gray-500"}>{rewardType === "points" ? `${amt} pts` : `$${amt}`}</Typography>
               </button>
             ))}
             <div className="flex-1 flex items-center gap-1 bg-white border border-gray-200 rounded-xl px-3 py-3 min-h-[44px]">
-              <span className="text-sm text-gray-400">$</span>
+              {rewardType === "usdc" && <span className="text-sm text-gray-400">$</span>}
               <input
                 type="number"
                 placeholder="Other"
-                min="0.50"
-                step="0.50"
-                value={!["5", "15", "25"].includes(bounty) ? bounty : ""}
+                min={rewardType === "points" ? "1" : "0.50"}
+                step={rewardType === "points" ? "1" : "0.50"}
+                value={!(rewardType === "points" ? ["10", "25", "50"] : ["5", "15", "25"]).includes(bounty) ? bounty : ""}
                 onChange={(e) => setBounty(e.target.value)}
                 className="flex-1 bg-transparent text-sm focus:outline-none placeholder:text-gray-400 w-12"
               />
+              {rewardType === "points" && <span className="text-sm text-gray-400">pts</span>}
             </div>
           </div>
         </div>
@@ -1493,9 +1543,16 @@ function PostTask({
         {/* Escrow explainer */}
         <div className="bg-white border border-gray-200 rounded-xl p-4">
           <div className="flex items-start gap-3">
-            <span className="text-base mt-0.5">{isInWorld ? "\u{1F512}" : "\u{2139}️"}</span>
+            <span className="text-base mt-0.5">{rewardType === "points" ? "\u{2B50}" : isInWorld ? "\u{1F512}" : "\u{2139}️"}</span>
             <div>
-              {isInWorld ? (
+              {rewardType === "points" ? (
+                <>
+                  <Typography variant="body" level={3} className="text-gray-700 font-medium">Points reward</Typography>
+                  <Typography variant="body" level={4} className="text-gray-400 mt-0.5">
+                    No USDC needed. The runner earns points when AI verifies their proof. Great for low-stakes tasks and feedback.
+                  </Typography>
+                </>
+              ) : isInWorld ? (
                 <>
                   <Typography variant="body" level={3} className="text-gray-700 font-medium">Your USDC goes to escrow</Typography>
                   <Typography variant="body" level={4} className="text-gray-400 mt-0.5">
@@ -1546,7 +1603,7 @@ function PostTask({
             fullWidth
             size="lg"
           >
-            {submitting ? "Posting..." : isInWorld ? `Post & Fund $${bounty || "0"} USDC` : "Post Favour"}
+            {submitting ? "Posting..." : rewardType === "points" ? `Post - ${bounty || "0"} pts` : isInWorld ? `Post & Fund $${bounty || "0"} USDC` : "Post Favour"}
           </Button>
         </LiveFeedback>
       </div>

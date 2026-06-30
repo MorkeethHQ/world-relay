@@ -92,7 +92,15 @@ export function CampaignPage({
     <div className="flex flex-col min-h-screen max-w-lg mx-auto w-full bg-gray-50">
       {/* Hero - full bleed photo */}
       <div className="relative overflow-hidden">
-        <div className={`absolute inset-0 bg-gradient-to-br ${campaign.heroGradient}`} />
+        {campaign.heroImage ? (
+          <>
+            <img src={campaign.heroImage} alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover" />
+            {/* Vertical scrim: dark at top (back button) and bottom (content) */}
+            <div className="absolute inset-0 bg-gradient-to-b from-black/75 via-black/45 to-black/75" />
+          </>
+        ) : (
+          <div className={`absolute inset-0 bg-gradient-to-br ${campaign.heroGradient}`} />
+        )}
 
         <div className="relative px-6 pt-14 pb-10">
           {/* Back button */}
@@ -333,7 +341,15 @@ export function FeaturedCampaignBanner({
       onClick={onTap}
       className="relative rounded-2xl overflow-hidden cursor-pointer active:scale-[0.98] transition-all"
     >
-      <div className={`absolute inset-0 bg-gradient-to-br ${campaign.heroGradient}`} />
+      {campaign.heroImage ? (
+        <>
+          <img src={campaign.heroImage} alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
+          {/* Dark scrim, heaviest on the left so the white text stays legible */}
+          <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/55 to-black/20" />
+        </>
+      ) : (
+        <div className={`absolute inset-0 bg-gradient-to-br ${campaign.heroGradient}`} />
+      )}
       <div className="relative px-5 py-5 flex items-center justify-between">
         <div>
           <div className="inline-flex items-center gap-1.5 mb-1.5">

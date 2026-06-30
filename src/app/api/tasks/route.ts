@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { poster, category, lat, lng, bountyUsdc, deadlineHours, onChainId, escrowTxHash, taskType, donOnChainId, agentId, maxCompletions } = body;
+  const { poster, category, lat, lng, bountyUsdc, deadlineHours, onChainId, escrowTxHash, taskType, rewardType, donOnChainId, agentId, maxCompletions } = body;
 
   // Sanitize text inputs
   const description = sanitizeInput(body.description || "", 500);
@@ -73,6 +73,7 @@ export async function POST(req: NextRequest) {
     onChainId: onChainId != null ? Number(onChainId) : null,
     escrowTxHash: escrowTxHash || null,
     taskType: taskType || "standard",
+    rewardType: rewardType === "points" ? "points" : "usdc",
     donOnChainId: donOnChainId != null ? Number(donOnChainId) : null,
     maxCompletions: maxCompletions ? Number(maxCompletions) : 1,
   });
