@@ -7,6 +7,7 @@ export type Campaign = {
   tagline: string;
   description: string;
   heroGradient: string;
+  heroImage?: string;
   accentColor: string;
   icon: string;
   totalBudget: number;
@@ -28,6 +29,7 @@ export const CAMPAIGNS: Campaign[] = [
     description:
       "Complete real-world tasks across Paris and beyond. Every task is verified by 3 AI models and paid in USDC instantly. Early contributors build reputation that unlocks higher-value tasks later.",
     heroGradient: "from-gray-900 via-gray-800 to-gray-700",
+    heroImage: "/hero/friends.jpg",
     accentColor: "#191C20",
     icon: "\u{1F680}",
     totalBudget: 50,
