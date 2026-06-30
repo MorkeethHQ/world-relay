@@ -1,6 +1,26 @@
 @import "@worldcoin/mini-apps-ui-kit-react/styles.css";
 @import "tailwindcss";
 
+/*
+ * The Worldcoin mini-apps-ui-kit ships an UNLAYERED Tailwind preflight whose
+ * `button, input, optgroup, select, textarea { color: inherit }` reset
+ * outranks Tailwind v4's text-color utilities — Tailwind v4 puts its utilities
+ * inside `@layer utilities`, and per the CSS cascade, unlayered rules always
+ * beat layered ones regardless of specificity. The kit defines its own
+ * `.text-gray-*` etc. (so those still resolve), but it does NOT define
+ * `.text-white`, so every `text-white` button inherited the dark body color
+ * and rendered dark-on-dark (invisible CTA text across the whole app).
+ * (The `layer()` modifier on the @import above is dropped by Turbopack, so we
+ * re-assert the white text utilities unlayered here instead.)
+ */
+.text-white { color: #fff; }
+.text-white\/40 { color: rgb(255 255 255 / 0.4); }
+.text-white\/50 { color: rgb(255 255 255 / 0.5); }
+.text-white\/60 { color: rgb(255 255 255 / 0.6); }
+.text-white\/70 { color: rgb(255 255 255 / 0.7); }
+.text-white\/80 { color: rgb(255 255 255 / 0.8); }
+.text-white\/90 { color: rgb(255 255 255 / 0.9); }
+
 html, body {
   overscroll-behavior: none;
   -webkit-overflow-scrolling: touch;
