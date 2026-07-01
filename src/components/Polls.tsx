@@ -36,7 +36,7 @@ const POLL_COLORS = [
   { bar: "bg-warning-600", text: "text-warning-600" },
 ];
 
-function PollCard({
+export function PollCard({
   poll,
   userId,
   onVote,
@@ -346,6 +346,45 @@ export function PollsFeed({
           )}
         </>
       )}
+    </div>
+  );
+}
+
+// Compact polls strip for the main Tasks feed: shows the top active polls
+// inline (no create button, no empty state). Renders nothing when none are live.
+export function FeedPolls({ userId, limit = 2 }: { userId: string | null; limit?: number }) {
+  const [polls, setPolls] = useState<Poll[]>([]);
+
+  const fetchPolls = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/polls${userId ? `?userId=${encodeURIComponent(userId)}` : ""}`);
+      const data = await res.json();
+      setPolls(data.polls || []);
+    } catch {}
+  }, [userId]);
+
+  useEffect(() => { fetchPolls(); }, [fetchPolls]);
+
+  const handleVote = async (pollId: string, option: string) => {
+    if (!userId) return;
+    await fetch(`/api/polls/${pollId}/vote`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId, option }),
+    });
+  };
+
+  const active = polls
+    .filter((p) => new Date(p.endsAt).getTime() > Date.now())
+    .slice(0, limit);
+
+  if (active.length === 0) return null;
+
+  return (
+    <div className="flex flex-col gap-2.5 mb-4">
+      {active.map((p) => (
+        <PollCard key={p.id} poll={p} userId={userId} onVote={handleVote} />
+      ))}
     </div>
   );
 }

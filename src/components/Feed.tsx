@@ -34,7 +34,7 @@ import { TASK_TEMPLATES } from "@/lib/agents";
 import { useWorldUsers, displayName } from "@/hooks/useWorldUser";
 import { getFeaturedCampaign } from "@/lib/campaigns";
 import { CampaignPage, FeaturedCampaignBanner } from "@/components/CampaignPage";
-import { PollsFeed } from "@/components/Polls";
+import { PollsFeed, FeedPolls } from "@/components/Polls";
 
 function extractTxHash(result: unknown): string | null {
   if (typeof result !== "object" || result === null) return null;
@@ -841,6 +841,9 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
             </div>
           </div>
         )}
+
+        {/* Active polls surfaced inline in the Tasks feed */}
+        {tab === "available" && !mapMode && <FeedPolls userId={userId} />}
 
         {/* Map view */}
         {mapMode && tab === "available" ? (
