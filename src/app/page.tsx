@@ -3,140 +3,16 @@
 import { useState, useEffect } from "react";
 import { MiniKit } from "@worldcoin/minikit-js";
 import { Feed } from "@/components/Feed";
+import { Onboarding } from "@/components/Onboarding";
 import { displayName } from "@/hooks/useWorldUser";
 import {
   Button,
   Typography,
-  Spinner,
   CircularIcon,
-  AlertDialog,
-  AlertDialogContent,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  Pill,
   LiveFeedback,
 } from "@worldcoin/mini-apps-ui-kit-react";
 
 type VerificationLevel = "orb" | "device" | "wallet" | "dev" | null;
-
-function OnboardingFlow({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const [step, setStep] = useState(0);
-
-  const steps = [
-    {
-      icon: "\u{1F91D}",
-      title: "People helping people",
-      description: "Need a review, a photo, feedback, or an errand done? Post a favour and someone nearby will handle it.",
-      detail: (
-        <div className="flex flex-col gap-2">
-          {[
-            { emoji: "\u{2B50}", text: "Get a review of a place", reward: "$5" },
-            { emoji: "\u{1F4E3}", text: "Get a social media post", reward: "$3" },
-            { emoji: "\u{1F3C3}", text: "Run a quick errand", reward: "$15" },
-          ].map((ex) => (
-            <div key={ex.text} className="flex items-center gap-3 bg-gray-50 rounded-xl px-4 py-3 border border-gray-200">
-              <span className="text-base">{ex.emoji}</span>
-              <Typography variant="body" level={3} className="flex-1 text-gray-700">{ex.text}</Typography>
-              <Pill>{ex.reward}</Pill>
-            </div>
-          ))}
-        </div>
-      ),
-    },
-    {
-      icon: "\u{1F4F8}",
-      title: "Complete and submit proof",
-      description: "Pick a favour, do it, and submit your proof. Photo, screenshot, or written response. Most take under 5 minutes.",
-      detail: (
-        <div className="flex flex-col gap-2">
-          {[
-            { emoji: "\u{1F4F1}", text: "Test an app and screen-record", time: "3 min" },
-            { emoji: "\u{1F4AC}", text: "Give honest feedback", time: "2 min" },
-            { emoji: "\u{1F4CD}", text: "Check something in person", time: "5 min" },
-          ].map((ex) => (
-            <div key={ex.text} className="flex items-center gap-3 bg-gray-50 rounded-xl px-4 py-3 border border-gray-200">
-              <span className="text-base">{ex.emoji}</span>
-              <Typography variant="body" level={3} className="flex-1 text-gray-700">{ex.text}</Typography>
-              <Typography variant="body" level={4} className="text-gray-400">{ex.time}</Typography>
-            </div>
-          ))}
-        </div>
-      ),
-    },
-    {
-      icon: "\u{1F4B0}",
-      title: "AI verifies, you earn USDC",
-      description: "Three AI models review your proof instantly. Pass verification and USDC goes straight to your wallet. Higher World ID tiers unlock bigger rewards.",
-      detail: (
-        <div className="flex flex-col gap-2">
-          {[
-            { tier: "Wallet", desc: "Favours up to $5" },
-            { tier: "Device", desc: "Favours up to $20" },
-            { tier: "Orb", desc: "All favours, no limit" },
-          ].map((t) => (
-            <div key={t.tier} className="flex items-center gap-3 rounded-xl px-4 py-3 border border-gray-200 bg-gray-50">
-              <Pill checked>{t.tier}</Pill>
-              <Typography variant="body" level={3} className="flex-1 text-gray-700">{t.desc}</Typography>
-            </div>
-          ))}
-        </div>
-      ),
-    },
-  ];
-
-  const current = steps[step];
-  const isLast = step === steps.length - 1;
-
-  return (
-    <AlertDialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <div className="flex flex-col items-center gap-2 pt-2">
-            <span className="text-3xl">{current.icon}</span>
-            <AlertDialogTitle>{current.title}</AlertDialogTitle>
-          </div>
-          <AlertDialogDescription>
-            {current.description}
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-
-        <div className="px-6 pb-4">
-          {current.detail}
-        </div>
-
-        <AlertDialogFooter>
-          <div className="flex flex-col gap-3 w-full">
-            <Button
-              fullWidth
-              variant="primary"
-              size="lg"
-              onClick={() => {
-                if (isLast) onClose();
-                else setStep(step + 1);
-              }}
-            >
-              {isLast ? "Start earning" : "Next"}
-            </Button>
-
-            <div className="flex items-center justify-center gap-2">
-              {steps.map((_, i) => (
-                <span
-                  key={i}
-                  aria-label={`Step ${i + 1} of 3`}
-                  className={`w-2 h-2 rounded-full transition-colors ${
-                    i === step ? "bg-gray-900" : "bg-gray-200"
-                  }`}
-                />
-              ))}
-            </div>
-          </div>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
-  );
-}
 
 export default function Home() {
   const [userId, setUserId] = useState<string | null>(null);
@@ -145,17 +21,23 @@ export default function Home() {
   const [isInWorldApp, setIsInWorldApp] = useState(false);
   const [miniKitChecked, setMiniKitChecked] = useState(false);
   const [welcomeMsg, setWelcomeMsg] = useState<string | null>(null);
-  const [showOnboarding, setShowOnboarding] = useState(false);
+  // New users see the guided onboarding once. Anyone already signed in, or
+  // anyone who has finished onboarding before, skips straight to the app / auth.
+  const [onboarded, setOnboarded] = useState(false);
 
   useEffect(() => {
     try { setIsInWorldApp(MiniKit.isInstalled()); } catch { setIsInWorldApp(false); }
-    setMiniKitChecked(true);
     const stored = localStorage.getItem("relay_user_id");
     const storedLevel = localStorage.getItem("relay_verification_level") as VerificationLevel;
     if (stored) {
       setUserId(stored);
       setVerificationLevel(storedLevel);
     }
+    // Anyone already signed in, or who finished onboarding before, skips it.
+    if (stored || localStorage.getItem("relay_onboarded") === "true") {
+      setOnboarded(true);
+    }
+    setMiniKitChecked(true);
   }, []);
 
   const handleVerify = async () => {
@@ -170,7 +52,6 @@ export default function Home() {
         });
         if (result?.data?.address) {
           const addr = result.data.address;
-          const firstTime = !localStorage.getItem("relay_has_signed_in");
 
           setUserId(addr);
           setVerificationLevel("wallet");
@@ -193,11 +74,6 @@ export default function Home() {
             setWelcomeMsg(`Welcome, ${displayName(addr)}`);
           });
           setTimeout(() => setWelcomeMsg(null), 3000);
-
-          if (firstTime) {
-            localStorage.setItem("relay_has_signed_in", "true");
-            setShowOnboarding(true);
-          }
 
           try {
             await MiniKit.requestPermission({ permission: "notifications" as any });
@@ -234,6 +110,27 @@ export default function Home() {
   };
 
   if (!miniKitChecked) return null;
+
+  const completeOnboarding = () => {
+    localStorage.setItem("relay_onboarded", "true");
+    setOnboarded(true);
+  };
+
+  // Brand-new users (never onboarded) get the guided click-through. Its World
+  // ID step calls the same handleVerify used below, so the existing MiniKit
+  // auth path is preserved, not replaced. Stays mounted through sign-in until
+  // the user taps through the final screen, which sets the onboarded flag.
+  if (!onboarded) {
+    return (
+      <Onboarding
+        isInWorldApp={isInWorldApp}
+        isVerifying={isVerifying}
+        authed={!!userId}
+        onVerify={handleVerify}
+        onComplete={completeOnboarding}
+      />
+    );
+  }
 
   if (!userId) {
     return (
@@ -297,8 +194,6 @@ export default function Home() {
           </div>
         </div>
       )}
-
-      <OnboardingFlow open={showOnboarding} onClose={() => setShowOnboarding(false)} />
 
       <Feed userId={userId} verificationLevel={verificationLevel} onLogout={handleLogout} />
     </div>

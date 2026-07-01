@@ -23,24 +23,28 @@ export type ConsensusResult = {
 };
 
 const SYSTEM_PROMPT = `You are a proof verification agent for RELAY, a real-world task network.
-Your job: determine if submitted proof plausibly demonstrates that a task was completed.
+Your job: determine if submitted proof genuinely demonstrates that a task was completed.
+Real people earn rewards from this, so fake, generated, or low-effort proof must not pass.
 
 You will receive:
 - A task description (what was requested)
 - A category hint (how strict to be)
 - Proof: one or more photos AND/OR a written text response
 
-For PHOTO proofs:
-1. AUTHENTICITY — Is this a genuine photo, not AI-generated or stolen?
-   - FAIL only if clearly AI-generated (DALL-E artifacts, impossible details) or stock photo with watermarks
-   - Screenshots of social media posts ARE valid proof for social tasks
-2. RELEVANCE — Does it relate to what the task asked for?
-3. A photo doesn't need to be perfect. Real phone photos are messy — that's fine.
+For PHOTO proofs, actively scrutinize the image before trusting it. FAIL or FLAG proof that shows any of these:
+1. AI-GENERATED or SYNTHETIC images. Look hard for telltale signs: waxy or plastic skin, malformed hands or fingers, extra or missing limbs, garbled or nonsensical text on signs and labels, warped or repeating backgrounds, impossible reflections or lighting, unnaturally perfect symmetry, or a smooth generic render look. If the image looks generated rather than captured by a real phone camera, FAIL it.
+2. STOCK PHOTOS or professional marketing shots: watermarks, studio lighting, unrealistic polish, or no personal or situational context.
+3. SCREENSHOTS OF A SCREEN: a photo or capture of another display, browser, or app. Reject these unless the task explicitly asks for a screenshot.
+4. IRRELEVANT images that do not show what the task actually asked for.
+5. LOW-EFFORT or REUSED content: blank, black, generic filler, or images that look pulled from the internet.
+
+Only PASS a photo when it is a genuine, task-relevant photo that a real person plausibly captured. Real phone photos are messy, slightly blurry, or badly framed, and that is fine. But when you are unsure about authenticity or relevance, choose "flag", not "pass". When you are confident it is fake, generated, stock, a screenshot of a screen, or unrelated, choose "fail".
+Screenshots of social media posts ARE valid proof for SOCIAL tasks specifically.
 
 For TEXT proofs (no photos):
 - Does the response address the task?
 - Is it a genuine attempt, not copy-pasted spam?
-- Short answers are fine if they're honest and on-topic.
+- Short honest on-topic answers are fine. Be lenient here.
 
 Respond with JSON only:
 {
@@ -49,11 +53,11 @@ Respond with JSON only:
   "confidence": 0.0-1.0
 }
 
-- "pass": The proof shows a genuine attempt to complete the task
-- "flag": Ambiguous — could be valid, needs human review
-- "fail": Clearly fake, spam, or completely unrelated to the task
+- "pass": The proof genuinely demonstrates the task was completed
+- "flag": Ambiguous, or you cannot rule out that it is fake, generated, or unrelated. Needs human review.
+- "fail": Clearly fake, AI-generated, stock, a screenshot of a screen, spam, or unrelated to the task
 
-DEFAULT TO PASS for genuine attempts. Only fail obvious fraud or spam.`;
+For image-based tasks, do NOT default to pass. Reserve "pass" for proof you actively believe is genuine, and lean toward "flag" or "fail" for anything suspicious. For text-only and opinion or feedback tasks, stay lenient and pass any honest on-topic attempt.`;
 
 function extractJson(text: string): string {
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
@@ -70,15 +74,19 @@ function detectMediaType(base64: string): "image/jpeg" | "image/png" | "image/gi
 }
 
 const CATEGORY_HINTS: Record<string, string> = {
-  photo: "This is a PHOTO task. The claimant was asked to photograph something specific. Focus on whether the photo shows what was requested.",
-  delivery: "This is a DELIVERY task. Look for evidence that an item was delivered — packaging, receipt, handoff, or the item at the destination.",
-  "check-in": "This is a CHECK-IN task. The claimant was asked to confirm a status at a location. Look for signs, current conditions, or timestamps.",
+  photo: "This is a PHOTO task. The claimant was asked to photograph something specific. Confirm the photo genuinely shows what was requested AND is a real phone capture, not AI-generated, stock, or a screenshot of a screen. Reject synthetic or irrelevant images.",
+  delivery: "This is a DELIVERY task. Look for genuine evidence that an item was delivered: packaging, receipt, handoff, or the item at the destination. Reject AI-generated, stock, or screenshot images, and anything unrelated to the delivery.",
+  "check-in": "This is a CHECK-IN task. The claimant was asked to confirm a status at a location. Look for real signs, current conditions, or timestamps. Reject AI-generated, stock, or screenshot images that do not show a genuine on-location capture.",
   custom: "",
-  review: "This is a REVIEW task. The claimant was asked to share an honest opinion. Be LENIENT — any genuine personal opinion counts. A short honest response is fine. Don't require photos unless the task explicitly asks for them.",
-  social: "This is a SOCIAL MEDIA task. The claimant should provide a screenshot of their published post. Verify the screenshot looks like a real social media post (X/Instagram/TikTok). Don't verify the content quality — just that a post was made.",
+  review: "This is a REVIEW task. The claimant was asked to share an honest opinion. Be LENIENT: any genuine personal opinion counts, and a short honest response is fine. Do not require photos unless the task explicitly asks for them.",
+  social: "This is a SOCIAL MEDIA task. The claimant should provide a screenshot of their published post. A screenshot of a real social media post (X/Instagram/TikTok) is expected and valid here. Verify it looks like a genuine post and is not obviously edited, fabricated, or AI-generated. Do not judge content quality, just that a real post was made.",
   feedback: "This is a FEEDBACK task. Be VERY LENIENT. Any genuine response that addresses the question counts as a pass. Short answers are fine. The bar is: did they engage with the question at all? If yes, pass.",
-  errand: "This is an ERRAND task. The claimant was asked to complete a physical task. Look for photo evidence of the completed errand.",
+  errand: "This is an ERRAND task. The claimant was asked to complete a physical task. Look for genuine photo evidence of the completed errand. Reject AI-generated, stock, or screenshot images, and anything unrelated to the errand.",
 };
+
+// Categories where proof is expected to be text or opinion, so verification stays lenient.
+// Image-based categories require a real majority to pass (see aggregateResults).
+const LENIENT_CATEGORIES = new Set(["review", "feedback"]);
 
 export async function verifyProof(
   taskDescription: string,
@@ -285,7 +293,7 @@ async function callOpenRouter(
   }
 }
 
-function aggregateResults(results: ModelResult[]): ConsensusResult {
+function aggregateResults(results: ModelResult[], lenient = false): ConsensusResult {
   const available = results.filter(r => r.confidence > 0 || !r.reasoning.includes("unavailable"));
   const toCount = available.length > 0 ? available : results;
 
@@ -303,8 +311,22 @@ function aggregateResults(results: ModelResult[]): ConsensusResult {
     }
   }
 
-  if (verdictCounts["pass"] > 0 && verdictCounts["pass"] >= verdictCounts["fail"]) {
-    majorityVerdict = "pass";
+  if (lenient) {
+    // Text and opinion tasks stay lenient: a single genuine pass is enough to pass.
+    if (verdictCounts["pass"] > 0 && verdictCounts["pass"] >= verdictCounts["fail"]) {
+      majorityVerdict = "pass";
+    }
+  } else {
+    // Image-based tasks require a real majority. A single pass among fail/flag does NOT pass.
+    const total = toCount.length;
+    if (verdictCounts["pass"] * 2 > total) {
+      majorityVerdict = "pass";
+    } else if (verdictCounts["fail"] * 2 > total) {
+      majorityVerdict = "fail";
+    } else {
+      // No clear majority: send to human review rather than auto-passing a possible fake.
+      majorityVerdict = "flag";
+    }
   }
 
   const isUnanimous = maxCount === toCount.length;
@@ -347,6 +369,8 @@ export async function verifyProofConsensus(
 
   const systemPrompt = SYSTEM_PROMPT + agentSection;
   const hasImages = images.length > 0;
+  // Text-only submissions cannot be AI-image fakes, and opinion/feedback tasks are meant to be lenient.
+  const lenient = !hasImages || (category ? LENIENT_CATEGORIES.has(category) : false);
   const userText = hasImages
     ? `Task description: "${taskDescription}"${categoryHint ? `\nCategory: ${categoryHint}` : ""}${proofNote ? `\nClaimant's note: "${proofNote}"` : ""}\n\nVerify the following proof photo${images.length > 1 ? "s" : ""}:`
     : `Task description: "${taskDescription}"${categoryHint ? `\nCategory: ${categoryHint}` : ""}\n\nThis is a TEXT-ONLY proof submission (no photos). The claimant's response:\n\n"${proofNote || "(empty)"}"`;
@@ -402,13 +426,13 @@ export async function verifyProofConsensus(
     console.error("[Consensus] All 3 models failed, attempting single-model fallback");
     try {
       const fallback = await callClaude(systemPrompt, userText, images);
-      return aggregateResults([fallback]);
+      return aggregateResults([fallback], lenient);
     } catch (fallbackErr) {
       console.error("[Consensus] Fallback Claude also failed:", fallbackErr);
     }
   }
 
-  return aggregateResults(results);
+  return aggregateResults(results, lenient);
 }
 
 export function verifyProofStub(
