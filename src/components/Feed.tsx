@@ -32,7 +32,7 @@ import { encodeCreateTask, encodeClaimTask, encodeReleasePayment, encodeUniswapS
 import { hapticSuccess, hapticError, hapticTap, hapticHeavy, hapticMedium, hapticSelection, shareTask } from "@/lib/minikit-helpers";
 import { TASK_TEMPLATES } from "@/lib/agents";
 import { useWorldUsers, displayName } from "@/hooks/useWorldUser";
-import { getFeaturedCampaign } from "@/lib/campaigns";
+import { getCampaigns, type Campaign } from "@/lib/campaigns";
 import { CampaignPage, FeaturedCampaignBanner } from "@/components/CampaignPage";
 import { PollsFeed, FeedPolls } from "@/components/Polls";
 
@@ -610,12 +610,13 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
     }
   }, [userId, fetchTasks]);
 
-  const featuredCampaign = useMemo(() => getFeaturedCampaign(), []);
+  const campaigns = useMemo(() => getCampaigns(), []);
+  const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
 
-  if (view === "campaign" && featuredCampaign) {
+  if (view === "campaign" && selectedCampaign) {
     return (
       <CampaignPage
-        campaign={featuredCampaign}
+        campaign={selectedCampaign}
         tasks={tasks}
         userId={userId}
         onBack={() => setView("board")}
@@ -786,15 +787,18 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
         </div>
       )}
 
-      {/* Featured Campaign */}
-      {tab === "available" && featuredCampaign && !loading && (
-        <div className="px-6 pt-4">
-          <FeaturedCampaignBanner
-            campaign={featuredCampaign}
-            taskCount={tasks.length}
-            completedCount={tasks.filter(t => t.status === "completed").length}
-            onTap={() => { hapticTap(); setView("campaign"); }}
-          />
+      {/* Featured Campaigns */}
+      {tab === "available" && !loading && campaigns.length > 0 && (
+        <div className="px-6 pt-4 flex flex-col gap-3">
+          {campaigns.map((c) => (
+            <FeaturedCampaignBanner
+              key={c.id}
+              campaign={c}
+              taskCount={tasks.length}
+              completedCount={tasks.filter(t => t.status === "completed").length}
+              onTap={() => { hapticTap(); setSelectedCampaign(c); setView("campaign"); }}
+            />
+          ))}
         </div>
       )}
 

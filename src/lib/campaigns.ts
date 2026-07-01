@@ -82,3 +82,7 @@ export function getCampaign(id: string): Campaign | null {
 export function getFeaturedCampaign(): Campaign | null {
   return CAMPAIGNS.find((c) => c.featured) || null;
 }
+
+export function getCampaigns(): Campaign[] {
+  return CAMPAIGNS;
+}
