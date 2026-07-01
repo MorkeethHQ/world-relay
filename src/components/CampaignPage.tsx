@@ -6,6 +6,7 @@ import type { Campaign } from "@/lib/campaigns";
 import { Button, Pill } from "@worldcoin/mini-apps-ui-kit-react";
 import { useWorldUsers, displayName } from "@/hooks/useWorldUser";
 import { CategoryIcon } from "@/components/CategoryIcon";
+import { RewardBadge } from "@/components/RewardBadge";
 
 function timeLeft(deadline: string): string {
   const ms = new Date(deadline).getTime() - Date.now();
@@ -278,8 +279,7 @@ export function CampaignPage({
                       </div>
                     </div>
                     <div className="shrink-0 text-right">
-                      <p className="text-sm font-bold text-gray-900">{task.rewardType === "points" ? Math.round(task.bountyUsdc) : `$${task.bountyUsdc}`}</p>
-                      <p className="text-[10px] text-gray-400">{task.rewardType === "points" ? "pts" : "USDC"}</p>
+                      <RewardBadge task={task} size="sm" />
                     </div>
                   </div>
                   {userId && task.poster !== userId && (

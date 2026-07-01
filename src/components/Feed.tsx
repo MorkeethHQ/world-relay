@@ -83,11 +83,9 @@ function formatDistance(km: number): string {
   return `${Math.round(km)}km away`;
 }
 
+// Delegates to the canonical reward formatter so points/money never drift.
 function rewardLabel(task: Task): string {
-  if (task.rewardType === "points") return `${Math.round(task.bountyUsdc)} pts`;
-  if (task.escrowTxHash) return `$${task.bountyUsdc} USDC`;
-  if (task.bountyUsdc >= 1) return `$${task.bountyUsdc} USDC`;
-  return `${Math.round(task.bountyUsdc * 10)} pts`;
+  return rewardAmountLabel(task);
 }
 
 function proofInstructions(task: Task): { short: string; steps: string[]; tip: string } {
@@ -179,6 +177,8 @@ function proofInstructions(task: Task): { short: string; steps: string[]; tip: s
 }
 
 import { CategoryIcon } from "@/components/CategoryIcon";
+import { RewardBadge } from "@/components/RewardBadge";
+import { rewardAmountLabel } from "@/lib/reward";
 
 type TaskTier = "quick" | "medium" | "effort";
 
@@ -1234,9 +1234,7 @@ function TaskCard({
           </div>
         </div>
         <div className="shrink-0 text-right">
-          <p className="text-[15px] font-bold text-gray-900">{rewardLabel(task)}</p>
-          {task.rewardType !== "points" && task.escrowTxHash && <p className="text-[10px] text-success-600 font-medium">funded</p>}
-          {task.rewardType === "points" && <p className="text-[10px] text-purple-600 font-medium">points</p>}
+          <RewardBadge task={task} />
         </div>
       </div>
 
