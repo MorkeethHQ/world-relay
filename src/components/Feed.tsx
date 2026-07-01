@@ -1311,6 +1311,19 @@ const POST_TEMPLATES = [
   { emoji: "\u{1F4AC}", label: "Quick opinion", desc: "Share your honest take on something. Detailed answers earn more.", category: "feedback" as const, bounty: "1" },
 ];
 
+// Minimal stroke icons for the post templates (design system: SVG, not emoji).
+function TemplateIcon({ index }: { index: number }) {
+  const p = { width: 20, height: 20, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
+  switch (index) {
+    case 0: return <svg {...p}><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z" /></svg>;
+    case 1: return <svg {...p}><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" /></svg>;
+    case 2: return <svg {...p}><path d="m3 11 18-5v12L3 14v-3z" /><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6" /></svg>;
+    case 3: return <svg {...p}><rect width="14" height="20" x="5" y="2" rx="2" /><path d="M12 18h.01" /></svg>;
+    case 4: return <svg {...p}><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" /><circle cx="12" cy="10" r="3" /></svg>;
+    default: return <svg {...p}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>;
+  }
+}
+
 function PostTask({
   userId,
   onDone,
@@ -1449,7 +1462,7 @@ function PostTask({
                       : "border-gray-200 bg-white hover:border-gray-300"
                   }`}
                 >
-                  <span className="text-lg">{t.emoji}</span>
+                  <span className="text-gray-700"><TemplateIcon index={i} /></span>
                   <Typography variant="body" level={4} className="text-center text-gray-700 leading-tight">{t.label}</Typography>
                   <span className={`text-[9px] font-semibold uppercase tracking-wider ${tc.color}`}>{tc.label}</span>
                 </button>
