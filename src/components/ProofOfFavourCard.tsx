@@ -630,9 +630,9 @@ function FullCard({
           config={config}
         />
         <StatBox
-          label="Longest Streak"
+          label="Best streak"
           value={profile.longestStreak}
-          suffix="d"
+          suffix={profile.longestStreak === 1 ? " day" : " days"}
           config={config}
         />
       </div>

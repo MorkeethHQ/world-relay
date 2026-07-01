@@ -690,10 +690,10 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
         </div>
       </div>
 
-      {/* Tab content - phases left/right on tab change (World App style) */}
+      {/* Tab content */}
       <div
         key={tab}
-        className={`flex-1 flex flex-col ${tabDirection === "right" ? "tab-slide-right" : "tab-slide-left"}`}
+        className="flex-1 flex flex-col"
       >
 
       {/* Animated hero - Tasks */}
@@ -1817,15 +1817,15 @@ function SubmitProof({
   };
 
   return (
-    <div className="flex flex-col min-h-screen max-w-lg mx-auto w-full">
+    <div className="flex flex-col h-screen max-w-lg mx-auto w-full">
       <TopBar
-        title="Submit Proof"
+        title="Submit proof"
         startAdornment={
           <Button variant="tertiary" size="sm" onClick={onCancel}>Cancel</Button>
         }
       />
 
-      <div className="flex-1 px-6 py-6 flex flex-col gap-5">
+      <div className="flex-1 overflow-y-auto px-6 py-6 pb-[calc(env(safe-area-inset-bottom,0px)+32px)] flex flex-col gap-5">
         {/* Task context with tier badge */}
         {(() => {
           const tier = getTaskTier(task.category);

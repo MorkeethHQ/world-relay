@@ -36,17 +36,14 @@ export default async function LeaderboardPage() {
     <div className="min-h-screen bg-gray-50 text-gray-900 max-w-lg mx-auto">
       <div className="px-6 pt-6 pb-28 flex flex-col gap-6">
 
-        <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-2xl p-5 text-white">
-          <div className="flex items-center gap-3 mb-2">
-            <span className="text-2xl">&#x1F3C6;</span>
+        <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-2xl p-4 text-white">
+          <div className="flex items-center gap-2.5">
+            <span className="text-xl">&#x1F3C6;</span>
             <div>
-              <h3 className="text-lg font-bold text-white">Weekly Competition</h3>
-              <p className="text-sm text-gray-400">Top runner this week wins bragging rights</p>
+              <h3 className="text-base font-bold text-white">This week&apos;s competition</h3>
+              <p className="text-xs text-gray-400">Top runner wins. Resets Monday.</p>
             </div>
           </div>
-          <p className="text-sm text-gray-300 mt-2">
-            Earn points: claim (+5), submit proof (+10), get verified (+25), streak bonuses (+2/day). Resets every Monday.
-          </p>
         </div>
 
         <div>

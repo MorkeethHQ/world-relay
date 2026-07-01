@@ -163,8 +163,11 @@ export default function ProfilePage() {
           {/* Escrow Overview */}
           {chain && (
             <div>
-              <Typography variant="subtitle" level={2} className="text-gray-900 mb-3 px-1">
-                Escrow
+              <Typography variant="subtitle" level={2} className="text-gray-900 mb-1 px-1">
+                Network escrow
+              </Typography>
+              <Typography variant="body" level={4} className="text-gray-400 mb-3 px-1">
+                Across all of RELAY on World Chain, not just you
               </Typography>
               <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
                 {/* Main stats */}
