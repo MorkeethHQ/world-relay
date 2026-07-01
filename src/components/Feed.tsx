@@ -708,7 +708,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
             </div>
             <div className="w-1 h-1 rounded-full bg-gray-200" />
             <div className="flex items-baseline gap-1.5">
-              <span className="text-[20px] font-bold text-gray-900">${tasks.filter(t => t.status === "completed").reduce((s, t) => s + t.bountyUsdc, 0).toFixed(0)}</span>
+              <span className="text-[20px] font-bold text-gray-900">${tasks.filter(t => t.status === "completed" && t.rewardType !== "points" && t.escrowTxHash).reduce((s, t) => s + t.bountyUsdc, 0).toFixed(0)}</span>
               <span className="text-[12px] text-gray-400">paid</span>
             </div>
           </div>
