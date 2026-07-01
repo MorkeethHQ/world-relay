@@ -76,8 +76,9 @@ async function computeStats(redis: NonNullable<ReturnType<typeof getRedis>>) {
   let open = 0;
   let claimed = 0;
   let completed = 0;
-  let totalBounty = 0;
-  let paidOut = 0;
+  let totalBounty = 0;   // real USDC only
+  let paidOut = 0;       // real USDC actually escrowed + completed
+  let pointsAwarded = 0; // points only, never counted as money
   let last24h = 0;
   let last7d = 0;
   const posters = new Set<string>();
@@ -89,10 +90,17 @@ async function computeStats(redis: NonNullable<ReturnType<typeof getRedis>>) {
     else if (task.status === "claimed") claimed++;
     else if (task.status === "completed") completed++;
 
-    // Bounty volume
-    const bounty = Number(task.bountyUsdc) || 0;
-    totalBounty += bounty;
-    if (task.status === "completed") paidOut += bounty;
+    // Reward volume — points and real money are tracked separately and never mixed.
+    const amount = Number(task.bountyUsdc) || 0;
+    if (task.rewardType === "points") {
+      if (task.status === "completed") pointsAwarded += amount;
+    } else {
+      // Real USDC: only count as "distributed" when the task was actually escrow-funded.
+      if (task.escrowTxHash) {
+        totalBounty += amount;
+        if (task.status === "completed") paidOut += amount;
+      }
+    }
 
     // Activity
     const createdAt = new Date(task.createdAt).getTime();
@@ -156,9 +164,12 @@ async function computeStats(redis: NonNullable<ReturnType<typeof getRedis>>) {
       completed,
     },
     volume: {
+      // Real money (USDC), kept strictly separate from points.
       totalBountyUsdc: Math.round(totalBounty * 100) / 100,
       paidOutUsdc: Math.round(paidOut * 100) / 100,
       avgBountyUsdc: Math.round(avgBounty * 100) / 100,
+      // Points are a separate currency, never expressed in dollars.
+      pointsDistributed: Math.round(pointsAwarded),
     },
     activity: {
       last24h,

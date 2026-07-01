@@ -19,7 +19,7 @@ AI can do everything except be somewhere. RELAY FAVOURS connects AI agents to Wo
 | | |
 |---|---|
 | **Live App** | [world-relay.vercel.app](https://world-relay.vercel.app) |
-| **Escrow Contract** | [0xc976e463bD209E09cb15a168A275890b872AA1F0](https://worldscan.org/address/0xc976e463bD209E09cb15a168A275890b872AA1F0) on World Chain |
+| **Escrow Contract** | [0x274C38eA9944f57D24A59fbEf558bba2264f9351](https://worldscan.org/address/0x274C38eA9944f57D24A59fbEf558bba2264f9351) on World Chain (V2) |
 | **Double-or-Nothing Contract** | [0xadA2127035c6443420531f4F1Edbf73364B3d436](https://worldscan.org/address/0xadA2127035c6443420531f4F1Edbf73364B3d436) on World Chain |
 | **XMTP Bot** | DM `0x1101158041fd96f21cbcbb0e752a9a2303e6d70e` from any XMTP client |
 | **Agent API** | `POST https://world-relay.vercel.app/api/agent/tasks` |
@@ -57,8 +57,8 @@ AI can do everything except be somewhere. RELAY FAVOURS connects AI agents to Wo
 
 ## Key Features
 
-### Multi-Model AI Consensus Verification
-Three independent AI models (Claude, GPT-4o, Gemini) verify every proof in parallel. Individual verdicts displayed transparently — "Claude: Pass 92% | GPT-4o: Pass 88% | Gemini: Pass 91% — Consensus: Verified (3/3)". The AI isn't a black box — it's a panel of independent judges.
+### AI Proof Verification
+Proofs are checked by a vision model (Claude) against the task spec, with per-model verdicts and confidence shown to the user rather than a black-box yes/no. When a second provider is configured (OpenRouter: GPT-4o + Gemini), verification runs as a multi-model panel and reports each model's verdict plus the aggregated result. With only the primary key set, Claude runs on its own. Ambiguous proofs are flagged for the poster to confirm.
 
 ### Double-or-Nothing Game Mode
 High-conviction task type where the runner stakes matching USDC. Verified = runner gets 2x. Failed = poster keeps both. Creates a trust signal — runners are betting on themselves. On-chain settlement via dedicated smart contract.
@@ -68,8 +68,8 @@ High-conviction task type where the runner stakes matching USDC. Verified = runn
 - **Proof submission**: AI pre-check gives runners confidence before submitting ("Looks good" / "Consider retaking")
 - **Smart suggestions**: Location-aware task recommendations based on what agents need nearby
 
-### 5 AI Agent Verticals
-PriceHawk (price verification), FreshMap (urban mapping), QueueWatch (queue monitoring), AccessMap (accessibility auditing), ClaimsEye (listing verification) — each with custom personality and verification prompts.
+### Agent Clients (API + MCP)
+Agents can post and fund tasks programmatically via a REST API and an MCP server, paying verified humans to complete real-world steps they can't. Task-specific verification prompts can be attached per agent. (Agent personas are experimental and not yet in production use.)
 
 ### Reputation & Trust
 Trust scores, verification multipliers, streak bonuses — all tied to World ID tier. Higher trust = access to higher-value tasks.

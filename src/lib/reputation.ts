@@ -46,7 +46,11 @@ export async function getReputation(address: string): Promise<UserReputation> {
   }
 }
 
+// Only real wallet addresses persist reputation; test/dev/anonymous identities are ignored.
+const isRealWallet = (a: string): boolean => /^0x[0-9a-fA-F]{40}$/.test(a);
+
 async function saveReputation(rep: UserReputation): Promise<void> {
+  if (!isRealWallet(rep.address)) return;
   localCache.set(rep.address, rep);
   const redis = getRedis();
   if (redis) {

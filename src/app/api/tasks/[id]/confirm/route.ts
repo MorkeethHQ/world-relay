@@ -3,7 +3,6 @@ import { getTask, posterConfirm } from "@/lib/store";
 import { postVerificationResult, postSettlementConfirmation } from "@/lib/xmtp";
 import { fireWebhook } from "@/lib/webhooks";
 import { releaseEscrow } from "@/lib/escrow";
-import { getRedis } from "@/lib/redis";
 import { notifyPaymentReleased } from "@/lib/notifications";
 import { addNotification } from "@/lib/notifications-store";
 
@@ -31,8 +30,10 @@ export async function POST(
   if (approved) {
     await postVerificationResult(id, "pass", "Poster confirmed proof manually", task.bountyUsdc);
 
-    // Release escrow if this task was pending poster confirmation (high-value auto-release)
-    if ((task as any).pendingRelease && task.onChainId !== null) {
+    // Poster approved a flagged proof on a funded on-chain task: release escrow now.
+    // releaseEscrow is safe to call here because the contract status guard
+    // (escrow.ts) rejects any task that is not Open/Claimed, preventing double-release.
+    if (task.onChainId !== null) {
       const escrowTx = await releaseEscrow(task.onChainId, task.claimant).catch((err) => {
         console.error("[Escrow] Release on confirm failed:", err);
         return null;
@@ -48,15 +49,6 @@ export async function POST(
             body: `$${task.bountyUsdc} USDC sent to your wallet.`,
             taskId: id,
           }).catch(console.error);
-        }
-      }
-      // Clear the pendingRelease flag
-      const redis = getRedis();
-      if (redis) {
-        const latest = await getTask(id);
-        if (latest) {
-          (latest as any).pendingRelease = false;
-          await redis.set(`task:${id}`, JSON.stringify(latest));
         }
       }
     }

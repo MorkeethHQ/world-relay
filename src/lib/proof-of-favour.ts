@@ -176,12 +176,18 @@ export async function getProofOfFavour(address: string): Promise<ProofOfFavour> 
   }
 }
 
+// Only real wallet addresses (verified humans who can receive USDC) may earn
+// points or appear on the leaderboard. Blocks anonymous/dev_/e2e_/demo_ identities
+// from ever polluting stats or the public Ranks again.
+const isRealWallet = (a: string): boolean => /^0x[0-9a-fA-F]{40}$/.test(a);
+
 export async function awardPoints(
   address: string,
   action: string,
   points: number
 ): Promise<ProofOfFavour> {
   const profile = await getProofOfFavour(address);
+  if (!isRealWallet(address)) return profile;
   profile.totalPoints += points;
   profile.level = getLevel(profile.totalPoints);
 

@@ -249,7 +249,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
   const [tabDirection, setTabDirection] = useState<"left" | "right">("right");
   // Direction-aware tab switch so content phases in from the correct side (World App style)
   const changeTab = (next: Tab) => {
-    const order: Tab[] = ["available", "polls", "mine", "completed"];
+    const order: Tab[] = ["available", "polls", "completed"];
     setTabDirection(order.indexOf(next) >= order.indexOf(tab) ? "right" : "left");
     setTab(next);
   };
@@ -668,8 +668,8 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
 
         {/* Tabs */}
         <div className="flex px-6 gap-0 items-center" role="tablist">
-          {(["available", "polls", "mine", "completed"] as Tab[]).map((t) => {
-            const label = t === "available" ? "Tasks" : t === "polls" ? "Polls" : t === "mine" ? "Mine" : "History";
+          {(["available", "polls", "completed"] as Tab[]).map((t) => {
+            const label = t === "available" ? "Tasks" : t === "polls" ? "Polls" : "History";
             return (
               <button
                 key={t}
@@ -1318,7 +1318,8 @@ function PostTask({
   onCancel: () => void;
 }) {
   const [description, setDescription] = useState("");
-  const [location, setLocation] = useState("");
+  const [locationMode, setLocationMode] = useState<"online" | "inperson">("online");
+  const [location, setLocation] = useState("Online");
   const [bounty, setBounty] = useState("");
   const [rewardType, setRewardType] = useState<"usdc" | "points">("points");
   const [category, setCategory] = useState<"photo" | "delivery" | "check-in" | "custom" | "feedback" | "review" | "social" | "errand">("review");
@@ -1421,7 +1422,7 @@ function PostTask({
   return (
     <div className="flex flex-col min-h-screen max-w-lg mx-auto w-full bg-gray-50">
       <TopBar
-        title="Post a Favour"
+        title="New favour"
         startAdornment={
           <Button variant="tertiary" size="sm" onClick={onCancel} aria-label="Cancel">Cancel</Button>
         }
@@ -1469,13 +1470,33 @@ function PostTask({
         {/* Location */}
         <div>
           <Typography variant="label" level={2} className="text-gray-400 mb-2">Where?</Typography>
-          <input
-            type="text"
-            placeholder="Address, venue name, or area"
-            value={location}
-            onChange={(e) => setLocation(e.target.value)}
-            className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-gray-400 transition-colors placeholder:text-gray-400 min-h-[44px]"
-          />
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => { setLocationMode("online"); setLocation("Online"); }}
+              className={`flex-1 rounded-xl border py-3 text-center transition-all min-h-[44px] ${
+                locationMode === "online" ? "border-gray-900 bg-white" : "border-gray-200 bg-white hover:border-gray-300"
+              }`}
+            >
+              <Typography variant="body" level={3} className={locationMode === "online" ? "text-gray-900 font-semibold" : "text-gray-500"}>Online</Typography>
+            </button>
+            <button
+              onClick={() => { setLocationMode("inperson"); setLocation(""); }}
+              className={`flex-1 rounded-xl border py-3 text-center transition-all min-h-[44px] ${
+                locationMode === "inperson" ? "border-gray-900 bg-white" : "border-gray-200 bg-white hover:border-gray-300"
+              }`}
+            >
+              <Typography variant="body" level={3} className={locationMode === "inperson" ? "text-gray-900 font-semibold" : "text-gray-500"}>In person</Typography>
+            </button>
+          </div>
+          {locationMode === "inperson" && (
+            <input
+              type="text"
+              placeholder="Address, venue name, or area"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              className="mt-2 w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-gray-400 transition-colors placeholder:text-gray-400 min-h-[44px]"
+            />
+          )}
         </div>
 
         {/* Reward type toggle */}
@@ -1521,7 +1542,7 @@ function PostTask({
                     : "border-gray-200 bg-white hover:border-gray-300"
                 }`}
               >
-                <Typography variant="number" level={3} className={bounty === amt ? "text-gray-900" : "text-gray-500"}>{rewardType === "points" ? `${amt} pts` : `$${amt}`}</Typography>
+                <Typography variant="number" level={3} className={`whitespace-nowrap ${bounty === amt ? "text-gray-900" : "text-gray-500"}`}>{rewardType === "points" ? `${amt} pts` : `$${amt}`}</Typography>
               </button>
             ))}
             <div className="flex-1 flex items-center gap-1 bg-white border border-gray-200 rounded-xl px-3 py-3 min-h-[44px]">
@@ -1755,8 +1776,7 @@ function SubmitProof({
       });
 
       if (!res.ok) {
-        const text = await res.text().catch(() => "Upload failed");
-        setResult({ verdict: "fail", reasoning: `Server error: ${text.slice(0, 100)}` });
+        setResult({ verdict: "error", reasoning: "We couldn't process your submission just now. Your proof wasn't judged. Please try again." });
         setSubmitting(false);
         hapticError();
         return;
@@ -1782,7 +1802,7 @@ function SubmitProof({
         hapticSelection();
       }
     } catch {
-      setResult({ verdict: "fail", reasoning: "Network error — please try again" });
+      setResult({ verdict: "error", reasoning: "Network hiccup. Your proof wasn't judged. Please try again." });
       setSubmitting(false);
       hapticError();
     }
@@ -2041,6 +2061,7 @@ function SubmitProof({
           <div className={`p-5 rounded-2xl text-sm border ${
             result.verdict === "pass" ? "bg-green-50 border-green-200" :
             result.verdict === "flag" ? "bg-yellow-50 border-yellow-200" :
+            result.verdict === "error" ? "bg-gray-50 border-gray-200" :
             "bg-red-50 border-red-200"
           }`}>
             <div className="flex items-center gap-2 mb-2">
@@ -2055,6 +2076,11 @@ function SubmitProof({
                   <line x1="12" y1="9" x2="12" y2="13" />
                   <line x1="12" y1="17" x2="12.01" y2="17" />
                 </svg>
+              ) : result.verdict === "error" ? (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M1 4v6h6" />
+                  <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+                </svg>
               ) : (
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f87171" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="12" cy="12" r="10" />
@@ -2065,9 +2091,10 @@ function SubmitProof({
               <span className={`font-bold text-lg tracking-tight ${
                 result.verdict === "pass" ? "text-green-600" :
                 result.verdict === "flag" ? "text-yellow-600" :
+                result.verdict === "error" ? "text-gray-600" :
                 "text-red-600"
               }`}>
-                {result.verdict === "pass" ? "VERIFIED" : result.verdict === "flag" ? "FLAGGED" : "REJECTED"}
+                {result.verdict === "pass" ? "VERIFIED" : result.verdict === "flag" ? "FLAGGED" : result.verdict === "error" ? "TRY AGAIN" : "REJECTED"}
               </span>
             </div>
             <p className="text-xs text-gray-500 leading-relaxed">{String(result.reasoning)}</p>
@@ -2087,7 +2114,9 @@ function SubmitProof({
             )}
             {result.verdict === "pass" && (
               <div className="mt-3 pt-3 border-t border-green-200 flex flex-col gap-2">
-                {result.escrowReleaseTxHash ? (
+                {task.rewardType === "points" ? (
+                  <p className="font-semibold text-sm text-purple-600">+{Math.round(task.bountyUsdc)} pts earned</p>
+                ) : result.escrowReleaseTxHash ? (
                   <a
                     href={`https://worldscan.org/tx/${result.escrowReleaseTxHash}`}
                     target="_blank"
@@ -2143,6 +2172,14 @@ function SubmitProof({
               <div className="mt-2">
                 <p className="text-xs text-yellow-600">Under review. You'll be notified of the result.</p>
               </div>
+            )}
+            {result.verdict === "error" && (
+              <button
+                onClick={() => { setResult(null); hasAutoChecked.current = false; }}
+                className="mt-3 w-full py-2.5 rounded-xl border border-gray-200 bg-white text-sm text-gray-700 font-medium active:scale-[0.98] transition-all"
+              >
+                Try Again
+              </button>
             )}
             {result.verdict === "fail" && (
               <div className="mt-2 flex flex-col gap-2">

@@ -14,6 +14,8 @@ type Poll = {
   createdAt: string;
   endsAt: string;
   totalVotes: number;
+  youVoted?: boolean;
+  yourVote?: string | null;
   voterCount: number;
 };
 
@@ -43,8 +45,8 @@ function PollCard({
   userId: string | null;
   onVote: (pollId: string, option: string) => void;
 }) {
-  const [selected, setSelected] = useState<string | null>(null);
-  const [hasVoted, setHasVoted] = useState(false);
+  const [selected, setSelected] = useState<string | null>(poll.yourVote ?? null);
+  const [hasVoted, setHasVoted] = useState(!!poll.youVoted);
   const [localVotes, setLocalVotes] = useState(poll.votes);
   const [localTotal, setLocalTotal] = useState(poll.totalVotes);
   const isEnded = new Date(poll.endsAt).getTime() < Date.now();
@@ -252,12 +254,12 @@ export function PollsFeed({
 
   const fetchPolls = useCallback(async () => {
     try {
-      const res = await fetch("/api/polls");
+      const res = await fetch(`/api/polls${userId ? `?userId=${encodeURIComponent(userId)}` : ""}`);
       const data = await res.json();
       setPolls(data.polls || []);
     } catch {}
     setLoading(false);
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
     fetchPolls();

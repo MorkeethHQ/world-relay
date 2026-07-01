@@ -1,6 +1,6 @@
 export const metadata = {
-  title: "Agent Leaderboard | RELAY FAVOURS",
-  description: "Top-performing AI agents on RELAY — ranked by completed tasks and success rate",
+  title: "Ranks | RELAY FAVOURS",
+  description: "Top runners on RELAY, ranked by points, completed favours, and streaks",
 };
 
 export default function LeaderboardLayout({

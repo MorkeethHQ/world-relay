@@ -1,11 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { listPolls, createPoll } from "@/lib/polls-store";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const userId = req.nextUrl.searchParams.get("userId") || "";
   const polls = await listPolls();
   const sanitized = polls.map(({ voters, ...rest }) => ({
     ...rest,
     voterCount: Object.keys(voters).length,
+    // Tell the requesting user whether they already voted (and for what) so the
+    // client can lock the poll persistently, not just for the current session.
+    youVoted: userId ? !!voters[userId] : false,
+    yourVote: userId ? voters[userId] || null : null,
   }));
   return NextResponse.json({ polls: sanitized });
 }

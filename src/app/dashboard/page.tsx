@@ -42,10 +42,6 @@ type EscrowStats = {
   tasks: OnChainTask[];
 };
 
-function shortAddr(addr: string): string {
-  return displayName(addr);
-}
-
 function StatusPill({ status }: { status: string }) {
   if (status === "completed") {
     return (
@@ -226,58 +222,64 @@ export default function ProfilePage() {
             </div>
           )}
 
-          {/* Transaction Ledger */}
-          {chain && chain.tasks.length > 0 && (
-            <div>
-              <div className="flex items-center justify-between mb-3 px-1">
-                <Typography variant="subtitle" level={2} className="text-gray-900">
-                  Transactions
-                </Typography>
-                <Pill>
-                  <Typography variant="label" level={2}>{chain.tasks.length}</Typography>
-                </Pill>
-              </div>
-              <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-                {chain.tasks.slice().reverse().map((t, i) => (
-                  <div
-                    key={t.id}
-                    className={`px-4 py-3.5 flex items-center gap-3 ${
-                      i < chain.tasks.length - 1 ? "border-b border-gray-100" : ""
-                    }`}
-                  >
-                    <CircularIcon size="sm" className={
-                      t.status === "completed" ? "bg-success-100" :
-                      t.status === "claimed" ? "bg-warning-100" :
-                      "bg-gray-100"
-                    }>
-                      {t.status === "completed" ? (
-                        <CheckCircle className="w-4 h-4 text-success-600" />
-                      ) : t.status === "claimed" ? (
-                        <Clock className="w-4 h-4 text-warning-600" />
-                      ) : (
-                        <Wallet className="w-4 h-4 text-gray-400" />
-                      )}
-                    </CircularIcon>
-                    <div className="flex-1 min-w-0">
-                      <Typography variant="body" level={3} className="text-gray-900 truncate leading-snug">
-                        {t.description}
-                      </Typography>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <Typography variant="body" level={4} className="text-gray-400">#{t.id}</Typography>
-                        {t.claimant && (
-                          <Typography variant="body" level={4} className="text-gray-400">{shortAddr(t.claimant)}</Typography>
-                        )}
+          {/* Your activity — only the current user's own tasks (posted or completed) */}
+          {(() => {
+            const myTasks = userId
+              ? tasks.filter((t) => t.poster === userId || t.claimant === userId)
+              : [];
+            if (myTasks.length === 0) return null;
+            return (
+              <div>
+                <div className="flex items-center justify-between mb-3 px-1">
+                  <Typography variant="subtitle" level={2} className="text-gray-900">
+                    Your activity
+                  </Typography>
+                  <Pill>
+                    <Typography variant="label" level={2}>{myTasks.length}</Typography>
+                  </Pill>
+                </div>
+                <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+                  {myTasks.slice().reverse().map((t, i) => {
+                    const role = t.poster === userId ? "Posted" : "Completed";
+                    return (
+                      <div
+                        key={t.id}
+                        className={`px-4 py-3.5 flex items-center gap-3 ${
+                          i < myTasks.length - 1 ? "border-b border-gray-100" : ""
+                        }`}
+                      >
+                        <CircularIcon size="sm" className={
+                          t.status === "completed" ? "bg-success-100" :
+                          t.status === "claimed" ? "bg-warning-100" :
+                          "bg-gray-100"
+                        }>
+                          {t.status === "completed" ? (
+                            <CheckCircle className="w-4 h-4 text-success-600" />
+                          ) : t.status === "claimed" ? (
+                            <Clock className="w-4 h-4 text-warning-600" />
+                          ) : (
+                            <Wallet className="w-4 h-4 text-gray-400" />
+                          )}
+                        </CircularIcon>
+                        <div className="flex-1 min-w-0">
+                          <Typography variant="body" level={3} className="text-gray-900 truncate leading-snug">
+                            {t.description}
+                          </Typography>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <Typography variant="body" level={4} className="text-gray-400">{role}</Typography>
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0 flex flex-col items-end gap-1">
+                          <Typography variant="number" level={4} className="text-gray-900">${t.bountyUsdc}</Typography>
+                          <StatusPill status={t.status} />
+                        </div>
                       </div>
-                    </div>
-                    <div className="text-right shrink-0 flex flex-col items-end gap-1">
-                      <Typography variant="number" level={4} className="text-gray-900">${t.bounty}</Typography>
-                      <StatusPill status={t.status} />
-                    </div>
-                  </div>
-                ))}
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* Footer */}
           <div className="flex items-center justify-center gap-2 pt-2">

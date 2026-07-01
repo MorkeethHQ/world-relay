@@ -1,17 +1,7 @@
 export const dynamic = "force-dynamic";
 
 import { getTopRunners, getWeeklyLeaderboard } from "@/lib/proof-of-favour";
-import { getAgentAnalytics, getPlatformStats } from "@/lib/agent-analytics";
-
-type AgentStats = {
-  agentId: string;
-  name: string;
-  icon: string;
-  totalTasks: number;
-  completedTasks: number;
-  successRate: number;
-  totalSpentUsdc: number;
-};
+import { getPlatformStats } from "@/lib/agent-analytics";
 
 type PlatformStats = {
   totalTasks: number;
@@ -28,14 +18,12 @@ function truncateAddr(addr: string): string {
 const MEDAL = ["gold", "silver", "#CD7F32"] as const;
 
 export default async function LeaderboardPage() {
-  let agents: AgentStats[] = [];
   let platform: PlatformStats = { totalTasks: 0, totalCompleted: 0, totalBountyUsdc: 0, activeAgents: 0 };
   let topRunners: Awaited<ReturnType<typeof getTopRunners>> = [];
   let weeklyRunners: Awaited<ReturnType<typeof getWeeklyLeaderboard>> = [];
 
   try {
-    [agents, platform, topRunners, weeklyRunners] = await Promise.all([
-      getAgentAnalytics() as Promise<AgentStats[]>,
+    [platform, topRunners, weeklyRunners] = await Promise.all([
       getPlatformStats(),
       getTopRunners(10),
       getWeeklyLeaderboard(10),
@@ -129,7 +117,7 @@ export default async function LeaderboardPage() {
             { value: platform.totalTasks, label: "Tasks posted" },
             { value: platform.totalCompleted, label: "Completed" },
             { value: `$${platform.totalBountyUsdc}`, label: "USDC distributed" },
-            { value: platform.activeAgents, label: "Active agents" },
+            { value: topRunners.length, label: "Runners" },
           ].map((stat) => (
             <div key={stat.label} className="bg-white border border-gray-200 rounded-2xl py-4 px-4 text-center">
               <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
@@ -137,26 +125,6 @@ export default async function LeaderboardPage() {
             </div>
           ))}
         </div>
-
-        {agents.length > 0 && (
-          <div>
-            <h4 className="text-base font-semibold text-gray-900 mb-3 px-1">AI Agents</h4>
-            <div className="flex flex-col gap-2">
-              {agents.map((agent) => (
-                <div key={agent.agentId} className="bg-white border border-gray-200 rounded-xl p-4 flex items-center gap-3">
-                  <span className="text-xl">{agent.icon}</span>
-                  <div className="flex-1 min-w-0">
-                    <span className="text-sm font-semibold text-gray-900">{agent.name}</span>
-                    <span className="text-xs text-gray-400 ml-2">{agent.totalTasks} tasks, ${agent.totalSpentUsdc} spent</span>
-                  </div>
-                  {agent.successRate >= 70 && (
-                    <span className="text-xs font-medium bg-green-100 text-green-700 rounded-full px-2 py-0.5">{agent.successRate}%</span>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
 
         <div className="flex items-center justify-center gap-2 pt-2">
           <span className="text-xs text-gray-300">RELAY FAVOURS</span>

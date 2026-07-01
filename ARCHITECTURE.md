@@ -49,7 +49,7 @@
 ┌──────────────────────┴───────────────────────────────────────────┐
 │                      ON-CHAIN LAYER (World Chain 480)            │
 │                                                                  │
-│  RelayEscrow ─── 0xc976e463bD209E09cb15a168A275890b872AA1F0     │
+│  RelayEscrow ─── 0x274C38eA9944f57D24A59fbEf558bba2264f9351     │
 │  USDC ────────── 0x79A02482A880bCE3F13e09Da970dC34db4CD24d1     │
 │  Permit2 ─────── 0x000000000022D473030F116dDEE9F6B43aC78BA3     │
 │  SwapRouter02 ── 0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45     │
