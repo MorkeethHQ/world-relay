@@ -278,8 +278,8 @@ export function CampaignPage({
                       </div>
                     </div>
                     <div className="shrink-0 text-right">
-                      <p className="text-sm font-bold text-gray-900">${task.bountyUsdc}</p>
-                      <p className="text-[10px] text-gray-400">USDC</p>
+                      <p className="text-sm font-bold text-gray-900">{task.rewardType === "points" ? Math.round(task.bountyUsdc) : `$${task.bountyUsdc}`}</p>
+                      <p className="text-[10px] text-gray-400">{task.rewardType === "points" ? "pts" : "USDC"}</p>
                     </div>
                   </div>
                   {userId && task.poster !== userId && (
