@@ -1455,6 +1455,10 @@ function PostTask({
           </div>
         </div>
 
+        {selectedTemplate === null ? (
+          <Typography variant="body" level={4} className="text-gray-400 -mt-3">Pick one to get started. You can edit everything after.</Typography>
+        ) : (
+        <>
         {/* Description */}
         <div>
           <Typography variant="label" level={2} className="text-gray-400 mb-2">Description</Typography>
@@ -1591,6 +1595,8 @@ function PostTask({
             </div>
           </div>
         </div>
+        </>
+        )}
       </div>
 
       {/* Submit */}
@@ -1616,17 +1622,19 @@ function PostTask({
             </a>
           </div>
         )}
-        <LiveFeedback state={submitting ? "pending" : undefined}>
-          <Button
-            onClick={handleSubmit}
-            disabled={!isValid || submitting}
-            variant="primary"
-            fullWidth
-            size="lg"
-          >
-            {submitting ? "Posting..." : rewardType === "points" ? `Post - ${bounty || "0"} pts` : isInWorld ? `Post & Fund $${bounty || "0"} USDC` : "Post Favour"}
-          </Button>
-        </LiveFeedback>
+        {selectedTemplate !== null && (
+          <LiveFeedback state={submitting ? "pending" : undefined}>
+            <Button
+              onClick={handleSubmit}
+              disabled={!isValid || submitting}
+              variant="primary"
+              fullWidth
+              size="lg"
+            >
+              {submitting ? "Posting..." : rewardType === "points" ? `Post - ${bounty || "0"} pts` : isInWorld ? `Post & Fund $${bounty || "0"} USDC` : "Post Favour"}
+            </Button>
+          </LiveFeedback>
+        )}
       </div>
     </div>
   );
