@@ -1554,7 +1554,7 @@ function PostTask({
         <div>
           <Typography variant="label" level={2} className="text-gray-400 mb-2">{rewardType === "points" ? "Points amount" : "Reward"}</Typography>
           <div className="flex items-center gap-3">
-            {(rewardType === "points" ? ["10", "25", "50"] : ["5", "15", "25"]).map((amt) => (
+            {(rewardType === "points" ? ["1", "5", "10"] : ["5", "15", "25"]).map((amt) => (
               <button
                 key={amt}
                 onClick={() => setBounty(amt)}
@@ -1573,8 +1573,9 @@ function PostTask({
                 type="number"
                 placeholder="Other"
                 min={rewardType === "points" ? "1" : "0.50"}
+                max={rewardType === "points" ? "10" : undefined}
                 step={rewardType === "points" ? "1" : "0.50"}
-                value={!(rewardType === "points" ? ["10", "25", "50"] : ["5", "15", "25"]).includes(bounty) ? bounty : ""}
+                value={!(rewardType === "points" ? ["1", "5", "10"] : ["5", "15", "25"]).includes(bounty) ? bounty : ""}
                 onChange={(e) => setBounty(e.target.value)}
                 className="flex-1 bg-transparent text-sm focus:outline-none placeholder:text-gray-400 w-12"
               />

@@ -60,6 +60,24 @@ export async function POST(req: NextRequest) {
 
   const resolvedAgentId = agentId || (poster?.startsWith("agent:") ? poster.replace("agent:", "") : null);
 
+  // Free points tasks are throttled so they can't spam the feed or inflate points.
+  // Admin (platform owner) and agents are exempt so campaigns can still be seeded.
+  const OWNER = "0x1101158041fd96f21cbcbb0e752a9a2303e6d70e";
+  const isAdmin = !!resolvedAgentId || (typeof poster === "string" && poster.toLowerCase() === OWNER);
+  if (rewardType === "points" && !isAdmin) {
+    // Points value is capped low (1-10) — points are engagement, not money.
+    if (bountyNum < 1 || bountyNum > 10) {
+      return NextResponse.json({ error: "Points tasks must be between 1 and 10 points. To offer more, fund the task with USDC." }, { status: 400 });
+    }
+    // One free points task per poster per 24h; fund with USDC to post more.
+    const recentPoints = (await listTasks()).filter(
+      (t) => t.poster === poster && t.rewardType === "points" && Date.now() - new Date(t.createdAt).getTime() < 86_400_000
+    );
+    if (recentPoints.length >= 1) {
+      return NextResponse.json({ error: "You can post 1 free points task per day. Fund a task with USDC to post more." }, { status: 429 });
+    }
+  }
+
   const task = await createTask({
     poster,
     category: category || "custom",
