@@ -530,7 +530,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
     return {
       myTaskCount: myTasks.length,
       completedByClaiming: completed,
-      totalEarned: completed.reduce((sum, t) => sum + t.bountyUsdc, 0),
+      totalEarned: completed.reduce((sum, t) => sum + (t.rewardType !== "points" && t.escrowTxHash ? t.bountyUsdc : 0), 0),
       totalPosted: tasks.filter(t => t.poster === userId).length,
       totalClaimed: tasks.filter(t => t.claimant === userId).length,
     };

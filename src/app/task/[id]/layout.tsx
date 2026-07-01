@@ -17,7 +17,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 
   const status = task.status === "completed" ? "Verified" : task.status === "claimed" ? "In Progress" : "Open";
-  const bounty = task.escrowTxHash ? `$${task.bountyUsdc} USDC` : `${task.bountyUsdc * 10} pts`;
+  const bounty = task.rewardType === "points"
+    ? `${Math.round(task.bountyUsdc)} pts`
+    : task.escrowTxHash
+    ? `$${task.bountyUsdc} USDC`
+    : `${Math.round(task.bountyUsdc)} pts`;
   const title = `${status}: ${task.description.slice(0, 60)}${task.description.length > 60 ? "..." : ""}`;
   const description = `${bounty} bounty on RELAY FAVOURS — ${task.location}. ${
     task.status === "completed"

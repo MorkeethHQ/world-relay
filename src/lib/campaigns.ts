@@ -56,6 +56,7 @@ export const CAMPAIGNS: Campaign[] = [
     description:
       "It's World Cup season. Show your matchday: watch parties, fan spots, score predictions, and hot takes. Most favours earn points, with a few USDC prize favours in the mix. Verified humans only, so the leaderboard is real.",
     heroGradient: "from-emerald-900 via-green-800 to-teal-700",
+    heroImage: "/hero/world-cup.jpg",
     accentColor: "#065f46",
     icon: "\u{26BD}",
     totalBudget: 25,

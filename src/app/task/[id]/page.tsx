@@ -1422,13 +1422,13 @@ export default function TaskDetailPage() {
       done: true,
       label:
         task.status === "completed"
-          ? "USDC Released"
+          ? (task.rewardType === "points" ? "Points Awarded" : "USDC Released")
           : task.status === "failed"
           ? "Verification Failed"
           : "Deadline Passed",
       detail:
         task.status === "completed"
-          ? `$${task.bountyUsdc} USDC sent to runner`
+          ? (task.rewardType === "points" ? `${Math.round(task.bountyUsdc)} pts awarded to runner` : `$${task.bountyUsdc} USDC sent to runner`)
           : task.status === "failed"
           ? "Proof did not meet requirements"
           : "Task expired without completion",

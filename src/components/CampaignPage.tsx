@@ -55,22 +55,22 @@ export function CampaignPage({
     [tasks]
   );
 
-  const totalPaid = completedTasks.reduce((sum, t) => sum + t.bountyUsdc, 0);
+  // Points and real money are tracked strictly separately — never show points as $.
+  const totalPaidUsdc = completedTasks.reduce((sum, t) => sum + (t.rewardType !== "points" && t.escrowTxHash ? t.bountyUsdc : 0), 0);
+  const totalPoints = completedTasks.reduce((sum, t) => sum + (t.rewardType === "points" ? t.bountyUsdc : 0), 0);
   const progressPct = tasks.length > 0 ? Math.round((completedTasks.length / tasks.length) * 100) : 0;
 
   const contributors = useMemo(() => {
-    const map = new Map<string, { address: string; count: number; earned: number }>();
+    const map = new Map<string, { address: string; count: number; points: number; usdc: number }>();
     for (const t of completedTasks) {
       if (!t.claimant) continue;
-      const existing = map.get(t.claimant);
-      if (existing) {
-        existing.count++;
-        existing.earned += t.bountyUsdc;
-      } else {
-        map.set(t.claimant, { address: t.claimant, count: 1, earned: t.bountyUsdc });
-      }
+      const e = map.get(t.claimant) || { address: t.claimant, count: 0, points: 0, usdc: 0 };
+      e.count++;
+      if (t.rewardType === "points") e.points += t.bountyUsdc;
+      else if (t.escrowTxHash) e.usdc += t.bountyUsdc;
+      map.set(t.claimant, e);
     }
-    return [...map.values()].sort((a, b) => b.earned - a.earned);
+    return [...map.values()].sort((a, b) => b.count - a.count);
   }, [completedTasks]);
 
   const proofImages = useMemo(
@@ -131,8 +131,8 @@ export function CampaignPage({
           {/* Inline stats */}
           <div className="flex items-center gap-5">
             <div>
-              <p className="text-2xl font-bold text-white">${totalPaid.toFixed(0)}</p>
-              <p className="text-[11px] text-white/40 mt-0.5">paid out</p>
+              <p className="text-2xl font-bold text-white">{totalPoints}{totalPaidUsdc > 0 ? `+$${totalPaidUsdc.toFixed(0)}` : ""}</p>
+              <p className="text-[11px] text-white/40 mt-0.5">{totalPaidUsdc > 0 ? "pts + USDC" : "pts given"}</p>
             </div>
             <div className="w-px h-8 bg-white/15" />
             <div>
@@ -242,7 +242,7 @@ export function CampaignPage({
                   </div>
                   <p className="text-xs font-medium text-gray-900 truncate max-w-full">{displayName(c.address)}</p>
                   <div className="flex items-center gap-1">
-                    <span className="text-sm font-bold text-gray-900">${c.earned.toFixed(2)}</span>
+                    <span className="text-sm font-bold text-gray-900">{c.points} pts{c.usdc > 0 ? ` · $${c.usdc}` : ""}</span>
                   </div>
                   <span className="text-[10px] text-gray-400">{c.count} {c.count === 1 ? "task" : "tasks"}</span>
                 </div>
@@ -308,7 +308,7 @@ export function CampaignPage({
               </svg>
             </div>
             <p className="text-sm font-semibold text-gray-900">Campaign complete</p>
-            <p className="text-xs text-gray-400 mt-1">${totalPaid.toFixed(2)} USDC paid to {contributors.length} contributors</p>
+            <p className="text-xs text-gray-400 mt-1">{totalPoints} pts{totalPaidUsdc > 0 ? ` and $${totalPaidUsdc.toFixed(2)} USDC` : ""} to {contributors.length} contributors</p>
           </div>
         )}
 
