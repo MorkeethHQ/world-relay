@@ -4,6 +4,63 @@ const POF_PREFIX = "pof:";
 const POF_INDEX_KEY = "pof:__index";
 const MAX_HISTORY = 20;
 
+// --- Single source of truth for the season economy ---
+// Points are NOT dollars. Every award in this file pulls from this table so
+// there is exactly one place to tune the economy. Per-task earnings stay in the
+// 1-10 band; completion is the headline reward, everything else is small.
+// The all-time schedule is designed so a runner's totalPoints tracks roughly
+// favoursCompleted * 10 + longestStreak * 2, and does not drift over time.
+export const SEASON_ECONOMY = {
+  FAVOUR_COMPLETED: 10, // headline reward for a verified completion
+  FAVOUR_ATTEMPTED: 2, // submitted proof / attempted a favour
+  FAVOUR_CLAIMED: 2, // claimed an open favour
+  FAVOUR_POSTED: 3, // posted a favour for others
+  DAILY_ACTIVITY: 1, // once-per-day show-up bonus
+  STREAK_BONUS_PER_DAY: 1, // per consecutive day, on completion
+  STREAK_BONUS_MAX_DAYS: 7, // cap the streak bonus at 7 days (max +7)
+} as const;
+
+// Streak bonus paid on a completion, capped so no single task pays more than
+// FAVOUR_COMPLETED + STREAK_BONUS_MAX_DAYS.
+function streakBonusFor(streak: number): number {
+  const capped = Math.min(Math.max(streak, 0), SEASON_ECONOMY.STREAK_BONUS_MAX_DAYS);
+  return capped * SEASON_ECONOMY.STREAK_BONUS_PER_DAY;
+}
+
+// Only real wallet addresses (verified humans who can receive USDC) may earn
+// points or appear on the leaderboard. Blocks anonymous/dev_/e2e_/demo_
+// identities from ever polluting stats or the public Ranks again.
+const isRealWallet = (a: string): boolean => /^0x[0-9a-fA-F]{40}$/.test(a);
+
+// --- Seasons ---
+// Monthly seasons. Season 1 is January 2026 (UTC). Season number increments
+// every calendar month. The weekly zset sprint runs on top of this as a
+// short-cycle competition; seasons are the longer arc that resets monthly.
+const SEASON_EPOCH_YEAR = 2026;
+
+export type Season = {
+  number: number;
+  startsAt: string; // ISO
+  endsAt: string; // ISO (exclusive: first instant of next season)
+  daysRemaining: number;
+};
+
+export function getCurrentSeason(now: Date = new Date()): Season {
+  const year = now.getUTCFullYear();
+  const month = now.getUTCMonth(); // 0-11
+  const number = (year - SEASON_EPOCH_YEAR) * 12 + month + 1;
+  const startsAt = new Date(Date.UTC(year, month, 1));
+  const endsAt = new Date(Date.UTC(year, month + 1, 1));
+  const msRemaining = endsAt.getTime() - now.getTime();
+  const daysRemaining = Math.max(0, Math.ceil(msRemaining / 86400000));
+  return {
+    number,
+    startsAt: startsAt.toISOString(),
+    endsAt: endsAt.toISOString(),
+    daysRemaining,
+  };
+}
+
 export type ProofOfFavour = {
   address: string;
   totalPoints: number;
@@ -118,11 +175,18 @@ function updateStreak(profile: ProofOfFavour): void {
 
 // --- Redis persistence ---
 
-function weekKey(): string {
-  const now = new Date();
-  const jan1 = new Date(now.getFullYear(), 0, 1);
-  const week = Math.ceil(((now.getTime() - jan1.getTime()) / 86400000 + jan1.getDay() + 1) / 7);
-  return `pof:weekly:${now.getFullYear()}-W${String(week).padStart(2, "0")}`;
+// Consistent UTC, Monday-anchored week key. The key is the date of the Monday
+// that opens the current week (UTC), matching todayDateStr()'s UTC basis so the
+// weekly sprint and daily streaks never disagree about which day it is.
+function weekKey(now: Date = new Date()): string {
+  const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const day = d.getUTCDay(); // 0=Sun .. 6=Sat
+  const daysSinceMonday = (day + 6) % 7;
+  d.setUTCDate(d.getUTCDate() - daysSinceMonday);
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(d.getUTCDate()).padStart(2, "0");
+  return `pof:weekly:${y}-${m}-${dd}`;
 }
 
 async function trackWeeklyPoints(address: string, points: number): Promise<void> {
@@ -134,6 +198,10 @@ async function trackWeeklyPoints(address: string, points: number): Promise<void>
 }
 
 async function saveProfile(profile: ProofOfFavour): Promise<void> {
+  // Airtight guard: never persist or index a non-wallet identity. This is the
+  // one write path all record*/award functions share, so dev_/e2e_/anonymous
+  // ids can never re-pollute pof:__index or the leaderboard on post/claim/submit.
+  if (!isRealWallet(profile.address)) return;
   const redis = getRedis();
   if (!redis) return;
   const key = `${POF_PREFIX}${profile.address}`;
@@ -146,12 +214,16 @@ export async function getWeeklyLeaderboard(limit = 10): Promise<Array<{ address:
   if (!redis) return [];
   try {
     const key = weekKey();
-    const results = await redis.zrange(key, 0, limit - 1, { rev: true, withScores: true });
+    // Over-fetch, then filter non-wallets at read time so legacy dev_/e2e_/
+    // anonymous entries left in the zset never surface on the public board.
+    const results = await redis.zrange(key, 0, limit * 4 - 1, { rev: true, withScores: true });
     const entries: Array<{ address: string; weeklyPoints: number }> = [];
     for (let i = 0; i < results.length; i += 2) {
-      entries.push({ address: String(results[i]), weeklyPoints: Number(results[i + 1]) });
+      const address = String(results[i]);
+      if (!isRealWallet(address)) continue;
+      entries.push({ address, weeklyPoints: Number(results[i + 1]) });
     }
-    return entries;
+    return entries.slice(0, limit);
   } catch (err) {
     console.error("[PoF] Weekly leaderboard failed:", err);
     return [];
@@ -175,11 +247,6 @@ export async function getProofOfFavour(address: string): Promise<ProofOfFavour> 
     return defaultProfile(address);
   }
 }
-
-// Only real wallet addresses (verified humans who can receive USDC) may earn
-// points or appear on the leaderboard. Blocks anonymous/dev_/e2e_/demo_ identities
-// from ever polluting stats or the public Ranks again.
-const isRealWallet = (a: string): boolean => /^0x[0-9a-fA-F]{40}$/.test(a);
 
 export async function awardPoints(
   address: string,
@@ -210,12 +277,14 @@ export async function awardPoints(
 
 export async function recordFavourClaimed(address: string): Promise<ProofOfFavour> {
   const profile = await getProofOfFavour(address);
-  profile.totalPoints += 5;
+  if (!isRealWallet(address)) return profile;
+  const points = SEASON_ECONOMY.FAVOUR_CLAIMED;
+  profile.totalPoints += points;
   profile.level = getLevel(profile.totalPoints);
 
   profile.pointsHistory.push({
     action: "favour_claimed",
-    points: 5,
+    points,
     timestamp: new Date().toISOString(),
   });
   if (profile.pointsHistory.length > MAX_HISTORY) {
@@ -224,19 +293,21 @@ export async function recordFavourClaimed(address: string): Promise<ProofOfFavou
 
   updateStreak(profile);
   await saveProfile(profile);
-  trackWeeklyPoints(address, 5).catch(console.error);
+  trackWeeklyPoints(address, points).catch(console.error);
   return profile;
 }
 
 export async function recordFavourAttempted(address: string): Promise<ProofOfFavour> {
   const profile = await getProofOfFavour(address);
-  profile.totalPoints += 10;
+  if (!isRealWallet(address)) return profile;
+  const points = SEASON_ECONOMY.FAVOUR_ATTEMPTED;
+  profile.totalPoints += points;
   profile.favoursAttempted += 1;
   profile.level = getLevel(profile.totalPoints);
 
   profile.pointsHistory.push({
     action: "favour_attempted",
-    points: 10,
+    points,
     timestamp: new Date().toISOString(),
   });
   if (profile.pointsHistory.length > MAX_HISTORY) {
@@ -245,7 +316,7 @@ export async function recordFavourAttempted(address: string): Promise<ProofOfFav
 
   updateStreak(profile);
   await saveProfile(profile);
-  trackWeeklyPoints(address, 10).catch(console.error);
+  trackWeeklyPoints(address, points).catch(console.error);
   return profile;
 }
 
@@ -253,17 +324,19 @@ export async function recordFavourCompleted(
   address: string,
   streak: number
 ): Promise<ProofOfFavour> {
-  const streakBonus = streak * 2;
-  const totalAwarded = 25 + streakBonus;
+  const completion = SEASON_ECONOMY.FAVOUR_COMPLETED;
+  const streakBonus = streakBonusFor(streak);
+  const totalAwarded = completion + streakBonus;
 
   const profile = await getProofOfFavour(address);
+  if (!isRealWallet(address)) return profile;
   profile.totalPoints += totalAwarded;
   profile.favoursCompleted += 1;
   profile.level = getLevel(profile.totalPoints);
 
   profile.pointsHistory.push({
     action: "favour_completed",
-    points: 25,
+    points: completion,
     timestamp: new Date().toISOString(),
   });
   if (streakBonus > 0) {
@@ -285,6 +358,7 @@ export async function recordFavourCompleted(
 
 export async function recordFavourFailed(address: string): Promise<ProofOfFavour> {
   const profile = await getProofOfFavour(address);
+  if (!isRealWallet(address)) return profile;
   profile.currentStreak = 0;
 
   profile.pointsHistory.push({
@@ -303,13 +377,15 @@ export async function recordFavourFailed(address: string): Promise<ProofOfFavour
 
 export async function recordFavourPosted(address: string): Promise<ProofOfFavour> {
   const profile = await getProofOfFavour(address);
-  profile.totalPoints += 5;
+  if (!isRealWallet(address)) return profile;
+  const points = SEASON_ECONOMY.FAVOUR_POSTED;
+  profile.totalPoints += points;
   profile.favoursPosted += 1;
   profile.level = getLevel(profile.totalPoints);
 
   profile.pointsHistory.push({
     action: "favour_posted",
-    points: 5,
+    points,
     timestamp: new Date().toISOString(),
   });
   if (profile.pointsHistory.length > MAX_HISTORY) {
@@ -318,12 +394,13 @@ export async function recordFavourPosted(address: string): Promise<ProofOfFavour
 
   updateStreak(profile);
   await saveProfile(profile);
-  trackWeeklyPoints(address, 5).catch(console.error);
+  trackWeeklyPoints(address, points).catch(console.error);
   return profile;
 }
 
 export async function recordDailyActivity(address: string): Promise<ProofOfFavour> {
   const profile = await getProofOfFavour(address);
+  if (!isRealWallet(address)) return profile;
   const today = todayDateStr();
 
   // Only award daily activity points once per day
@@ -331,12 +408,13 @@ export async function recordDailyActivity(address: string): Promise<ProofOfFavou
     return profile;
   }
 
-  profile.totalPoints += 3;
+  const points = SEASON_ECONOMY.DAILY_ACTIVITY;
+  profile.totalPoints += points;
   profile.level = getLevel(profile.totalPoints);
 
   profile.pointsHistory.push({
     action: "daily_activity",
-    points: 3,
+    points,
     timestamp: new Date().toISOString(),
   });
   if (profile.pointsHistory.length > MAX_HISTORY) {
@@ -345,7 +423,7 @@ export async function recordDailyActivity(address: string): Promise<ProofOfFavou
 
   updateStreak(profile);
   await saveProfile(profile);
-  trackWeeklyPoints(address, 3).catch(console.error);
+  trackWeeklyPoints(address, points).catch(console.error);
   return profile;
 }
 
@@ -368,6 +446,9 @@ export async function getTopRunners(limit = 10): Promise<ProofOfFavour[]> {
       if (!raw) continue;
       const profile: ProofOfFavour =
         typeof raw === "string" ? JSON.parse(raw) : (raw as ProofOfFavour);
+      // Read-time guard: drop any legacy dev_/e2e_/anonymous rows still in the
+      // index so they never rank on the public board.
+      if (!isRealWallet(profile.address)) continue;
       profiles.push(profile);
     }
 

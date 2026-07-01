@@ -8,6 +8,7 @@ import { recordFavourPosted } from "@/lib/proof-of-favour";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { sanitizeInput } from "@/lib/sanitize";
 import { trackEvent } from "@/lib/track";
+import { isEscrowTaskFunded } from "@/lib/escrow";
 
 export async function GET() {
   trackEvent("feed_loaded").catch(() => {});
@@ -78,6 +79,28 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // Server-side funding gate: never trust the client's escrowTxHash. A USDC task
+  // is only stored as funded if the on-chain escrow task (by onChainId) actually
+  // exists and holds a deposited bounty that covers the requested amount. If it
+  // cannot be verified on-chain, strip the escrow markers so the task is not
+  // shown or processed as funded. Points tasks and DoN (donOnChainId) are
+  // unaffected by this gate.
+  const isUsdc = rewardType !== "points";
+  let verifiedOnChainId: number | null = onChainId != null ? Number(onChainId) : null;
+  let verifiedEscrowTxHash: string | null = escrowTxHash || null;
+  if (isUsdc && verifiedOnChainId !== null) {
+    const funded = await isEscrowTaskFunded(verifiedOnChainId, bountyNum).catch(() => false);
+    if (!funded) {
+      console.error(`[Tasks] Funding unverifiable on-chain for onChainId ${verifiedOnChainId}; not storing as funded`);
+      verifiedOnChainId = null;
+      verifiedEscrowTxHash = null;
+    }
+  } else if (isUsdc && verifiedEscrowTxHash) {
+    // A tx hash with no on-chain id cannot be verified, so do not treat as funded.
+    console.error("[Tasks] escrowTxHash provided without onChainId; not storing as funded");
+    verifiedEscrowTxHash = null;
+  }
+
   const task = await createTask({
     poster,
     category: category || "custom",
@@ -88,15 +111,15 @@ export async function POST(req: NextRequest) {
     bountyUsdc: Number(bountyUsdc),
     deadlineHours: Number(deadlineHours) || 24,
     agentId: resolvedAgentId,
-    onChainId: onChainId != null ? Number(onChainId) : null,
-    escrowTxHash: escrowTxHash || null,
+    onChainId: verifiedOnChainId,
+    escrowTxHash: verifiedEscrowTxHash,
     taskType: taskType || "standard",
     rewardType: rewardType === "points" ? "points" : "usdc",
     donOnChainId: donOnChainId != null ? Number(donOnChainId) : null,
     maxCompletions: maxCompletions ? Number(maxCompletions) : 1,
   });
 
-  trackEvent("task_created", { taskId: task.id, poster, bounty: task.bountyUsdc, category: task.category, funded: !!escrowTxHash }).catch(() => {});
+  trackEvent("task_created", { taskId: task.id, poster, bounty: task.bountyUsdc, category: task.category, funded: !!verifiedEscrowTxHash }).catch(() => {});
   postTaskCreated(task).catch(console.error);
 
   // Award Proof of Favour points for posting a task

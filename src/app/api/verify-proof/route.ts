@@ -152,6 +152,11 @@ export async function POST(req: NextRequest) {
     task.claimant = submitter;
   }
 
+  // Unified funded signal. A task holds real money if it has an on-chain escrow
+  // id or a stored escrow tx hash. Both the safe-mode gate (below) and the
+  // settlement path key off this so a funded pass is never processed silently.
+  const taskIsFunded = task.onChainId !== null || !!task.escrowTxHash;
+
   let locationVerified: boolean | null = null;
   let distanceKm: number | null = null;
   if (lat && lng && task.lat && task.lng) {
@@ -165,11 +170,6 @@ export async function POST(req: NextRequest) {
   await submitProof(taskId, proofImageUrls[0] || null, proofNote || null, proofImageUrls.length > 0 ? proofImageUrls : null, submitter);
   trackEvent("proof_submitted", { taskId, submitter: submitter || "", hasImages: proofImageUrls.length > 0, bounty: task.bountyUsdc }).catch(() => {});
   await postProofSubmitted(taskId, proofNote);
-
-  // Award Proof of Favour points for proof upload
-  if (task.claimant) {
-    recordFavourAttempted(task.claimant).catch(console.error);
-  }
 
   broadcastEvent("task:proof", {
     taskId,
@@ -200,16 +200,16 @@ export async function POST(req: NextRequest) {
     } else if (useRealVerification) {
       result = await verifyProof(task.description, proofImages, proofNote, task.category, task.agent?.id);
     } else {
-      if (task.escrowTxHash) {
-        result = { verdict: "flag", reasoning: "AI verification unavailable — funded task requires manual review.", confidence: 0 };
+      if (taskIsFunded) {
+        result = { verdict: "flag", reasoning: "AI verification unavailable - funded task requires manual review.", confidence: 0 };
       } else {
         result = verifyProofStub(task.description, proofImages[0]);
       }
     }
   } catch (err) {
     console.error("AI verification error, falling back to safe mode:", err);
-    if (task.escrowTxHash) {
-      result = { verdict: "flag", reasoning: "AI verification error — funded task flagged for manual review.", confidence: 0 };
+    if (taskIsFunded) {
+      result = { verdict: "flag", reasoning: "AI verification error - funded task flagged for manual review.", confidence: 0 };
     } else {
       result = verifyProofStub(task.description, proofImages[0]);
     }
@@ -311,6 +311,8 @@ export async function POST(req: NextRequest) {
 
   if (task.claimant) {
     if (result.verdict === "pass") {
+      // Award attempt and completion points only on a passing verdict.
+      recordFavourAttempted(task.claimant).catch(console.error);
       recordCompletion(task.claimant, task.bountyUsdc, result.confidence, task.claimantVerification || undefined).catch(console.error);
       const claimantRep2 = await getReputation(task.claimant);
       recordFavourCompleted(task.claimant, claimantRep2.currentStreak).catch(console.error);
@@ -320,13 +322,20 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Auto-release escrow (payment is the priority)
+  // Auto-release escrow (payment is the priority). A funded pass must either
+  // release cleanly or clearly surface for manual review - never silent limbo.
   let escrowReleaseTxHash: string | null = null;
-  if (result.verdict === "pass" && task.onChainId !== null) {
-    escrowReleaseTxHash = await releaseEscrow(task.onChainId, task.claimant).catch((err) => {
-      console.error("[Escrow] Auto-release failed:", err);
-      return null;
-    });
+  let settlementNeedsReview = false;
+  if (result.verdict === "pass" && taskIsFunded) {
+    // Only an on-chain escrow id can be released on-chain. releaseEscrow returns
+    // a hash ONLY when the payout forward is confirmed (see escrow.ts); a null
+    // means settlement did not complete and is retryable.
+    if (task.onChainId !== null) {
+      escrowReleaseTxHash = await releaseEscrow(task.onChainId, task.claimant).catch((err) => {
+        console.error("[Escrow] Auto-release failed:", err);
+        return null;
+      });
+    }
     if (escrowReleaseTxHash) {
       postSettlementConfirmation(taskId, task.bountyUsdc, escrowReleaseTxHash).catch(console.error);
       if (task.claimant) {
@@ -336,6 +345,28 @@ export async function POST(req: NextRequest) {
           type: "payment_released",
           title: "Payment released!",
           body: `$${task.bountyUsdc} USDC sent to your wallet.`,
+          taskId,
+        }).catch(console.error);
+      }
+    } else {
+      // Funded pass with no confirmed settlement: surface for manual review
+      // instead of silently completing as if paid.
+      settlementNeedsReview = true;
+      console.error(`[Escrow] Funded pass for task ${taskId} did not settle (onChainId=${task.onChainId}), flagging for manual review`);
+      notifyFlagged(task.poster, task.description).catch(console.error);
+      addNotification({
+        userId: task.poster,
+        type: "flagged",
+        title: "Payment needs review",
+        body: `Verified proof for "${task.description.slice(0, 40)}..." could not auto-release payment. Manual review needed.`,
+        taskId,
+      }).catch(console.error);
+      if (task.claimant) {
+        addNotification({
+          userId: task.claimant,
+          type: "flagged",
+          title: "Payment pending review",
+          body: `Your proof for "${task.description.slice(0, 40)}..." passed but payment is pending manual review.`,
           taskId,
         }).catch(console.error);
       }
@@ -412,6 +443,7 @@ export async function POST(req: NextRequest) {
       : null,
     attestationTxHash,
     escrowReleaseTxHash,
+    settlementNeedsReview,
     donResolveTxHash,
     locationVerified,
     distanceKm: distanceKm !== null ? Math.round(distanceKm * 100) / 100 : null,

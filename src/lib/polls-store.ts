@@ -13,8 +13,20 @@ export type Poll = {
   totalVotes: number;
 };
 
+// A poll's immutable metadata, stored as a JSON blob. Vote tallies and the voter
+// roster live in dedicated Redis structures (a hash + a set) so voting is atomic
+// and free of the read-modify-write race a single JSON blob would suffer.
+type PollMeta = Omit<Poll, "votes" | "voters" | "totalVotes">;
+
 const POLL_PREFIX = "poll:";
 const POLL_LIST_KEY = "poll_ids";
+
+// Per-option tally: { [option]: count }, mutated with HINCRBY.
+const votesKey = (id: string) => `${POLL_PREFIX}${id}:votes`;
+// Authoritative already-voted guard: a SET of userIds. SADD is the atomic dedup.
+const votersKey = (id: string) => `${POLL_PREFIX}${id}:voters`;
+// Which option each userId chose, so the UI can restore `yourVote`.
+const choicesKey = (id: string) => `${POLL_PREFIX}${id}:choices`;
 
 export async function createPoll(input: {
   question: string;
@@ -27,35 +39,68 @@ export async function createPoll(input: {
   if (!redis) throw new Error("Redis unavailable");
 
   const id = crypto.randomUUID();
-  const votes: Record<string, number> = {};
-  for (const opt of input.options) {
-    votes[opt] = 0;
-  }
 
-  const poll: Poll = {
+  const meta: PollMeta = {
     id,
     question: input.question,
     options: input.options,
-    votes,
-    voters: {},
     creator: input.creator,
     category: input.category || "general",
     createdAt: new Date().toISOString(),
     endsAt: new Date(Date.now() + (input.durationHours || 72) * 3600_000).toISOString(),
-    totalVotes: 0,
   };
 
-  await redis.set(`${POLL_PREFIX}${id}`, JSON.stringify(poll));
+  // Seed every option at zero so getPoll reports all options even before any vote.
+  const initialVotes: Record<string, number> = {};
+  for (const opt of input.options) initialVotes[opt] = 0;
+
+  await redis.set(`${POLL_PREFIX}${id}`, JSON.stringify(meta));
   await redis.sadd(POLL_LIST_KEY, id);
-  return poll;
+  await redis.hset(votesKey(id), initialVotes);
+
+  return { ...meta, votes: initialVotes, voters: {}, totalVotes: 0 };
 }
 
 export async function getPoll(id: string): Promise<Poll | null> {
   const redis = getRedis();
   if (!redis) return null;
+
   const raw = await redis.get(`${POLL_PREFIX}${id}`);
   if (!raw) return null;
-  return typeof raw === "string" ? JSON.parse(raw) : (raw as unknown as Poll);
+  const base = (typeof raw === "string" ? JSON.parse(raw) : raw) as Partial<Poll> & PollMeta;
+
+  const [votesHash, choicesHash, voterCount] = await Promise.all([
+    redis.hgetall(votesKey(id)) as Promise<Record<string, unknown> | null>,
+    redis.hgetall(choicesKey(id)) as Promise<Record<string, string> | null>,
+    redis.scard(votersKey(id)),
+  ]);
+
+  const hasNewData =
+    (voterCount ?? 0) > 0 || (votesHash != null && Object.keys(votesHash).length > 0);
+
+  // Back-compat: polls created before tallies moved to the hash/set stored
+  // votes/voters inline. If the new structures are empty, fall back to the blob
+  // so historical polls keep rendering their counts.
+  if (!hasNewData && base.votes) {
+    return {
+      ...(base as PollMeta),
+      votes: base.votes,
+      voters: base.voters || {},
+      totalVotes: base.totalVotes ?? Object.keys(base.voters || {}).length,
+    };
+  }
+
+  const votes: Record<string, number> = {};
+  for (const opt of base.options) {
+    votes[opt] = votesHash && votesHash[opt] != null ? Number(votesHash[opt]) : 0;
+  }
+
+  return {
+    ...(base as PollMeta),
+    votes,
+    voters: (choicesHash as Record<string, string>) || {},
+    totalVotes: voterCount ?? 0,
+  };
 }
 
 export async function listPolls(): Promise<Poll[]> {
@@ -65,18 +110,7 @@ export async function listPolls(): Promise<Poll[]> {
   const ids = await redis.smembers(POLL_LIST_KEY);
   if (ids.length === 0) return [];
 
-  const pipeline = redis.pipeline();
-  for (const id of ids) {
-    pipeline.get(`${POLL_PREFIX}${id}`);
-  }
-  const results = await pipeline.exec();
-
-  const polls: Poll[] = [];
-  for (const raw of results) {
-    if (!raw) continue;
-    const poll: Poll = typeof raw === "string" ? JSON.parse(raw) : (raw as unknown as Poll);
-    polls.push(poll);
-  }
+  const polls = (await Promise.all(ids.map((id) => getPoll(id)))).filter(Boolean) as Poll[];
 
   return polls.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 }
@@ -96,18 +130,35 @@ export async function vote(
     return { poll, error: "Poll has ended" };
   }
 
-  if (poll.voters[userId]) {
-    return { poll, error: "Already voted" };
-  }
-
   if (!poll.options.includes(option)) {
     return { poll, error: "Invalid option" };
   }
 
-  poll.votes[option] = (poll.votes[option] || 0) + 1;
-  poll.voters[userId] = option;
-  poll.totalVotes += 1;
+  // One-time migration for legacy polls (tallies stored inline, new structures
+  // empty): seed the hash/set from the blob before the new vote so nothing is lost.
+  const seeded = await redis.scard(votersKey(pollId));
+  if (seeded === 0 && poll.totalVotes > 0) {
+    if (Object.keys(poll.votes).length) await redis.hset(votesKey(pollId), poll.votes);
+    const voterIds = Object.keys(poll.voters);
+    if (voterIds.length) {
+      await redis.sadd(votersKey(pollId), voterIds[0], ...voterIds.slice(1));
+      await redis.hset(choicesKey(pollId), poll.voters);
+    }
+  }
 
-  await redis.set(`${POLL_PREFIX}${pollId}`, JSON.stringify(poll));
-  return { poll };
+  // Atomic dedup guard: SADD returns 1 only if userId was NOT already present.
+  // A concurrent or replayed request gets 0 and is rejected, so a client rotating
+  // its userId cannot double-vote and there is no read-modify-write TOCTOU.
+  const added = await redis.sadd(votersKey(pollId), userId);
+  if (added === 0) {
+    return { poll, error: "Already voted" };
+  }
+
+  await Promise.all([
+    redis.hincrby(votesKey(pollId), option, 1),
+    redis.hset(choicesKey(pollId), { [userId]: option }),
+  ]);
+
+  const updated = await getPoll(pollId);
+  return { poll: updated || poll };
 }

@@ -17,16 +17,26 @@ import {
  *
  * Flow:
  *   0. Welcome
- *   1. What RELAY is (do favours / vote polls, earn points + USDC, verified humans)
- *   2. Accept terms (clear "I agree" action)
- *   3. Verify with World ID (existing MiniKit sign-in)
- *   4. Land in the app (discover favours + polls)
+ *   1. What RELAY is (do favours / vote polls, earn points + USDC)
+ *   2. Accept terms (readable guidelines + recorded "I agree")
+ *   3. Sign in with World wallet (existing MiniKit walletAuth)
+ *   4. Land in the app (copy reflects the real verification level)
+ *
+ * Honesty note: sign-in here is World wallet auth (SIWE), which proves wallet
+ * ownership, not Orb-level human uniqueness. Copy says "sign in", not "verify
+ * you are a unique human", and the success screen reflects the real level.
  */
+
+type VerificationLevel = "orb" | "device" | "wallet" | "dev" | null;
+
+const TERMS_VERSION = "1.0";
 
 interface OnboardingProps {
   isInWorldApp: boolean;
   isVerifying: boolean;
   authed: boolean;
+  verificationLevel: VerificationLevel;
+  authError: string | null;
   onVerify: () => void;
   onComplete: () => void;
 }
@@ -122,21 +132,64 @@ export function Onboarding({
   isInWorldApp,
   isVerifying,
   authed,
+  verificationLevel,
+  authError,
   onVerify,
   onComplete,
 }: OnboardingProps) {
   const [step, setStep] = useState(0);
+  const [showTerms, setShowTerms] = useState(false);
 
   // When the existing MiniKit sign-in succeeds, the parent flips authed=true.
-  // Advance from the verify screen to the final "you're in" screen.
+  // Advance from the sign-in screen to the final "you're in" screen.
   useEffect(() => {
     if (authed && step === 3) setStep(4);
   }, [authed, step]);
 
   const next = () => setStep((s) => Math.min(s + 1, TOTAL_STEPS - 1));
+  const back = () => setStep((s) => Math.max(s - 1, 0));
+
+  // "I agree" must record something durable: version + timestamp, so acceptance
+  // is auditable and can be re-prompted if the terms version changes.
+  const acceptTermsAndContinue = () => {
+    try {
+      localStorage.setItem(
+        "relay_terms_accepted",
+        JSON.stringify({ version: TERMS_VERSION, acceptedAt: new Date().toISOString() })
+      );
+    } catch {}
+    next();
+  };
+
+  // Success copy reflects the real verification level. Wallet sign-in must not
+  // claim "identity verified" / "unique human".
+  const successBody =
+    verificationLevel === "orb"
+      ? "You are verified as a unique human. Discover favours to complete and polls to vote on."
+      : verificationLevel === "device"
+      ? "Your device is verified. Discover favours to complete and polls to vote on."
+      : verificationLevel === "wallet"
+      ? "You are signed in with your World wallet. Discover favours to complete and polls to vote on."
+      : "You are set up in preview mode. Discover favours to complete and polls to vote on.";
 
   return (
     <div className="fixed inset-0 z-50 bg-white flex flex-col max-w-lg mx-auto w-full">
+      {/* Back navigation. Available between the intro steps, not on the terminal
+          success screen, and not while a sign-in is in flight. */}
+      {step > 0 && step < 4 && (
+        <button
+          type="button"
+          onClick={back}
+          disabled={isVerifying}
+          aria-label="Go back"
+          className="absolute top-7 left-5 z-10 w-9 h-9 flex items-center justify-center rounded-full text-gray-500 hover:bg-gray-50 disabled:opacity-30 transition-colors"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="m15 18-6-6 6-6" />
+          </svg>
+        </button>
+      )}
+
       {/* Progress dots. Hidden on the terminal success screen. */}
       {step < 4 && (
         <div className="flex items-center justify-center gap-2 pt-8 pb-2 animate-[fadeIn_0.4s_ease-out]">
@@ -186,8 +239,8 @@ export function Onboarding({
               {[
                 { icon: <IconHandshake />, title: "Do favours", body: "Complete quick tasks people post nearby." },
                 { icon: <IconPoll />, title: "Vote on polls", body: "Share your opinion and shape decisions." },
-                { icon: <IconCoin />, title: "Earn points and USDC", body: "Get rewarded the moment your work is verified." },
-                { icon: <IconHumans />, title: "All verified humans", body: "Every user is a real person. No bots." },
+                { icon: <IconCoin />, title: "Earn points and USDC", body: "Get rewarded once your work passes verification." },
+                { icon: <IconHumans />, title: "Sign in with World", body: "Everyone signs in with their World wallet to take part." },
               ].map((row, i) => (
                 <div
                   key={row.title}
@@ -216,6 +269,13 @@ export function Onboarding({
                 By continuing you agree to complete favours honestly, treat other people with respect, and follow the community guidelines. Rewards depend on genuine, verified work.
               </Typography>
             </div>
+            <button
+              type="button"
+              onClick={() => setShowTerms(true)}
+              className="text-[14px] font-medium text-gray-900 underline underline-offset-4 decoration-gray-300 hover:decoration-gray-900 transition-colors"
+            >
+              Read the full terms
+            </button>
           </div>
         )}
 
@@ -224,12 +284,12 @@ export function Onboarding({
             <IconBadge><IconGlobe /></IconBadge>
             <div className="flex flex-col gap-2">
               <Typography variant="heading" level={2} className="text-gray-900">
-                Verify you are human
+                Sign in with World
               </Typography>
               <Typography variant="body" level={3} className="text-gray-500 max-w-[300px]">
                 {isInWorldApp
-                  ? "Sign in with World ID to prove you are a unique human. This keeps RELAY bot-free and unlocks rewards."
-                  : "Continue to set up your account. Full World ID verification is available inside World App."}
+                  ? "Sign in with your World wallet to start using RELAY. This links your account so you can post favours, earn rewards, and get paid."
+                  : "Continue to set up a preview account. Sign in with your World wallet inside World App for the full experience."}
               </Typography>
             </div>
           </div>
@@ -245,7 +305,7 @@ export function Onboarding({
                 You are all set
               </Typography>
               <Typography variant="body" level={3} className="text-gray-500 max-w-[300px]">
-                Your identity is verified. Discover favours to complete and polls to vote on.
+                {successBody}
               </Typography>
             </div>
           </div>
@@ -264,10 +324,15 @@ export function Onboarding({
                 variant="primary"
                 size="lg"
               >
-                {isInWorldApp ? "Verify with World ID" : "Continue"}
+                {isInWorldApp ? "Sign in with World wallet" : "Continue"}
               </Button>
             </LiveFeedback>
-            {!isInWorldApp && (
+            {authError && (
+              <p className="text-[13px] text-error-600 text-center mt-3" role="alert">
+                {authError}
+              </p>
+            )}
+            {!isInWorldApp && !authError && (
               <p className="text-[12px] text-gray-300 text-center mt-3">
                 Full features available in World App
               </p>
@@ -278,11 +343,93 @@ export function Onboarding({
             Discover favours
           </Button>
         ) : (
-          <Button onClick={next} fullWidth variant="primary" size="lg">
+          <Button
+            onClick={step === 2 ? acceptTermsAndContinue : next}
+            fullWidth
+            variant="primary"
+            size="lg"
+          >
             {step === 2 ? "I agree" : step === 0 ? "Get started" : "Next"}
           </Button>
         )}
       </div>
+
+      {/* Terms & guidelines modal. Same content lives at the /terms route; this
+          keeps the reader in the onboarding flow without losing step state. */}
+      {showTerms && (
+        <div
+          className="absolute inset-0 z-20 flex flex-col bg-white animate-[fadeIn_0.25s_ease-out]"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Terms and community guidelines"
+        >
+          <div className="flex items-center justify-between px-5 pt-7 pb-3 border-b border-gray-100">
+            <Typography variant="heading" level={3} className="text-gray-900">
+              Terms &amp; guidelines
+            </Typography>
+            <button
+              type="button"
+              onClick={() => setShowTerms(false)}
+              aria-label="Close terms"
+              className="w-9 h-9 flex items-center justify-center rounded-full text-gray-500 hover:bg-gray-50 transition-colors"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 6 6 18" /><path d="m6 6 12 12" />
+              </svg>
+            </button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto px-6 py-5 flex flex-col gap-6 text-gray-700">
+            <p className="text-[12px] text-gray-400">Version {TERMS_VERSION}</p>
+
+            <section className="flex flex-col gap-1.5">
+              <h3 className="text-[15px] font-semibold text-gray-900">What RELAY is</h3>
+              <p className="text-[14px] leading-relaxed">
+                RELAY lets people post small real-world favours and lets others
+                complete them for rewards in points and USDC. You sign in with
+                your World wallet to take part. Sign-in proves you control a
+                World wallet. It is not, on its own, a proof that you are a
+                unique human.
+              </p>
+            </section>
+
+            <section className="flex flex-col gap-1.5">
+              <h3 className="text-[15px] font-semibold text-gray-900">Doing favours honestly</h3>
+              <ul className="text-[14px] leading-relaxed list-disc pl-5 flex flex-col gap-1">
+                <li>Only submit proof for work you genuinely completed.</li>
+                <li>No AI-generated, stock, reused, or unrelated images as proof.</li>
+                <li>Proof is reviewed before rewards are released.</li>
+                <li>No illegal or unsafe favours.</li>
+              </ul>
+            </section>
+
+            <section className="flex flex-col gap-1.5">
+              <h3 className="text-[15px] font-semibold text-gray-900">Respecting people</h3>
+              <ul className="text-[14px] leading-relaxed list-disc pl-5 flex flex-col gap-1">
+                <li>No harassment, hate speech, threats, or discrimination.</li>
+                <li>No spam, scams, or manipulation of other users.</li>
+                <li>Respect the privacy of people you interact with.</li>
+              </ul>
+            </section>
+
+            <section className="flex flex-col gap-1.5">
+              <h3 className="text-[15px] font-semibold text-gray-900">Rewards and enforcement</h3>
+              <p className="text-[14px] leading-relaxed">
+                USDC bounties are held in escrow and released when a submission
+                passes verification. Ambiguous submissions may be flagged for
+                manual review. Accounts that break these rules may be limited or
+                removed.
+              </p>
+            </section>
+          </div>
+
+          <div className="px-6 pb-8 pt-3 border-t border-gray-100">
+            <Button onClick={() => setShowTerms(false)} fullWidth variant="secondary" size="lg">
+              Close
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

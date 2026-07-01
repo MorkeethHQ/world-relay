@@ -1,6 +1,10 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { Typography } from "@worldcoin/mini-apps-ui-kit-react";
+import { Card } from "./ui/Card";
+import { Section } from "./ui/Section";
+import { Stat } from "./ui/Stat";
 
 // ---------------------------------------------------------------------------
 // Types (mirrors API response from /api/proof-of-favour)
@@ -322,7 +326,7 @@ function CompactSkeleton() {
 
 function FullSkeleton() {
   return (
-    <div className="rounded-2xl p-5 flex flex-col gap-4 bg-gray-50 border border-gray-200">
+    <Card className="flex flex-col gap-4">
       <div className="flex items-center gap-3">
         <div className={`w-8 h-8 rounded-full shrink-0 ${shimmerBg}`} />
         <div className="flex-1 flex flex-col gap-1.5">
@@ -341,7 +345,7 @@ function FullSkeleton() {
           <div key={i} className={`h-6 rounded-md ${shimmerBg}`} />
         ))}
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -567,12 +571,20 @@ function FullCard({
         <div className="flex items-center gap-3">
           <LevelBadge level={profile.level} size="lg" />
           <div className="flex flex-col">
-            <span className="text-xs font-semibold uppercase tracking-[0.15em] text-gray-400">
+            <Typography
+              variant="body"
+              level={4}
+              className="uppercase tracking-[0.15em] text-gray-400"
+            >
               Proof of Favour
-            </span>
-            <span className={`text-lg font-bold ${config.textColor} leading-tight`}>
+            </Typography>
+            <Typography
+              variant="heading"
+              level={4}
+              className={`${config.textColor} leading-tight`}
+            >
               {profile.level}
-            </span>
+            </Typography>
           </div>
         </div>
 
@@ -617,40 +629,37 @@ function FullCard({
         </div>
       </div>
 
-      {/* Stats grid */}
+      {/* Stats grid (shared <Stat> primitive, themed per level) */}
       <div className="grid grid-cols-3 gap-2.5">
-        <StatBox
+        <Stat
           label="Completed"
           value={displayCompleted}
-          config={config}
+          surfaceClassName={`${config.badgeBg} border ${config.badgeBorder}`}
         />
-        <StatBox
+        <Stat
           label="Attempted"
           value={displayAttempted}
-          config={config}
+          surfaceClassName={`${config.badgeBg} border ${config.badgeBorder}`}
         />
-        <StatBox
+        <Stat
           label="Best streak"
           value={profile.longestStreak}
           suffix={profile.longestStreak === 1 ? " day" : " days"}
-          config={config}
+          surfaceClassName={`${config.badgeBg} border ${config.badgeBorder}`}
         />
       </div>
 
       {/* Recent points history */}
       {recentHistory.length > 0 && (
-        <div className="flex flex-col gap-1.5">
-          <span className="text-xs font-semibold uppercase tracking-[0.12em] text-gray-400">
-            Recent Activity
-          </span>
+        <Section eyebrow="Recent Activity" className="gap-1.5">
           {recentHistory.map((entry, i) => (
             <div
               key={`${entry.timestamp}-${i}`}
               className="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-white/60"
             >
-              <span className="text-xs text-gray-500">
+              <Typography variant="body" level={4} className="text-gray-500">
                 {formatAction(entry.action)}
-              </span>
+              </Typography>
               <div className="flex items-center gap-2">
                 <span className="text-xs font-bold text-success-700 tabular-nums">
                   +{entry.points}
@@ -661,51 +670,20 @@ function FullCard({
               </div>
             </div>
           ))}
-        </div>
+        </Section>
       )}
 
       {/* Footer branding */}
       <div className="flex items-center justify-center pt-1">
-        <span className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-400">
+        <Typography
+          variant="body"
+          level={4}
+          className="uppercase tracking-[0.2em] text-gray-400"
+        >
           RELAY FAVOURS
-        </span>
+        </Typography>
       </div>
     </div>
   );
 }
 
-// ---------------------------------------------------------------------------
-// Stat box
-// ---------------------------------------------------------------------------
-
-function StatBox({
-  label,
-  value,
-  suffix,
-  config,
-}: {
-  label: string;
-  value: number;
-  suffix?: string;
-  config: LevelConfig;
-}) {
-  return (
-    <div
-      className={`
-        flex flex-col items-center justify-center gap-0.5
-        rounded-lg py-2.5 px-2
-        ${config.badgeBg} border ${config.badgeBorder}
-      `}
-    >
-      <span className="text-base font-bold text-gray-900 tabular-nums">
-        {value}
-        {suffix && (
-          <span className="text-xs font-semibold text-gray-400">{suffix}</span>
-        )}
-      </span>
-      <span className="text-xs font-medium text-gray-400 text-center leading-tight">
-        {label}
-      </span>
-    </div>
-  );
-}

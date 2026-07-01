@@ -1305,12 +1305,12 @@ function AgentBadge({ agent }: { agent: AgentInfo }) {
 // VerificationBadge and RequiredTierBadge are imported from @/components/VerificationBadge
 
 const POST_TEMPLATES = [
-  { emoji: "\u{1F525}", label: "Dare someone", desc: "I dare you to do something bold in public. Photo the proof.", category: "custom" as const, bounty: "1" },
-  { emoji: "\u{2B50}", label: "Review a spot", desc: "Go to a place nearby and review it honestly. Photo your experience and rate it.", category: "review" as const, bounty: "1" },
-  { emoji: "\u{1F4E3}", label: "Post about this", desc: "Post about something you care about on X or Instagram. Screenshot it.", category: "social" as const, bounty: "2" },
-  { emoji: "\u{1F4F1}", label: "Test my product", desc: "Try an app or website and share your first impressions. What works? What breaks?", category: "custom" as const, bounty: "5" },
-  { emoji: "\u{1F4CD}", label: "Check IRL", desc: "Go somewhere in person and photograph what you find.", category: "check-in" as const, bounty: "2" },
-  { emoji: "\u{1F4AC}", label: "Quick opinion", desc: "Share your honest take on something. Detailed answers earn more.", category: "feedback" as const, bounty: "1" },
+  { label: "Dare someone", desc: "I dare you to do something bold in public. Photo the proof.", category: "custom" as const, bounty: "1" },
+  { label: "Review a spot", desc: "Go to a place nearby and review it honestly. Photo your experience and rate it.", category: "review" as const, bounty: "1" },
+  { label: "Post about this", desc: "Post about something you care about on X or Instagram. Screenshot it.", category: "social" as const, bounty: "2" },
+  { label: "Test my product", desc: "Try an app or website and share your first impressions. What works? What breaks?", category: "custom" as const, bounty: "5" },
+  { label: "Check IRL", desc: "Go somewhere in person and photograph what you find.", category: "check-in" as const, bounty: "2" },
+  { label: "Quick opinion", desc: "Share your honest take on something. Detailed answers earn more.", category: "feedback" as const, bounty: "1" },
 ];
 
 // Minimal stroke icons for the post templates (design system: SVG, not emoji).
@@ -1325,6 +1325,12 @@ function TemplateIcon({ index }: { index: number }) {
     default: return <svg {...p}><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>;
   }
 }
+
+// Guided create-favour wizard. One decision per screen, tap to advance,
+// micro-animated step transitions. State + submit logic are unchanged from the
+// old single-screen form: only the render/flow is rebuilt into a step machine.
+// Steps: 0 pick type -> 1 describe -> 2 reward + fund (goes live) -> 3 confirmation.
+type WizardStep = 0 | 1 | 2 | 3;
 
 function PostTask({
   userId,
@@ -1347,6 +1353,16 @@ function PostTask({
   const [txError, setTxError] = useState<string | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<number | null>(null);
 
+  // Step machine + transition direction (drives the left/right micro-animation).
+  const [step, setStep] = useState<WizardStep>(0);
+  const [dir, setDir] = useState<"fwd" | "back">("fwd");
+
+  const goTo = (next: WizardStep, direction: "fwd" | "back" = "fwd") => {
+    hapticTap();
+    setDir(direction);
+    setStep(next);
+  };
+
   useEffect(() => {
     if (!navigator.geolocation) return;
     navigator.geolocation.getCurrentPosition(
@@ -1358,10 +1374,19 @@ function PostTask({
 
   const handleTemplate = (idx: number) => {
     const t = POST_TEMPLATES[idx];
+    hapticSelection();
     setSelectedTemplate(idx);
     setDescription(t.desc);
     setBounty(t.bounty);
     setCategory(t.category);
+    // One tap on a type advances straight to Describe.
+    setDir("fwd");
+    setStep(1);
+  };
+
+  const handleBack = () => {
+    if (step === 0) { hapticTap(); onCancel(); return; }
+    goTo((step - 1) as WizardStep, "back");
   };
 
   const handleSubmit = async () => {
@@ -1431,194 +1456,263 @@ function PostTask({
       setSubmitting(false);
       return;
     }
-    onDone();
+    // Live: advance to the confirmation screen instead of leaving immediately.
+    setSubmitting(false);
+    setDir("fwd");
+    setStep(3);
   };
 
   const isInWorld = isMiniKit();
   const isValid = description && location && bounty && parseFloat(bounty) >= (rewardType === "points" ? 1 : 0.5);
+  const canDescribe = !!description.trim() && !!location.trim();
+
+  // Reward-shaped object so RewardBadge / reward.ts stay the single source of truth
+  // for the points-vs-money distinction on the confirmation screen.
+  const rewardPreview = { rewardType, bountyUsdc: parseFloat(bounty) || 0, escrowTxHash: escrowSuccess };
+
+  const stepTitle = step === 0 ? "Pick a type" : step === 1 ? "Describe it" : step === 2 ? "Set the reward" : "You're live";
+  const stepAnim = dir === "back" ? "tab-slide-left" : "tab-slide-right";
+
+  const presets = rewardType === "points" ? ["1", "5", "10"] : ["5", "15", "25"];
 
   return (
     <div className="flex flex-col min-h-screen max-w-lg mx-auto w-full bg-gray-50">
       <TopBar
-        title="New favour"
+        title={stepTitle}
         startAdornment={
-          <Button variant="tertiary" size="sm" onClick={onCancel} aria-label="Cancel">Cancel</Button>
+          step === 3
+            ? <span />
+            : <Button variant="tertiary" size="sm" onClick={handleBack} aria-label={step === 0 ? "Cancel" : "Back"}>{step === 0 ? "Cancel" : "Back"}</Button>
         }
       />
 
-      <div className="flex-1 px-6 py-5 flex flex-col gap-6 overflow-y-auto">
-        {/* Templates */}
-        <div>
-          <Typography variant="label" level={2} className="text-gray-400 mb-3">What do you need?</Typography>
-          <div className="grid grid-cols-3 gap-2">
-            {POST_TEMPLATES.map((t, i) => {
-              const tier = getTaskTier(t.category);
-              const tc = TIER_CONFIG[tier];
-              return (
-                <button
-                  key={i}
-                  onClick={() => handleTemplate(i)}
-                  className={`flex flex-col items-center gap-1 rounded-xl border px-2 py-3 transition-all min-h-[44px] ${
-                    selectedTemplate === i
-                      ? "border-gray-900 bg-white"
-                      : "border-gray-200 bg-white hover:border-gray-300"
-                  }`}
-                >
-                  <span className="text-gray-700"><TemplateIcon index={i} /></span>
-                  <Typography variant="body" level={4} className="text-center text-gray-700 leading-tight">{t.label}</Typography>
-                  <span className={`text-[9px] font-semibold uppercase tracking-wider ${tc.color}`}>{tc.label}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {selectedTemplate === null ? (
-          <Typography variant="body" level={4} className="text-gray-400 -mt-3">Pick one to get started. You can edit everything after.</Typography>
-        ) : (
-        <>
-        {/* Description */}
-        <div>
-          <Typography variant="label" level={2} className="text-gray-400 mb-2">Description</Typography>
-          <textarea
-            placeholder="Describe exactly what you need done..."
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            rows={3}
-            className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm resize-none focus:outline-none focus:border-gray-400 transition-colors placeholder:text-gray-400"
-          />
-        </div>
-
-        {/* Location */}
-        <div>
-          <Typography variant="label" level={2} className="text-gray-400 mb-2">Where?</Typography>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => { setLocationMode("online"); setLocation("Online"); }}
-              className={`flex-1 rounded-xl border py-3 text-center transition-all min-h-[44px] ${
-                locationMode === "online" ? "border-gray-900 bg-white" : "border-gray-200 bg-white hover:border-gray-300"
+      {/* Progress dots (3 build steps; hidden on the terminal confirmation) */}
+      {step < 3 && (
+        <div className="flex items-center justify-center gap-2 pt-3 pb-1">
+          {[0, 1, 2].map((d) => (
+            <span
+              key={d}
+              className={`h-1.5 rounded-full transition-all duration-300 ${
+                d === step ? "w-6 bg-gray-900" : d < step ? "w-1.5 bg-gray-900" : "w-1.5 bg-gray-200"
               }`}
-            >
-              <Typography variant="body" level={3} className={locationMode === "online" ? "text-gray-900 font-semibold" : "text-gray-500"}>Online</Typography>
-            </button>
-            <button
-              onClick={() => { setLocationMode("inperson"); setLocation(""); }}
-              className={`flex-1 rounded-xl border py-3 text-center transition-all min-h-[44px] ${
-                locationMode === "inperson" ? "border-gray-900 bg-white" : "border-gray-200 bg-white hover:border-gray-300"
-              }`}
-            >
-              <Typography variant="body" level={3} className={locationMode === "inperson" ? "text-gray-900 font-semibold" : "text-gray-500"}>In person</Typography>
-            </button>
-          </div>
-          {locationMode === "inperson" && (
-            <input
-              type="text"
-              placeholder="Address, venue name, or area"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              className="mt-2 w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-gray-400 transition-colors placeholder:text-gray-400 min-h-[44px]"
             />
-          )}
+          ))}
         </div>
+      )}
 
-        {/* Reward type toggle */}
-        <div>
-          <Typography variant="label" level={2} className="text-gray-400 mb-2">Reward type</Typography>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setRewardType("points")}
-              className={`flex-1 rounded-xl border py-3 text-center transition-all min-h-[44px] ${
-                rewardType === "points"
-                  ? "border-gray-900 bg-white"
-                  : "border-gray-200 bg-white hover:border-gray-300"
-              }`}
-            >
-              <Typography variant="body" level={3} className={rewardType === "points" ? "text-gray-900 font-semibold" : "text-gray-500"}>Points</Typography>
-              <Typography variant="body" level={4} className="text-gray-400 mt-0.5">Free to post</Typography>
-            </button>
-            <button
-              onClick={() => setRewardType("usdc")}
-              className={`flex-1 rounded-xl border py-3 text-center transition-all min-h-[44px] ${
-                rewardType === "usdc"
-                  ? "border-gray-900 bg-white"
-                  : "border-gray-200 bg-white hover:border-gray-300"
-              }`}
-            >
-              <Typography variant="body" level={3} className={rewardType === "usdc" ? "text-gray-900 font-semibold" : "text-gray-500"}>USDC</Typography>
-              <Typography variant="body" level={4} className="text-gray-400 mt-0.5">On-chain escrow</Typography>
-            </button>
-          </div>
-        </div>
+      {/* Re-keyed so each step phases in with a micro-animation */}
+      <div key={step} className={`flex-1 flex flex-col ${stepAnim}`}>
 
-        {/* Bounty */}
-        <div>
-          <Typography variant="label" level={2} className="text-gray-400 mb-2">{rewardType === "points" ? "Points amount" : "Reward"}</Typography>
-          <div className="flex items-center gap-3">
-            {(rewardType === "points" ? ["1", "5", "10"] : ["5", "15", "25"]).map((amt) => (
-              <button
-                key={amt}
-                onClick={() => setBounty(amt)}
-                className={`flex-1 rounded-xl border py-3 text-center transition-all min-h-[44px] ${
-                  bounty === amt
-                    ? "border-gray-900 bg-white"
-                    : "border-gray-200 bg-white hover:border-gray-300"
-                }`}
-              >
-                <Typography variant="number" level={3} className={`whitespace-nowrap ${bounty === amt ? "text-gray-900" : "text-gray-500"}`}>{rewardType === "points" ? `${amt} pts` : `$${amt}`}</Typography>
-              </button>
-            ))}
-            <div className="flex-1 flex items-center gap-1 bg-white border border-gray-200 rounded-xl px-3 py-3 min-h-[44px]">
-              {rewardType === "usdc" && <span className="text-sm text-gray-400">$</span>}
-              <input
-                type="number"
-                placeholder="Other"
-                min={rewardType === "points" ? "1" : "0.50"}
-                max={rewardType === "points" ? "10" : undefined}
-                step={rewardType === "points" ? "1" : "0.50"}
-                value={!(rewardType === "points" ? ["1", "5", "10"] : ["5", "15", "25"]).includes(bounty) ? bounty : ""}
-                onChange={(e) => setBounty(e.target.value)}
-                className="flex-1 bg-transparent text-sm focus:outline-none placeholder:text-gray-400 w-12"
-              />
-              {rewardType === "points" && <span className="text-sm text-gray-400">pts</span>}
+        {/* STEP 0 - Pick type */}
+        {step === 0 && (
+          <div className="flex-1 px-6 py-5 flex flex-col gap-4">
+            <Typography variant="body" level={3} className="text-gray-400">What do you need? Tap one to start. You can edit everything next.</Typography>
+            <div className="grid grid-cols-2 gap-2.5">
+              {POST_TEMPLATES.map((t, i) => {
+                const tier = getTaskTier(t.category);
+                const tc = TIER_CONFIG[tier];
+                return (
+                  <button
+                    key={i}
+                    onClick={() => handleTemplate(i)}
+                    className={`flex flex-col items-start gap-2 rounded-2xl border px-4 py-4 text-left transition-all min-h-[100px] active:scale-[0.97] ${
+                      selectedTemplate === i ? "border-gray-900 bg-white" : "border-gray-200 bg-white hover:border-gray-300"
+                    }`}
+                  >
+                    <span className="text-gray-900"><TemplateIcon index={i} /></span>
+                    <Typography variant="body" level={3} className="font-semibold text-gray-900 leading-tight">{t.label}</Typography>
+                    <span className={`text-[10px] font-semibold uppercase tracking-wider ${tc.color}`}>{tc.label} &middot; {tc.time}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
-        </div>
+        )}
 
-        {/* Escrow explainer */}
-        <div className="bg-white border border-gray-200 rounded-xl p-4">
-          <div className="flex items-start gap-3">
-            <span className="text-base mt-0.5">{rewardType === "points" ? "\u{2B50}" : isInWorld ? "\u{1F512}" : "\u{2139}️"}</span>
+        {/* STEP 1 - Describe */}
+        {step === 1 && (
+          <div className="flex-1 px-6 py-5 flex flex-col gap-6">
             <div>
-              {rewardType === "points" ? (
-                <>
-                  <Typography variant="body" level={3} className="text-gray-700 font-medium">Points reward</Typography>
-                  <Typography variant="body" level={4} className="text-gray-400 mt-0.5">
-                    No USDC needed. The runner earns points when AI verifies their proof. Great for low-stakes tasks and feedback.
-                  </Typography>
-                </>
-              ) : isInWorld ? (
-                <>
-                  <Typography variant="body" level={3} className="text-gray-700 font-medium">Your USDC goes to escrow</Typography>
-                  <Typography variant="body" level={4} className="text-gray-400 mt-0.5">
-                    Held in a smart contract. Released to the runner when AI verifies their proof. Returned to you if no one completes it in 24h.
-                  </Typography>
-                </>
-              ) : (
-                <>
-                  <Typography variant="body" level={3} className="text-gray-700 font-medium">Funding requires World App</Typography>
-                  <Typography variant="body" level={4} className="text-gray-400 mt-0.5">
-                    Your task will be posted but unfunded. Open it in World App to deposit USDC and make it live.
-                  </Typography>
-                </>
+              <Typography variant="label" level={2} className="text-gray-400 mb-2">Description</Typography>
+              <textarea
+                placeholder="Describe exactly what you need done..."
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={4}
+                autoFocus
+                className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm resize-none focus:outline-none focus:border-gray-400 transition-colors placeholder:text-gray-400"
+              />
+              <Typography variant="body" level={4} className="text-gray-400 mt-1.5">Prefilled from your pick. Make it yours.</Typography>
+            </div>
+
+            <div>
+              <Typography variant="label" level={2} className="text-gray-400 mb-2">Where?</Typography>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => { hapticSelection(); setLocationMode("online"); setLocation("Online"); }}
+                  className={`flex-1 rounded-xl border py-3 text-center transition-all min-h-[44px] active:scale-[0.98] ${
+                    locationMode === "online" ? "border-gray-900 bg-white" : "border-gray-200 bg-white hover:border-gray-300"
+                  }`}
+                >
+                  <Typography variant="body" level={3} className={locationMode === "online" ? "text-gray-900 font-semibold" : "text-gray-500"}>Online</Typography>
+                </button>
+                <button
+                  onClick={() => { hapticSelection(); setLocationMode("inperson"); setLocation(""); }}
+                  className={`flex-1 rounded-xl border py-3 text-center transition-all min-h-[44px] active:scale-[0.98] ${
+                    locationMode === "inperson" ? "border-gray-900 bg-white" : "border-gray-200 bg-white hover:border-gray-300"
+                  }`}
+                >
+                  <Typography variant="body" level={3} className={locationMode === "inperson" ? "text-gray-900 font-semibold" : "text-gray-500"}>In person</Typography>
+                </button>
+              </div>
+              {locationMode === "inperson" && (
+                <input
+                  type="text"
+                  placeholder="Address, venue name, or area"
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                  className="mt-2 w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-gray-400 transition-colors placeholder:text-gray-400 min-h-[44px] animate-[slideDown_0.25s_ease-out]"
+                />
               )}
             </div>
           </div>
-        </div>
-        </>
+        )}
+
+        {/* STEP 2 - Reward + fund */}
+        {step === 2 && (
+          <div className="flex-1 px-6 py-5 flex flex-col gap-6">
+            <div>
+              <Typography variant="label" level={2} className="text-gray-400 mb-2">Reward type</Typography>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => { hapticSelection(); setRewardType("points"); }}
+                  className={`flex-1 rounded-xl border py-3 text-center transition-all min-h-[44px] active:scale-[0.98] ${
+                    rewardType === "points" ? "border-gray-900 bg-white" : "border-gray-200 bg-white hover:border-gray-300"
+                  }`}
+                >
+                  <Typography variant="body" level={3} className={rewardType === "points" ? "text-gray-900 font-semibold" : "text-gray-500"}>Points</Typography>
+                  <Typography variant="body" level={4} className="text-gray-400 mt-0.5">Free to post</Typography>
+                </button>
+                <button
+                  onClick={() => { hapticSelection(); setRewardType("usdc"); }}
+                  className={`flex-1 rounded-xl border py-3 text-center transition-all min-h-[44px] active:scale-[0.98] ${
+                    rewardType === "usdc" ? "border-gray-900 bg-white" : "border-gray-200 bg-white hover:border-gray-300"
+                  }`}
+                >
+                  <Typography variant="body" level={3} className={rewardType === "usdc" ? "text-gray-900 font-semibold" : "text-gray-500"}>USDC</Typography>
+                  <Typography variant="body" level={4} className="text-gray-400 mt-0.5">On-chain escrow</Typography>
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <Typography variant="label" level={2} className="text-gray-400 mb-2">{rewardType === "points" ? "Points amount" : "Reward"}</Typography>
+              <div className="flex items-center gap-3">
+                {presets.map((amt) => (
+                  <button
+                    key={amt}
+                    onClick={() => { hapticSelection(); setBounty(amt); }}
+                    className={`flex-1 rounded-xl border py-3 text-center transition-all min-h-[44px] active:scale-[0.98] ${
+                      bounty === amt ? "border-gray-900 bg-white" : "border-gray-200 bg-white hover:border-gray-300"
+                    }`}
+                  >
+                    <Typography variant="number" level={3} className={`whitespace-nowrap ${bounty === amt ? "text-gray-900" : "text-gray-500"}`}>{rewardType === "points" ? `${amt} pts` : `$${amt}`}</Typography>
+                  </button>
+                ))}
+                <div className="flex-1 flex items-center gap-1 bg-white border border-gray-200 rounded-xl px-3 py-3 min-h-[44px]">
+                  {rewardType === "usdc" && <span className="text-sm text-gray-400">$</span>}
+                  <input
+                    type="number"
+                    placeholder="Other"
+                    min={rewardType === "points" ? "1" : "0.50"}
+                    max={rewardType === "points" ? "10" : undefined}
+                    step={rewardType === "points" ? "1" : "0.50"}
+                    value={!presets.includes(bounty) ? bounty : ""}
+                    onChange={(e) => setBounty(e.target.value)}
+                    className="flex-1 bg-transparent text-sm focus:outline-none placeholder:text-gray-400 w-12"
+                  />
+                  {rewardType === "points" && <span className="text-sm text-gray-400">pts</span>}
+                </div>
+              </div>
+              {rewardType === "points" && <Typography variant="body" level={4} className="text-gray-400 mt-1.5">Points run from 1 to 10.</Typography>}
+            </div>
+
+            {/* Reward + escrow explainer */}
+            <div className="bg-white border border-gray-200 rounded-xl p-4">
+              <div className="flex items-start gap-3">
+                <span className="text-gray-900 mt-0.5">
+                  {rewardType === "points" ? (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" /></svg>
+                  ) : isInWorld ? (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
+                  ) : (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" /></svg>
+                  )}
+                </span>
+                <div>
+                  {rewardType === "points" ? (
+                    <>
+                      <Typography variant="body" level={3} className="text-gray-700 font-medium">Points reward</Typography>
+                      <Typography variant="body" level={4} className="text-gray-400 mt-0.5">
+                        No USDC needed. The runner earns points when AI verifies their proof. Great for low-stakes tasks and feedback.
+                      </Typography>
+                    </>
+                  ) : isInWorld ? (
+                    <>
+                      <Typography variant="body" level={3} className="text-gray-700 font-medium">Your USDC goes to escrow</Typography>
+                      <Typography variant="body" level={4} className="text-gray-400 mt-0.5">
+                        Held in a smart contract. Released to the runner when AI verifies their proof. Returned to you if no one completes it in 24h.
+                      </Typography>
+                    </>
+                  ) : (
+                    <>
+                      <Typography variant="body" level={3} className="text-gray-700 font-medium">Funding requires World App</Typography>
+                      <Typography variant="body" level={4} className="text-gray-400 mt-0.5">
+                        Your task will be posted but unfunded. Open it in World App to deposit USDC and make it live.
+                      </Typography>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* STEP 3 - Confirmation / live */}
+        {step === 3 && (
+          <div className="flex-1 px-6 py-5 flex flex-col items-center justify-center gap-5 text-center">
+            <div className="w-16 h-16 rounded-full bg-success-100 flex items-center justify-center animate-[checkPop_0.5s_ease-out]">
+              <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="rgb(var(--success-600))" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
+              </svg>
+            </div>
+            <div className="flex flex-col items-center gap-1">
+              <Typography variant="heading" level={3} className="text-gray-900">Your favour is live</Typography>
+              <Typography variant="body" level={3} className="text-gray-400 max-w-[260px]">
+                {rewardType !== "points" && !escrowSuccess
+                  ? "Posted unfunded. Open it in World App to deposit USDC and activate it."
+                  : "Runners can pick it up now. You'll be notified when someone completes it."}
+              </Typography>
+            </div>
+            <div className="bg-white border border-gray-200 rounded-2xl px-5 py-4 w-full max-w-[320px] flex items-center justify-between">
+              <Typography variant="body" level={3} className="text-gray-700 text-left flex-1 pr-3 line-clamp-2">{description}</Typography>
+              <RewardBadge task={rewardPreview} />
+            </div>
+            {escrowSuccess && (
+              <a
+                href={`https://worldscan.org/tx/${escrowSuccess}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-info-600 underline underline-offset-2"
+              >
+                View escrow transaction
+              </a>
+            )}
+          </div>
         )}
       </div>
 
-      {/* Submit */}
+      {/* Footer action bar (per step) */}
       <div className="px-6 pb-8 pt-2" style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 24px)" }}>
         {txError && (
           <div className="mb-4 bg-error-100 border border-error-200 rounded-xl p-4 flex items-center justify-between">
@@ -1628,20 +1722,14 @@ function PostTask({
             </button>
           </div>
         )}
-        {escrowSuccess && (
-          <div className="mb-4 bg-success-100 border border-success-200 rounded-xl p-4 flex items-center justify-between">
-            <Typography variant="body" level={3} className="text-success-700 font-medium">USDC deposited on-chain</Typography>
-            <a
-              href={`https://worldscan.org/tx/${escrowSuccess}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-sm text-info-600 underline underline-offset-2"
-            >
-              View tx
-            </a>
-          </div>
+
+        {step === 1 && (
+          <Button onClick={() => goTo(2)} disabled={!canDescribe} variant="primary" fullWidth size="lg">
+            Continue
+          </Button>
         )}
-        {selectedTemplate !== null && (
+
+        {step === 2 && (
           <LiveFeedback state={submitting ? "pending" : undefined}>
             <Button
               onClick={handleSubmit}
@@ -1653,6 +1741,12 @@ function PostTask({
               {submitting ? "Posting..." : rewardType === "points" ? `Post - ${bounty || "0"} pts` : isInWorld ? `Post & Fund $${bounty || "0"} USDC` : "Post Favour"}
             </Button>
           </LiveFeedback>
+        )}
+
+        {step === 3 && (
+          <Button onClick={onDone} variant="primary" fullWidth size="lg">
+            Back to feed
+          </Button>
         )}
       </div>
     </div>

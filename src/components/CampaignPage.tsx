@@ -7,6 +7,16 @@ import { Button, Pill } from "@worldcoin/mini-apps-ui-kit-react";
 import { useWorldUsers, displayName } from "@/hooks/useWorldUser";
 import { CategoryIcon } from "@/components/CategoryIcon";
 import { RewardBadge } from "@/components/RewardBadge";
+import { rewardAmountLabel, isRealMoney, sumRewards } from "@/lib/reward";
+
+// Tasks that belong to a campaign. Back-compat: if NOT a single task in the set
+// declares a campaignId, treat every task as in-scope so campaigns are not empty
+// (legacy data predates campaign linking). Once any task is linked, we scope
+// strictly by id so each campaign shows its own distinct tasks and stats.
+function tasksForCampaign(tasks: Task[], campaignId: string): Task[] {
+  const anyLinked = tasks.some((t) => t.campaignId);
+  return anyLinked ? tasks.filter((t) => t.campaignId === campaignId) : tasks;
+}
 
 function timeLeft(deadline: string): string {
   const ms = new Date(deadline).getTime() - Date.now();
@@ -43,23 +53,28 @@ export function CampaignPage({
   onTaskTap: (task: Task) => void;
   onSubmitProof: (task: Task) => void;
 }) {
+  // Only this campaign's tasks (with legacy fallback) drive every stat below.
+  const scoped = useMemo(() => tasksForCampaign(tasks, campaign.id), [tasks, campaign.id]);
+
   const openTasks = useMemo(
-    () => tasks.filter((t) => t.status === "open" && new Date(t.deadline).getTime() > Date.now()),
-    [tasks]
+    () => scoped.filter((t) => t.status === "open" && new Date(t.deadline).getTime() > Date.now()),
+    [scoped]
   );
   const completedTasks = useMemo(
-    () => tasks.filter((t) => t.status === "completed"),
-    [tasks]
-  );
-  const claimedTasks = useMemo(
-    () => tasks.filter((t) => t.status === "claimed"),
-    [tasks]
+    () => scoped.filter((t) => t.status === "completed"),
+    [scoped]
   );
 
-  // Points and real money are tracked strictly separately — never show points as $.
-  const totalPaidUsdc = completedTasks.reduce((sum, t) => sum + (t.rewardType !== "points" && t.escrowTxHash ? t.bountyUsdc : 0), 0);
-  const totalPoints = completedTasks.reduce((sum, t) => sum + (t.rewardType === "points" ? t.bountyUsdc : 0), 0);
-  const progressPct = tasks.length > 0 ? Math.round((completedTasks.length / tasks.length) * 100) : 0;
+  // Points and real money are tracked strictly separately, never show points as $.
+  const { points: totalPoints, usdc: totalPaidUsdc } = useMemo(
+    () => sumRewards(scoped, { completedOnly: true }),
+    [scoped]
+  );
+  const progressPct = scoped.length > 0 ? Math.round((completedTasks.length / scoped.length) * 100) : 0;
+
+  // Reward totals shown as canonical labels, never hand-built strings.
+  const totalPointsLabel = rewardAmountLabel({ rewardType: "points", bountyUsdc: totalPoints });
+  const totalUsdcLabel = rewardAmountLabel({ rewardType: "usdc", bountyUsdc: totalPaidUsdc });
 
   const contributors = useMemo(() => {
     const map = new Map<string, { address: string; count: number; points: number; usdc: number }>();
@@ -84,8 +99,8 @@ export function CampaignPage({
   );
 
   const allAddresses = useMemo(
-    () => [...new Set(tasks.flatMap((t) => [t.poster, t.claimant].filter(Boolean) as string[]))],
-    [tasks]
+    () => [...new Set(scoped.flatMap((t) => [t.poster, t.claimant].filter(Boolean) as string[]))],
+    [scoped]
   );
   useWorldUsers(allAddresses);
 
@@ -132,7 +147,7 @@ export function CampaignPage({
           {/* Inline stats */}
           <div className="flex items-center gap-5">
             <div>
-              <p className="text-2xl font-bold text-white">{totalPoints}{totalPaidUsdc > 0 ? `+$${totalPaidUsdc.toFixed(0)}` : ""}</p>
+              <p className="text-2xl font-bold text-white">{totalPointsLabel}{totalPaidUsdc > 0 ? ` + ${totalUsdcLabel}` : ""}</p>
               <p className="text-[11px] text-white/40 mt-0.5">{totalPaidUsdc > 0 ? "pts + USDC" : "pts given"}</p>
             </div>
             <div className="w-px h-8 bg-white/15" />
@@ -160,7 +175,7 @@ export function CampaignPage({
             </div>
             <div className="flex items-center justify-between mt-2">
               <span className="text-[11px] text-white/40">
-                {completedTasks.length} of {tasks.length} tasks completed
+                {completedTasks.length} of {scoped.length} tasks completed
               </span>
               <span className="text-[11px] text-white/40">{timeLeft(campaign.endsAt)}</span>
             </div>
@@ -243,7 +258,10 @@ export function CampaignPage({
                   </div>
                   <p className="text-xs font-medium text-gray-900 truncate max-w-full">{displayName(c.address)}</p>
                   <div className="flex items-center gap-1">
-                    <span className="text-sm font-bold text-gray-900">{c.points} pts{c.usdc > 0 ? ` · $${c.usdc}` : ""}</span>
+                    <span className="text-sm font-bold text-gray-900">
+                      {rewardAmountLabel({ rewardType: "points", bountyUsdc: c.points })}
+                      {c.usdc > 0 ? ` · ${rewardAmountLabel({ rewardType: "usdc", bountyUsdc: c.usdc })}` : ""}
+                    </span>
                   </div>
                   <span className="text-[10px] text-gray-400">{c.count} {c.count === 1 ? "task" : "tasks"}</span>
                 </div>
@@ -290,7 +308,7 @@ export function CampaignPage({
                       size="lg"
                       className="mt-3"
                     >
-                      Do it{task.escrowTxHash ? ` — earn $${task.bountyUsdc}` : ""}
+                      Do it{isRealMoney(task) ? `, earn ${rewardAmountLabel(task)}` : ""}
                     </Button>
                   )}
                 </div>
@@ -308,7 +326,7 @@ export function CampaignPage({
               </svg>
             </div>
             <p className="text-sm font-semibold text-gray-900">Campaign complete</p>
-            <p className="text-xs text-gray-400 mt-1">{totalPoints} pts{totalPaidUsdc > 0 ? ` and $${totalPaidUsdc.toFixed(2)} USDC` : ""} to {contributors.length} contributors</p>
+            <p className="text-xs text-gray-400 mt-1">{totalPointsLabel}{totalPaidUsdc > 0 ? ` and ${totalUsdcLabel}` : ""} to {contributors.length} contributors</p>
           </div>
         )}
 
@@ -327,14 +345,22 @@ export function FeaturedCampaignBanner({
   campaign,
   taskCount,
   completedCount,
+  tasks,
   onTap,
 }: {
   campaign: Campaign;
   taskCount: number;
   completedCount: number;
+  // When the full task list is passed, the banner scopes its stats to this
+  // campaign (same filter + legacy fallback as the detail page). Without it we
+  // fall back to the caller-supplied counts, so existing call sites still work.
+  tasks?: Task[];
   onTap: () => void;
 }) {
-  const remaining = taskCount - completedCount;
+  const scoped = tasks ? tasksForCampaign(tasks, campaign.id) : null;
+  const total = scoped ? scoped.length : taskCount;
+  const completed = scoped ? scoped.filter((t) => t.status === "completed").length : completedCount;
+  const remaining = total - completed;
 
   return (
     <div

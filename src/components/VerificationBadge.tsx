@@ -28,6 +28,26 @@ const BADGE_CONFIG: Record<string, { color: string; bg: string; border: string; 
   },
 };
 
+function LockIcon({ size, className }: { size: number; className?: string }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <rect x="5" y="11" width="14" height="10" rx="2" />
+      <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+    </svg>
+  );
+}
+
 function ShieldIcon({ level, size }: { level: string; size: number }) {
   const strokeColor =
     level === "orb" ? "rgb(var(--success-600))" : level === "device" ? "rgb(var(--gray-500))" : "rgb(var(--gray-400))";
@@ -102,7 +122,7 @@ export function RequiredTierBadge({
       role="status"
       aria-label={label}
     >
-      <span className="text-xs">{"\u{1F512}"}</span>
+      <LockIcon size={10} className={config.color} />
       <span className={`text-xs font-semibold ${config.color}`}>
         {label}
       </span>

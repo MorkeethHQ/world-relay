@@ -24,9 +24,26 @@ function detectMediaType(base64: string): "image/jpeg" | "image/png" | "image/gi
   return "image/jpeg";
 }
 
+type ImageSource =
+  | { type: "base64"; media_type: "image/jpeg" | "image/png" | "image/gif" | "image/webp"; data: string }
+  | { type: "url"; url: string };
+
 type ContentBlock =
   | { type: "text"; text: string }
-  | { type: "image"; source: { type: "base64"; media_type: "image/jpeg" | "image/png" | "image/gif" | "image/webp"; data: string } };
+  | { type: "image"; source: ImageSource };
+
+function isUrl(s: string): boolean {
+  return s.startsWith("http://") || s.startsWith("https://");
+}
+
+// In production, proof images are stored as https blob URLs; in dev/tests they
+// arrive as raw base64. Build the correct source type for each so the SDK does
+// not treat a URL as base64 data.
+function buildImageSource(img: string): ImageSource {
+  return isUrl(img)
+    ? { type: "url" as const, url: img }
+    : { type: "base64" as const, media_type: detectMediaType(img), data: img };
+}
 
 function buildImageBlocks(images: string | string[]): ContentBlock[] {
   const arr = Array.isArray(images) ? images : [images];
@@ -35,14 +52,7 @@ function buildImageBlocks(images: string | string[]): ContentBlock[] {
     if (arr.length > 1) {
       blocks.push({ type: "text" as const, text: `Photo ${i + 1} of ${arr.length}:` });
     }
-    blocks.push({
-      type: "image" as const,
-      source: {
-        type: "base64" as const,
-        media_type: detectMediaType(arr[i]),
-        data: arr[i],
-      },
-    });
+    blocks.push({ type: "image" as const, source: buildImageSource(arr[i]) });
   }
   return blocks;
 }
@@ -138,11 +148,7 @@ export async function generateFollowUpQuestion(
           },
           {
             type: "image" as const,
-            source: {
-              type: "base64" as const,
-              media_type: detectMediaType(proofImageBase64),
-              data: proofImageBase64,
-            },
+            source: buildImageSource(proofImageBase64),
           },
         ],
       }],

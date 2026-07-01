@@ -76,9 +76,10 @@ async function computeStats(redis: NonNullable<ReturnType<typeof getRedis>>) {
   let open = 0;
   let claimed = 0;
   let completed = 0;
-  let totalBounty = 0;   // real USDC only
-  let paidOut = 0;       // real USDC actually escrowed + completed
-  let pointsAwarded = 0; // points only, never counted as money
+  let totalBounty = 0;      // real USDC only
+  let paidOut = 0;          // real USDC actually escrowed + completed
+  let pointsAwarded = 0;    // points only, never counted as money
+  let fundedUsdcTasks = 0;  // count of escrow-funded USDC tasks (avg denominator)
   let last24h = 0;
   let last7d = 0;
   const posters = new Set<string>();
@@ -98,6 +99,7 @@ async function computeStats(redis: NonNullable<ReturnType<typeof getRedis>>) {
       // Real USDC: only count as "distributed" when the task was actually escrow-funded.
       if (task.escrowTxHash) {
         totalBounty += amount;
+        fundedUsdcTasks += 1;
         if (task.status === "completed") paidOut += amount;
       }
     }
@@ -148,7 +150,9 @@ async function computeStats(redis: NonNullable<ReturnType<typeof getRedis>>) {
     redis.scard(`visitors:${yesterday}`),
   ]);
 
-  const avgBounty = tasks.length > 0 ? totalBounty / tasks.length : 0;
+  // Average is per funded USDC task only. Points-only tasks are a separate
+  // currency and must never dilute the dollar average.
+  const avgBounty = fundedUsdcTasks > 0 ? totalBounty / fundedUsdcTasks : 0;
 
   return {
     users: {

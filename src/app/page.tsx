@@ -14,10 +14,26 @@ import {
 
 type VerificationLevel = "orb" | "device" | "wallet" | "dev" | null;
 
+// Honest label for the confirmation toast. Wallet sign-in is not the Orb
+// uniqueness proof, so it must not claim "identity verified".
+function verificationSubtitle(level: VerificationLevel): string {
+  switch (level) {
+    case "orb":
+      return "Verified unique human";
+    case "device":
+      return "Device verified";
+    case "wallet":
+      return "Signed in with World wallet";
+    default:
+      return "Preview mode";
+  }
+}
+
 export default function Home() {
   const [userId, setUserId] = useState<string | null>(null);
   const [verificationLevel, setVerificationLevel] = useState<VerificationLevel>(null);
   const [isVerifying, setIsVerifying] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
   const [isInWorldApp, setIsInWorldApp] = useState(false);
   const [miniKitChecked, setMiniKitChecked] = useState(false);
   const [welcomeMsg, setWelcomeMsg] = useState<string | null>(null);
@@ -41,8 +57,12 @@ export default function Home() {
   }, []);
 
   const handleVerify = async () => {
+    setAuthError(null);
     setIsVerifying(true);
 
+    // Inside World App: wallet sign-in is the only path. If it fails or the
+    // user cancels, surface an error and let them retry. Never silently mint a
+    // dev_ user, and never advance to a "verified" screen without a real auth.
     if (MiniKit.isInstalled()) {
       try {
         const result = await MiniKit.walletAuth({
@@ -82,11 +102,21 @@ export default function Home() {
           setIsVerifying(false);
           return;
         }
+        // No address returned means the sign-in did not complete (declined or
+        // dismissed). Do not fall through to a dev identity inside World App.
+        setAuthError("Sign-in wasn't completed. Please try again.");
+        setIsVerifying(false);
+        return;
       } catch (err) {
         console.error("MiniKit auth failed:", err);
+        setAuthError("Sign-in failed. Please try again.");
+        setIsVerifying(false);
+        return;
       }
     }
 
+    // Browser-only preview fallback. This branch is unreachable inside World
+    // App because MiniKit.isInstalled() is true there.
     const devId = `dev_${crypto.randomUUID().slice(0, 8)}`;
     setUserId(devId);
     setVerificationLevel("dev");
@@ -126,6 +156,8 @@ export default function Home() {
         isInWorldApp={isInWorldApp}
         isVerifying={isVerifying}
         authed={!!userId}
+        verificationLevel={verificationLevel}
+        authError={authError}
         onVerify={handleVerify}
         onComplete={completeOnboarding}
       />
@@ -167,6 +199,11 @@ export default function Home() {
               </Button>
             </LiveFeedback>
           </div>
+          {authError && (
+            <p className="text-[13px] text-error-600 text-center" role="alert">
+              {authError}
+            </p>
+          )}
           {!isInWorldApp && (
             <p className="text-[12px] text-gray-300 text-center">
               Full features available in World App
@@ -189,7 +226,7 @@ export default function Home() {
             </CircularIcon>
             <div className="flex-1 min-w-0">
               <Typography variant="body" level={2}>{welcomeMsg}</Typography>
-              <Typography variant="body" level={4} className="text-gray-400">Identity verified</Typography>
+              <Typography variant="body" level={4} className="text-gray-400">{verificationSubtitle(verificationLevel)}</Typography>
             </div>
           </div>
         </div>

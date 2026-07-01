@@ -143,6 +143,8 @@ export async function getLeaderboard(limit = 10): Promise<UserReputation[]> {
     for (const raw of results) {
       if (!raw) continue;
       const rep: UserReputation = typeof raw === "string" ? JSON.parse(raw) : (raw as UserReputation);
+      // Read-time guard: skip any legacy non-wallet reputation rows.
+      if (!isRealWallet(rep.address)) continue;
       reps.push(rep);
       localCache.set(rep.address, rep);
     }

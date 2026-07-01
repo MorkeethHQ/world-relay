@@ -1,6 +1,7 @@
 import { createWalletClient, createPublicClient, http, parseUnits, formatUnits } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { worldchain } from "viem/chains";
+import { getRedis } from "./redis";
 
 const RPC_URL = "https://worldchain-mainnet.g.alchemy.com/public";
 
@@ -188,15 +189,128 @@ function getWalletClient() {
   return { client: createWalletClient({ account, chain: worldchain, transport: http(RPC_URL) }), account };
 }
 
+// ── Settlement state (atomic-or-recoverable release) ────────────
+//
+// releaseEscrow performs two on-chain steps: releasePayment (funds move to the
+// relayer that claimed on the user's behalf) and a USDC forward to the real
+// recipient. These cannot be a single atomic tx, so we persist per-task state
+// in redis. A release is only reported as a success hash once the forward is
+// confirmed. If the forward fails, released stays true and forwarded stays
+// false so retryForward can finish settlement without double-releasing.
+
+type Wallet = NonNullable<ReturnType<typeof getWalletClient>>;
+type PubClient = ReturnType<typeof getPublicClient>;
+
+type SettlementState = {
+  released: boolean;
+  forwarded: boolean;
+  forwardTx: string | null;
+};
+
+function isValidRecipient(addr?: string | null): boolean {
+  return !!addr && addr.startsWith("0x") && addr.length === 42;
+}
+
+async function loadSettlement(onChainId: number): Promise<SettlementState | null> {
+  const redis = getRedis();
+  if (!redis) return null;
+  try {
+    const raw = await redis.get(`settle:${onChainId}`);
+    if (!raw) return null;
+    if (typeof raw === "string") return JSON.parse(raw) as SettlementState;
+    return raw as SettlementState;
+  } catch (err) {
+    console.error(`[Escrow] Failed to load settlement state for ${onChainId}:`, err);
+    return null;
+  }
+}
+
+async function saveSettlement(onChainId: number, state: SettlementState): Promise<void> {
+  const redis = getRedis();
+  if (!redis) return;
+  try {
+    await redis.set(`settle:${onChainId}`, JSON.stringify(state));
+  } catch (err) {
+    console.error(`[Escrow] Failed to save settlement state for ${onChainId}:`, err);
+  }
+}
+
+const USDC_TRANSFER_ABI = [{
+  name: "transfer",
+  type: "function",
+  stateMutability: "nonpayable",
+  inputs: [{ name: "to", type: "address" }, { name: "amount", type: "uint256" }],
+  outputs: [{ name: "", type: "bool" }],
+}] as const;
+
+// Forwards the payout (bounty minus fees) to the recipient and only returns a
+// success hash once the transfer is confirmed. On failure it leaves the
+// settlement marked released-but-not-forwarded so it can be retried.
+async function forwardPayout(
+  onChainId: number,
+  recipient: `0x${string}`,
+  wallet: Wallet,
+  pub: PubClient,
+): Promise<string | null> {
+  try {
+    const onChainTask = await pub.readContract({
+      address: ESCROW_ADDRESS,
+      abi: ESCROW_ABI,
+      functionName: "getTask",
+      args: [BigInt(onChainId)],
+    });
+    const bountyAmount = onChainTask.bounty;
+    const feeRate = await pub.readContract({ address: ESCROW_ADDRESS, abi: ESCROW_ABI, functionName: "feeRate" });
+    const communityRate = await pub.readContract({ address: ESCROW_ADDRESS, abi: ESCROW_ABI, functionName: "communityRate" });
+    const payout = bountyAmount - (bountyAmount * feeRate) / BigInt(10000) - (bountyAmount * communityRate) / BigInt(10000);
+
+    const transferHash = await wallet.client.writeContract({
+      address: USDC_ADDRESS,
+      abi: USDC_TRANSFER_ABI,
+      functionName: "transfer",
+      args: [recipient, payout],
+    });
+    await pub.waitForTransactionReceipt({ hash: transferHash });
+
+    await saveSettlement(onChainId, { released: true, forwarded: true, forwardTx: transferHash });
+    return transferHash;
+  } catch (err) {
+    console.error(`[Escrow] Forward payout failed for task ${onChainId}:`, err);
+    // Keep released=true, forwarded=false so retryForward can complete settlement.
+    await saveSettlement(onChainId, { released: true, forwarded: false, forwardTx: null });
+    return null;
+  }
+}
+
 export async function releaseEscrow(onChainId: number, recipientAddress?: string | null): Promise<string | null> {
   const wallet = getWalletClient();
   if (!wallet) {
-    console.error("[Escrow] No signer key — cannot release payment");
+    console.error("[Escrow] No signer key - cannot release payment");
     return null;
   }
 
+  // Hard-fail on missing or invalid recipient. Without a valid recipient we
+  // cannot forward the payout, so releasing on-chain would strand funds in the
+  // relayer. Never report success in that case.
+  if (!isValidRecipient(recipientAddress)) {
+    console.error(`[Escrow] Task ${onChainId}: missing or invalid recipient, refusing to release`);
+    return null;
+  }
+  const recipient = recipientAddress as `0x${string}`;
+
   try {
     const pub = getPublicClient();
+    const state = await loadSettlement(onChainId);
+
+    // Already fully settled in a prior attempt: return the confirmed forward tx.
+    if (state?.released && state.forwarded && state.forwardTx) {
+      return state.forwardTx;
+    }
+    // Released on-chain before but the forward failed: skip release (double-release
+    // guard) and just retry the forward.
+    if (state?.released && !state.forwarded) {
+      return await forwardPayout(onChainId, recipient, wallet, pub);
+    }
 
     const onChainTask = await pub.readContract({
       address: ESCROW_ADDRESS,
@@ -221,8 +335,6 @@ export async function releaseEscrow(onChainId: number, recipientAddress?: string
       await pub.waitForTransactionReceipt({ hash: claimHash });
     }
 
-    const bountyAmount = onChainTask.bounty;
-
     const hash = await wallet.client.writeContract({
       address: ESCROW_ADDRESS,
       abi: ESCROW_ABI,
@@ -232,33 +344,95 @@ export async function releaseEscrow(onChainId: number, recipientAddress?: string
 
     await pub.waitForTransactionReceipt({ hash });
 
-    // Forward USDC to the actual user (releasePayment sends to relayer since relayer claimed)
-    if (recipientAddress && recipientAddress.startsWith("0x") && recipientAddress.length === 42) {
-      const feeRate = await pub.readContract({ address: ESCROW_ADDRESS, abi: ESCROW_ABI, functionName: "feeRate" });
-      const communityRate = await pub.readContract({ address: ESCROW_ADDRESS, abi: ESCROW_ABI, functionName: "communityRate" });
-      const payout = bountyAmount - (bountyAmount * feeRate) / BigInt(10000) - (bountyAmount * communityRate) / BigInt(10000);
+    // Persist that the release is done BEFORE forwarding, so a forward failure
+    // is recoverable and never reported as paid.
+    await saveSettlement(onChainId, { released: true, forwarded: false, forwardTx: null });
 
-      const transferHash = await wallet.client.writeContract({
-        address: USDC_ADDRESS,
-        abi: [{
-          name: "transfer",
-          type: "function",
-          stateMutability: "nonpayable",
-          inputs: [{ name: "to", type: "address" }, { name: "amount", type: "uint256" }],
-          outputs: [{ name: "", type: "bool" }],
-        }],
-        functionName: "transfer",
-        args: [recipientAddress as `0x${string}`, payout],
-      });
-      await pub.waitForTransactionReceipt({ hash: transferHash });
-      return transferHash;
-    }
-
-    return hash;
+    // Forward USDC to the actual user (releasePayment sends to relayer since relayer claimed).
+    // Only a confirmed forward is reported as success.
+    return await forwardPayout(onChainId, recipient, wallet, pub);
   } catch (err) {
     console.error(`[Escrow] Failed to release task ${onChainId}:`, err);
     return null;
   }
+}
+
+// Retries only the USDC forward step for a task whose on-chain release already
+// succeeded but whose forward failed. Never re-releases on-chain.
+export async function retryForward(onChainId: number, recipientAddress?: string | null): Promise<string | null> {
+  const wallet = getWalletClient();
+  if (!wallet) {
+    console.error("[Escrow] No signer key - cannot retry forward");
+    return null;
+  }
+  if (!isValidRecipient(recipientAddress)) {
+    console.error(`[Escrow] Task ${onChainId}: invalid recipient for forward retry`);
+    return null;
+  }
+  const recipient = recipientAddress as `0x${string}`;
+
+  const state = await loadSettlement(onChainId);
+  if (!state || !state.released) {
+    console.error(`[Escrow] Task ${onChainId}: no released settlement to retry forward`);
+    return null;
+  }
+  if (state.forwarded && state.forwardTx) {
+    return state.forwardTx;
+  }
+  return await forwardPayout(onChainId, recipient, wallet, getPublicClient());
+}
+
+// ── On-chain funding verification (server-side funding gate) ─────
+
+export type OnChainTask = {
+  agent: `0x${string}`;
+  claimant: `0x${string}`;
+  description: string;
+  bounty: bigint;
+  deadline: bigint;
+  status: number;
+};
+
+export async function getEscrowTask(onChainId: number): Promise<OnChainTask | null> {
+  try {
+    const pub = getPublicClient();
+    const t = await pub.readContract({
+      address: ESCROW_ADDRESS,
+      abi: ESCROW_ABI,
+      functionName: "getTask",
+      args: [BigInt(onChainId)],
+    });
+    return {
+      agent: t.agent,
+      claimant: t.claimant,
+      description: t.description,
+      bounty: t.bounty,
+      deadline: t.deadline,
+      status: Number(t.status),
+    };
+  } catch (err) {
+    console.error(`[Escrow] Failed to read task ${onChainId}:`, err);
+    return null;
+  }
+}
+
+// Verifies on-chain that an escrow task exists and is funded (bounty deposited,
+// status Open or Claimed). When expectedUsdc is provided, the on-chain bounty
+// must cover it so a client cannot claim a larger bounty than was funded.
+export async function isEscrowTaskFunded(onChainId: number, expectedUsdc?: number): Promise<boolean> {
+  const t = await getEscrowTask(onChainId);
+  if (!t) return false;
+  if (t.bounty <= BigInt(0)) return false;
+  if (t.status !== 0 && t.status !== 1) return false;
+  if (expectedUsdc !== undefined && Number.isFinite(expectedUsdc)) {
+    try {
+      const expected = parseUnits(String(expectedUsdc), 6);
+      if (t.bounty < expected) return false;
+    } catch {
+      // If we cannot parse the expected amount, fall back to the bounty>0 check above.
+    }
+  }
+  return true;
 }
 
 export async function refundEscrow(onChainId: number): Promise<string | null> {

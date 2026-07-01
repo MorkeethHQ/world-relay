@@ -36,6 +36,8 @@ const POLL_COLORS = [
   { bar: "bg-warning-600", text: "text-warning-600" },
 ];
 
+type VoteResult = { ok: boolean; poll?: Poll; error?: string };
+
 export function PollCard({
   poll,
   userId,
@@ -43,7 +45,7 @@ export function PollCard({
 }: {
   poll: Poll;
   userId: string | null;
-  onVote: (pollId: string, option: string) => void;
+  onVote: (pollId: string, option: string) => Promise<VoteResult>;
 }) {
   const [selected, setSelected] = useState<string | null>(poll.yourVote ?? null);
   const [hasVoted, setHasVoted] = useState(!!poll.youVoted);
@@ -60,13 +62,33 @@ export function PollCard({
     setSelected(option);
   };
 
-  const confirmVote = () => {
+  const confirmVote = async () => {
     if (!selected || !userId) return;
+    const choice = selected;
+
+    // Optimistically show the vote as counted.
     hapticSuccess();
-    setLocalVotes((prev) => ({ ...prev, [selected]: (prev[selected] || 0) + 1 }));
+    setLocalVotes((prev) => ({ ...prev, [choice]: (prev[choice] || 0) + 1 }));
     setLocalTotal((prev) => prev + 1);
     setHasVoted(true);
-    onVote(poll.id, selected);
+
+    const result = await onVote(poll.id, choice);
+
+    if (!result.ok) {
+      // Server rejected the vote (already voted, poll ended, bad wallet, ...).
+      // Roll the optimistic state back so the poll is not shown as voted.
+      setLocalVotes(poll.votes);
+      setLocalTotal(poll.totalVotes);
+      setHasVoted(!!poll.youVoted);
+      setSelected(poll.yourVote ?? null);
+      return;
+    }
+
+    // Reconcile with the authoritative tallies the server returned.
+    if (result.poll) {
+      setLocalVotes(result.poll.votes);
+      setLocalTotal(result.poll.totalVotes);
+    }
   };
 
   return (
@@ -173,7 +195,7 @@ function CreatePoll({
     if (!isValid || submitting) return;
     setSubmitting(true);
     try {
-      await fetch("/api/polls", {
+      const res = await fetch("/api/polls", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -183,6 +205,11 @@ function CreatePoll({
           durationHours: 72,
         }),
       });
+      // Only treat a 2xx as success; a 4xx must not fire the success flow.
+      if (!res.ok) {
+        setSubmitting(false);
+        return;
+      }
       hapticSuccess();
       onCreated();
     } catch {
@@ -265,13 +292,19 @@ export function PollsFeed({
     fetchPolls();
   }, [fetchPolls]);
 
-  const handleVote = async (pollId: string, option: string) => {
-    if (!userId) return;
-    await fetch(`/api/polls/${pollId}/vote`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId, option }),
-    });
+  const handleVote = async (pollId: string, option: string): Promise<VoteResult> => {
+    if (!userId) return { ok: false };
+    try {
+      const res = await fetch(`/api/polls/${pollId}/vote`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, option }),
+      });
+      const data = await res.json().catch(() => ({}));
+      return { ok: res.ok, poll: data.poll, error: data.error };
+    } catch {
+      return { ok: false };
+    }
   };
 
   if (creating && userId) {
@@ -365,13 +398,19 @@ export function FeedPolls({ userId, limit = 2 }: { userId: string | null; limit?
 
   useEffect(() => { fetchPolls(); }, [fetchPolls]);
 
-  const handleVote = async (pollId: string, option: string) => {
-    if (!userId) return;
-    await fetch(`/api/polls/${pollId}/vote`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId, option }),
-    });
+  const handleVote = async (pollId: string, option: string): Promise<VoteResult> => {
+    if (!userId) return { ok: false };
+    try {
+      const res = await fetch(`/api/polls/${pollId}/vote`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, option }),
+      });
+      const data = await res.json().catch(() => ({}));
+      return { ok: res.ok, poll: data.poll, error: data.error };
+    } catch {
+      return { ok: false };
+    }
   };
 
   const active = polls

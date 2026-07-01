@@ -48,6 +48,9 @@ export type Task = {
   poster: string;
   claimant: string | null;
   category: TaskCategory;
+  // Optional link to a Campaign (see lib/campaigns.ts). When set, the task only
+  // shows up under that campaign. Absent on standalone tasks and legacy data.
+  campaignId?: string;
   description: string;
   location: string;
   lat: number | null;
