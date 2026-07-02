@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getTask, submitProof, completeTask, setAttestationHash, setFollowUp, spawnRecurringTask } from "@/lib/store";
+import { getTask, submitProof, completeTask, setAttestationHash, setFollowUp, spawnRecurringTask, markSettled, markSettlementPending } from "@/lib/store";
 import { verifyProof, verifyProofConsensus, verifyProofStub } from "@/lib/verify-proof";
 import type { ConsensusResult } from "@/lib/verify-proof";
 import { postProofSubmitted, postVerificationResult, postFollowUpQuestion, postSettlementConfirmation, syncAndProcessMessages } from "@/lib/xmtp";
@@ -339,6 +339,8 @@ export async function POST(req: NextRequest) {
       });
     }
     if (escrowReleaseTxHash) {
+      // Payout confirmed on-chain: record the forward tx and clear pending flag.
+      await markSettled(taskId, escrowReleaseTxHash).catch(console.error);
       postSettlementConfirmation(taskId, task.bountyUsdc, escrowReleaseTxHash).catch(console.error);
       if (task.claimant) {
         notifyPaymentReleased(task.claimant, task.bountyUsdc).catch(console.error);
@@ -351,9 +353,10 @@ export async function POST(req: NextRequest) {
         }).catch(console.error);
       }
     } else {
-      // Funded pass with no confirmed settlement: surface for manual review
-      // instead of silently completing as if paid.
+      // Funded pass with no confirmed settlement: mark pending so the task never
+      // reads as paid, and the reconciliation cron can find and retry it.
       settlementNeedsReview = true;
+      await markSettlementPending(taskId).catch(console.error);
       console.error(`[Escrow] Funded pass for task ${taskId} did not settle (onChainId=${task.onChainId}), flagging for manual review`);
       notifyFlagged(task.poster, task.description).catch(console.error);
       addNotification({

@@ -76,7 +76,12 @@ export type Task = {
   donStakeTxHash: string | null;
   claimantVerification?: "orb" | "device" | "wallet" | null;
   requiresClaim: boolean;
+  // Settlement tracking. pendingRelease=true means the proof verified (pass) but
+  // the USDC payout has NOT been confirmed on-chain yet — the task is done but not
+  // paid, and the reconciliation cron (/api/cron/reconcile-settlements) will retry.
+  // settlementTx is the confirmed forward tx hash once the payout lands.
   pendingRelease: boolean;
+  settlementTx?: string | null;
   maxCompletions: number;
   completionCount: number;
   createdAt: string;
