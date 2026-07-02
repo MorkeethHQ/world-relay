@@ -45,6 +45,7 @@ export function CampaignPage({
   onBack,
   onTaskTap,
   onSubmitProof,
+  onPostTask,
 }: {
   campaign: Campaign;
   tasks: Task[];
@@ -52,6 +53,7 @@ export function CampaignPage({
   onBack: () => void;
   onTaskTap: (task: Task) => void;
   onSubmitProof: (task: Task) => void;
+  onPostTask?: () => void;
 }) {
   // Only this campaign's tasks (with legacy fallback) drive every stat below.
   const scoped = useMemo(() => tasksForCampaign(tasks, campaign.id), [tasks, campaign.id]);
@@ -268,6 +270,17 @@ export function CampaignPage({
               ))}
             </div>
           </div>
+        )}
+
+        {/* Post into this campaign — tags the new task with campaignId */}
+        {userId && onPostTask && (
+          <button
+            onClick={onPostTask}
+            className="w-full text-white text-[14px] font-semibold px-4 py-3 rounded-2xl active:scale-[0.98] transition-transform"
+            style={{ backgroundColor: campaign.accentColor }}
+          >
+            + Post a favour for {campaign.brand}
+          </button>
         )}
 
         {/* Available tasks */}
