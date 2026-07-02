@@ -48,7 +48,7 @@ export async function POST(
   const updated = await posterConfirm(id, verdict.approved);
 
   if (verdict.approved && task.claimant) {
-    notifyVerified(task.claimant, task.bountyUsdc).catch(console.error);
+    notifyVerified(task.claimant, task.bountyUsdc, task.rewardType).catch(console.error);
     recordCompletion(task.claimant, task.bountyUsdc, verdict.confidence).catch(console.error);
 
     if (proofBase64Array) {

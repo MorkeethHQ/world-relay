@@ -3,8 +3,9 @@ import { getTask, posterConfirm } from "@/lib/store";
 import { postVerificationResult, postSettlementConfirmation } from "@/lib/xmtp";
 import { fireWebhook } from "@/lib/webhooks";
 import { releaseEscrow } from "@/lib/escrow";
-import { notifyPaymentReleased } from "@/lib/notifications";
+import { notifyPaymentReleased, notifyVerified } from "@/lib/notifications";
 import { addNotification } from "@/lib/notifications-store";
+import { recordCompletion } from "@/lib/reputation";
 
 export async function POST(
   req: NextRequest,
@@ -29,6 +30,30 @@ export async function POST(
 
   if (approved) {
     await postVerificationResult(id, "pass", "Poster confirmed proof manually", task.bountyUsdc);
+
+    // Credit the runner's reputation + points. The direct verify path (and the
+    // followup/dispute resolution paths) record completion on pass; this
+    // manual-approve path must too, or every flagged-then-approved task — which
+    // includes all points tasks routed through review — silently awards nothing.
+    if (task.claimant) {
+      recordCompletion(
+        task.claimant,
+        task.bountyUsdc,
+        task.verificationResult?.confidence ?? 0.75,
+        task.claimantVerification || undefined
+      ).catch(console.error);
+      notifyVerified(task.claimant, task.bountyUsdc, task.rewardType).catch(console.error);
+      // Points tasks have no escrow release below, so send their award notice here.
+      if (task.rewardType === "points") {
+        addNotification({
+          userId: task.claimant,
+          type: "verified",
+          title: "Points awarded!",
+          body: `Your proof was approved. ${Math.round(task.bountyUsdc)} points awarded.`,
+          taskId: id,
+        }).catch(console.error);
+      }
+    }
 
     // Poster approved a flagged proof on a funded on-chain task: release escrow now.
     // releaseEscrow is safe to call here because the contract status guard

@@ -60,11 +60,18 @@ export async function notifyProofSubmitted(posterAddress: string, taskDescriptio
   );
 }
 
-export async function notifyVerified(claimantAddress: string, bountyUsdc: number): Promise<void> {
+export async function notifyVerified(
+  claimantAddress: string,
+  bountyUsdc: number,
+  rewardType: "points" | "usdc" = "usdc"
+): Promise<void> {
+  const isPoints = rewardType === "points";
   await sendNotification(
     [claimantAddress],
-    "Verified! Payment Ready",
-    `Your proof was verified. $${bountyUsdc} USDC ready for release.`,
+    isPoints ? "Verified! Points Awarded" : "Verified! Payment Ready",
+    isPoints
+      ? `Your proof was verified. ${Math.round(bountyUsdc)} points awarded.`
+      : `Your proof was verified. $${bountyUsdc} USDC ready for release.`,
     "/"
   );
 }

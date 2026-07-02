@@ -59,7 +59,7 @@ export async function POST(
   await postReEvaluationResult(id, result.verdict, result.reasoning, task.bountyUsdc, result.confidence);
 
   if (result.verdict === "pass" && task.claimant) {
-    notifyVerified(task.claimant, task.bountyUsdc).catch(console.error);
+    notifyVerified(task.claimant, task.bountyUsdc, task.rewardType).catch(console.error);
     recordCompletion(task.claimant, task.bountyUsdc, result.confidence).catch(console.error);
 
     const txHash = await postAttestation(

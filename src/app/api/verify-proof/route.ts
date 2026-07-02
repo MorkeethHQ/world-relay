@@ -267,14 +267,16 @@ export async function POST(req: NextRequest) {
     await postVerificationResult(taskId, result.verdict, result.reasoning, task.bountyUsdc, result.confidence);
 
     if (result.verdict === "pass" && task.claimant) {
-      notifyVerified(task.claimant, task.bountyUsdc).catch(console.error);
+      notifyVerified(task.claimant, task.bountyUsdc, task.rewardType).catch(console.error);
 
       // In-app notification for verified proof
       addNotification({
         userId: task.claimant,
         type: "verified",
         title: "Proof verified!",
-        body: `Your proof was accepted. $${task.bountyUsdc} USDC ready for release.`,
+        body: task.rewardType === "points"
+          ? `Your proof was accepted. ${Math.round(task.bountyUsdc)} points awarded.`
+          : `Your proof was accepted. $${task.bountyUsdc} USDC ready for release.`,
         taskId,
       }).catch(console.error);
     } else if (result.verdict === "flag") {
