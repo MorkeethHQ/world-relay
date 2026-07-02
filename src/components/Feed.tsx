@@ -612,6 +612,10 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
 
   const campaigns = useMemo(() => getCampaigns(), []);
   const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
+  // When the post wizard is opened from a campaign page, tasks it creates are
+  // tagged with that campaign id (activates strict campaign scoping). Cleared for
+  // any normal post so standalone tasks stay unlinked.
+  const [postCampaignId, setPostCampaignId] = useState<string | null>(null);
 
   if (view === "campaign" && selectedCampaign) {
     return (
@@ -622,16 +626,17 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
         onBack={() => setView("board")}
         onTaskTap={(task) => { setSelectedTask(task); setView("detail"); }}
         onSubmitProof={(task) => { setSelectedTask(task); setView("proof"); }}
+        onPostTask={() => { setPostCampaignId(selectedCampaign.id); setView("post"); }}
       />
     );
   }
 
   if (view === "post") {
-    return <PostTask userId={userId} onDone={() => { setView("board"); fetchTasks(); }} onCancel={() => setView("board")} />;
+    return <PostTask userId={userId} campaignId={postCampaignId ?? undefined} onDone={() => { setPostCampaignId(null); setView("board"); fetchTasks(); }} onCancel={() => { setPostCampaignId(null); setView("board"); }} />;
   }
 
   if (view === "proof" && selectedTask) {
-    return <SubmitProof task={selectedTask} userId={userId} onDone={() => { setView("board"); fetchTasks(); }} onCancel={() => setView("board")} onCreateTask={() => { setView("post"); }} />;
+    return <SubmitProof task={selectedTask} userId={userId} onDone={() => { setView("board"); fetchTasks(); }} onCancel={() => setView("board")} onCreateTask={() => { setPostCampaignId(null); setView("post"); }} />;
   }
 
   if (view === "detail" && selectedTask) {
@@ -659,7 +664,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
           <h1 className="text-[18px] font-bold tracking-tight text-gray-900">RELAY</h1>
           {userId && (
             <button
-              onClick={() => { hapticTap(); setView("post"); }}
+              onClick={() => { hapticTap(); setPostCampaignId(null); setView("post"); }}
               className="bg-gray-900 text-white text-[13px] font-semibold px-4 py-2 rounded-full active:scale-95 transition-transform min-h-[36px]"
             >
               + New
@@ -1155,6 +1160,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
               onClick={() => {
                 setShowCreateNudge(false);
                 hapticTap();
+                setPostCampaignId(null);
                 setView("post");
               }}
             >
@@ -1336,10 +1342,12 @@ function PostTask({
   userId,
   onDone,
   onCancel,
+  campaignId,
 }: {
   userId: string | null;
   onDone: () => void;
   onCancel: () => void;
+  campaignId?: string;
 }) {
   const [description, setDescription] = useState("");
   const [locationMode, setLocationMode] = useState<"online" | "inperson">("online");
@@ -1440,6 +1448,7 @@ function PostTask({
           onChainId,
           escrowTxHash,
           rewardType,
+          campaignId,
         }),
       });
       if (!res.ok) {

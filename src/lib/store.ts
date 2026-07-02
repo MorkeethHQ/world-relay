@@ -76,6 +76,7 @@ export async function createTask(input: {
   donOnChainId?: number | null;
   requiresClaim?: boolean;
   maxCompletions?: number;
+  campaignId?: string;
 }): Promise<Task> {
   const id = crypto.randomUUID();
   const agent = input.agentId ? getAgent(input.agentId) : null;
@@ -92,6 +93,7 @@ export async function createTask(input: {
     poster: input.poster,
     claimant: null,
     category: input.category || "custom",
+    ...(input.campaignId ? { campaignId: input.campaignId } : {}),
     description: input.description,
     location: input.location,
     lat: input.lat ?? null,
@@ -317,6 +319,20 @@ export async function completeTask(
     task.proofImages = null;
     task.proofNote = null;
     task.verificationResult = null;
+  }
+  await persistTask(task);
+  return task;
+}
+
+// Links an existing task to a campaign (admin backfill for tasks created before
+// campaign linking existed). Pass null to unlink.
+export async function setTaskCampaign(id: string, campaignId: string | null): Promise<Task | null> {
+  const task = await getTask(id);
+  if (!task) return null;
+  if (campaignId) {
+    task.campaignId = campaignId;
+  } else {
+    delete task.campaignId;
   }
   await persistTask(task);
   return task;

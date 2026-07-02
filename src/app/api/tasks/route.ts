@@ -8,6 +8,7 @@ import { recordFavourPosted } from "@/lib/proof-of-favour";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { sanitizeInput } from "@/lib/sanitize";
 import { trackEvent } from "@/lib/track";
+import { getCampaign } from "@/lib/campaigns";
 import { isEscrowTaskFunded } from "@/lib/escrow";
 
 export async function GET() {
@@ -26,7 +27,11 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json();
-  const { poster, category, lat, lng, bountyUsdc, deadlineHours, onChainId, escrowTxHash, taskType, rewardType, donOnChainId, agentId, maxCompletions } = body;
+  const { poster, category, lat, lng, bountyUsdc, deadlineHours, onChainId, escrowTxHash, taskType, rewardType, donOnChainId, agentId, maxCompletions, campaignId } = body;
+
+  // Only accept a campaignId that maps to a real campaign; ignore anything else
+  // so a task can't be linked to a non-existent campaign.
+  const validCampaignId = campaignId && getCampaign(campaignId) ? campaignId : undefined;
 
   // Sanitize text inputs
   const description = sanitizeInput(body.description || "", 500);
@@ -117,6 +122,7 @@ export async function POST(req: NextRequest) {
     rewardType: rewardType === "points" ? "points" : "usdc",
     donOnChainId: donOnChainId != null ? Number(donOnChainId) : null,
     maxCompletions: maxCompletions ? Number(maxCompletions) : 1,
+    campaignId: validCampaignId,
   });
 
   trackEvent("task_created", { taskId: task.id, poster, bounty: task.bountyUsdc, category: task.category, funded: !!verifiedEscrowTxHash }).catch(() => {});
