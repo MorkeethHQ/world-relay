@@ -47,6 +47,9 @@ function normalizeTask(task: Task): Task {
   if ((task as any).pendingRelease === undefined) {
     (task as any).pendingRelease = false;
   }
+  if ((task as any).settlementTx === undefined) {
+    (task as any).settlementTx = null;
+  }
   if ((task as any).maxCompletions === undefined) {
     (task as any).maxCompletions = 1;
   }
@@ -318,6 +321,28 @@ export async function completeTask(
     task.proofNote = null;
     task.verificationResult = null;
   }
+  await persistTask(task);
+  return task;
+}
+
+// Settlement state helpers. A funded "pass" is marked settlement-pending until
+// the USDC payout forward is confirmed on-chain; only then is it marked settled.
+// This keeps a verified-but-unpaid task from reading as fully paid, and lets the
+// reconciliation cron find and retry it. See src/lib/escrow.ts (releaseEscrow).
+export async function markSettlementPending(id: string): Promise<Task | null> {
+  const task = await getTask(id);
+  if (!task) return null;
+  task.pendingRelease = true;
+  task.settlementTx = null;
+  await persistTask(task);
+  return task;
+}
+
+export async function markSettled(id: string, forwardTx: string): Promise<Task | null> {
+  const task = await getTask(id);
+  if (!task) return null;
+  task.pendingRelease = false;
+  task.settlementTx = forwardTx;
   await persistTask(task);
   return task;
 }

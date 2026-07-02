@@ -6,6 +6,7 @@ export type SSEEventType =
   | "task:proof"
   | "task:verified"
   | "task:completed"
+  | "task:settled"
   | "task:failed"
   | "task:expired"
   | "task:cancelled"
