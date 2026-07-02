@@ -50,6 +50,7 @@ function mockTask(overrides?: Partial<Task>): Task {
     lat: 48.8558,
     lng: 2.358,
     bountyUsdc: 10,
+    rewardType: "usdc",
     deadline: new Date(Date.now() + 24 * 3600_000).toISOString(),
     status: "claimed",
     proofImageUrl: null,
@@ -68,6 +69,9 @@ function mockTask(overrides?: Partial<Task>): Task {
     donOnChainId: null,
     donStakeTxHash: null,
     requiresClaim: false,
+    pendingRelease: false,
+    maxCompletions: 1,
+    completionCount: 0,
     createdAt: new Date().toISOString(),
     ...overrides,
   };
