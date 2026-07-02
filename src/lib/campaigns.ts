@@ -12,6 +12,9 @@ export type Campaign = {
   icon: string;
   totalBudget: number;
   rewardPerTask: number;
+  // How per-task reward is denominated for display. Points campaigns must not
+  // render "$" (points and USDC are never conflated). Defaults to usdc when absent.
+  rewardKind?: "points" | "usdc";
   taskCount: number;
   categories: TaskCategory[];
   taskDescriptions: string[];
@@ -86,6 +89,7 @@ export const CAMPAIGNS: Campaign[] = [
     icon: "\u{1F30D}",
     totalBudget: 500,
     rewardPerTask: 1,
+    rewardKind: "points",
     taskCount: 30,
     categories: ["photo", "check-in", "review", "errand", "social", "feedback"],
     taskDescriptions: [

@@ -46,7 +46,18 @@ export async function GET(req: NextRequest) {
       continue;
     }
 
-    await markSettled(task.id, forwardTx).catch(console.error);
+    // Only announce a payout once we've durably cleared pendingRelease. If this
+    // write fails, leave the task pending so a later run retries (releaseEscrow
+    // returns the same confirmed tx, no re-pay) and the user is notified once —
+    // not every hour.
+    const persisted = await markSettled(task.id, forwardTx).then(() => true).catch((e) => {
+      console.error(`[Reconcile] markSettled failed for ${task.id}:`, e);
+      return false;
+    });
+    if (!persisted) {
+      stillPending.push(task.id);
+      continue;
+    }
     settled.push(task.id);
 
     postSettlementConfirmation(task.id, task.bountyUsdc, forwardTx).catch(console.error);

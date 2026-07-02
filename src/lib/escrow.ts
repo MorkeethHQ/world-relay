@@ -252,6 +252,29 @@ async function forwardPayout(
   wallet: Wallet,
   pub: PubClient,
 ): Promise<string | null> {
+  // Double-pay guard: a prior attempt may have BROADCAST a transfer whose receipt
+  // we never observed (RPC timeout in waitForTransactionReceipt does NOT mean the
+  // tx failed — it can still mine). Before sending a new transfer, resolve any
+  // recorded forwardTx on-chain. Only re-send if it definitively reverted; if it
+  // succeeded, adopt it; if still unknown/pending, back off (return null) rather
+  // than risk a second transfer.
+  const prior = await loadSettlement(onChainId);
+  if (prior?.forwardTx) {
+    try {
+      const rcpt = await pub.getTransactionReceipt({ hash: prior.forwardTx as `0x${string}` });
+      if (rcpt?.status === "success") {
+        await saveSettlement(onChainId, { released: true, forwarded: true, forwardTx: prior.forwardTx });
+        return prior.forwardTx;
+      }
+      // rcpt exists but reverted -> safe to re-send below.
+    } catch {
+      // Receipt not found yet: the prior transfer may still be pending. Do NOT
+      // send a second one; let the next reconcile pass resolve it.
+      console.error(`[Escrow] Task ${onChainId}: prior forwardTx ${prior.forwardTx} unresolved, backing off to avoid double-pay`);
+      return null;
+    }
+  }
+
   try {
     const onChainTask = await pub.readContract({
       address: ESCROW_ADDRESS,
@@ -270,14 +293,20 @@ async function forwardPayout(
       functionName: "transfer",
       args: [recipient, payout],
     });
+    // Persist the hash BEFORE awaiting the receipt, so a receipt timeout can't lose
+    // it: the guard above will resolve this exact tx on the next attempt instead of
+    // sending a duplicate.
+    await saveSettlement(onChainId, { released: true, forwarded: false, forwardTx: transferHash });
     await pub.waitForTransactionReceipt({ hash: transferHash });
 
     await saveSettlement(onChainId, { released: true, forwarded: true, forwardTx: transferHash });
     return transferHash;
   } catch (err) {
     console.error(`[Escrow] Forward payout failed for task ${onChainId}:`, err);
-    // Keep released=true, forwarded=false so retryForward can complete settlement.
-    await saveSettlement(onChainId, { released: true, forwarded: false, forwardTx: null });
+    // Preserve any forwardTx we recorded above (do NOT null it) so the guard can
+    // resolve it on retry rather than re-sending.
+    const cur = await loadSettlement(onChainId);
+    await saveSettlement(onChainId, { released: true, forwarded: false, forwardTx: cur?.forwardTx ?? null });
     return null;
   }
 }
