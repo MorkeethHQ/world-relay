@@ -108,6 +108,31 @@ export const CAMPAIGNS: Campaign[] = [
     endsAt: "2026-08-31T23:59:59Z",
     featured: true,
   },
+  {
+    id: "ask-for-it",
+    name: "Ask For It",
+    brand: "FAVOUR",
+    tagline: "Everyone offers help. Nobody asks. Post the favour you actually need.",
+    description:
+      "FAVOUR works both ways. This month is the asking side: post a favour you genuinely need done, fund it with a dollar if it matters, and watch a verified human handle it. Most favours here earn points, with a couple of USDC favours in the mix. The best asks become the templates everyone else uses.",
+    heroGradient: "from-stone-900 via-stone-800 to-amber-900",
+    accentColor: "#b45309",
+    icon: "\u{1F64B}",
+    totalBudget: 10,
+    rewardPerTask: 1,
+    rewardKind: "points",
+    taskCount: 6,
+    categories: ["social", "custom", "feedback"],
+    taskDescriptions: [
+      "Post your own favour on the board, something you actually need",
+      "Ask someone near you for a small favour in person, report back",
+      "Describe a favour you'd pay $5 to get done this week",
+      "What would you ask a verified human that you'd never ask a stranger?",
+    ],
+    location: "Worldwide",
+    endsAt: "2026-07-31T23:59:59Z",
+    featured: false,
+  },
 ];
 
 export function getCampaign(id: string): Campaign | null {

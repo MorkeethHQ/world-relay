@@ -1,0 +1,56 @@
+{
+  "baseUrl": "https://world-relay.vercel.app",
+  "tasks": [
+    {
+      "description": "Review the best cheap eat within 10 minutes of you. Photo the dish with the price, and say why it wins.",
+      "location": "Any city",
+      "category": "review",
+      "bountyUsdc": 1.0,
+      "deadlineHours": 336
+    },
+    {
+      "description": "Photo a queue near you right now, any queue, and tell us roughly how long the wait is. Real-world data AI can't see.",
+      "location": "Any city",
+      "category": "photo",
+      "bountyUsdc": 1.0,
+      "deadlineHours": 336,
+      "campaignId": "ground-truth-2026"
+    },
+    {
+      "description": "Post your own favour on the board. Something you actually need done, not a test. Screenshot your posted favour as proof.",
+      "location": "Anywhere",
+      "category": "social",
+      "bountyUsdc": 1.0,
+      "deadlineHours": 336,
+      "campaignId": "ask-for-it"
+    },
+    {
+      "description": "Ask someone near you for one small favour today, in person. Tell us what you asked, how it felt, and what happened.",
+      "location": "Anywhere",
+      "category": "custom",
+      "bountyUsdc": 1.0,
+      "deadlineHours": 336,
+      "campaignId": "ask-for-it"
+    },
+    {
+      "description": "Describe a favour you would pay $5 to get done this week. Real needs only. The best asks become tasks on the board.",
+      "location": "Anywhere",
+      "category": "feedback",
+      "bountyUsdc": 0,
+      "rewardType": "points",
+      "deadlineHours": 336,
+      "maxCompletions": 100,
+      "campaignId": "ask-for-it"
+    },
+    {
+      "description": "What would you ask a verified human to do that you'd never ask a stranger? Tell us. Honest answers shape what FAVOUR becomes.",
+      "location": "Anywhere",
+      "category": "feedback",
+      "bountyUsdc": 0,
+      "rewardType": "points",
+      "deadlineHours": 336,
+      "maxCompletions": 100,
+      "campaignId": "ask-for-it"
+    }
+  ]
+}
