@@ -1,0 +1,55 @@
+{
+  "baseUrl": "https://world-relay.vercel.app",
+  "tasks": [
+    {
+      "description": "Season 2 is live. Photo the best thing you saw outside today and tell us the story behind it.",
+      "location": "Anywhere",
+      "category": "photo",
+      "bountyUsdc": 1.0,
+      "deadlineHours": 336
+    },
+    {
+      "description": "Review a spot in your city where locals actually watch football. Photo it and rate the atmosphere 1-10.",
+      "location": "Any city",
+      "category": "review",
+      "bountyUsdc": 1.0,
+      "deadlineHours": 336,
+      "campaignId": "world-cup-2026"
+    },
+    {
+      "description": "What does FAVOUR mean where you live? Photo something that shows how people help each other in your city.",
+      "location": "Any city",
+      "category": "photo",
+      "bountyUsdc": 1.0,
+      "deadlineHours": 336
+    },
+    {
+      "description": "Do a small favour for someone today. No money, just help. Tell us what you did and how it went.",
+      "location": "Anywhere",
+      "category": "custom",
+      "bountyUsdc": 0,
+      "rewardType": "points",
+      "deadlineHours": 336,
+      "maxCompletions": 100
+    },
+    {
+      "description": "Predict this week's biggest World Cup upset and say why. Best takes get bragging rights on the leaderboard.",
+      "location": "Anywhere",
+      "category": "social",
+      "bountyUsdc": 0,
+      "rewardType": "points",
+      "deadlineHours": 168,
+      "maxCompletions": 100,
+      "campaignId": "world-cup-2026"
+    },
+    {
+      "description": "Rate FAVOUR out of 10 this season. What should we build next? Most useful answer shapes the roadmap.",
+      "location": "Anywhere",
+      "category": "feedback",
+      "bountyUsdc": 0,
+      "rewardType": "points",
+      "deadlineHours": 336,
+      "maxCompletions": 100
+    }
+  ]
+}
