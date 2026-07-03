@@ -14,8 +14,12 @@ import { rewardAmountLabel, isRealMoney, sumRewards } from "@/lib/reward";
 // (legacy data predates campaign linking). Once any task is linked, we scope
 // strictly by id so each campaign shows its own distinct tasks and stats.
 function tasksForCampaign(tasks: Task[], campaignId: string): Task[] {
-  const anyLinked = tasks.some((t) => t.campaignId);
-  return anyLinked ? tasks.filter((t) => t.campaignId === campaignId) : tasks;
+  // Scope PER-CAMPAIGN, not globally: a campaign shows its own linked tasks once it
+  // has any; a campaign with no linked tasks yet still falls back to show-all so it
+  // never renders empty. (A global "any task is linked" check would blank every
+  // not-yet-seeded campaign the instant one task anywhere got a campaignId.)
+  const thisCampaignLinked = tasks.some((t) => t.campaignId === campaignId);
+  return thisCampaignLinked ? tasks.filter((t) => t.campaignId === campaignId) : tasks;
 }
 
 function timeLeft(deadline: string): string {
@@ -45,6 +49,7 @@ export function CampaignPage({
   onBack,
   onTaskTap,
   onSubmitProof,
+  onPostTask,
 }: {
   campaign: Campaign;
   tasks: Task[];
@@ -52,6 +57,7 @@ export function CampaignPage({
   onBack: () => void;
   onTaskTap: (task: Task) => void;
   onSubmitProof: (task: Task) => void;
+  onPostTask?: () => void;
 }) {
   // Only this campaign's tasks (with legacy fallback) drive every stat below.
   const scoped = useMemo(() => tasksForCampaign(tasks, campaign.id), [tasks, campaign.id]);
@@ -195,7 +201,7 @@ export function CampaignPage({
             {campaign.location}
           </span>
           <span className="shrink-0 inline-flex items-center gap-1.5 bg-white border border-gray-200 rounded-full px-3 py-2 text-xs text-gray-600 shadow-sm">
-            ${campaign.rewardPerTask}+ per task
+            {campaign.rewardKind === "points" ? `${campaign.rewardPerTask}+ pts per task` : `$${campaign.rewardPerTask}+ per task`}
           </span>
           <span className="shrink-0 inline-flex items-center gap-1.5 bg-white border border-gray-200 rounded-full px-3 py-2 text-xs text-gray-600 shadow-sm">
             AI-verified
@@ -268,6 +274,17 @@ export function CampaignPage({
               ))}
             </div>
           </div>
+        )}
+
+        {/* Post into this campaign — tags the new task with campaignId */}
+        {userId && onPostTask && (
+          <button
+            onClick={onPostTask}
+            className="w-full text-white text-[14px] font-semibold px-4 py-3 rounded-2xl active:scale-[0.98] transition-transform"
+            style={{ backgroundColor: campaign.accentColor }}
+          >
+            + Post a favour for {campaign.brand}
+          </button>
         )}
 
         {/* Available tasks */}
@@ -383,7 +400,7 @@ export function FeaturedCampaignBanner({
             <span className="text-[10px] font-medium text-white/60 tracking-wide uppercase">Campaign</span>
           </div>
           <h3 className="text-[15px] font-bold text-white leading-tight">{campaign.name}</h3>
-          <p className="text-xs text-white/50 mt-1">{remaining} tasks &middot; ${campaign.rewardPerTask}+ each</p>
+          <p className="text-xs text-white/50 mt-1">{remaining} tasks &middot; {campaign.rewardKind === "points" ? `${campaign.rewardPerTask}+ pts each` : `$${campaign.rewardPerTask}+ each`}</p>
         </div>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" opacity="0.4" className="shrink-0">
           <polyline points="9 18 15 12 9 6" />

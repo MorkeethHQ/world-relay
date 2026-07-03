@@ -7,6 +7,10 @@
     {
       "path": "/api/cron/expire-tasks",
       "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/cron/reconcile-settlements",
+      "schedule": "0 * * * *"
     }
   ]
 }

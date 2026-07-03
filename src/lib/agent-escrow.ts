@@ -4,7 +4,12 @@ import { worldchain } from "viem/chains";
 
 const RPC_URL = "https://worldchain-mainnet.g.alchemy.com/public";
 
-export const AGENT_ESCROW_ADDRESS = (process.env.NEXT_PUBLIC_AGENT_ESCROW_ADDRESS || "") as `0x${string}`;
+// Deployed RelayAgentEscrowV2 proxy on World Chain (chainId 480), version 2.0.0.
+// Same UUPS proxy backs both the classic escrow and the agent deposit/self-fund path,
+// mirroring the NEXT_PUBLIC_ESCROW_ADDRESS default in src/app/api/agent/tasks/route.ts.
+// Env var still wins so staging/redeploys can point elsewhere.
+export const AGENT_ESCROW_ADDRESS = (process.env.NEXT_PUBLIC_AGENT_ESCROW_ADDRESS ||
+  "0x274C38eA9944f57D24A59fbEf558bba2264f9351") as `0x${string}`;
 export const USDC_ADDRESS = "0x79A02482A880bCE3F13e09Da970dC34db4CD24d1" as const;
 
 const AGENT_ESCROW_ABI = [

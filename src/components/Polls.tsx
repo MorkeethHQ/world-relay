@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Button, Typography, Input, TopBar } from "@worldcoin/mini-apps-ui-kit-react";
 import { hapticTap, hapticSuccess } from "@/lib/minikit-helpers";
 
@@ -51,6 +51,22 @@ export function PollCard({
   const [hasVoted, setHasVoted] = useState(!!poll.youVoted);
   const [localVotes, setLocalVotes] = useState(poll.votes);
   const [localTotal, setLocalTotal] = useState(poll.totalVotes);
+  // Tracks whether the user voted in THIS session, so a late-arriving fetch
+  // can never un-vote a card the user just interacted with.
+  const votedThisSessionRef = useRef(false);
+
+  // userId hydrates asynchronously, so the first poll fetch often runs without
+  // it and youVoted/yourVote only arrive in a later refetch. useState captures
+  // the initial props only — without this sync, a user who already voted sees
+  // the poll as open, taps vote, and gets bounced with "Already voted".
+  useEffect(() => {
+    if (votedThisSessionRef.current) return;
+    setSelected(poll.yourVote ?? null);
+    setHasVoted(!!poll.youVoted);
+    setLocalVotes(poll.votes);
+    setLocalTotal(poll.totalVotes);
+  }, [poll.youVoted, poll.yourVote, poll.votes, poll.totalVotes]);
+
   const isEnded = new Date(poll.endsAt).getTime() < Date.now();
   const showResults = hasVoted || isEnded;
 
@@ -68,6 +84,7 @@ export function PollCard({
 
     // Optimistically show the vote as counted.
     hapticSuccess();
+    votedThisSessionRef.current = true;
     setLocalVotes((prev) => ({ ...prev, [choice]: (prev[choice] || 0) + 1 }));
     setLocalTotal((prev) => prev + 1);
     setHasVoted(true);
@@ -75,8 +92,21 @@ export function PollCard({
     const result = await onVote(poll.id, choice);
 
     if (!result.ok) {
-      // Server rejected the vote (already voted, poll ended, bad wallet, ...).
-      // Roll the optimistic state back so the poll is not shown as voted.
+      if (result.error === "Already voted") {
+        // The server already has a vote from this wallet (e.g. from a previous
+        // session before youVoted hydrated). Lock the card on the server's
+        // authoritative tallies instead of resetting it to an open state the
+        // user can never successfully act on.
+        if (result.poll) {
+          setLocalVotes(result.poll.votes);
+          setLocalTotal(result.poll.totalVotes);
+        }
+        setHasVoted(true);
+        return;
+      }
+      // Any other rejection (poll ended, bad wallet, network...): roll the
+      // optimistic state back so the poll is not shown as voted.
+      votedThisSessionRef.current = false;
       setLocalVotes(poll.votes);
       setLocalTotal(poll.totalVotes);
       setHasVoted(!!poll.youVoted);
@@ -290,6 +320,13 @@ export function PollsFeed({
 
   useEffect(() => {
     fetchPolls();
+    // Refetch when the mini-app returns to foreground so tallies and the
+    // user's voted state are fresh every time the app is opened.
+    const onVisible = () => {
+      if (document.visibilityState === "visible") fetchPolls();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
   }, [fetchPolls]);
 
   const handleVote = async (pollId: string, option: string): Promise<VoteResult> => {
@@ -396,7 +433,14 @@ export function FeedPolls({ userId, limit = 2 }: { userId: string | null; limit?
     } catch {}
   }, [userId]);
 
-  useEffect(() => { fetchPolls(); }, [fetchPolls]);
+  useEffect(() => {
+    fetchPolls();
+    const onVisible = () => {
+      if (document.visibilityState === "visible") fetchPolls();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [fetchPolls]);
 
   const handleVote = async (pollId: string, option: string): Promise<VoteResult> => {
     if (!userId) return { ok: false };

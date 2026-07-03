@@ -47,6 +47,9 @@ function normalizeTask(task: Task): Task {
   if ((task as any).pendingRelease === undefined) {
     (task as any).pendingRelease = false;
   }
+  if ((task as any).settlementTx === undefined) {
+    (task as any).settlementTx = null;
+  }
   if ((task as any).maxCompletions === undefined) {
     (task as any).maxCompletions = 1;
   }
@@ -76,6 +79,7 @@ export async function createTask(input: {
   donOnChainId?: number | null;
   requiresClaim?: boolean;
   maxCompletions?: number;
+  campaignId?: string;
 }): Promise<Task> {
   const id = crypto.randomUUID();
   const agent = input.agentId ? getAgent(input.agentId) : null;
@@ -92,6 +96,7 @@ export async function createTask(input: {
     poster: input.poster,
     claimant: null,
     category: input.category || "custom",
+    ...(input.campaignId ? { campaignId: input.campaignId } : {}),
     description: input.description,
     location: input.location,
     lat: input.lat ?? null,
@@ -317,6 +322,42 @@ export async function completeTask(
     task.proofImages = null;
     task.proofNote = null;
     task.verificationResult = null;
+  }
+  await persistTask(task);
+  return task;
+}
+
+// Settlement state helpers. A funded "pass" is marked settlement-pending until
+// the USDC payout forward is confirmed on-chain; only then is it marked settled.
+// This keeps a verified-but-unpaid task from reading as fully paid, and lets the
+// reconciliation cron find and retry it. See src/lib/escrow.ts (releaseEscrow).
+export async function markSettlementPending(id: string): Promise<Task | null> {
+  const task = await getTask(id);
+  if (!task) return null;
+  task.pendingRelease = true;
+  task.settlementTx = null;
+  await persistTask(task);
+  return task;
+}
+
+export async function markSettled(id: string, forwardTx: string): Promise<Task | null> {
+  const task = await getTask(id);
+  if (!task) return null;
+  task.pendingRelease = false;
+  task.settlementTx = forwardTx;
+  await persistTask(task);
+  return task;
+}
+
+// Links an existing task to a campaign (admin backfill for tasks created before
+// campaign linking existed). Pass null to unlink.
+export async function setTaskCampaign(id: string, campaignId: string | null): Promise<Task | null> {
+  const task = await getTask(id);
+  if (!task) return null;
+  if (campaignId) {
+    task.campaignId = campaignId;
+  } else {
+    delete task.campaignId;
   }
   await persistTask(task);
   return task;

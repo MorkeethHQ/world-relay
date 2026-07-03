@@ -22,10 +22,17 @@ export async function POST(
   }
 
   const { poll, error } = await vote(id, userId, option);
+
+  // Never expose the voters map (wallet -> choice for every voter) to a client.
+  const sanitize = (p: typeof poll) => {
+    if (!p) return p;
+    const { voters, ...rest } = p;
+    return { ...rest, voterCount: Object.keys(voters).length };
+  };
+
   if (error) {
-    return NextResponse.json({ error, poll }, { status: 400 });
+    return NextResponse.json({ error, poll: sanitize(poll) }, { status: 400 });
   }
 
-  const { voters, ...sanitized } = poll;
-  return NextResponse.json({ poll: { ...sanitized, voterCount: Object.keys(voters).length } });
+  return NextResponse.json({ poll: sanitize(poll) });
 }
