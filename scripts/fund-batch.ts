@@ -42,6 +42,20 @@ const ESCROW_ABI = [
     inputs: [],
     outputs: [{ name: "", type: "uint256" }],
   },
+  {
+    name: "balances",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ name: "", type: "address" }],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+  {
+    name: "deposit",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [{ name: "amount", type: "uint256" }],
+    outputs: [],
+  },
 ] as const;
 
 const ERC20_ABI = [
@@ -160,26 +174,47 @@ async function main() {
   const pub = createPublicClient({ chain: worldchain, transport: http(RPC_URL) });
   const wallet = createWalletClient({ account, chain: worldchain, transport: http(RPC_URL) });
 
-  const balance = await pub.readContract({
-    address: USDC_ADDRESS, abi: ERC20_ABI, functionName: "balanceOf", args: [account.address],
-  });
-  console.log(`\nWallet ${account.address} — ${formatUnits(balance, 6)} USDC`);
+  // AgentEscrowV2 is deposit-based: createTask spends the agent's INTERNAL
+  // balance, not the wallet. Top up the internal balance first if the batch
+  // needs more than what's already deposited.
+  const [balance, deposited] = await Promise.all([
+    pub.readContract({
+      address: USDC_ADDRESS, abi: ERC20_ABI, functionName: "balanceOf", args: [account.address],
+    }),
+    pub.readContract({
+      address: ESCROW_ADDRESS, abi: ESCROW_ABI, functionName: "balances", args: [account.address],
+    }),
+  ]);
+  console.log(`\nWallet ${account.address}`);
+  console.log(`  in wallet: ${formatUnits(balance, 6)} USDC | deposited in escrow: ${formatUnits(deposited, 6)} USDC`);
 
   const totalWei = parseUnits(totalUsdc.toString(), 6);
-  if (balance < totalWei) {
-    throw new Error(`Insufficient USDC: have ${formatUnits(balance, 6)}, batch needs ${totalUsdc}`);
-  }
-
-  const allowance = await pub.readContract({
-    address: USDC_ADDRESS, abi: ERC20_ABI, functionName: "allowance", args: [account.address, ESCROW_ADDRESS],
-  });
-  if (allowance < totalWei) {
-    console.log(`Approving ${totalUsdc} USDC...`);
-    const approveTx = await wallet.writeContract({
-      address: USDC_ADDRESS, abi: ERC20_ABI, functionName: "approve", args: [ESCROW_ADDRESS, totalWei],
+  if (deposited < totalWei) {
+    const shortfall = totalWei - deposited;
+    if (balance < shortfall) {
+      throw new Error(
+        `Insufficient USDC: batch needs ${totalUsdc} but escrow deposit is ${formatUnits(deposited, 6)} ` +
+        `and wallet only has ${formatUnits(balance, 6)} to top up (needs ${formatUnits(shortfall, 6)} more). ` +
+        `Send USDC (World Chain) to ${account.address}.`
+      );
+    }
+    const allowance = await pub.readContract({
+      address: USDC_ADDRESS, abi: ERC20_ABI, functionName: "allowance", args: [account.address, ESCROW_ADDRESS],
     });
-    await pub.waitForTransactionReceipt({ hash: approveTx });
-    console.log(`Approved: ${approveTx}`);
+    if (allowance < shortfall) {
+      console.log(`Approving ${formatUnits(shortfall, 6)} USDC...`);
+      const approveTx = await wallet.writeContract({
+        address: USDC_ADDRESS, abi: ERC20_ABI, functionName: "approve", args: [ESCROW_ADDRESS, shortfall],
+      });
+      await pub.waitForTransactionReceipt({ hash: approveTx });
+      console.log(`Approved: ${approveTx}`);
+    }
+    console.log(`Depositing ${formatUnits(shortfall, 6)} USDC into escrow...`);
+    const depositTx = await wallet.writeContract({
+      address: ESCROW_ADDRESS, abi: ESCROW_ABI, functionName: "deposit", args: [shortfall],
+    });
+    await pub.waitForTransactionReceipt({ hash: depositTx });
+    console.log(`Deposited: ${depositTx}`);
   }
 
   // Fund each USDC task on-chain, one at a time, recording onChainId + tx hash.
