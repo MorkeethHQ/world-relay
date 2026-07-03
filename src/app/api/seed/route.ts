@@ -27,7 +27,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Admin endpoint not configured" }, { status: 503 });
   }
 
-  const { secret } = await req.json().catch(() => ({ secret: "" }));
+  const body = await req.json().catch(() => ({ secret: "" }));
+  const { secret } = body;
   if (secret !== ADMIN_SECRET) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -38,6 +39,54 @@ export async function POST(req: NextRequest) {
   const existingDescriptions = new Set(existing.map(t => t.description.slice(0, 80)));
 
   const created = [];
+
+  // Template-driven batch seeding (scripts/fund-batch.ts): body.tasks replaces
+  // the hardcoded lists below. Money rule enforced here too: a task either
+  // carries a real escrow funding (onChainId + tx hash) or is points-only —
+  // never an unfunded USDC bounty.
+  if (Array.isArray(body.tasks)) {
+    const CATEGORIES = new Set(["photo", "delivery", "check-in", "custom", "feedback", "review", "social", "errand"]);
+    for (const [i, t] of body.tasks.entries()) {
+      const funded = t.onChainId != null && typeof t.escrowTxHash === "string" && t.escrowTxHash.length > 0;
+      const pointsOnly = t.rewardType === "points";
+      if (
+        typeof t.description !== "string" || !t.description.trim() ||
+        typeof t.location !== "string" || !t.location.trim() ||
+        !CATEGORIES.has(t.category) ||
+        typeof t.deadlineHours !== "number" || t.deadlineHours <= 0 ||
+        typeof t.bountyUsdc !== "number" || t.bountyUsdc < 0 ||
+        (t.bountyUsdc > 0 && !funded) ||
+        (t.bountyUsdc === 0 && !pointsOnly)
+      ) {
+        return NextResponse.json(
+          { error: `Invalid task at index ${i}: USDC tasks need onChainId + escrowTxHash, zero-bounty tasks need rewardType "points"` },
+          { status: 400 }
+        );
+      }
+    }
+
+    for (const t of body.tasks) {
+      if (t.onChainId != null && existingOnChainIds.has(t.onChainId)) continue;
+      if (existingDescriptions.has(t.description.slice(0, 80))) continue;
+      const agentId = typeof t.agentId === "string" && t.agentId ? t.agentId : "relay";
+      const task = await createTask({
+        poster: `agent:${agentId}`,
+        category: t.category,
+        description: t.description,
+        location: t.location,
+        bountyUsdc: t.bountyUsdc,
+        deadlineHours: t.deadlineHours,
+        agentId,
+        onChainId: t.onChainId ?? null,
+        escrowTxHash: t.escrowTxHash ?? null,
+        rewardType: t.rewardType,
+        maxCompletions: typeof t.maxCompletions === "number" ? t.maxCompletions : undefined,
+        campaignId: typeof t.campaignId === "string" ? t.campaignId : undefined,
+      });
+      created.push({ id: task.id, description: task.description.slice(0, 60), funded: t.onChainId != null, onChainId: t.onChainId ?? null });
+    }
+    return NextResponse.json({ seeded: created.length, tasks: created }, { status: 201 });
+  }
 
   for (const t of FUNDED_TASKS) {
     if (existingOnChainIds.has(t.onChainId)) continue;

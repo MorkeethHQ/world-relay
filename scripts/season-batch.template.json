@@ -1,0 +1,66 @@
+{
+  "_readme": [
+    "Template for seeding a batch of tasks (e.g. a new season). Flow:",
+    "1. Copy this file, e.g. `cp season-batch.template.json season-7.json`, edit the tasks.",
+    "2. Preview: `npx tsx scripts/fund-batch.ts season-7.json` (dry run, no money moves).",
+    "3. Fund + seed: `npx tsx scripts/fund-batch.ts season-7.json --live`",
+    "   - Every task with bountyUsdc > 0 is funded on-chain (real USDC from XMTP_WALLET_KEY wallet),",
+    "     then the whole batch is POSTed to /api/seed with ADMIN_SECRET.",
+    "   - Tasks with bountyUsdc 0 must have rewardType 'points'; they skip funding.",
+    "Fields per task: description, location, category (photo|delivery|check-in|custom|feedback|review|social|errand),",
+    "bountyUsdc, deadlineHours, optional: rewardType ('points'), maxCompletions, campaignId, agentId (default 'relay')."
+  ],
+  "baseUrl": "https://SET-ME.example.com",
+  "tasks": [
+    {
+      "description": "Season 7 is live. Photo the best thing you saw outside today and tell us the story behind it.",
+      "location": "Anywhere",
+      "category": "photo",
+      "bountyUsdc": 1.0,
+      "deadlineHours": 336
+    },
+    {
+      "description": "Review a spot in your city where locals actually watch football. Photo it and rate the atmosphere 1-10.",
+      "location": "Any city",
+      "category": "review",
+      "bountyUsdc": 1.0,
+      "deadlineHours": 336,
+      "campaignId": "world-cup-2026"
+    },
+    {
+      "description": "What does FAVOUR mean where you live? Photo something that shows how people help each other in your city.",
+      "location": "Any city",
+      "category": "photo",
+      "bountyUsdc": 1.0,
+      "deadlineHours": 336
+    },
+    {
+      "description": "Do a small favour for someone today. No money, just help. Tell us what you did and how it went.",
+      "location": "Anywhere",
+      "category": "custom",
+      "bountyUsdc": 0,
+      "rewardType": "points",
+      "deadlineHours": 336,
+      "maxCompletions": 100
+    },
+    {
+      "description": "Predict this week's biggest World Cup upset and say why. Best takes get bragging rights on the leaderboard.",
+      "location": "Anywhere",
+      "category": "social",
+      "bountyUsdc": 0,
+      "rewardType": "points",
+      "deadlineHours": 168,
+      "maxCompletions": 100,
+      "campaignId": "world-cup-2026"
+    },
+    {
+      "description": "Rate FAVOUR out of 10 this season. What should we build next? Most useful answer shapes the roadmap.",
+      "location": "Anywhere",
+      "category": "feedback",
+      "bountyUsdc": 0,
+      "rewardType": "points",
+      "deadlineHours": 336,
+      "maxCompletions": 100
+    }
+  ]
+}
