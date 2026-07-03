@@ -13,7 +13,7 @@
   "baseUrl": "https://SET-ME.example.com",
   "tasks": [
     {
-      "description": "Season 7 is live. Photo the best thing you saw outside today and tell us the story behind it.",
+      "description": "Season 2 is live. Photo the best thing you saw outside today and tell us the story behind it.",
       "location": "Anywhere",
       "category": "photo",
       "bountyUsdc": 1.0,

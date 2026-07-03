@@ -33,10 +33,13 @@ function streakBonusFor(streak: number): number {
 const isRealWallet = (a: string): boolean => /^0x[0-9a-fA-F]{40}$/.test(a);
 
 // --- Seasons ---
-// Monthly seasons. Season 1 is January 2026 (UTC). Season number increments
-// every calendar month. The weekly zset sprint runs on top of this as a
-// short-cycle competition; seasons are the longer arc that resets monthly.
+// Monthly seasons anchored to launch: Season 1 is June 2026 (UTC), the month
+// FAVOUR went live in the World App Store. The number increments every
+// calendar month. The weekly zset sprint runs on top of this as a short-cycle
+// competition; seasons are the longer arc that resets monthly. Display-only:
+// no stored data is keyed by season number, so re-anchoring is safe.
 const SEASON_EPOCH_YEAR = 2026;
+const SEASON_EPOCH_MONTH = 5; // June, 0-indexed
 
 export type Season = {
   number: number;
@@ -48,7 +51,7 @@ export type Season = {
 export function getCurrentSeason(now: Date = new Date()): Season {
   const year = now.getUTCFullYear();
   const month = now.getUTCMonth(); // 0-11
-  const number = (year - SEASON_EPOCH_YEAR) * 12 + month + 1;
+  const number = (year - SEASON_EPOCH_YEAR) * 12 + (month - SEASON_EPOCH_MONTH) + 1;
   const startsAt = new Date(Date.UTC(year, month, 1));
   const endsAt = new Date(Date.UTC(year, month + 1, 1));
   const msRemaining = endsAt.getTime() - now.getTime();
