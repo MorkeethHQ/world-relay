@@ -366,12 +366,21 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
   useEffect(() => {
     fetchTasks();
 
+    // World App keeps the mini-app webview alive in the background, so without
+    // this the board shows whatever was loaded last session until the user
+    // pulls to refresh. Refetch every time the app comes back to foreground.
+    const onVisible = () => {
+      if (document.visibilityState === "visible") debouncedFetchTasks();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+
     return () => {
+      document.removeEventListener("visibilitychange", onVisible);
       if (toastTimer.current) clearTimeout(toastTimer.current);
       if (statusToastTimer.current) clearTimeout(statusToastTimer.current);
       if (fetchDebounceRef.current) clearTimeout(fetchDebounceRef.current);
     };
-  }, [fetchTasks]);
+  }, [fetchTasks, debouncedFetchTasks]);
 
   // SSE: real-time refresh trigger (only in board view)
   useEffect(() => {
