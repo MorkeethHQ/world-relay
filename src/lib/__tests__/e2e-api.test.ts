@@ -308,8 +308,13 @@ describe("E2E Anthropic API tests", () => {
 
   // -----------------------------------------------------------------------
   // 6. Full lifecycle test
+  //
+  // GUARDED: this block calls the real store with the real .env.local Redis —
+  // running it writes an actual (unfunded!) task onto the production board.
+  // That happened on 2026-07-03: a fake $5 Louvre task went live and had to
+  // be purged. Only runs when explicitly opted in via E2E_ALLOW_STORE_WRITES.
   // -----------------------------------------------------------------------
-  describe("Full lifecycle", () => {
+  describe.skipIf(!process.env.E2E_ALLOW_STORE_WRITES)("Full lifecycle", () => {
     it(
       "creates a task, generates briefing, and verifies proof end-to-end",
       async () => {
