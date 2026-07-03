@@ -162,10 +162,21 @@ async function main() {
   }
 
   // --- Live mode ---
-  const key = process.env.XMTP_WALLET_KEY;
+  // Fund from the dedicated agent wallet, NEVER the relayer: AgentEscrowV2's
+  // claimTask rejects msg.sender == task.agent and there is no claimTaskFor,
+  // so relayer-funded tasks can never be settled through the escrow (the
+  // 2026-07-03 Season 2 batch had to be paid out manually via settle-direct).
+  const key = process.env.FUNDING_WALLET_KEY;
+  const relayerKey = process.env.XMTP_WALLET_KEY;
   const adminSecret = process.env.ADMIN_SECRET;
   const baseUrl: string | undefined = batch.baseUrl;
-  if (!key) throw new Error("No XMTP_WALLET_KEY in .env.local");
+  if (!key) throw new Error("No FUNDING_WALLET_KEY in .env.local (a wallet distinct from the relayer)");
+  if (relayerKey) {
+    const norm = (k: string) => (k.startsWith("0x") ? k : `0x${k}`).toLowerCase();
+    if (norm(key) === norm(relayerKey)) {
+      throw new Error("FUNDING_WALLET_KEY must differ from XMTP_WALLET_KEY: relayer-funded tasks cannot settle");
+    }
+  }
   if (!adminSecret) throw new Error("No ADMIN_SECRET in .env.local");
   if (!baseUrl || baseUrl.includes("SET-ME")) throw new Error('Set "baseUrl" in the batch file to the deployed app URL');
 
