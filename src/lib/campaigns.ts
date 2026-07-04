@@ -25,6 +25,36 @@ export type Campaign = {
 
 export const CAMPAIGNS: Campaign[] = [
   {
+    id: "first-favour",
+    name: "Your First Favour",
+    brand: "FAVOUR",
+    tagline: "New here? Do one favour, earn your first dollar.",
+    description:
+      "Welcome to FAVOUR. Real people do small real-world favours, an AI checks the proof, and you get paid in USDC — no experience needed. Start with something easy: a photo of your street, a quick honest review, a small kind act. Your first task pays your first real dollar. One paid favour per person while the pot lasts, so everyone gets a turn.",
+    heroGradient: "from-amber-900 via-orange-800 to-rose-800",
+    heroImage: "/hero/coffee.jpg",
+    accentColor: "#c2410c",
+    icon: "\u{1F44B}",
+    totalBudget: 8,
+    rewardPerTask: 1,
+    rewardKind: "usdc",
+    taskCount: 8,
+    categories: ["photo", "review", "check-in", "custom", "feedback", "social"],
+    taskDescriptions: [
+      "Photo your first drink of the day and tell us your city",
+      "Show us the view from where you're standing right now",
+      "Review the last meal you ate, photo + rating",
+      "Photo something that could only be your city",
+      "Do one small favour for someone, no reward, tell us how it felt",
+      "Photo the price of a coffee or water where you are",
+      "One photo of what made you smile today",
+      "Show us where you're reading this from",
+    ],
+    location: "Worldwide",
+    endsAt: "2026-08-15T23:59:59Z",
+    featured: true,
+  },
+  {
     id: "relay-launch",
     name: "RELAY Launch Campaign",
     brand: "RELAY",
@@ -109,7 +139,7 @@ export const CAMPAIGNS: Campaign[] = [
     ],
     location: "Worldwide",
     endsAt: "2026-08-31T23:59:59Z",
-    featured: true,
+    featured: false,
   },
   {
     id: "ask-for-it",
