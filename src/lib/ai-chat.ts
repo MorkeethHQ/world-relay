@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import type { Task } from "./types";
 import type { VerificationResult } from "./verify-proof";
 import { AGENT_REGISTRY } from "./agents";
+import { rewardAmountLabel } from "./reward";
 
 const HAIKU = "claude-haiku-4-5-20251001";
 
@@ -83,7 +84,7 @@ export async function generateLocationBriefing(task: Task, agentId?: string): Pr
       system: `You are RELAY's AI scout. A new task was just posted. Generate a SHORT location-specific briefing for potential claimants. Include: best approach angle for photos, time-of-day tips, and one local context tip. Be specific to the EXACT location — reference street names, landmarks, nearby metro stops. Under 80 words. No greeting.${personalityNote}`,
       messages: [{
         role: "user",
-        content: `Task: "${task.description}"\nLocation: ${task.location}\nCategory: ${task.category}\nBounty: $${task.bountyUsdc} USDC`,
+        content: `Task: "${task.description}"\nLocation: ${task.location}\nCategory: ${task.category}\nReward: ${rewardAmountLabel(task)}`,
       }],
     });
 
@@ -114,7 +115,7 @@ export async function generateClaimBriefing(task: Task, agentId?: string): Promi
       system: `You are RELAY's AI assistant. A verified human just claimed a physical-world task. Generate a SHORT, friendly briefing with 3-4 specific tips for getting their proof photo verified on the first try. Be specific to THIS task — no generic advice. Use bullet points. Keep it under 100 words. No greeting, no sign-off.${personalityNote}`,
       messages: [{
         role: "user",
-        content: `Task: "${task.description}"\nLocation: ${task.location}\nCategory: ${task.category}\nBounty: $${task.bountyUsdc} USDC\n\nCategory tips: ${CATEGORY_TIPS[task.category] || CATEGORY_TIPS.custom}`,
+        content: `Task: "${task.description}"\nLocation: ${task.location}\nCategory: ${task.category}\nReward: ${rewardAmountLabel(task)}\n\nCategory tips: ${CATEGORY_TIPS[task.category] || CATEGORY_TIPS.custom}`,
       }],
     });
 
@@ -218,7 +219,7 @@ export async function mediateDispute(
   try {
     const textBlock: ContentBlock = {
       type: "text" as const,
-      text: `Task: "${task.description}"\nLocation: ${task.location}\nBounty: $${task.bountyUsdc} USDC\nPoster: ${task.poster}\nClaimant: ${task.claimant}\n\nOriginal AI verdict: ${task.verificationResult?.reasoning || "N/A"} (confidence: ${Math.round((task.verificationResult?.confidence || 0) * 100)}%)\n\nFull thread conversation:\n${threadMessages}\n\nAnalyze all evidence and render your verdict:`,
+      text: `Task: "${task.description}"\nLocation: ${task.location}\nReward: ${rewardAmountLabel(task)}\nPoster: ${task.poster}\nClaimant: ${task.claimant}\n\nOriginal AI verdict: ${task.verificationResult?.reasoning || "N/A"} (confidence: ${Math.round((task.verificationResult?.confidence || 0) * 100)}%)\n\nFull thread conversation:\n${threadMessages}\n\nAnalyze all evidence and render your verdict:`,
     };
 
     const userContent: ContentBlock[] = proofImages

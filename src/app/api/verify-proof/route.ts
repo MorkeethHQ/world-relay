@@ -275,7 +275,7 @@ export async function POST(req: NextRequest) {
       await setFollowUp(taskId, followUpQ, result.confidence);
       await postFollowUpQuestion(taskId, followUpQ, result.confidence);
     } else {
-      await postVerificationResult(taskId, result.verdict, result.reasoning, task.bountyUsdc, result.confidence);
+      await postVerificationResult(taskId, result.verdict, result.reasoning, task.bountyUsdc, result.confidence, task.rewardType);
       notifyFlagged(task.poster, task.description).catch(console.error);
 
       // In-app notification for flagged proof
@@ -290,7 +290,7 @@ export async function POST(req: NextRequest) {
   } else {
     await completeTask(taskId, result);
     trackEvent("verification_result", { taskId, verdict: result.verdict, confidence: result.confidence, bounty: task.bountyUsdc }).catch(() => {});
-    await postVerificationResult(taskId, result.verdict, result.reasoning, task.bountyUsdc, result.confidence);
+    await postVerificationResult(taskId, result.verdict, result.reasoning, task.bountyUsdc, result.confidence, task.rewardType);
 
     if (result.verdict === "pass" && task.claimant) {
       notifyVerified(task.claimant, task.bountyUsdc, task.rewardType).catch(console.error);
@@ -343,7 +343,7 @@ export async function POST(req: NextRequest) {
       recordSeededEarn(task, task.claimant).catch(console.error);
       // Award attempt and completion points only on a passing verdict.
       recordFavourAttempted(task.claimant).catch(console.error);
-      recordCompletion(task.claimant, task.bountyUsdc, result.confidence, task.claimantVerification || undefined).catch(console.error);
+      recordCompletion(task.claimant, task.bountyUsdc, result.confidence, task.claimantVerification || undefined, taskIsFunded).catch(console.error);
       const claimantRep2 = await getReputation(task.claimant);
       recordFavourCompleted(task.claimant, claimantRep2.currentStreak).catch(console.error);
     } else if (result.verdict === "fail") {

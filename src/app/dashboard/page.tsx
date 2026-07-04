@@ -5,6 +5,7 @@ import type { Task } from "@/lib/types";
 import { ProofOfFavourCard } from "@/components/ProofOfFavourCard";
 import { VerificationBadge } from "@/components/VerificationBadge";
 import { displayName, profilePicture, useWorldUsers } from "@/hooks/useWorldUser";
+import { rewardAmountLabel } from "@/lib/reward";
 import {
   Typography,
   Spinner,
@@ -273,7 +274,7 @@ export default function ProfilePage() {
                           </div>
                         </div>
                         <div className="text-right shrink-0 flex flex-col items-end gap-1">
-                          <Typography variant="number" level={4} className="text-gray-900">${t.bountyUsdc}</Typography>
+                          <Typography variant="number" level={4} className="text-gray-900">{rewardAmountLabel(t)}</Typography>
                           <StatusPill status={t.status} />
                         </div>
                       </div>

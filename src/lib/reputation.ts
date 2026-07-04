@@ -7,6 +7,7 @@ export type UserReputation = {
   tasksCompleted: number;
   tasksFailed: number;
   totalEarnedUsdc: number;
+  totalPointsEarned: number;
   avgConfidence: number;
   verificationLevel: string;
   lastActiveAt: string;
@@ -22,6 +23,7 @@ function defaultRep(address: string): UserReputation {
     tasksCompleted: 0,
     tasksFailed: 0,
     totalEarnedUsdc: 0,
+    totalPointsEarned: 0,
     avgConfidence: 0,
     verificationLevel: "wallet",
     lastActiveAt: new Date().toISOString(),
@@ -62,17 +64,25 @@ export async function recordCompletion(
   address: string,
   bountyUsdc: number,
   confidence: number,
-  verificationLevel?: string
+  verificationLevel?: string,
+  isFundedTask: boolean = false
 ): Promise<UserReputation> {
   const rep = await getReputation(address);
   if (rep.currentStreak === undefined) rep.currentStreak = 0;
   if (rep.longestStreak === undefined) rep.longestStreak = 0;
+  if (rep.totalPointsEarned === undefined) rep.totalPointsEarned = 0;
   const total = rep.tasksCompleted + rep.tasksFailed;
   rep.avgConfidence = total > 0
     ? (rep.avgConfidence * rep.tasksCompleted + confidence) / (rep.tasksCompleted + 1)
     : confidence;
   rep.tasksCompleted += 1;
-  rep.totalEarnedUsdc += bountyUsdc;
+  // bountyUsdc is real dollars ONLY on an escrow-funded task. On a points task it
+  // is a points value and must never be added to totalEarnedUsdc.
+  if (isFundedTask) {
+    rep.totalEarnedUsdc += bountyUsdc;
+  } else {
+    rep.totalPointsEarned += bountyUsdc;
+  }
   rep.currentStreak += 1;
   if (rep.currentStreak > rep.longestStreak) rep.longestStreak = rep.currentStreak;
   rep.lastActiveAt = new Date().toISOString();

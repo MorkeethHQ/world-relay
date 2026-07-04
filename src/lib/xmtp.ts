@@ -1,5 +1,12 @@
-import type { Task } from "./types";
+import type { Task, RewardType } from "./types";
+import { rewardAmountLabel } from "./reward";
 import { addMessage } from "./messages";
+
+// Render a bare bounty number for message strings. Points tasks show "N pts",
+// USDC tasks show "$N USDC". Never conflate the two.
+function amountLabel(bountyUsdc: number, rewardType: RewardType): string {
+  return rewardType === "points" ? `${Math.round(bountyUsdc)} pts` : `$${bountyUsdc} USDC`;
+}
 import { getRedis } from "./redis";
 import { processIncomingMessage } from "./xmtp-commands";
 import { processAgentQuery } from "./xmtp-agent";
@@ -117,7 +124,7 @@ export async function createTaskThread(
     try {
       const group = await client.conversations.createGroup([], {
         groupName: `RELAY: ${task.description.slice(0, 50)}`,
-        groupDescription: `Task ${task.id} — $${task.bountyUsdc} USDC at ${task.location}`,
+        groupDescription: `Task ${task.id} — ${rewardAmountLabel(task)} at ${task.location}`,
       });
       thread.groupId = group.id;
 
@@ -202,13 +209,13 @@ export async function getThread(taskId: string): Promise<XmtpThreadInfo | undefi
 
 export async function postTaskCreated(task: Task): Promise<void> {
   const who = task.agent ? task.agent.name : (task.poster.startsWith("0x") ? `${task.poster.slice(0, 6)}...${task.poster.slice(-4)}` : task.poster);
-  await addMessage(task.id, "relay-bot", `New task posted by ${who}\n${task.description}\n📍 ${task.location} · $${task.bountyUsdc} USDC`);
+  await addMessage(task.id, "relay-bot", `New task posted by ${who}\n${task.description}\n📍 ${task.location} · ${rewardAmountLabel(task)}`);
 }
 
 export async function postClaimNotification(task: Task, claimantAddress: string): Promise<void> {
   await createTaskThread(task, claimantAddress);
   const short = claimantAddress.startsWith("0x") ? `${claimantAddress.slice(0, 6)}...${claimantAddress.slice(-4)}` : claimantAddress;
-  await postToThread(task.id, `Claimed by ${short}\n${task.description}\n📍 ${task.location} · $${task.bountyUsdc} USDC\n\nSubmit a proof photo when ready.`);
+  await postToThread(task.id, `Claimed by ${short}\n${task.description}\n📍 ${task.location} · ${rewardAmountLabel(task)}\n\nSubmit a proof photo when ready.`);
 }
 
 export async function postProofSubmitted(taskId: string, proofNote?: string | null): Promise<void> {
@@ -220,15 +227,18 @@ export async function postVerificationResult(
   verdict: "pass" | "flag" | "fail",
   reasoning: string,
   bountyUsdc: number,
-  confidence?: number
+  confidence?: number,
+  rewardType: RewardType = "usdc"
 ): Promise<void> {
   const pct = confidence ? ` (${Math.round(confidence * 100)}%)` : "";
+  const amt = amountLabel(bountyUsdc, rewardType);
+  const heldAmt = rewardType === "points" ? `${Math.round(bountyUsdc)} pts` : `$${bountyUsdc}`;
   if (verdict === "pass") {
-    await postToThread(taskId, `✅ Verified${pct}\n${reasoning}\n\n$${bountyUsdc} USDC releasing to runner.`);
+    await postToThread(taskId, `✅ Verified${pct}\n${reasoning}\n\n${amt} releasing to runner.`);
   } else if (verdict === "flag") {
-    await postToThread(taskId, `⚠️ Flagged for review${pct}\n${reasoning}\n\n$${bountyUsdc} held until resolved.`);
+    await postToThread(taskId, `⚠️ Flagged for review${pct}\n${reasoning}\n\n${heldAmt} held until resolved.`);
   } else {
-    await postToThread(taskId, `❌ Rejected\n${reasoning}\n\nTask reopened. $${bountyUsdc} USDC returned.`);
+    await postToThread(taskId, `❌ Rejected\n${reasoning}\n\nTask reopened. ${amt} returned.`);
   }
 }
 
@@ -253,15 +263,17 @@ export async function postReEvaluationResult(
   verdict: "pass" | "flag" | "fail",
   reasoning: string,
   bountyUsdc: number,
-  confidence?: number
+  confidence?: number,
+  rewardType: RewardType = "usdc"
 ): Promise<void> {
   const icon = verdict === "pass" ? "✅" : verdict === "flag" ? "⚠️" : "❌";
   const label = verdict === "pass" ? "Verified after follow-up" : verdict === "flag" ? "Still flagged" : "Rejected after follow-up";
   const pct = confidence ? ` (${Math.round(confidence * 100)}%)` : "";
+  const amt = amountLabel(bountyUsdc, rewardType);
   await postToThread(taskId, `${icon} ${label}${pct}\n${reasoning}${
-    verdict === "pass" ? `\n\n$${bountyUsdc} USDC → runner. Payment releasing.` :
+    verdict === "pass" ? `\n\n${amt} → runner. Payment releasing.` :
     verdict === "flag" ? `\n\nApprove or reject this proof manually.` :
-    `\n\nTask reopened. $${bountyUsdc} USDC returned.`
+    `\n\nTask reopened. ${amt} returned.`
   }`);
 }
 
@@ -270,12 +282,14 @@ export async function postDisputeVerdict(
   approved: boolean,
   reasoning: string,
   bountyUsdc: number,
-  confidence: number
+  confidence: number,
+  rewardType: RewardType = "usdc"
 ): Promise<void> {
   const pct = Math.round(confidence * 100);
+  const amt = amountLabel(bountyUsdc, rewardType);
   await postToThread(taskId, approved
-    ? `✅ Dispute resolved — approved (${pct}%)\n${reasoning}\n\n$${bountyUsdc} USDC → runner.`
-    : `❌ Dispute resolved — rejected (${pct}%)\n${reasoning}\n\nTask reopened. $${bountyUsdc} USDC returned.`
+    ? `✅ Dispute resolved — approved (${pct}%)\n${reasoning}\n\n${amt} → runner.`
+    : `❌ Dispute resolved — rejected (${pct}%)\n${reasoning}\n\nTask reopened. ${amt} returned.`
   );
 }
 

@@ -3,6 +3,7 @@ import { postClaimNotification, postClaimBriefing } from "./xmtp";
 import { generateClaimBriefing } from "./ai-chat";
 import { notifyTaskClaimed } from "./notifications";
 import { processAgentQuery } from "./xmtp-agent";
+import { rewardAmountLabel } from "./reward";
 import type { Task } from "./types";
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -86,7 +87,7 @@ function formatStatusResponse(task: Task): string {
     `"${task.description}"`,
     ``,
     `📍 Location: ${task.location}`,
-    `💰 Bounty: $${task.bountyUsdc} USDC`,
+    `💰 Bounty: ${rewardAmountLabel(task)}`,
     `📌 Status: ${task.status.toUpperCase()}`,
     `⏰ Deadline: ${formatTimeRemaining(task.deadline)}`,
   ];
@@ -227,7 +228,7 @@ async function handleClaim(task: Task, sender: string): Promise<string> {
     `"${updated.description}"`,
     ``,
     `📍 ${updated.location}`,
-    `💰 $${updated.bountyUsdc} USDC bounty`,
+    `💰 ${rewardAmountLabel(updated)} bounty`,
     `⏰ ${formatTimeRemaining(updated.deadline)}`,
     ``,
     `Next: Complete the task and send PROOF with a photo.`,

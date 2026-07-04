@@ -4,6 +4,7 @@ import { TopBar, Button, Typography, Spinner, CircularIcon } from "@worldcoin/mi
 import { AGENT_REGISTRY } from "@/lib/agents";
 import { getAgentAnalytics } from "@/lib/agent-analytics";
 import { listTasks } from "@/lib/store";
+import { rewardAmountLabel } from "@/lib/reward";
 import type { TaskStatus } from "@/lib/types";
 
 function getStatusBadge(status: TaskStatus) {
@@ -184,7 +185,7 @@ export default async function AgentProfilePage({ params }: { params: Promise<{ i
                   </div>
                   <div className="flex items-center justify-between mt-2.5 pt-2.5 border-t border-gray-50">
                     <span className="text-xs font-semibold text-gray-900">
-                      ${task.bountyUsdc} USDC
+                      {rewardAmountLabel(task)}
                     </span>
                     <span className="text-xs text-gray-400">
                       {formatTime(task.createdAt)}

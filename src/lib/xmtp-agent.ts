@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { listTasks, createTask, getTask } from "./store";
 import type { Task } from "./types";
 import { AGENT_REGISTRY } from "./agents";
+import { rewardAmountLabel, sumRewards } from "./reward";
 import { getTodaysChallenge } from "./daily-challenge";
 
 const BASE_URL = "https://world-relay.vercel.app";
@@ -11,7 +12,8 @@ function buildNetworkContext(tasks: Task[]): string {
   const completed = tasks.filter(t => t.status === "completed");
   const claimed = tasks.filter(t => t.status === "claimed");
   const funded = open.filter(t => t.escrowTxHash);
-  const totalBounty = open.reduce((sum, t) => sum + t.bountyUsdc, 0);
+  // Points and USDC are never summed together. Only escrow-funded USDC counts as money.
+  const totals = sumRewards(open);
 
   const topTasks = [...open]
     .sort((a, b) => {
@@ -23,8 +25,7 @@ function buildNetworkContext(tasks: Task[]): string {
     .slice(0, 8)
     .map(t => {
       const agent = t.agent ? `[${t.agent.name}]` : "";
-      const tag = t.escrowTxHash ? "USDC" : "pts";
-      return `- "${t.description.slice(0, 70)}" — ${t.location} — $${t.bountyUsdc} ${tag} ${agent} (id: ${t.id})`;
+      return `- "${t.description.slice(0, 70)}" — ${t.location} — ${rewardAmountLabel(t)} ${agent} (id: ${t.id})`;
     })
     .join("\n");
 
@@ -46,7 +47,7 @@ function buildNetworkContext(tasks: Task[]): string {
 
   return `NETWORK STATE:
 - ${open.length} open (${funded.length} funded with USDC), ${claimed.length} in progress, ${completed.length} completed
-- $${totalBounty.toFixed(0)} in available favours
+- $${totals.usdc.toFixed(0)} USDC + ${totals.points} pts in available favours
 - AI agents: ${agents}
 - Daily challenge: "${challenge.title}"
 
@@ -149,7 +150,7 @@ async function handleToolCall(
       `"${task.description.slice(0, 60)}"`,
       `Status: ${task.status}`,
       `Location: ${task.location}`,
-      `Reward: ${task.escrowTxHash ? `$${task.bountyUsdc} USDC` : `${task.bountyUsdc * 10} pts`}`,
+      `Reward: ${rewardAmountLabel(task)}`,
     ];
     if (task.claimant) lines.push(`Claimed by: ${task.claimant.slice(0, 8)}...`);
     if (task.verificationResult) {
@@ -173,8 +174,7 @@ async function handleToolCall(
       .sort((a, b) => (b.escrowTxHash ? 1 : 0) - (a.escrowTxHash ? 1 : 0) || b.bountyUsdc - a.bountyUsdc)
       .slice(0, 5)
       .map(t => {
-        const tag = t.escrowTxHash ? "USDC" : "pts";
-        return `- $${t.bountyUsdc} ${tag}: "${t.description.slice(0, 60)}" (${t.location})`;
+        return `- ${rewardAmountLabel(t)}: "${t.description.slice(0, 60)}" (${t.location})`;
       })
       .join("\n");
   }
@@ -194,7 +194,7 @@ export async function processAgentQuery(
     const open = tasks.filter(t => t.status === "open");
     if (open.length === 0) return "No tasks available right now. Check back soon.";
     const top = open.sort((a, b) => b.bountyUsdc - a.bountyUsdc)[0];
-    return `Top favour: "${top.description.slice(0, 60)}" in ${top.location} for $${top.bountyUsdc}. Browse at ${BASE_URL}`;
+    return `Top favour: "${top.description.slice(0, 60)}" in ${top.location} for ${rewardAmountLabel(top)}. Browse at ${BASE_URL}`;
   }
 
   const client = new Anthropic();

@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import type { Task, VerificationResult, AiFollowUp } from "@/lib/types";
 import { VerificationBadge, RequiredTierBadge } from "@/components/VerificationBadge";
 import { hapticTap, hapticSuccess, shareTask } from "@/lib/minikit-helpers";
+import { rewardAmountLabel, isPointsReward, isRealMoney } from "@/lib/reward";
 import { useWorldUsers, displayName } from "@/hooks/useWorldUser";
 import { TopBar, Button, Typography, Spinner, Pill, Input, CircularIcon } from "@worldcoin/mini-apps-ui-kit-react";
 
@@ -1474,6 +1475,8 @@ export default function TaskDetailPage() {
                 bountyUsdc: task.bountyUsdc,
                 verdict: task.verificationResult?.verdict,
                 taskId: task.id,
+                rewardType: task.rewardType,
+                funded: task.onChainId !== null || !!task.escrowTxHash,
               });
             }}
             aria-label="Share task"
@@ -1529,6 +1532,8 @@ export default function TaskDetailPage() {
                   bountyUsdc: task.bountyUsdc,
                   verdict: "pass",
                   taskId: task.id,
+                  rewardType: task.rewardType,
+                  funded: task.onChainId !== null || !!task.escrowTxHash,
                 });
               }}
               className="mt-3 min-h-[44px]"
@@ -1588,7 +1593,7 @@ export default function TaskDetailPage() {
                 </>
               ) : (
                 <p className="text-sm text-green-400 font-bold mt-0.5">
-                  ${task.bountyUsdc} USDC
+                  {rewardAmountLabel(task)}
                 </p>
               )}
               <RequiredTierBadge bountyUsdc={task.bountyUsdc} />
@@ -1753,7 +1758,9 @@ export default function TaskDetailPage() {
           <CollapsibleSection
             title="Payment Record"
             badge={
-              task.status === "completed" ? (
+              isPointsReward(task) ? (
+                <span className="text-xs text-gray-400">{rewardAmountLabel(task)}</span>
+              ) : isRealMoney(task) && task.status === "completed" ? (
                 <span className="text-xs font-bold text-success-700">Paid</span>
               ) : (
                 <span className="text-xs text-gray-400">${task.bountyUsdc}</span>
@@ -1763,7 +1770,7 @@ export default function TaskDetailPage() {
             <div className="p-4 flex flex-col gap-2">
               <div className="bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-3">
                 <p className="text-xs text-gray-400 uppercase tracking-wider mb-0.5">Amount</p>
-                <p className="text-sm text-success-600 font-bold">${task.bountyUsdc} USDC</p>
+                <p className="text-sm text-success-600 font-bold">{rewardAmountLabel(task)}</p>
               </div>
 
               {task.escrowTxHash && (
