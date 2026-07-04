@@ -40,7 +40,7 @@ function makeTask(overrides: Partial<Task>): Task {
     proofNote: null,
     verificationResult: null,
     attestationTxHash: null,
-    agent: { id: "relay", name: "RELAY", avatar: "", persona: "" } as Task["agent"],
+    agent: { id: "relay", name: "RELAY", icon: "", color: "" } as unknown as Task["agent"],
     aiFollowUp: null,
     recurring: null,
     callbackUrl: null,
