@@ -1,0 +1,99 @@
+{
+  "baseUrl": "https://world-relay.vercel.app",
+  "tasks": [
+    {
+      "description": "Photo your first drink of the day (coffee, tea, water, anything) and tell us which city you're in. Your first taste of FAVOUR.",
+      "location": "Anywhere",
+      "category": "photo",
+      "bountyUsdc": 1.0,
+      "deadlineHours": 336,
+      "campaignId": "first-favour"
+    },
+    {
+      "description": "Show us the view from exactly where you're standing right now. One photo, and one line about your spot.",
+      "location": "Anywhere",
+      "category": "photo",
+      "bountyUsdc": 1.0,
+      "deadlineHours": 336,
+      "campaignId": "first-favour"
+    },
+    {
+      "description": "Review the last meal you ate. Photo the food, rate it 1-10, and give one honest sentence about it.",
+      "location": "Any city",
+      "category": "review",
+      "bountyUsdc": 1.0,
+      "deadlineHours": 336,
+      "campaignId": "first-favour"
+    },
+    {
+      "description": "Photo something that could only be YOUR city, a street sign, a snack, a corner, and tell us what makes it local.",
+      "location": "Any city",
+      "category": "photo",
+      "bountyUsdc": 1.0,
+      "deadlineHours": 336,
+      "campaignId": "first-favour"
+    },
+    {
+      "description": "Do one small favour for someone today with no reward: hold a door, give directions, help a neighbour. Tell us what you did and how it felt.",
+      "location": "Anywhere",
+      "category": "custom",
+      "bountyUsdc": 1.0,
+      "deadlineHours": 336,
+      "campaignId": "first-favour"
+    },
+    {
+      "description": "Photo the price of a coffee or a bottle of water where you are, with the price visible. Real prices from real places.",
+      "location": "Any city",
+      "category": "check-in",
+      "bountyUsdc": 1.0,
+      "deadlineHours": 336,
+      "campaignId": "first-favour"
+    },
+    {
+      "description": "What's one thing that made you smile today? Show us with a single photo and one sentence.",
+      "location": "Anywhere",
+      "category": "photo",
+      "bountyUsdc": 1.0,
+      "deadlineHours": 336,
+      "campaignId": "first-favour"
+    },
+    {
+      "description": "Show us where you're reading this from, your desk, your commute, your street. One honest photo, one line.",
+      "location": "Anywhere",
+      "category": "photo",
+      "bountyUsdc": 1.0,
+      "deadlineHours": 336,
+      "campaignId": "first-favour"
+    },
+    {
+      "description": "Just finished your first favour? Rate FAVOUR out of 10. What was fun, what was confusing, what would you change?",
+      "location": "Anywhere",
+      "category": "feedback",
+      "bountyUsdc": 0,
+      "rewardType": "points",
+      "deadlineHours": 336,
+      "maxCompletions": 100,
+      "campaignId": "first-favour"
+    },
+    {
+      "description": "What favour would you love a verified human nearby to do for you? Describe it in a sentence. The best asks become real tasks on the board.",
+      "location": "Anywhere",
+      "category": "feedback",
+      "bountyUsdc": 0,
+      "rewardType": "points",
+      "deadlineHours": 336,
+      "maxCompletions": 100,
+      "campaignId": "first-favour"
+    },
+    {
+      "description": "Tell someone about FAVOUR today. What did you say to get them curious? (Screenshot optional.)",
+      "location": "Anywhere",
+      "category": "social",
+      "bountyUsdc": 0,
+      "rewardType": "points",
+      "deadlineHours": 336,
+      "maxCompletions": 100,
+      "campaignId": "first-favour"
+    }
+  ]
+}
