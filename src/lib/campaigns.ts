@@ -26,18 +26,18 @@ export type Campaign = {
 export const CAMPAIGNS: Campaign[] = [
   {
     id: "first-favour",
-    name: "Your First Favour",
+    name: "Your First Favours",
     brand: "FAVOUR",
-    tagline: "New here? Do one favour, earn your first dollar.",
+    tagline: "New here? Learn the ropes and climb the board.",
     description:
-      "Welcome to FAVOUR. Real people do small real-world favours, an AI checks the proof, and you get paid in USDC — no experience needed. Start with something easy: a photo of your street, a quick honest review, a small kind act. Your first task pays your first real dollar. One paid favour per person while the pot lasts, so everyone gets a turn.",
+      "Welcome to FAVOUR. Get started with a series of small, real-world favours — a photo of your street, a quick honest review, a small kind act. Every one earns points, builds your reputation, and teaches you how FAVOUR works. Complete the whole journey to top the welcome leaderboard and earn first access when paid USDC bounties open up. No experience needed, no rush — this one runs all season.",
     heroGradient: "from-amber-900 via-orange-800 to-rose-800",
     heroImage: "/hero/coffee.jpg",
     accentColor: "#c2410c",
     icon: "\u{1F44B}",
-    totalBudget: 8,
-    rewardPerTask: 1,
-    rewardKind: "usdc",
+    totalBudget: 0,
+    rewardPerTask: 10,
+    rewardKind: "points",
     taskCount: 8,
     categories: ["photo", "review", "check-in", "custom", "feedback", "social"],
     taskDescriptions: [
@@ -51,7 +51,7 @@ export const CAMPAIGNS: Campaign[] = [
       "Show us where you're reading this from",
     ],
     location: "Worldwide",
-    endsAt: "2026-08-15T23:59:59Z",
+    endsAt: "2026-12-31T23:59:59Z",
     featured: true,
   },
   {

@@ -112,10 +112,15 @@ function validate(tasks: BatchTask[]): string[] {
     if (!CATEGORIES.has(t.category)) errors.push(`task ${i}: bad category "${t.category}"`);
     if (typeof t.bountyUsdc !== "number" || t.bountyUsdc < 0) errors.push(`task ${i}: bad bountyUsdc`);
     if (typeof t.deadlineHours !== "number" || t.deadlineHours <= 0) errors.push(`task ${i}: bad deadlineHours`);
-    if (t.bountyUsdc === 0 && t.rewardType !== "points")
+    // A points task carries its POINTS value in bountyUsdc (1-10, same model as
+    // user-posted points tasks); it is never funded on-chain. A USDC task must
+    // carry a positive dollar bounty. Funding is decided by rewardType, not by
+    // whether bountyUsdc > 0 — so points never touch the funding path.
+    if (t.rewardType === "points") {
+      if (t.bountyUsdc > 10) errors.push(`task ${i}: points value must be 0-10`);
+    } else if (t.bountyUsdc === 0) {
       errors.push(`task ${i}: zero bounty requires rewardType "points"`);
-    if (t.bountyUsdc > 0 && t.rewardType === "points")
-      errors.push(`task ${i}: points task must have bountyUsdc 0`);
+    }
   });
   return errors;
 }
@@ -142,9 +147,12 @@ async function main() {
     process.exit(1);
   }
 
-  const toFund = tasks.filter((t) => t.bountyUsdc > 0 && !t.escrowTxHash);
-  const alreadyFunded = tasks.filter((t) => t.bountyUsdc > 0 && t.escrowTxHash);
-  const pointsTasks = tasks.filter((t) => t.bountyUsdc === 0);
+  // Classify by rewardType so a points task with a nonzero points value never
+  // enters the funding path.
+  const isPoints = (t: BatchTask) => t.rewardType === "points";
+  const toFund = tasks.filter((t) => !isPoints(t) && t.bountyUsdc > 0 && !t.escrowTxHash);
+  const alreadyFunded = tasks.filter((t) => !isPoints(t) && t.bountyUsdc > 0 && t.escrowTxHash);
+  const pointsTasks = tasks.filter(isPoints);
   const totalUsdc = toFund.reduce((s, t) => s + t.bountyUsdc, 0);
 
   console.log(`Batch: ${tasks.length} tasks`);
@@ -152,7 +160,7 @@ async function main() {
   console.log(`  ${alreadyFunded.length} already funded (have escrowTxHash)`);
   console.log(`  ${pointsTasks.length} points-only tasks`);
   for (const t of tasks) {
-    const tag = t.bountyUsdc > 0 ? `$${t.bountyUsdc}` : "pts";
+    const tag = isPoints(t) ? `${t.bountyUsdc} pts` : `$${t.bountyUsdc}`;
     console.log(`  [${tag}] ${t.description.slice(0, 70)}`);
   }
 

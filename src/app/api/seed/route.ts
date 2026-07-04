@@ -43,17 +43,20 @@ export async function POST(req: NextRequest) {
       // truthiness-based funding guard in the app with no on-chain backing.
       const funded = t.onChainId != null && typeof t.escrowTxHash === "string" && /^0x[0-9a-fA-F]{64}$/.test(t.escrowTxHash);
       const pointsOnly = t.rewardType === "points";
+      // Points tasks carry a points VALUE in bountyUsdc (0-10, never funded); USDC
+      // tasks must be escrow-funded. Points and money never cross (Inv 1/3).
+      const validPoints = pointsOnly && t.bountyUsdc >= 0 && t.bountyUsdc <= 10;
+      const validUsdc = !pointsOnly && t.bountyUsdc > 0 && funded;
       if (
         typeof t.description !== "string" || !t.description.trim() ||
         typeof t.location !== "string" || !t.location.trim() ||
         !CATEGORIES.has(t.category) ||
         typeof t.deadlineHours !== "number" || t.deadlineHours <= 0 ||
-        typeof t.bountyUsdc !== "number" || t.bountyUsdc < 0 ||
-        (t.bountyUsdc > 0 && !funded) ||
-        (t.bountyUsdc === 0 && !pointsOnly)
+        typeof t.bountyUsdc !== "number" ||
+        !(validPoints || validUsdc)
       ) {
         return NextResponse.json(
-          { error: `Invalid task at index ${i}: USDC tasks need onChainId + escrowTxHash, zero-bounty tasks need rewardType "points"` },
+          { error: `Invalid task at index ${i}: USDC tasks need onChainId + escrowTxHash; points tasks need rewardType "points" and value 0-10` },
           { status: 400 }
         );
       }
