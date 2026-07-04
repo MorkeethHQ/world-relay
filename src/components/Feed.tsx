@@ -179,7 +179,7 @@ function proofInstructions(task: Task): { short: string; steps: string[]; tip: s
 
 import { CategoryIcon } from "@/components/CategoryIcon";
 import { RewardBadge } from "@/components/RewardBadge";
-import { rewardAmountLabel } from "@/lib/reward";
+import { rewardAmountLabel, isRealMoney } from "@/lib/reward";
 
 type TaskTier = "quick" | "medium" | "effort";
 
@@ -2296,7 +2296,7 @@ function SubmitProof({
                     Payment processing...
                   </p>
                 ) : (
-                  <p className="font-semibold text-sm text-green-600">${task.bountyUsdc} USDC earned</p>
+                  <p className="font-semibold text-sm text-green-600">{rewardAmountLabel(task)}</p>
                 )}
                 <div className="flex gap-2">
                   <button
@@ -2307,6 +2307,8 @@ function SubmitProof({
                         bountyUsdc: task.bountyUsdc,
                         verdict: "pass",
                         taskId: task.id,
+                        rewardType: task.rewardType,
+                        funded: task.onChainId !== null || !!task.escrowTxHash,
                       });
                     }}
                     className="flex-1 flex items-center justify-center gap-2 py-2 rounded-xl border border-green-200 bg-green-50 hover:bg-green-100 transition-all text-xs text-green-600 active:scale-[0.98]"
@@ -2744,7 +2746,9 @@ function TaskDetail({
             <p className="text-xs text-gray-400 leading-relaxed break-words">{String(currentTask.verificationResult.reasoning)}</p>
             {currentTask.verificationResult.verdict === "pass" && (
               <div className="mt-2 pt-2 border-t border-green-200">
-                <p className="text-xs text-green-600 font-semibold">${currentTask.bountyUsdc} USDC released</p>
+                <p className="text-xs text-green-600 font-semibold">
+                  {isRealMoney(currentTask) ? `$${currentTask.bountyUsdc} USDC released` : rewardAmountLabel(currentTask)}
+                </p>
               </div>
             )}
             {currentTask.attestationTxHash && (

@@ -46,13 +46,14 @@ export async function POST(
 
   const verdict = await mediateDispute(task, proofBase64Array, threadHistory);
 
-  await postDisputeVerdict(id, verdict.approved, verdict.reasoning, task.bountyUsdc, verdict.confidence);
+  await postDisputeVerdict(id, verdict.approved, verdict.reasoning, task.bountyUsdc, verdict.confidence, task.rewardType);
 
   const updated = await posterConfirm(id, verdict.approved);
 
   if (verdict.approved && task.claimant) {
     notifyVerified(task.claimant, task.bountyUsdc, task.rewardType).catch(console.error);
-    recordCompletion(task.claimant, task.bountyUsdc, verdict.confidence).catch(console.error);
+    const disputeIsFunded = task.onChainId !== null || !!task.escrowTxHash;
+    recordCompletion(task.claimant, task.bountyUsdc, verdict.confidence, undefined, disputeIsFunded).catch(console.error);
 
     if (proofBase64Array) {
       const txHash = await postAttestation(

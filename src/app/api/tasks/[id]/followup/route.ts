@@ -56,11 +56,12 @@ export async function POST(
   );
 
   const updated = await resolveFollowUp(id, result);
-  await postReEvaluationResult(id, result.verdict, result.reasoning, task.bountyUsdc, result.confidence);
+  await postReEvaluationResult(id, result.verdict, result.reasoning, task.bountyUsdc, result.confidence, task.rewardType);
 
   if (result.verdict === "pass" && task.claimant) {
     notifyVerified(task.claimant, task.bountyUsdc, task.rewardType).catch(console.error);
-    recordCompletion(task.claimant, task.bountyUsdc, result.confidence).catch(console.error);
+    const followUpIsFunded = task.onChainId !== null || !!task.escrowTxHash;
+    recordCompletion(task.claimant, task.bountyUsdc, result.confidence, undefined, followUpIsFunded).catch(console.error);
 
     const txHash = await postAttestation(
       id, task.description, proofBase64Array[0].slice(0, 100), "pass", result.confidence

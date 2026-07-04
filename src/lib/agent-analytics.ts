@@ -1,5 +1,6 @@
 import { listTasks } from "./store";
 import type { Task } from "./types";
+import { isFunded, isPointsReward } from "@/lib/reward";
 
 export type AgentStats = {
   agentId: string;
@@ -21,6 +22,7 @@ export type PlatformStats = {
   totalTasks: number;
   totalCompleted: number;
   totalBountyUsdc: number;
+  totalPointsAwarded: number;
   activeAgents: number;
 };
 
@@ -78,8 +80,15 @@ export async function getAgentAnalytics(agentId?: string): Promise<AgentStats[]>
           tasksWithVerification.length
         : 0;
 
-    const totalSpentUsdc = completedTasks.reduce((sum, t) => sum + t.bountyUsdc, 0);
-    const avgBountyUsdc = tasks.length > 0 ? tasks.reduce((sum, t) => sum + t.bountyUsdc, 0) / tasks.length : 0;
+    // Money sums must only include escrow-funded tasks. bountyUsdc on a points
+    // task is a points value, not dollars, and must never be summed as USDC.
+    const totalSpentUsdc = completedTasks
+      .filter(isFunded)
+      .reduce((sum, t) => sum + t.bountyUsdc, 0);
+    const fundedTasks = tasks.filter(isFunded);
+    const avgBountyUsdc = fundedTasks.length > 0
+      ? fundedTasks.reduce((sum, t) => sum + t.bountyUsdc, 0) / fundedTasks.length
+      : 0;
 
     stats.push({
       agentId: info.id,
@@ -114,12 +123,20 @@ export async function getPlatformStats(): Promise<PlatformStats> {
   }
 
   const completedTasks = agentTasks.filter((t) => t.status === "completed");
-  const totalBountyUsdc = agentTasks.reduce((sum, t) => sum + t.bountyUsdc, 0);
+  // "USDC distributed" must be real dollars: only escrow-funded tasks count.
+  // Points are tracked separately so the two scales are never conflated.
+  const totalBountyUsdc = agentTasks
+    .filter(isFunded)
+    .reduce((sum, t) => sum + t.bountyUsdc, 0);
+  const totalPointsAwarded = agentTasks
+    .filter(isPointsReward)
+    .reduce((sum, t) => sum + t.bountyUsdc, 0);
 
   return {
     totalTasks: agentTasks.length,
     totalCompleted: completedTasks.length,
     totalBountyUsdc: Math.round(totalBountyUsdc * 100) / 100,
+    totalPointsAwarded: Math.round(totalPointsAwarded),
     activeAgents: uniqueAgents.size,
   };
 }

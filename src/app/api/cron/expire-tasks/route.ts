@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
           const alreadySent = await redis.get(reminderKey);
           if (!alreadySent) {
             await redis.set(reminderKey, "1", { ex: 86400 });
-            notifyClaimReminder(task.claimant, task.description, task.bountyUsdc).catch(console.error);
+            notifyClaimReminder(task.claimant, task.description, task.bountyUsdc, task.rewardType).catch(console.error);
             reminded.push(task.id);
           }
         }

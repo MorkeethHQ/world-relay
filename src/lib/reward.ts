@@ -9,9 +9,14 @@ export function isPointsReward(task: Pick<Task, "rewardType">): boolean {
   return task.rewardType === "points";
 }
 
+// True when a task carries real on-chain escrow (either signal).
+export function isFunded(task: Pick<Task, "onChainId" | "escrowTxHash">): boolean {
+  return task.onChainId !== null || !!task.escrowTxHash;
+}
+
 // True only when real USDC is actually escrowed on-chain for this task.
-export function isRealMoney(task: Pick<Task, "rewardType" | "escrowTxHash">): boolean {
-  return task.rewardType !== "points" && !!task.escrowTxHash;
+export function isRealMoney(task: Pick<Task, "rewardType" | "escrowTxHash" | "onChainId">): boolean {
+  return task.rewardType !== "points" && isFunded(task);
 }
 
 // The reward amount as a human label, e.g. "10 pts" or "$5 USDC".
@@ -27,13 +32,13 @@ export function rewardKindLabel(task: Pick<Task, "rewardType">): "points" | "USD
 }
 
 // Sum a list of tasks into points and real-USDC totals, kept strictly separate.
-export function sumRewards(tasks: Array<Pick<Task, "rewardType" | "escrowTxHash" | "bountyUsdc" | "status">>, opts?: { completedOnly?: boolean }) {
+export function sumRewards(tasks: Array<Pick<Task, "rewardType" | "escrowTxHash" | "onChainId" | "bountyUsdc" | "status">>, opts?: { completedOnly?: boolean }) {
   let points = 0;
   let usdc = 0;
   for (const t of tasks) {
     if (opts?.completedOnly && t.status !== "completed") continue;
     if (isPointsReward(t)) points += t.bountyUsdc;
-    else if (t.escrowTxHash) usdc += t.bountyUsdc;
+    else if (isFunded(t)) usdc += t.bountyUsdc;
   }
   return { points: Math.round(points), usdc: Math.round(usdc * 100) / 100 };
 }

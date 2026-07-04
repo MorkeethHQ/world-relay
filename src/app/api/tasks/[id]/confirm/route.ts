@@ -44,7 +44,7 @@ export async function POST(
   }
 
   if (approved) {
-    await postVerificationResult(id, "pass", "Poster confirmed proof manually", task.bountyUsdc);
+    await postVerificationResult(id, "pass", "Poster confirmed proof manually", task.bountyUsdc, undefined, task.rewardType);
 
     // Points-only path (funded tasks were rejected above). Credit the runner's
     // reputation + points; the direct verify and followup/dispute paths also
@@ -55,7 +55,10 @@ export async function POST(
         task.claimant,
         task.bountyUsdc,
         task.verificationResult?.confidence ?? 0.75,
-        task.claimantVerification || undefined
+        task.claimantVerification || undefined,
+        // Funded tasks are rejected earlier in this route, so this is always a
+        // points task — never credit it as USDC.
+        false
       ).catch(console.error);
       notifyVerified(task.claimant, task.bountyUsdc, task.rewardType).catch(console.error);
       addNotification({
@@ -67,7 +70,7 @@ export async function POST(
       }).catch(console.error);
     }
   } else {
-    await postVerificationResult(id, "fail", "Poster rejected proof", task.bountyUsdc);
+    await postVerificationResult(id, "fail", "Poster rejected proof", task.bountyUsdc, undefined, task.rewardType);
   }
 
   // Fire webhook callback if registered

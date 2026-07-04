@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { listTasks } from "@/lib/store";
+import { isRealMoney } from "@/lib/reward";
 import type { Task, TaskCategory, TaskStatus } from "@/lib/types";
 
 const VALID_CATEGORIES: TaskCategory[] = ["photo", "delivery", "check-in", "custom", "feedback"];
@@ -58,12 +59,16 @@ export async function GET(req: NextRequest) {
     tasks = tasks.filter((t: Task) => t.category === category);
   }
 
+  // min_bounty / max_bounty are USD filters. bountyUsdc is only dollars on an
+  // escrow-funded USDC task; on a points task it is a points value. A points task
+  // must never match a USD bounty filter (a 500-pt task is not a $500 bounty), so
+  // any USD bounty filter implicitly restricts results to real-money tasks.
   if (minBounty !== null) {
-    tasks = tasks.filter((t: Task) => t.bountyUsdc >= minBounty);
+    tasks = tasks.filter((t: Task) => isRealMoney(t) && t.bountyUsdc >= minBounty);
   }
 
   if (maxBounty !== null) {
-    tasks = tasks.filter((t: Task) => t.bountyUsdc <= maxBounty);
+    tasks = tasks.filter((t: Task) => isRealMoney(t) && t.bountyUsdc <= maxBounty);
   }
 
   if (location) {
@@ -80,11 +85,24 @@ export async function GET(req: NextRequest) {
     case "newest":
       tasks.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       break;
+    // bounty_desc / bounty_asc order by raw bountyUsdc. This is only a true USD
+    // ranking when the result set is already restricted to real-money tasks (e.g.
+    // via a min_bounty/max_bounty filter). To avoid ranking points and USDC on one
+    // scale, sort real-money (USDC) tasks strictly ahead of points tasks, then by
+    // amount within each group.
     case "bounty_desc":
-      tasks.sort((a, b) => b.bountyUsdc - a.bountyUsdc);
+      tasks.sort((a, b) => {
+        const am = isRealMoney(a), bm = isRealMoney(b);
+        if (am !== bm) return am ? -1 : 1;
+        return b.bountyUsdc - a.bountyUsdc;
+      });
       break;
     case "bounty_asc":
-      tasks.sort((a, b) => a.bountyUsdc - b.bountyUsdc);
+      tasks.sort((a, b) => {
+        const am = isRealMoney(a), bm = isRealMoney(b);
+        if (am !== bm) return am ? -1 : 1;
+        return a.bountyUsdc - b.bountyUsdc;
+      });
       break;
     case "deadline_asc":
       tasks.sort((a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime());

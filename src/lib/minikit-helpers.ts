@@ -95,6 +95,10 @@ export const hapticSelection = () =>
 export interface ShareTaskOptions {
   taskDescription: string;
   bountyUsdc: number;
+  // Reward kind so share copy never claims "$ USDC" for a points task. When
+  // "points" (or unfunded), the amount renders as points, not dollars.
+  rewardType?: "points" | "usdc";
+  funded?: boolean;
   verdict?: string;
   taskId: string;
 }
@@ -104,15 +108,21 @@ export interface ShareTaskOptions {
  * Returns true if the share dialog was opened successfully.
  */
 export async function shareTask(opts: ShareTaskOptions): Promise<boolean> {
-  const { taskDescription, bountyUsdc, verdict, taskId } = opts;
+  const { taskDescription, bountyUsdc, rewardType, funded, verdict, taskId } = opts;
+
+  // Real money only when it's a USDC task actually escrow-funded; otherwise the
+  // reward is points and must never be shared as dollars.
+  const isMoney = rewardType !== "points" && funded !== false;
+  const reward = isMoney ? `$${bountyUsdc} USDC` : `${Math.round(bountyUsdc)} pts`;
+  const desc = `${taskDescription.slice(0, 80)}${taskDescription.length > 80 ? "..." : ""}`;
 
   const title = verdict === "pass"
-    ? `Earned $${bountyUsdc} on RELAY`
-    : `$${bountyUsdc} USDC task on RELAY`;
+    ? `Earned ${reward} on RELAY`
+    : `${reward} task on RELAY`;
 
   const text = verdict === "pass"
-    ? `I earned $${bountyUsdc} USDC because an AI agent needed a human: "${taskDescription.slice(0, 80)}${taskDescription.length > 80 ? "..." : ""}"`
-    : `This AI agent is paying $${bountyUsdc} USDC for a human to help: "${taskDescription.slice(0, 80)}${taskDescription.length > 80 ? "..." : ""}"`;
+    ? `I earned ${reward} because an AI agent needed a human: "${desc}"`
+    : `This AI agent is offering ${reward} for a human to help: "${desc}"`;
 
   const url = typeof window !== "undefined"
     ? `${window.location.origin}/task/${taskId}`
