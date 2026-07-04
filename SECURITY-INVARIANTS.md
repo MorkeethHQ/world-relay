@@ -13,10 +13,14 @@ mechanically blocks the easy-to-regress ones.
    (`onChainId !== null || escrowTxHash`). On a points task it is a points value.
    Never sum `bountyUsdc` into a money figure without the funded guard. Go through
    `reward.ts` (`isRealMoney` / `rewardAmountLabel` / `sumRewards`).
-2. **Paid means settled.** A task is "paid" only when it has a confirmed on-chain
-   `settlementTx` (`!pendingRelease`). `status === "completed"` is NOT paid.
-   Every escrow release awaits the receipt, checks `receipt.status === "success"`,
-   and records `markSettled` / `markSettlementPending` — never fire-and-forget.
+2. **Paid means settled, and money is AI-verified only.** A task is "paid" only
+   when it has a confirmed on-chain `settlementTx` (`!pendingRelease`).
+   `status === "completed"` is NOT paid. Every escrow release awaits the receipt,
+   checks `receipt.status === "success"`, and records `markSettled` /
+   `markSettlementPending` — never fire-and-forget. **Funded USDC releases ONLY
+   through AI verification** (verify-proof consensus, or dispute AI mediation).
+   Manual poster-confirm must NEVER release funded escrow — it was the spoofable
+   theft vector. A flagged funded proof is resubmitted, disputed, or expires+refunds.
 3. **Funding is verified on-chain.** A task stores as funded only after
    `isEscrowTaskFunded` confirms the escrow. Applies to POST *and* PATCH *and*
    seed (real `0x`+64hex tx hash, never a placeholder string).

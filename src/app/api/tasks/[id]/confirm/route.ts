@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getTask, posterConfirm, markSettled, markSettlementPending } from "@/lib/store";
+import { getTask, posterConfirm } from "@/lib/store";
 import { ownershipError } from "@/lib/session";
-import { postVerificationResult, postSettlementConfirmation } from "@/lib/xmtp";
+import { postVerificationResult } from "@/lib/xmtp";
 import { fireWebhook } from "@/lib/webhooks";
-import { releaseEscrow } from "@/lib/escrow";
-import { notifyPaymentReleased, notifyVerified } from "@/lib/notifications";
+import { notifyVerified } from "@/lib/notifications";
 import { addNotification } from "@/lib/notifications-store";
 import { recordCompletion } from "@/lib/reputation";
 
@@ -23,10 +22,21 @@ export async function POST(
   if (task.poster !== poster) {
     return NextResponse.json({ error: "Only poster can confirm" }, { status: 403 });
   }
-  // poster is a public address; require session proof of control before this
-  // releases the poster's escrow on a manually-approved proof.
+  // poster is a public address; require session proof of control.
   const authErr = ownershipError(req, poster, Date.now());
   if (authErr) return NextResponse.json({ error: authErr }, { status: 403 });
+
+  // Money-lever removal (Inv 2): funded USDC NEVER moves through manual approval.
+  // Manual poster-confirm was the one non-AI escrow-release path and thus the
+  // spoofable theft vector. Funded tasks settle ONLY via AI verification
+  // (verify-proof / dispute mediation). A flagged funded proof must be resubmitted
+  // for a clean verdict, or disputed for AI mediation, or it expires and refunds.
+  const taskIsFunded = task.onChainId !== null || !!task.escrowTxHash;
+  if (taskIsFunded) {
+    return NextResponse.json({
+      error: "Funded tasks settle through verification, not manual approval. Ask the runner to resubmit clearer proof, or open a dispute for AI mediation.",
+    }, { status: 400 });
+  }
 
   const updated = await posterConfirm(id, approved);
   if (!updated) {
@@ -36,10 +46,10 @@ export async function POST(
   if (approved) {
     await postVerificationResult(id, "pass", "Poster confirmed proof manually", task.bountyUsdc);
 
-    // Credit the runner's reputation + points. The direct verify path (and the
-    // followup/dispute resolution paths) record completion on pass; this
-    // manual-approve path must too, or every flagged-then-approved task — which
-    // includes all points tasks routed through review — silently awards nothing.
+    // Points-only path (funded tasks were rejected above). Credit the runner's
+    // reputation + points; the direct verify and followup/dispute paths also
+    // record completion on pass, and points review must too or approved points
+    // tasks silently award nothing.
     if (task.claimant) {
       recordCompletion(
         task.claimant,
@@ -48,48 +58,13 @@ export async function POST(
         task.claimantVerification || undefined
       ).catch(console.error);
       notifyVerified(task.claimant, task.bountyUsdc, task.rewardType).catch(console.error);
-      // Points tasks have no escrow release below, so send their award notice here.
-      if (task.rewardType === "points") {
-        addNotification({
-          userId: task.claimant,
-          type: "verified",
-          title: "Points awarded!",
-          body: `Your proof was approved. ${Math.round(task.bountyUsdc)} points awarded.`,
-          taskId: id,
-        }).catch(console.error);
-      }
-    }
-
-    // Poster approved a flagged proof on a funded on-chain task: release escrow now.
-    // releaseEscrow is safe to call here because the contract status guard
-    // (escrow.ts) rejects any task that is not Open/Claimed, preventing double-release.
-    // Mirror the auto-release path (verify-proof): a confirmed hash is recorded via
-    // markSettled; a null release is flagged pendingRelease so the task never reads
-    // as paid and the reconcile cron retries it. Without this, a failed release on
-    // this path leaves the task completed + unsettled + unretryable (stranded), and
-    // even a SUCCESSFUL release never recorded its settlementTx.
-    if (task.onChainId !== null) {
-      const escrowTx = await releaseEscrow(task.onChainId, task.claimant).catch((err) => {
-        console.error("[Escrow] Release on confirm failed:", err);
-        return null;
-      });
-      if (escrowTx) {
-        await markSettled(id, escrowTx).catch(console.error);
-        postSettlementConfirmation(id, task.bountyUsdc, escrowTx).catch(console.error);
-        if (task.claimant) {
-          notifyPaymentReleased(task.claimant, task.bountyUsdc).catch(console.error);
-          addNotification({
-            userId: task.claimant,
-            type: "payment_released",
-            title: "Payment released!",
-            body: `$${task.bountyUsdc} USDC sent to your wallet.`,
-            taskId: id,
-          }).catch(console.error);
-        }
-      } else {
-        await markSettlementPending(id).catch(console.error);
-        console.error(`[Escrow] Confirm-path release for task ${id} did not settle (onChainId=${task.onChainId}), flagged pendingRelease for reconcile cron`);
-      }
+      addNotification({
+        userId: task.claimant,
+        type: "verified",
+        title: "Points awarded!",
+        body: `Your proof was approved. ${Math.round(task.bountyUsdc)} points awarded.`,
+        taskId: id,
+      }).catch(console.error);
     }
   } else {
     await postVerificationResult(id, "fail", "Poster rejected proof", task.bountyUsdc);
