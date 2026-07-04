@@ -38,7 +38,7 @@ export const CAMPAIGNS: Campaign[] = [
     totalBudget: 0,
     rewardPerTask: 10,
     rewardKind: "points",
-    taskCount: 8,
+    taskCount: 10,
     categories: ["photo", "review", "check-in", "custom", "feedback", "social"],
     taskDescriptions: [
       "Photo your first drink of the day and tell us your city",

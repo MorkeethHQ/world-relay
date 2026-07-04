@@ -96,6 +96,9 @@ export async function POST(req: NextRequest) {
       deadlineHours: t.deadlineHours,
       agentId: t.agentId,
       maxCompletions: t.maxCompletions,
+      // Onboarding seeds are engagement, never money — mark them points so they
+      // don't render as an unfunded "$ USDC" badge (rewardType defaults to usdc).
+      rewardType: "points",
     });
     created.push({ id: task.id, description: task.description.slice(0, 60), maxCompletions: t.maxCompletions });
   }
