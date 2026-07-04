@@ -31,6 +31,7 @@ import { VerificationBadge, RequiredTierBadge } from "@/components/VerificationB
 import { encodeCreateTask, encodeClaimTask, encodeReleasePayment, encodeUniswapSwap, readTaskCount, RELAY_ESCROW_ADDRESS, DOUBLE_OR_NOTHING_ADDRESS, encodeCreateDoubleOrNothing, encodeStakeAndClaimWithApproval, readDonTaskCount, type SwapToken } from "@/lib/contracts";
 import { hapticSuccess, hapticError, hapticTap, hapticHeavy, hapticMedium, hapticSelection, shareTask } from "@/lib/minikit-helpers";
 import { TASK_TEMPLATES } from "@/lib/agents";
+import { POST_TEMPLATES, MIN_DESCRIPTION_LENGTH } from "@/lib/post-templates";
 import { useWorldUsers, displayName } from "@/hooks/useWorldUser";
 import { getCampaigns, type Campaign } from "@/lib/campaigns";
 import { CampaignPage, FeaturedCampaignBanner } from "@/components/CampaignPage";
@@ -488,7 +489,14 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
 
   const SEVEN_DAYS_MS = 7 * 24 * 3600_000;
 
-  const filtered = useMemo(() => tasks.filter((t) => {
+  // Crowded-board curation: the available tab collapses duplicate template
+  // posts (max 2 per identical description) and caps the list so the board
+  // stays browsable. The user's own posts/claims are never hidden.
+  const BOARD_CAP = 30;
+  const DUPLICATE_DESC_CAP = 2;
+
+  const filtered = useMemo(() => {
+    const base = tasks.filter((t) => {
     if (t.status === "expired") return false;
     if (t.status === "cancelled") return false;
     const deadlinePassed = new Date(t.deadline).getTime() < Date.now();
@@ -530,7 +538,26 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
       }
     }
     return 0;
-  }), [tasks, tab, userLocation, userId]);
+  });
+
+    if (tab !== "available") return base;
+
+    const isMine = (t: Task) => t.poster === userId || t.claimant === userId;
+    const descCounts = new Map<string, number>();
+    const curated = base.filter((t) => {
+      if (isMine(t)) return true;
+      const key = t.description.toLowerCase().replace(/\s+/g, " ").trim();
+      const n = descCounts.get(key) || 0;
+      if (n >= DUPLICATE_DESC_CAP) return false;
+      descCounts.set(key, n + 1);
+      return true;
+    });
+    if (curated.length <= BOARD_CAP) return curated;
+    const top = curated.slice(0, BOARD_CAP);
+    // Keep the user's own items visible even when the cap cuts them off.
+    const ownOverflow = curated.slice(BOARD_CAP).filter(isMine);
+    return top.concat(ownOverflow);
+  }, [tasks, tab, userLocation, userId]);
 
   const [heroVisible, setHeroVisible] = useState(true);
   const { myTaskCount, completedByClaiming, totalEarned, totalPosted, totalClaimed } = useMemo(() => {
@@ -1319,14 +1346,8 @@ function AgentBadge({ agent }: { agent: AgentInfo }) {
 
 // VerificationBadge and RequiredTierBadge are imported from @/components/VerificationBadge
 
-const POST_TEMPLATES = [
-  { label: "Dare someone", desc: "I dare you to do something bold in public. Photo the proof.", category: "custom" as const, bounty: "1" },
-  { label: "Review a spot", desc: "Go to a place nearby and review it honestly. Photo your experience and rate it.", category: "review" as const, bounty: "1" },
-  { label: "Post about this", desc: "Post about something you care about on X or Instagram. Screenshot it.", category: "social" as const, bounty: "2" },
-  { label: "Test my product", desc: "Try an app or website and share your first impressions. What works? What breaks?", category: "custom" as const, bounty: "5" },
-  { label: "Check IRL", desc: "Go somewhere in person and photograph what you find.", category: "check-in" as const, bounty: "2" },
-  { label: "Quick opinion", desc: "Share your honest take on something. Detailed answers earn more.", category: "feedback" as const, bounty: "1" },
-];
+// Shared with the tasks API, which rejects verbatim template copy — templates
+// are hints shown as the placeholder, never submitted text.
 
 // Minimal stroke icons for the post templates (design system: SVG, not emoji).
 function TemplateIcon({ index }: { index: number }) {
@@ -1393,7 +1414,9 @@ function PostTask({
     const t = POST_TEMPLATES[idx];
     hapticSelection();
     setSelectedTemplate(idx);
-    setDescription(t.desc);
+    // The template text is only a placeholder hint; the user writes their own
+    // description (the API rejects verbatim template copy).
+    setDescription("");
     setBounty(t.bounty);
     setCategory(t.category);
     // One tap on a type advances straight to Describe.
@@ -1482,7 +1505,7 @@ function PostTask({
 
   const isInWorld = isMiniKit();
   const isValid = description && location && bounty && parseFloat(bounty) >= (rewardType === "points" ? 1 : 0.5);
-  const canDescribe = !!description.trim() && !!location.trim();
+  const canDescribe = description.trim().length >= MIN_DESCRIPTION_LENGTH && !!location.trim();
 
   // Reward-shaped object so RewardBadge / reward.ts stay the single source of truth
   // for the points-vs-money distinction on the confirmation screen.
@@ -1553,14 +1576,14 @@ function PostTask({
             <div>
               <Typography variant="label" level={2} className="text-gray-400 mb-2">Description</Typography>
               <textarea
-                placeholder="Describe exactly what you need done..."
+                placeholder={selectedTemplate !== null ? `e.g. ${POST_TEMPLATES[selectedTemplate].desc}` : "Describe exactly what you need done..."}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 rows={4}
                 autoFocus
                 className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm resize-none focus:outline-none focus:border-gray-400 transition-colors placeholder:text-gray-400"
               />
-              <Typography variant="body" level={4} className="text-gray-400 mt-1.5">Prefilled from your pick. Make it yours.</Typography>
+              <Typography variant="body" level={4} className="text-gray-400 mt-1.5">In your own words — be specific about what counts as done.</Typography>
             </div>
 
             <div>
