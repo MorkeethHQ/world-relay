@@ -18,6 +18,7 @@ import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { sanitizeInput } from "@/lib/sanitize";
 import { trackEvent } from "@/lib/track";
 import { checkSeedCap, recordSeededEarn } from "@/lib/seed-caps";
+import { tierGateError } from "@/lib/verification-tier";
 
 export const maxDuration = 60;
 
@@ -148,6 +149,11 @@ export async function POST(req: NextRequest) {
   if (submitter && task.poster === submitter) {
     return NextResponse.json({ error: "Can't submit proof for your own task" }, { status: 403 });
   }
+  // Unified funded signal. A task holds real money if it has an on-chain escrow
+  // id or a stored escrow tx hash. Both the safe-mode gate (below) and the
+  // settlement path key off this so a funded pass is never processed silently.
+  const taskIsFunded = task.onChainId !== null || !!task.escrowTxHash;
+
   // Set claimant on first submission (replaces the claim step)
   if (task.status === "open" && submitter) {
     // Daily per-wallet cap on official (seeded) tasks — enforced here because
@@ -156,13 +162,22 @@ export async function POST(req: NextRequest) {
     if (!seedCap.allowed) {
       return NextResponse.json({ error: "Daily limit reached", message: seedCap.message }, { status: 403 });
     }
+    // Verification-tier gate for funded tasks. /claim enforces this, but direct
+    // submission bypassed it — a wallet-level user could earn a $20 orb-only
+    // bounty by skipping /claim. Only funded tasks are gated (points are not money).
+    if (taskIsFunded && !demoMode) {
+      const gate = await tierGateError(submitter, task.bountyUsdc);
+      if (gate) {
+        return NextResponse.json({
+          error: "Insufficient verification level",
+          required: gate.required,
+          current: gate.current,
+          message: `This task requires ${gate.required} verification. Your level: ${gate.current}.`,
+        }, { status: 403 });
+      }
+    }
     task.claimant = submitter;
   }
-
-  // Unified funded signal. A task holds real money if it has an on-chain escrow
-  // id or a stored escrow tx hash. Both the safe-mode gate (below) and the
-  // settlement path key off this so a funded pass is never processed silently.
-  const taskIsFunded = task.onChainId !== null || !!task.escrowTxHash;
 
   let locationVerified: boolean | null = null;
   let distanceKm: number | null = null;

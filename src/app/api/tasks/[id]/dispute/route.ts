@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTask, posterConfirm, setAttestationHash, markSettled, markSettlementPending } from "@/lib/store";
+import { ownershipError } from "@/lib/session";
 import { getMessages } from "@/lib/messages";
 import { mediateDispute } from "@/lib/ai-chat";
 import { postDisputeVerdict } from "@/lib/xmtp";
@@ -28,6 +29,8 @@ export async function POST(
   if (task.poster !== poster) {
     return NextResponse.json({ error: "Only poster can request mediation" }, { status: 403 });
   }
+  const authErr = ownershipError(req, poster, Date.now());
+  if (authErr) return NextResponse.json({ error: authErr }, { status: 403 });
 
   const messages = await getMessages(id);
   const threadHistory = messages

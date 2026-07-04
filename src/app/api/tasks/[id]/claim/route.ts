@@ -4,39 +4,12 @@ import { postClaimNotification, postClaimBriefing, syncAndProcessMessages } from
 import { generateClaimBriefing } from "@/lib/ai-chat";
 import { notifyTaskClaimed } from "@/lib/notifications";
 import { addNotification } from "@/lib/notifications-store";
-import { getRedis } from "@/lib/redis";
 import { broadcastEvent } from "@/lib/sse";
 import { recordFavourClaimed } from "@/lib/proof-of-favour";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { trackEvent } from "@/lib/track";
 import { checkSeedCap } from "@/lib/seed-caps";
-
-const VERIFICATION_TIERS: Record<string, number> = {
-  orb: 3,
-  device: 2,
-  wallet: 1,
-  dev: 0,
-};
-
-function requiredTier(bountyUsdc: number): { level: string; rank: number } {
-  if (bountyUsdc >= 20) return { level: "orb", rank: 3 };
-  if (bountyUsdc >= 10) return { level: "device", rank: 2 };
-  return { level: "wallet", rank: 1 };
-}
-
-async function getUserVerificationLevel(address: string): Promise<string> {
-  const redis = getRedis();
-  if (!redis) return "wallet";
-  try {
-    const raw = await redis.get(`verified:${address}`);
-    if (!raw) return "wallet";
-    const data = typeof raw === "string" ? JSON.parse(raw) : (raw as any);
-    return data.verificationLevel || "wallet";
-  } catch (err) {
-    console.error(`[Claim] Failed to read verification level for ${address}:`, err);
-    return "wallet";
-  }
-}
+import { getUserVerificationLevel, tierGateError } from "@/lib/verification-tier";
 
 export async function POST(
   req: NextRequest,
@@ -81,16 +54,17 @@ export async function POST(
     ? "wallet"
     : await getUserVerificationLevel(claimant);
 
-  if (!claimant.startsWith("dev_")) {
-    const userRank = VERIFICATION_TIERS[userLevel] || 0;
-    const required = requiredTier(task.bountyUsdc);
-
-    if (userRank < required.rank) {
+  // Tier gate applies to funded (real-USDC) tasks only. A points bounty is not
+  // dollars, so gating a "10 points" task as $10 wrongly blocked wallet-level users.
+  const taskIsFunded = task.onChainId !== null || !!task.escrowTxHash;
+  if (taskIsFunded) {
+    const gate = await tierGateError(claimant, task.bountyUsdc);
+    if (gate) {
       return NextResponse.json({
         error: "Insufficient verification level",
-        required: required.level,
-        current: userLevel,
-        message: `This task requires ${required.level} verification. Your level: ${userLevel}.`,
+        required: gate.required,
+        current: gate.current,
+        message: `This task requires ${gate.required} verification. Your level: ${gate.current}.`,
       }, { status: 403 });
     }
   }

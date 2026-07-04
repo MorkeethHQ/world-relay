@@ -1,6 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createPublicClient, http } from "viem";
+import { worldchain } from "viem/chains";
 import { getRedis } from "@/lib/redis";
 import { trackVisitor } from "@/lib/track";
+import { issueSessionToken, SESSION_COOKIE } from "@/lib/session";
+
+// Verify that `signature` over `message` was really produced by `address`.
+// World App wallets are smart-contract accounts, so this must be an on-chain
+// EIP-1271 check (viem's verifyMessage handles both EOA and EIP-1271 when given
+// a public client). Returns true only on a cryptographically valid signature.
+async function verifyWalletSignature(address: string, message: string, signature: string): Promise<boolean> {
+  try {
+    const client = createPublicClient({ chain: worldchain, transport: http("https://worldchain-mainnet.g.alchemy.com/public") });
+    return await client.verifyMessage({
+      address: address as `0x${string}`,
+      message,
+      signature: signature as `0x${string}`,
+    });
+  } catch (err) {
+    console.error(`[Identity] Signature verification error for ${address}:`, err);
+    return false;
+  }
+}
 
 const VERIFIED_PREFIX = "verified:";
 const NULLIFIER_PREFIX = "nullifier:";
@@ -109,11 +130,36 @@ export async function POST(req: NextRequest) {
 
     trackVisitor(body.address).catch(() => {});
 
-    return NextResponse.json({
+    const res = NextResponse.json({
       verified: true,
       verification_level: "wallet",
       address: body.address,
     });
+
+    // Issue a signed session cookie ONLY when the SIWE signature actually
+    // verifies on-chain. This is what binds later mutating requests to a wallet
+    // the caller provably controls (see src/lib/session.ts). A bad/absent
+    // signature still marks the address "verified" (no regression to the old
+    // behavior) but gets no session — so session-gated routes stay closed to it.
+    if (typeof body.message === "string") {
+      const ok = await verifyWalletSignature(body.address, body.message, body.signature);
+      if (ok) {
+        const token = issueSessionToken(body.address, Date.now());
+        if (token) {
+          res.cookies.set(SESSION_COOKIE, token, {
+            httpOnly: true,
+            secure: true,
+            sameSite: "lax",
+            path: "/",
+            maxAge: 7 * 24 * 3600,
+          });
+        }
+      } else {
+        console.error(`[Identity] Wallet signature did not verify for ${body.address}; no session issued`);
+      }
+    }
+
+    return res;
   }
 
   if (body.address?.startsWith("dev_")) {

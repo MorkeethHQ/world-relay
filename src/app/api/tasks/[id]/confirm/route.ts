@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTask, posterConfirm, markSettled, markSettlementPending } from "@/lib/store";
+import { ownershipError } from "@/lib/session";
 import { postVerificationResult, postSettlementConfirmation } from "@/lib/xmtp";
 import { fireWebhook } from "@/lib/webhooks";
 import { releaseEscrow } from "@/lib/escrow";
@@ -22,6 +23,10 @@ export async function POST(
   if (task.poster !== poster) {
     return NextResponse.json({ error: "Only poster can confirm" }, { status: 403 });
   }
+  // poster is a public address; require session proof of control before this
+  // releases the poster's escrow on a manually-approved proof.
+  const authErr = ownershipError(req, poster, Date.now());
+  if (authErr) return NextResponse.json({ error: authErr }, { status: 403 });
 
   const updated = await posterConfirm(id, approved);
   if (!updated) {
