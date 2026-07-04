@@ -15,6 +15,13 @@ When two docs disagree, the owner below wins. Do not treat a stale copy as truth
 - **Live state** (counts, launch status): Obsidian dashboard.
 - Never restate a fact that another doc owns — link to it. Copies drift; pointers don't.
 
+## Money/identity/reward changes — read first
+Before touching any money, identity, reward, or verification code, read
+`SECURITY-INVARIANTS.md` and follow its review method (audit by failure CLASS,
+verify findings against real code + a live request, extend the guard test). ~20
+broad reviews missed live money bugs because broad reads skim; the guard test
+(`src/__tests__/invariants.guard.test.ts`) must stay green.
+
 ## Production rules (enforce — no exceptions)
 - **Money path is sacred.** Never mark a task paid unless settlement is confirmed
   on-chain. Every money-path change is verified end-to-end with a real request
