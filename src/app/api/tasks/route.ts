@@ -10,6 +10,7 @@ import { sanitizeInput } from "@/lib/sanitize";
 import { trackEvent } from "@/lib/track";
 import { getCampaign } from "@/lib/campaigns";
 import { isEscrowTaskFunded } from "@/lib/escrow";
+import { isTemplateCopy, MIN_DESCRIPTION_LENGTH } from "@/lib/post-templates";
 
 export async function GET() {
   trackEvent("feed_loaded").catch(() => {});
@@ -70,6 +71,18 @@ export async function POST(req: NextRequest) {
   // Admin (platform owner) and agents are exempt so campaigns can still be seeded.
   const OWNER = "0x1101158041fd96f21cbcbb0e752a9a2303e6d70e";
   const isAdmin = !!resolvedAgentId || (typeof poster === "string" && poster.toLowerCase() === OWNER);
+  // Board quality: user posts must be written in the poster's own words.
+  // Verbatim template copy and near-empty descriptions clutter the board with
+  // identical tasks (agents/admin are exempt — seeding has its own copy).
+  if (!isAdmin) {
+    if (description.trim().length < MIN_DESCRIPTION_LENGTH) {
+      return NextResponse.json({ error: "Describe your favour in a bit more detail so people know what counts as done." }, { status: 400 });
+    }
+    if (isTemplateCopy(description)) {
+      return NextResponse.json({ error: "Describe your favour in your own words — template text can't be posted as-is." }, { status: 400 });
+    }
+  }
+
   if (rewardType === "points" && !isAdmin) {
     // Points value is capped low (1-10) — points are engagement, not money.
     if (bountyNum < 1 || bountyNum > 10) {
@@ -90,6 +103,19 @@ export async function POST(req: NextRequest) {
   // cannot be verified on-chain, strip the escrow markers so the task is not
   // shown or processed as funded. Points tasks and DoN (donOnChainId) are
   // unaffected by this gate.
+  // maxCompletions guards. A single escrow deposit funds exactly one payout, so
+  // a funded task must be single-completion — otherwise the 2nd+ completer is
+  // marked paid with the 1st completer's cached settlement tx and receives $0.
+  // Points tasks may repeat but are capped to bound leaderboard inflation.
+  const requestedCompletions = maxCompletions ? Number(maxCompletions) : 1;
+  const taskIsFunded = onChainId != null || !!escrowTxHash;
+  if (taskIsFunded && requestedCompletions > 1) {
+    return NextResponse.json({ error: "Funded USDC tasks must be single-completion. Post a points task for multi-completion." }, { status: 400 });
+  }
+  if (!Number.isFinite(requestedCompletions) || requestedCompletions < 1 || requestedCompletions > 1000) {
+    return NextResponse.json({ error: "maxCompletions must be between 1 and 1000" }, { status: 400 });
+  }
+
   const isUsdc = rewardType !== "points";
   let verifiedOnChainId: number | null = onChainId != null ? Number(onChainId) : null;
   let verifiedEscrowTxHash: string | null = escrowTxHash || null;
@@ -121,7 +147,7 @@ export async function POST(req: NextRequest) {
     taskType: taskType || "standard",
     rewardType: rewardType === "points" ? "points" : "usdc",
     donOnChainId: donOnChainId != null ? Number(donOnChainId) : null,
-    maxCompletions: maxCompletions ? Number(maxCompletions) : 1,
+    maxCompletions: requestedCompletions,
     campaignId: validCampaignId,
   });
 

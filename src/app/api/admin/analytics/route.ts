@@ -123,19 +123,33 @@ export async function GET(req: NextRequest) {
   const posters = new Set<string>();
   const claimants = new Set<string>();
   const categories: Record<string, number> = {};
-  let totalBounty = 0;
-  let claimedBounty = 0;
-  let completedBounty = 0;
-  const fundedTasks = tasks.filter(t => t.escrowTxHash);
+  // Points and USDC are never conflated (see reward.ts). bountyUsdc on a
+  // points task is a points value, not dollars, so money sums only ever
+  // include escrow-funded tasks — and "paid" only means a recorded
+  // settlement tx, never just status === completed.
+  const isFunded = (t: (typeof tasks)[number]) => t.onChainId !== null || !!t.escrowTxHash;
+  let usdcDeposited = 0;
+  let usdcSettled = 0;
+  let usdcCompletedUnrecorded = 0; // funded + completed, but no settlement tx on record (pre-Jul-3 legacy payouts)
+  let usdcPendingRelease = 0;
+  let usdcOpenCommitted = 0;
+  let pointsAwarded = 0;
+  const fundedTasks = tasks.filter(isFunded);
 
   for (const t of tasks) {
     statuses[t.status] = (statuses[t.status] || 0) + 1;
     posters.add(t.poster);
     if (t.claimant) claimants.add(t.claimant);
     categories[t.category] = (categories[t.category] || 0) + 1;
-    totalBounty += t.bountyUsdc;
-    if (t.status === "claimed" || t.status === "completed") claimedBounty += t.bountyUsdc;
-    if (t.status === "completed") completedBounty += t.bountyUsdc;
+    if (isFunded(t)) {
+      usdcDeposited += t.bountyUsdc;
+      if (t.settlementTx) usdcSettled += t.bountyUsdc;
+      else if (t.pendingRelease) usdcPendingRelease += t.bountyUsdc;
+      else if (t.status === "completed") usdcCompletedUnrecorded += t.bountyUsdc;
+      else if (t.status === "open" || t.status === "claimed") usdcOpenCommitted += t.bountyUsdc;
+    } else if (t.rewardType === "points") {
+      pointsAwarded += t.bountyUsdc * (t.completionCount || 0);
+    }
   }
 
   let eventCounts: Record<string, string> = {};
@@ -156,12 +170,18 @@ export async function GET(req: NextRequest) {
     recentEvents = raw.map((r: unknown) => typeof r === "string" ? r : JSON.stringify(r));
   }
 
-  const claimantDetails = [...claimants].map(addr => ({
-    address: addr,
-    tasksClaimed: tasks.filter(t => t.claimant === addr).length,
-    tasksCompleted: tasks.filter(t => t.claimant === addr && t.status === "completed").length,
-    totalEarned: tasks.filter(t => t.claimant === addr && t.status === "completed").reduce((s, t) => s + t.bountyUsdc, 0),
-  }));
+  const claimantDetails = [...claimants].map(addr => {
+    const mine = tasks.filter(t => t.claimant === addr);
+    const completedMine = mine.filter(t => t.status === "completed");
+    return {
+      address: addr,
+      tasksClaimed: mine.length,
+      tasksCompleted: completedMine.length,
+      usdcEarned: completedMine.filter(t => isFunded(t) && t.settlementTx).reduce((s, t) => s + t.bountyUsdc, 0),
+      usdcUnrecorded: completedMine.filter(t => isFunded(t) && !t.settlementTx).reduce((s, t) => s + t.bountyUsdc, 0),
+      pointsEarned: completedMine.filter(t => !isFunded(t) && t.rewardType === "points").reduce((s, t) => s + t.bountyUsdc, 0),
+    };
+  });
 
   return NextResponse.json({
     snapshot: new Date().toISOString(),
@@ -179,10 +199,14 @@ export async function GET(req: NextRequest) {
       claimants: claimantDetails,
     },
     money: {
-      totalBountyPool: totalBounty,
-      claimedActive: claimedBounty,
-      paidOut: completedBounty,
-      stillOpen: totalBounty - claimedBounty,
+      usdc: {
+        deposited: usdcDeposited,
+        settledPaid: usdcSettled,
+        completedUnrecorded: usdcCompletedUnrecorded,
+        pendingRelease: usdcPendingRelease,
+        openCommitted: usdcOpenCommitted,
+      },
+      pointsAwarded,
     },
     events: {
       allTime: eventCounts || {},

@@ -17,6 +17,8 @@ import { uploadProofImage } from "@/lib/image-upload";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { sanitizeInput } from "@/lib/sanitize";
 import { trackEvent } from "@/lib/track";
+import { checkSeedCap, recordSeededEarn } from "@/lib/seed-caps";
+import { tierGateError } from "@/lib/verification-tier";
 
 export const maxDuration = 60;
 
@@ -147,15 +149,35 @@ export async function POST(req: NextRequest) {
   if (submitter && task.poster === submitter) {
     return NextResponse.json({ error: "Can't submit proof for your own task" }, { status: 403 });
   }
-  // Set claimant on first submission (replaces the claim step)
-  if (task.status === "open" && submitter) {
-    task.claimant = submitter;
-  }
-
   // Unified funded signal. A task holds real money if it has an on-chain escrow
   // id or a stored escrow tx hash. Both the safe-mode gate (below) and the
   // settlement path key off this so a funded pass is never processed silently.
   const taskIsFunded = task.onChainId !== null || !!task.escrowTxHash;
+
+  // Set claimant on first submission (replaces the claim step)
+  if (task.status === "open" && submitter) {
+    // Daily per-wallet cap on official (seeded) tasks — enforced here because
+    // direct submission is the main acquisition path, not /claim.
+    const seedCap = await checkSeedCap(task, submitter);
+    if (!seedCap.allowed) {
+      return NextResponse.json({ error: "Daily limit reached", message: seedCap.message }, { status: 403 });
+    }
+    // Verification-tier gate for funded tasks. /claim enforces this, but direct
+    // submission bypassed it — a wallet-level user could earn a $20 orb-only
+    // bounty by skipping /claim. Only funded tasks are gated (points are not money).
+    if (taskIsFunded && !demoMode) {
+      const gate = await tierGateError(submitter, task.bountyUsdc);
+      if (gate) {
+        return NextResponse.json({
+          error: "Insufficient verification level",
+          required: gate.required,
+          current: gate.current,
+          message: `This task requires ${gate.required} verification. Your level: ${gate.current}.`,
+        }, { status: 403 });
+      }
+    }
+    task.claimant = submitter;
+  }
 
   let locationVerified: boolean | null = null;
   let distanceKm: number | null = null;
@@ -200,16 +222,20 @@ export async function POST(req: NextRequest) {
     } else if (useRealVerification) {
       result = await verifyProof(task.description, proofImages, proofNote, task.category, task.agent?.id);
     } else {
-      if (taskIsFunded) {
-        result = { verdict: "flag", reasoning: "AI verification unavailable - funded task requires manual review.", confidence: 0 };
+      // No real AI verification available. Never award on a random verdict in
+      // production — the stub (Math.random 70% pass) is dev-only. Unfunded/points
+      // tasks flag for review too, so AI-generated proof can't earn by simply
+      // exhausting the AI rate limit. (verifyProofStub stays for local testing.)
+      if (taskIsFunded || process.env.NODE_ENV === "production") {
+        result = { verdict: "flag", reasoning: "AI verification unavailable - proof requires manual review.", confidence: 0 };
       } else {
         result = verifyProofStub(task.description, proofImages[0]);
       }
     }
   } catch (err) {
     console.error("AI verification error, falling back to safe mode:", err);
-    if (taskIsFunded) {
-      result = { verdict: "flag", reasoning: "AI verification error - funded task flagged for manual review.", confidence: 0 };
+    if (taskIsFunded || process.env.NODE_ENV === "production") {
+      result = { verdict: "flag", reasoning: "AI verification error - proof flagged for manual review.", confidence: 0 };
     } else {
       result = verifyProofStub(task.description, proofImages[0]);
     }
@@ -313,6 +339,8 @@ export async function POST(req: NextRequest) {
 
   if (task.claimant) {
     if (result.verdict === "pass") {
+      // Count this earn against the claimant's daily seeded-task cap.
+      recordSeededEarn(task, task.claimant).catch(console.error);
       // Award attempt and completion points only on a passing verdict.
       recordFavourAttempted(task.claimant).catch(console.error);
       recordCompletion(task.claimant, task.bountyUsdc, result.confidence, task.claimantVerification || undefined).catch(console.error);

@@ -55,3 +55,6 @@ mcp-server/node_modules/
 mcp-server/package-lock.json
 sdks/python/__pycache__/
 sdks/python/*.egg-info/
+sdks/python/**/__pycache__/
+scripts/.pulse-state.json
+pulse.log

@@ -37,6 +37,7 @@ export const CAMPAIGNS: Campaign[] = [
     icon: "\u{1F680}",
     totalBudget: 50,
     rewardPerTask: 1,
+    rewardKind: "usdc",
     taskCount: 20,
     categories: ["photo", "review", "check-in", "social", "errand"],
     taskDescriptions: [
@@ -64,6 +65,7 @@ export const CAMPAIGNS: Campaign[] = [
     icon: "\u{26BD}",
     totalBudget: 25,
     rewardPerTask: 1,
+    rewardKind: "usdc",
     taskCount: 12,
     categories: ["photo", "social", "review", "feedback"],
     taskDescriptions: [
@@ -85,6 +87,7 @@ export const CAMPAIGNS: Campaign[] = [
     description:
       "The big one. AI agents are flying blind on the physical world — real prices, real queues, real hours, real conditions no API has. Capture verified ground truth across your city and rack up points. Every task is checked by 3 AI models; AI-generated or fake proof earns nothing. Grind clean tasks, climb the board, and Orb-verified humans unlock a share of the pot. This is how AI finally gets eyes on the ground.",
     heroGradient: "from-indigo-950 via-blue-900 to-slate-800",
+    heroImage: "/hero/cyclist.jpg",
     accentColor: "#1e3a8a",
     icon: "\u{1F30D}",
     totalBudget: 500,
@@ -116,6 +119,7 @@ export const CAMPAIGNS: Campaign[] = [
     description:
       "FAVOUR works both ways. This month is the asking side: post a favour you genuinely need done, fund it with a dollar if it matters, and watch a verified human handle it. Most favours here earn points, with a couple of USDC favours in the mix. The best asks become the templates everyone else uses.",
     heroGradient: "from-stone-900 via-stone-800 to-amber-900",
+    heroImage: "/hero/couple.jpg",
     accentColor: "#b45309",
     icon: "\u{1F64B}",
     totalBudget: 10,

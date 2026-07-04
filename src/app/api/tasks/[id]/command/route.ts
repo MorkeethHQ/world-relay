@@ -23,6 +23,15 @@ export async function POST(
     return NextResponse.json({ error: "Task not found" }, { status: 404 });
   }
 
+  // Only the task's poster or existing claimant may drive its command thread.
+  // Without this, a client-chosen `sender` could claim the task (handleClaim)
+  // as any wallet, bypassing the /claim tier gate and seed cap. Claiming an open
+  // task must go through /claim (which enforces those gates), not chat commands.
+  const isParticipant = sender === task.poster || (!!task.claimant && sender === task.claimant);
+  if (!isParticipant) {
+    return NextResponse.json({ error: "Only the poster or claimant can send commands on this task" }, { status: 403 });
+  }
+
   // Save the user's message
   await addMessage(id, sender, message);
 

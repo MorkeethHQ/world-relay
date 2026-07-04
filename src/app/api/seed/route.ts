@@ -47,7 +47,10 @@ export async function POST(req: NextRequest) {
   if (Array.isArray(body.tasks)) {
     const CATEGORIES = new Set(["photo", "delivery", "check-in", "custom", "feedback", "review", "social", "errand"]);
     for (const [i, t] of body.tasks.entries()) {
-      const funded = t.onChainId != null && typeof t.escrowTxHash === "string" && t.escrowTxHash.length > 0;
+      // A funded seed must carry a REAL on-chain tx hash (0x + 64 hex), not a
+      // truthy placeholder like "funded" — otherwise the task passes every
+      // truthiness-based funding guard in the app with no on-chain backing.
+      const funded = t.onChainId != null && typeof t.escrowTxHash === "string" && /^0x[0-9a-fA-F]{64}$/.test(t.escrowTxHash);
       const pointsOnly = t.rewardType === "points";
       if (
         typeof t.description !== "string" || !t.description.trim() ||
