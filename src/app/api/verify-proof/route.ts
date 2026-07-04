@@ -17,6 +17,7 @@ import { uploadProofImage } from "@/lib/image-upload";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { sanitizeInput } from "@/lib/sanitize";
 import { trackEvent } from "@/lib/track";
+import { checkSeedCap, recordSeededEarn } from "@/lib/seed-caps";
 
 export const maxDuration = 60;
 
@@ -149,6 +150,12 @@ export async function POST(req: NextRequest) {
   }
   // Set claimant on first submission (replaces the claim step)
   if (task.status === "open" && submitter) {
+    // Daily per-wallet cap on official (seeded) tasks — enforced here because
+    // direct submission is the main acquisition path, not /claim.
+    const seedCap = await checkSeedCap(task, submitter);
+    if (!seedCap.allowed) {
+      return NextResponse.json({ error: "Daily limit reached", message: seedCap.message }, { status: 403 });
+    }
     task.claimant = submitter;
   }
 
@@ -313,6 +320,8 @@ export async function POST(req: NextRequest) {
 
   if (task.claimant) {
     if (result.verdict === "pass") {
+      // Count this earn against the claimant's daily seeded-task cap.
+      recordSeededEarn(task, task.claimant).catch(console.error);
       // Award attempt and completion points only on a passing verdict.
       recordFavourAttempted(task.claimant).catch(console.error);
       recordCompletion(task.claimant, task.bountyUsdc, result.confidence, task.claimantVerification || undefined).catch(console.error);

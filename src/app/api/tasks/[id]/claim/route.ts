@@ -9,6 +9,7 @@ import { broadcastEvent } from "@/lib/sse";
 import { recordFavourClaimed } from "@/lib/proof-of-favour";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { trackEvent } from "@/lib/track";
+import { checkSeedCap } from "@/lib/seed-caps";
 
 const VERIFICATION_TIERS: Record<string, number> = {
   orb: 3,
@@ -92,6 +93,13 @@ export async function POST(
         message: `This task requires ${required.level} verification. Your level: ${userLevel}.`,
       }, { status: 403 });
     }
+  }
+
+  // Daily per-wallet cap on official (seeded) tasks so one claimant can't
+  // sweep a whole seeded batch.
+  const seedCap = await checkSeedCap(task, claimant);
+  if (!seedCap.allowed) {
+    return NextResponse.json({ error: "Daily limit reached", message: seedCap.message }, { status: 403 });
   }
 
   const updated = await claimTask(
