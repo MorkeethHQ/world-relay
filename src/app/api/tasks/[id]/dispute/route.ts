@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getTask, posterConfirm, setAttestationHash } from "@/lib/store";
+import { getTask, posterConfirm, setAttestationHash, markSettled, markSettlementPending } from "@/lib/store";
 import { getMessages } from "@/lib/messages";
 import { mediateDispute } from "@/lib/ai-chat";
 import { postDisputeVerdict } from "@/lib/xmtp";
@@ -59,9 +59,18 @@ export async function POST(
     }
 
     if (task.onChainId !== null) {
-      releaseEscrow(task.onChainId, task.claimant).then((releaseTx) => {
-        void releaseTx;
-      }).catch(console.error);
+      // Await and record settlement (was fire-and-forget: a failed release left
+      // the task completed + unsettled + unretryable by the reconcile cron).
+      const releaseTx = await releaseEscrow(task.onChainId, task.claimant).catch((err) => {
+        console.error("[Escrow] Dispute release failed:", err);
+        return null;
+      });
+      if (releaseTx) {
+        await markSettled(id, releaseTx).catch(console.error);
+      } else {
+        await markSettlementPending(id).catch(console.error);
+        console.error(`[Escrow] Dispute release for task ${id} did not settle (onChainId=${task.onChainId}), flagged pendingRelease`);
+      }
     }
   } else if (!verdict.approved && task.claimant) {
     recordFailure(task.claimant).catch(console.error);

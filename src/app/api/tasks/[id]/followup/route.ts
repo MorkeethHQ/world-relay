@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getTask, resolveFollowUp, setAttestationHash } from "@/lib/store";
+import { getTask, resolveFollowUp, setAttestationHash, markSettled, markSettlementPending } from "@/lib/store";
 import { getMessages } from "@/lib/messages";
 import { evaluateFollowUp } from "@/lib/ai-chat";
 import { postReEvaluationResult } from "@/lib/xmtp";
@@ -68,9 +68,18 @@ export async function POST(
     if (txHash) await setAttestationHash(id, txHash);
 
     if (task.onChainId !== null) {
-      releaseEscrow(task.onChainId, task.claimant).then((releaseTx) => {
-        void releaseTx;
-      }).catch(console.error);
+      // Await and record settlement (was fire-and-forget: a failed release left
+      // the task completed + unsettled + unretryable by the reconcile cron).
+      const releaseTx = await releaseEscrow(task.onChainId, task.claimant).catch((err) => {
+        console.error("[Escrow] Follow-up release failed:", err);
+        return null;
+      });
+      if (releaseTx) {
+        await markSettled(id, releaseTx).catch(console.error);
+      } else {
+        await markSettlementPending(id).catch(console.error);
+        console.error(`[Escrow] Follow-up release for task ${id} did not settle (onChainId=${task.onChainId}), flagged pendingRelease`);
+      }
     }
   } else if (result.verdict === "flag") {
     notifyFlagged(task.poster, task.description).catch(console.error);

@@ -207,16 +207,20 @@ export async function POST(req: NextRequest) {
     } else if (useRealVerification) {
       result = await verifyProof(task.description, proofImages, proofNote, task.category, task.agent?.id);
     } else {
-      if (taskIsFunded) {
-        result = { verdict: "flag", reasoning: "AI verification unavailable - funded task requires manual review.", confidence: 0 };
+      // No real AI verification available. Never award on a random verdict in
+      // production — the stub (Math.random 70% pass) is dev-only. Unfunded/points
+      // tasks flag for review too, so AI-generated proof can't earn by simply
+      // exhausting the AI rate limit. (verifyProofStub stays for local testing.)
+      if (taskIsFunded || process.env.NODE_ENV === "production") {
+        result = { verdict: "flag", reasoning: "AI verification unavailable - proof requires manual review.", confidence: 0 };
       } else {
         result = verifyProofStub(task.description, proofImages[0]);
       }
     }
   } catch (err) {
     console.error("AI verification error, falling back to safe mode:", err);
-    if (taskIsFunded) {
-      result = { verdict: "flag", reasoning: "AI verification error - funded task flagged for manual review.", confidence: 0 };
+    if (taskIsFunded || process.env.NODE_ENV === "production") {
+      result = { verdict: "flag", reasoning: "AI verification error - proof flagged for manual review.", confidence: 0 };
     } else {
       result = verifyProofStub(task.description, proofImages[0]);
     }
