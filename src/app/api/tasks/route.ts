@@ -103,6 +103,19 @@ export async function POST(req: NextRequest) {
   // cannot be verified on-chain, strip the escrow markers so the task is not
   // shown or processed as funded. Points tasks and DoN (donOnChainId) are
   // unaffected by this gate.
+  // maxCompletions guards. A single escrow deposit funds exactly one payout, so
+  // a funded task must be single-completion — otherwise the 2nd+ completer is
+  // marked paid with the 1st completer's cached settlement tx and receives $0.
+  // Points tasks may repeat but are capped to bound leaderboard inflation.
+  const requestedCompletions = maxCompletions ? Number(maxCompletions) : 1;
+  const taskIsFunded = onChainId != null || !!escrowTxHash;
+  if (taskIsFunded && requestedCompletions > 1) {
+    return NextResponse.json({ error: "Funded USDC tasks must be single-completion. Post a points task for multi-completion." }, { status: 400 });
+  }
+  if (!Number.isFinite(requestedCompletions) || requestedCompletions < 1 || requestedCompletions > 1000) {
+    return NextResponse.json({ error: "maxCompletions must be between 1 and 1000" }, { status: 400 });
+  }
+
   const isUsdc = rewardType !== "points";
   let verifiedOnChainId: number | null = onChainId != null ? Number(onChainId) : null;
   let verifiedEscrowTxHash: string | null = escrowTxHash || null;
@@ -134,7 +147,7 @@ export async function POST(req: NextRequest) {
     taskType: taskType || "standard",
     rewardType: rewardType === "points" ? "points" : "usdc",
     donOnChainId: donOnChainId != null ? Number(donOnChainId) : null,
-    maxCompletions: maxCompletions ? Number(maxCompletions) : 1,
+    maxCompletions: requestedCompletions,
     campaignId: validCampaignId,
   });
 

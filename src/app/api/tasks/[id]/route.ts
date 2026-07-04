@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getTask, setOnChainId } from "@/lib/store";
 import { getAgent } from "@/lib/agents";
 import { getRedis } from "@/lib/redis";
+import { isEscrowTaskFunded } from "@/lib/escrow";
 
 /** Return full task detail, omitting only internal keys like claimCode. */
 function detailTask(task: Record<string, unknown>) {
@@ -45,6 +46,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 
   if (typeof body.onChainId === "number" && typeof body.escrowTxHash === "string") {
+    // Same server-side funding gate as POST /api/tasks: never trust a
+    // client-supplied escrow marker. Without this, a poster (identity is just a
+    // public address) could point their own task at ANY funded on-chain escrow
+    // id and have the settlement path pay it out. Only store the marker if the
+    // on-chain escrow task actually exists and holds a bounty covering this task.
+    const funded = await isEscrowTaskFunded(body.onChainId, task.bountyUsdc).catch(() => false);
+    if (!funded) {
+      return NextResponse.json({ error: "Escrow funding could not be verified on-chain for that task id" }, { status: 400 });
+    }
     await setOnChainId(id, body.onChainId, body.escrowTxHash);
     task.onChainId = body.onChainId;
     task.escrowTxHash = body.escrowTxHash;

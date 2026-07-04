@@ -297,7 +297,16 @@ async function forwardPayout(
     // it: the guard above will resolve this exact tx on the next attempt instead of
     // sending a duplicate.
     await saveSettlement(onChainId, { released: true, forwarded: false, forwardTx: transferHash });
-    await pub.waitForTransactionReceipt({ hash: transferHash });
+    const forwardRcpt = await pub.waitForTransactionReceipt({ hash: transferHash });
+    // waitForTransactionReceipt does NOT throw on revert — it returns a receipt
+    // with status "reverted". Never report a reverted transfer as paid. Keep the
+    // hash recorded (forwarded:false) so the double-pay guard resolves it as
+    // reverted and safely re-sends on the next attempt.
+    if (forwardRcpt.status !== "success") {
+      console.error(`[Escrow] Task ${onChainId}: forward transfer ${transferHash} reverted on-chain`);
+      await saveSettlement(onChainId, { released: true, forwarded: false, forwardTx: transferHash });
+      return null;
+    }
 
     await saveSettlement(onChainId, { released: true, forwarded: true, forwardTx: transferHash });
     return transferHash;
@@ -361,7 +370,11 @@ export async function releaseEscrow(onChainId: number, recipientAddress?: string
         functionName: "claimTask",
         args: [BigInt(onChainId)],
       });
-      await pub.waitForTransactionReceipt({ hash: claimHash });
+      const claimRcpt = await pub.waitForTransactionReceipt({ hash: claimHash });
+      if (claimRcpt.status !== "success") {
+        console.error(`[Escrow] Task ${onChainId}: claimTask ${claimHash} reverted, aborting release`);
+        return null;
+      }
     }
 
     const hash = await wallet.client.writeContract({
@@ -371,7 +384,13 @@ export async function releaseEscrow(onChainId: number, recipientAddress?: string
       args: [BigInt(onChainId)],
     });
 
-    await pub.waitForTransactionReceipt({ hash });
+    // A reverted releasePayment must NOT proceed to the USDC forward — otherwise
+    // the relayer pays out of its own pocket while the bounty stays in escrow.
+    const releaseRcpt = await pub.waitForTransactionReceipt({ hash });
+    if (releaseRcpt.status !== "success") {
+      console.error(`[Escrow] Task ${onChainId}: releasePayment ${hash} reverted, not forwarding`);
+      return null;
+    }
 
     // Persist that the release is done BEFORE forwarding, so a forward failure
     // is recoverable and never reported as paid.
