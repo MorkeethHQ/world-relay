@@ -54,6 +54,15 @@ describe("invariant guards", () => {
     }
   });
 
+  it("Inv 2: manual poster-confirm never releases funded escrow (money is AI-verified only)", () => {
+    // The confirm route is manual (non-AI) and was the spoofable theft vector.
+    // Funded escrow must move only through AI verification, so confirm must not
+    // touch releaseEscrow.
+    const f = files.find((p) => p.endsWith(join("confirm", "route.ts")));
+    expect(f, "confirm/route.ts not found").toBeTruthy();
+    expect(read(f!), "confirm route must not release escrow (funded settles via AI verification)").not.toMatch(/releaseEscrow/);
+  });
+
   it("Inv 2: escrow release sites record settlement (no fire-and-forget)", () => {
     // Every route that calls releaseEscrow must also record the outcome via
     // markSettled/markSettlementPending, never discard it.
