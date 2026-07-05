@@ -31,7 +31,7 @@ function timeLeft(deadline: string): string {
 
 const POLL_COLORS = [
   { bar: "bg-gray-900", text: "text-gray-900" },
-  { bar: "bg-info-600", text: "text-info-600" },
+  { bar: "bg-amber-600", text: "text-amber-600" },
   { bar: "bg-success-600", text: "text-success-600" },
   { bar: "bg-warning-600", text: "text-warning-600" },
 ];
@@ -356,8 +356,14 @@ export function PollsFeed({
     );
   }
 
-  const active = polls.filter((p) => new Date(p.endsAt).getTime() > Date.now());
-  const ended = polls.filter((p) => new Date(p.endsAt).getTime() <= Date.now());
+  // Popularity ranking: live polls by votes (ties: newest). Keeps the page
+  // browsable as poll volume grows; ended polls sit below, most recent first.
+  const active = polls
+    .filter((p) => new Date(p.endsAt).getTime() > Date.now())
+    .sort((a, b) => b.totalVotes - a.totalVotes || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  const ended = polls
+    .filter((p) => new Date(p.endsAt).getTime() <= Date.now())
+    .sort((a, b) => new Date(b.endsAt).getTime() - new Date(a.endsAt).getTime());
 
   return (
     <div className="flex flex-col gap-4">
@@ -459,8 +465,11 @@ export function FeedPolls({ userId, limit = 2 }: { userId: string | null; limit?
     }
   };
 
+  // The board slots show the HOTTEST live polls, not the newest — popularity
+  // is the crowding rule (most votes first, ties to newest).
   const active = polls
     .filter((p) => new Date(p.endsAt).getTime() > Date.now())
+    .sort((a, b) => b.totalVotes - a.totalVotes || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .slice(0, limit);
 
   if (active.length === 0) return null;

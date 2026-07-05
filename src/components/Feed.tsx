@@ -807,24 +807,30 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
         );
       })()}
 
-      {/* REAL OR NOT — the swipe game. Judge other people's proofs, one tap each. */}
+      {/* REAL OR NOT — the swipe game, dressed like a campaign (hero + scrim):
+          that visual language is the strongest thing on the board. */}
       {tab === "available" && !loading && (
         <div className="px-6 pt-3">
           <button
             onClick={() => { hapticTap(); setView("jury"); }}
-            className="w-full rounded-2xl bg-gray-950 text-white px-5 py-4 flex items-center justify-between active:scale-[0.98] transition-transform overflow-hidden relative"
+            className="w-full relative rounded-2xl overflow-hidden active:scale-[0.98] transition-all text-left"
           >
-            <div className="flex items-center gap-3 relative z-10">
-              <div className="flex -space-x-1.5 shrink-0">
-                <span className="w-9 h-9 rounded-full bg-gray-800 border-2 border-gray-950 flex items-center justify-center text-red-400 text-[13px] font-black">✕</span>
-                <span className="w-9 h-9 rounded-full bg-gray-800 border-2 border-gray-950 flex items-center justify-center text-green-400 text-[13px] font-black">✓</span>
+            <img src="/hero/cyclist.jpg" alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
+            <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/60 to-black/25" />
+            <div className="relative px-5 py-5 flex items-center justify-between">
+              <div>
+                <div className="inline-flex items-center gap-1.5 mb-1.5">
+                  <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+                  <span className="text-[10px] font-medium text-white/60 tracking-wide uppercase">Game</span>
+                </div>
+                <h3 className="text-[15px] font-black text-white leading-tight tracking-widest">REAL OR NOT</h3>
+                <p className="text-xs text-white/50 mt-1">Swipe proofs. Spot the fakes. Right calls earn points.</p>
               </div>
-              <div className="text-left">
-                <p className="text-[14px] font-black tracking-widest">REAL OR NOT</p>
-                <p className="text-[12px] text-white/60 mt-0.5">Swipe real proofs from fakes. Right calls earn points.</p>
+              <div className="flex -space-x-1.5 shrink-0">
+                <span className="w-9 h-9 rounded-full bg-black/40 backdrop-blur-sm border border-red-400/60 flex items-center justify-center text-red-400 text-[13px] font-black">✕</span>
+                <span className="w-9 h-9 rounded-full bg-black/40 backdrop-blur-sm border border-green-400/60 flex items-center justify-center text-green-400 text-[13px] font-black">✓</span>
               </div>
             </div>
-            <svg className="relative z-10 shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
           </button>
         </div>
       )}

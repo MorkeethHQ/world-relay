@@ -101,16 +101,16 @@ export function JuryMode({ userId, onClose }: { userId: string | null; onClose: 
   return (
     // z-[60] so the immersive deck covers the app's fixed bottom nav (z-50) —
     // the nav was overlaying and cropping the verdict buttons.
-    <div className="fixed inset-0 z-[60] bg-gray-950 flex flex-col" style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
+    <div className="fixed inset-0 z-[60] bg-gray-50 flex flex-col" style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
       {/* Header */}
       <div className="flex items-center justify-between px-5 py-4">
-        <button onClick={() => { hapticTap(); onClose(); }} className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center active:scale-95 transition-transform" aria-label="Close">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+        <button onClick={() => { hapticTap(); onClose(); }} className="w-9 h-9 rounded-full bg-white border border-gray-200 flex items-center justify-center active:scale-95 transition-transform" aria-label="Close">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#111827" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
         </button>
-        <p className="text-[13px] font-bold text-white tracking-widest">REAL OR NOT</p>
+        <p className="text-[13px] font-bold text-gray-900 tracking-widest">REAL OR NOT</p>
         <div className="text-right min-w-[36px]">
           {session.judged > 0 && (
-            <p className="text-[11px] text-white/50">{session.correct}/{session.judged}{session.points > 0 ? ` · +${session.points}` : ""}</p>
+            <p className="text-[11px] text-gray-400">{session.correct}/{session.judged}{session.points > 0 ? ` · +${session.points}` : ""}</p>
           )}
         </div>
       </div>
@@ -119,27 +119,27 @@ export function JuryMode({ userId, onClose }: { userId: string | null; onClose: 
       <div className="flex-1 relative px-5 pb-2 overflow-hidden">
         {loading ? (
           <div className="absolute inset-0 flex items-center justify-center">
-            <div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+            <div className="w-8 h-8 border-2 border-gray-200 border-t-gray-900 rounded-full animate-spin" />
           </div>
         ) : !card ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-8 text-center">
-            <p className="text-2xl font-bold text-white">All judged</p>
-            <p className="text-sm text-white/50">
+            <p className="text-2xl font-bold text-gray-900">All judged</p>
+            <p className="text-sm text-gray-400">
               {session.judged > 0
                 ? `${session.correct} of ${session.judged} right${session.points > 0 ? `, +${session.points} pts` : ""}. New proofs land as favours get completed.`
                 : "No proofs to judge right now. Complete some favours and come back."}
             </p>
-            <button onClick={onClose} className="mt-3 px-6 py-3 rounded-xl bg-white text-gray-900 text-sm font-semibold active:scale-95 transition-transform">
+            <button onClick={onClose} className="mt-3 px-6 py-3 rounded-xl bg-gray-900 text-white text-sm font-semibold active:scale-95 transition-transform">
               Back to favours
             </button>
           </div>
         ) : (
           <>
             {/* Next card peeking behind */}
-            {cards[1] && <div className="absolute inset-x-8 top-3 bottom-6 rounded-3xl bg-white/5 border border-white/10" />}
+            {cards[1] && <div className="absolute inset-x-8 top-3 bottom-6 rounded-3xl bg-white border border-gray-200" />}
 
             <div
-              className="absolute inset-x-5 top-1 bottom-4 rounded-3xl bg-white overflow-hidden flex flex-col select-none touch-pan-y"
+              className="absolute inset-x-5 top-1 bottom-4 rounded-3xl bg-white border border-gray-200 shadow-lg overflow-hidden flex flex-col select-none touch-pan-y"
               style={{ transform: `translateX(${dx}px) rotate(${tilt}deg)`, transition: dragging.current ? "none" : "transform 180ms ease-out" }}
               onTouchStart={onTouchStart}
               onTouchMove={onTouchMove}
@@ -163,10 +163,10 @@ export function JuryMode({ userId, onClose }: { userId: string | null; onClose: 
                 )}
                 {/* Swipe lean stamps */}
                 {leanReal && (
-                  <div className="absolute top-4 left-4 rotate-[-12deg] border-4 border-green-400 text-green-400 font-black text-2xl px-3 py-1 rounded-xl bg-black/30">REAL</div>
+                  <div className="absolute top-4 left-4 rotate-[-12deg] border-4 border-green-500 text-green-500 font-black text-2xl px-3 py-1 rounded-xl bg-black/30">REAL</div>
                 )}
                 {leanNot && (
-                  <div className="absolute top-4 right-4 rotate-[12deg] border-4 border-red-400 text-red-400 font-black text-2xl px-3 py-1 rounded-xl bg-black/30">NOT</div>
+                  <div className="absolute top-4 right-4 rotate-[12deg] border-4 border-red-500 text-red-500 font-black text-2xl px-3 py-1 rounded-xl bg-black/30">NOT</div>
                 )}
               </div>
             </div>
@@ -187,12 +187,12 @@ export function JuryMode({ userId, onClose }: { userId: string | null; onClose: 
       {/* Verdict buttons */}
       {card && !loading && (
         <div className="flex items-center justify-center gap-10 pb-8 pt-2" style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 32px)" }}>
-          <button onClick={() => vote(false)} aria-label="Not real" className="w-16 h-16 rounded-full bg-white/10 border border-red-400/40 flex items-center justify-center active:scale-90 transition-transform">
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#f87171" strokeWidth="3" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+          <button onClick={() => vote(false)} aria-label="Not real" className="w-16 h-16 rounded-full bg-white border-2 border-red-200 shadow-sm flex items-center justify-center active:scale-90 transition-transform">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="3" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
           </button>
-          <p className="text-[11px] text-white/40 max-w-[90px] text-center leading-tight">Does the photo prove this favour?</p>
-          <button onClick={() => vote(true)} aria-label="Real" className="w-16 h-16 rounded-full bg-white/10 border border-green-400/40 flex items-center justify-center active:scale-90 transition-transform">
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+          <p className="text-[11px] text-gray-400 max-w-[90px] text-center leading-tight">Does the photo prove this favour?</p>
+          <button onClick={() => vote(true)} aria-label="Real" className="w-16 h-16 rounded-full bg-white border-2 border-green-200 shadow-sm flex items-center justify-center active:scale-90 transition-transform">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
           </button>
         </div>
       )}
