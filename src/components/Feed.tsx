@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { Fragment, useState, useEffect, useCallback, useRef, useMemo } from "react";
 import dynamic from "next/dynamic";
 import { MiniKit } from "@worldcoin/minikit-js";
 import type { Task, AgentInfo } from "@/lib/types";
@@ -36,6 +36,14 @@ import { useWorldUsers, displayName } from "@/hooks/useWorldUser";
 import { getCampaigns, type Campaign } from "@/lib/campaigns";
 import { CampaignPage, FeaturedCampaignBanner } from "@/components/CampaignPage";
 import { PollsFeed, FeedPolls } from "@/components/Polls";
+import {
+  isBoardVisible,
+  rankBoard,
+  curateBoard,
+  haversineKm,
+  POLL_INSERT_AFTER,
+  POLL_CARDS_MAX,
+} from "@/lib/board-rank";
 
 function extractTxHash(result: unknown): string | null {
   if (typeof result !== "object" || result === null) return null;
@@ -68,14 +76,6 @@ function timeAgo(dateStr: string): string {
   const hours = Math.floor(mins / 60);
   if (hours < 24) return `${hours}h ago`;
   return `${Math.floor(hours / 24)}d ago`;
-}
-
-function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
-  const R = 6371;
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLng = (lng2 - lng1) * Math.PI / 180;
-  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
 function formatDistance(km: number): string {
@@ -487,76 +487,23 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
     setPullDistance(0);
   }, [pullDistance, isRefreshing, fetchTasks]);
 
-  const SEVEN_DAYS_MS = 7 * 24 * 3600_000;
-
-  // Crowded-board curation: the available tab collapses duplicate template
-  // posts (max 2 per identical description) and caps the list so the board
-  // stays browsable. The user's own posts/claims are never hidden.
-  const BOARD_CAP = 30;
-  const DUPLICATE_DESC_CAP = 2;
-
+  // Board visibility, ranking, and curation are rules, not vibes: the logic and
+  // its constants live in src/lib/board-rank.ts (documented in BOARD-RULES.md,
+  // guarded by src/__tests__/board-rank.test.ts).
   const filtered = useMemo(() => {
-    const base = tasks.filter((t) => {
-    if (t.status === "expired") return false;
-    if (t.status === "cancelled") return false;
-    const deadlinePassed = new Date(t.deadline).getTime() < Date.now();
-    if (deadlinePassed && t.status === "open") return false;
-
+    const now = Date.now();
     if (tab === "available") {
-      if (t.status === "open") {
-        const isPointTask = t.rewardType === "points";
-        if (!isPointTask && !t.escrowTxHash && t.category !== "feedback") return false;
-      }
-      else if (t.status === "claimed" && t.claimant === userId) { /* show my active claims */ }
-      else return false;
-      return true;
+      const visible = tasks.filter((t) => isBoardVisible(t, userId, now));
+      return curateBoard(rankBoard(visible, { userId, userLocation, now }), userId);
     }
-    if (tab === "mine") return t.poster === userId || t.claimant === userId;
-    if (tab === "completed") return t.status === "completed";
-    return true;
-  }).sort((a, b) => {
-    if (tab === "available") {
-      const now = Date.now();
-      // Stale tasks (>7 days, no claims) sort to the bottom
-      const aAge = now - new Date(a.createdAt).getTime();
-      const bAge = now - new Date(b.createdAt).getTime();
-      const aStale = a.status === "open" && !a.claimant && aAge > SEVEN_DAYS_MS;
-      const bStale = b.status === "open" && !b.claimant && bAge > SEVEN_DAYS_MS;
-      if (aStale !== bStale) return aStale ? 1 : -1;
-
-      const aHoursLeft = (new Date(a.deadline).getTime() - now) / 3600_000;
-      const bHoursLeft = (new Date(b.deadline).getTime() - now) / 3600_000;
-      const aUrgent = aHoursLeft < 4 || a.bountyUsdc >= 15;
-      const bUrgent = bHoursLeft < 4 || b.bountyUsdc >= 15;
-      if (aUrgent !== bUrgent) return aUrgent ? -1 : 1;
-      const aFunded = !!a.escrowTxHash;
-      const bFunded = !!b.escrowTxHash;
-      if (aFunded !== bFunded) return aFunded ? -1 : 1;
-      if (userLocation && a.lat && a.lng && b.lat && b.lng) {
-        return haversineKm(userLocation.lat, userLocation.lng, a.lat, a.lng)
-             - haversineKm(userLocation.lat, userLocation.lng, b.lat, b.lng);
-      }
-    }
-    return 0;
-  });
-
-    if (tab !== "available") return base;
-
-    const isMine = (t: Task) => t.poster === userId || t.claimant === userId;
-    const descCounts = new Map<string, number>();
-    const curated = base.filter((t) => {
-      if (isMine(t)) return true;
-      const key = t.description.toLowerCase().replace(/\s+/g, " ").trim();
-      const n = descCounts.get(key) || 0;
-      if (n >= DUPLICATE_DESC_CAP) return false;
-      descCounts.set(key, n + 1);
+    return tasks.filter((t) => {
+      if (t.status === "expired") return false;
+      if (t.status === "cancelled") return false;
+      if (t.status === "open" && new Date(t.deadline).getTime() < now) return false;
+      if (tab === "mine") return t.poster === userId || t.claimant === userId;
+      if (tab === "completed") return t.status === "completed";
       return true;
     });
-    if (curated.length <= BOARD_CAP) return curated;
-    const top = curated.slice(0, BOARD_CAP);
-    // Keep the user's own items visible even when the cap cuts them off.
-    const ownOverflow = curated.slice(BOARD_CAP).filter(isMine);
-    return top.concat(ownOverflow);
   }, [tasks, tab, userLocation, userId]);
 
   const [heroVisible, setHeroVisible] = useState(true);
@@ -887,9 +834,6 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
           </div>
         )}
 
-        {/* Active polls surfaced inline in the Tasks feed */}
-        {tab === "available" && !mapMode && <FeedPolls userId={userId} />}
-
         {/* Map view */}
         {mapMode && tab === "available" ? (
           <div className="relative">
@@ -941,14 +885,17 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
             </Button>
           </div>
         ) : filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 gap-2 animate-[fadeSlideIn_0.4s_ease-out]">
-            <p className="text-[28px] font-bold text-gray-200 tracking-tight">
-              {tab === "available" ? "No tasks yet" : tab === "mine" ? "Nothing yet" : "No history"}
-            </p>
-            <p className="text-[14px] text-gray-400">
-              {tab === "available" ? "Check back soon or post one" : "Complete a task to see it here"}
-            </p>
-          </div>
+          <>
+            <div className="flex flex-col items-center justify-center py-20 gap-2 animate-[fadeSlideIn_0.4s_ease-out]">
+              <p className="text-[28px] font-bold text-gray-200 tracking-tight">
+                {tab === "available" ? "No tasks yet" : tab === "mine" ? "Nothing yet" : "No history"}
+              </p>
+              <p className="text-[14px] text-gray-400">
+                {tab === "available" ? "Check back soon or post one" : "Complete a task to see it here"}
+              </p>
+            </div>
+            {tab === "available" && <FeedPolls userId={userId} limit={POLL_CARDS_MAX} />}
+          </>
         ) : tab === "completed" ? (
           <div className="flex flex-col gap-2.5">
             {filtered.map((task) => (
@@ -980,28 +927,37 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
         ) : (
           <div className="flex flex-col gap-2.5">
             {filtered.map((task, i) => (
-              <div
-                key={task.id}
-                style={{ animationDelay: `${i * 50}ms` }}
-                className="rounded-2xl"
-              >
-                <TaskCard
-                  task={task}
-                  userId={userId}
-                  userLocation={userLocation}
-                  verificationLevel={verificationLevel}
-                  onTap={() => {
-                    setSelectedTask(task);
-                    setView("detail");
-                  }}
-                  onClaim={() => {}}
-                  onSubmitProof={() => {
-                    setSelectedTask(task);
-                    setView("proof");
-                  }}
-                />
-              </div>
+              <Fragment key={task.id}>
+                {/* R2 (BOARD-RULES.md): polls never lead the board — they render
+                    after the first POLL_INSERT_AFTER task cards. */}
+                {tab === "available" && i === POLL_INSERT_AFTER && (
+                  <FeedPolls userId={userId} limit={POLL_CARDS_MAX} />
+                )}
+                <div
+                  style={{ animationDelay: `${i * 50}ms` }}
+                  className="rounded-2xl"
+                >
+                  <TaskCard
+                    task={task}
+                    userId={userId}
+                    userLocation={userLocation}
+                    verificationLevel={verificationLevel}
+                    onTap={() => {
+                      setSelectedTask(task);
+                      setView("detail");
+                    }}
+                    onClaim={() => {}}
+                    onSubmitProof={() => {
+                      setSelectedTask(task);
+                      setView("proof");
+                    }}
+                  />
+                </div>
+              </Fragment>
             ))}
+            {tab === "available" && filtered.length <= POLL_INSERT_AFTER && (
+              <FeedPolls userId={userId} limit={POLL_CARDS_MAX} />
+            )}
           </div>
         )}
       </div>

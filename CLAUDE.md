@@ -15,6 +15,11 @@ When two docs disagree, the owner below wins. Do not treat a stale copy as truth
 - **Live state** (counts, launch status): Obsidian dashboard.
 - Never restate a fact that another doc owns — link to it. Copies drift; pointers don't.
 
+## Board visibility/ranking changes — read first
+What shows on the board and in what order is owned by `BOARD-RULES.md` +
+`src/lib/board-rank.ts` + its guard test. Never tweak board logic inline in a
+component; change the rules, code, and test together.
+
 ## Money/identity/reward changes — read first
 Before touching any money, identity, reward, or verification code, read
 `SECURITY-INVARIANTS.md` and follow its review method (audit by failure CLASS,
