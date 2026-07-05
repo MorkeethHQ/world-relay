@@ -14,6 +14,7 @@ import {
   boardTier,
   rankBoard,
   curateBoard,
+  orderBoardForApi,
 } from "@/lib/board-rank";
 import { getFeaturedCampaign } from "@/lib/campaigns";
 
@@ -155,6 +156,34 @@ describe("curation: duplicates, board cap, own items", () => {
     const curated = curateBoard([...many, mine], "me");
     expect(curated.length).toBe(BOARD_CAP + 1);
     expect(curated.some((t) => t.id === mine.id)).toBe(true);
+  });
+});
+
+describe("server-side ordering (GET /api/tasks)", () => {
+  it("orders open tasks by board rank with feedback demoted, non-open after, drops NOTHING", () => {
+    const funded1 = funded();
+    const feedback = Array.from({ length: 5 }, () => task({ category: "feedback" }));
+    const photos = Array.from({ length: 12 }, () => task());
+    const completed = task({ status: "completed" });
+    const claimed = task({ status: "claimed", claimant: "someone" });
+    const input = [...feedback, completed, ...photos, claimed, funded1];
+
+    const ordered = orderBoardForApi(input, NOW);
+
+    expect(ordered.length).toBe(input.length);
+    expect(ordered[0].id).toBe(funded1.id);
+    const openCount = 18;
+    const openSlice = ordered.slice(0, openCount);
+    expect(openSlice.every((t) => t.status === "open")).toBe(true);
+    expect(
+      openSlice.slice(0, FEEDBACK_WINDOW).filter((t) => t.category === "feedback").length
+    ).toBeLessThanOrEqual(FEEDBACK_MAX_IN_WINDOW);
+    expect(ordered.slice(openCount).map((t) => t.status).sort()).toEqual(["claimed", "completed"]);
+  });
+
+  it("the tasks API route calls orderBoardForApi", () => {
+    const routeSrc = readFileSync(join(__dirname, "../app/api/tasks/route.ts"), "utf8");
+    expect(routeSrc).toMatch(/orderBoardForApi/);
   });
 });
 

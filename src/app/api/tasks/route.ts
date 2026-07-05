@@ -12,11 +12,15 @@ import { getCampaign } from "@/lib/campaigns";
 import { isEscrowTaskFunded } from "@/lib/escrow";
 import { isTemplateCopy, MIN_DESCRIPTION_LENGTH } from "@/lib/post-templates";
 import { toApiTasks } from "@/lib/task-serializer";
+import { orderBoardForApi } from "@/lib/board-rank";
 
 export async function GET() {
   trackEvent("feed_loaded").catch(() => {});
   const tasks = await listTasks();
-  return NextResponse.json({ tasks: toApiTasks(tasks) }, {
+  // BOARD-RULES.md R1+R5 are enforced here too, so API consumers (agents,
+  // integrations) get the same board composition as the app.
+  const ordered = orderBoardForApi(tasks, Date.now());
+  return NextResponse.json({ tasks: toApiTasks(ordered) }, {
     headers: { "Cache-Control": "public, s-maxage=5, stale-while-revalidate=10" },
   });
 }
