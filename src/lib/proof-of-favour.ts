@@ -95,6 +95,29 @@ export type ProofOfFavour = {
 export const STREAK_FREEZE_COST = 30;
 export const STREAK_FREEZE_MAX_HELD = 2;
 
+// Generic points spend (sinks: prediction stakes, future boosts). Fails
+// closed on insufficient balance; records a negative history line.
+export async function spendPoints(
+  address: string,
+  action: string,
+  amount: number
+): Promise<{ ok: boolean; error?: string; totalPoints?: number }> {
+  if (!isRealWallet(address)) return { ok: false, error: "A wallet account is required" };
+  if (!Number.isFinite(amount) || amount <= 0) return { ok: false, error: "Bad amount" };
+  const profile = await getProofOfFavour(address);
+  if (profile.totalPoints < amount) {
+    return { ok: false, error: `Not enough points — you have ${Math.round(profile.totalPoints)}, this needs ${amount}` };
+  }
+  profile.totalPoints -= amount;
+  profile.level = getLevel(profile.totalPoints);
+  profile.pointsHistory.push({ action, points: -amount, timestamp: new Date().toISOString() });
+  if (profile.pointsHistory.length > MAX_HISTORY) {
+    profile.pointsHistory = profile.pointsHistory.slice(-MAX_HISTORY);
+  }
+  await saveProfile(profile);
+  return { ok: true, totalPoints: profile.totalPoints };
+}
+
 export async function buyStreakFreeze(address: string): Promise<{ ok: boolean; error?: string; profile?: ProofOfFavour }> {
   const profile = await getProofOfFavour(address);
   if (!isRealWallet(address)) return { ok: false, error: "A wallet account is required" };
