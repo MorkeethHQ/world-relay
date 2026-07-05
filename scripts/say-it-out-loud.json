@@ -1,0 +1,35 @@
+{
+  "baseUrl": "https://world-relay.vercel.app",
+  "tasks": [
+    {
+      "description": "Post about FAVOUR on X in your own words: what you did or what you earned. Proof: one screenshot of your LIVE post showing your handle, the text and the timestamp, plus the post URL in your proof note. Template copy or AI-written posts earn nothing.",
+      "location": "Anywhere",
+      "category": "social",
+      "bountyUsdc": 10,
+      "rewardType": "points",
+      "deadlineHours": 1370,
+      "maxCompletions": 500,
+      "campaignId": "say-it-out-loud"
+    },
+    {
+      "description": "Post the most surprising thing about FAVOUR so far, on X, in your own words. Proof: one screenshot of the live post (handle + timestamp visible) and the post URL in your proof note.",
+      "location": "Anywhere",
+      "category": "social",
+      "bountyUsdc": 10,
+      "rewardType": "points",
+      "deadlineHours": 1370,
+      "maxCompletions": 500,
+      "campaignId": "say-it-out-loud"
+    },
+    {
+      "description": "Post what you'd tell a friend who has never used FAVOUR, on X. Honest beats polished. Proof: one screenshot of the live post (handle + timestamp visible) and the post URL in your proof note.",
+      "location": "Anywhere",
+      "category": "social",
+      "bountyUsdc": 10,
+      "rewardType": "points",
+      "deadlineHours": 1370,
+      "maxCompletions": 500,
+      "campaignId": "say-it-out-loud"
+    }
+  ]
+}
