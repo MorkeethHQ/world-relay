@@ -7,12 +7,14 @@ const mockHashes = new Map<string, Map<string, number>>();
 
 vi.mock("@/lib/redis", () => ({
   getRedis: () => ({
+    get: async (key: string) => mockStore.get(key) ?? null,
+    set: async (key: string, value: string) => { mockStore.set(key, value); return "OK"; },
+    del: async (key: string) => { mockStore.delete(key); return 1; },
     sadd: async (key: string, member: string) => {
       const s = mockSets.get(key) || new Set<string>();
       const added = s.has(member) ? 0 : 1;
       s.add(member); mockSets.set(key, s); return added;
     },
-    smembers: async (key: string) => [...(mockSets.get(key) || [])],
     incr: async (key: string) => {
       const next = Number(mockStore.get(key) || 0) + 1;
       mockStore.set(key, next); return next;
@@ -35,7 +37,7 @@ vi.mock("@/lib/proof-of-favour", () => ({
   },
 }));
 
-import { buildJuryDeck, isMatchKey, recordJuryVerdict, juryPool, JURY_DAILY_POINTS_CAP } from "@/lib/jury";
+import { composeDeck, issueJuryDeck, recordJuryVerdict, juryPool, JURY_DAILY_POINTS_CAP } from "@/lib/jury";
 
 const JUDGE = "0x" + "9".repeat(40);
 
@@ -67,9 +69,12 @@ function doneTask(overrides: Partial<Task> = {}): Task {
   } as Task;
 }
 
+let idc = 0;
+const nextId = () => `card-${++idc}`;
+
 beforeEach(() => {
   mockStore.clear(); mockSets.clear(); mockHashes.clear();
-  awards.length = 0;
+  awards.length = 0; idc = 0;
 });
 
 describe("deck building", () => {
@@ -82,58 +87,66 @@ describe("deck building", () => {
     expect(pool.map((t) => t.id)).toEqual([good.id]);
   });
 
-  it("deck mixes true pairs and mismatched pairs, keys decode correctly", () => {
+  it("composeDeck mixes true pairs and mismatched pairs", () => {
     const tasks = Array.from({ length: 12 }, () => doneTask());
-    const deck = buildJuryDeck(tasks, JUDGE, new Set(), 12);
+    const deck = composeDeck(tasks, JUDGE);
     expect(deck.length).toBeGreaterThan(4);
-    const matches = deck.filter((c) => isMatchKey(c.key)!.isMatch);
-    const mismatches = deck.filter((c) => !isMatchKey(c.key)!.isMatch);
-    expect(matches.length).toBeGreaterThan(0);
-    expect(mismatches.length).toBeGreaterThan(0);
-    // Mismatched cards must show a DIFFERENT task's description.
-    for (const c of mismatches) {
-      const { proofTaskId, descTaskId } = isMatchKey(c.key)!;
-      expect(proofTaskId).not.toBe(descTaskId);
+    expect(deck.some((c) => c.answer.isMatch)).toBe(true);
+    expect(deck.some((c) => !c.answer.isMatch)).toBe(true);
+    for (const c of deck) {
+      if (!c.answer.isMatch) expect(c.answer.proofTaskId).not.toBe(c.answer.descTaskId);
     }
-    // Proof image always points at the API image route, never inline base64.
-    for (const c of deck) expect(c.proofImageUrl).toMatch(/^\/api\/tasks\/.+\/proof-image/);
   });
 
-  it("seen cards never come back", () => {
-    const tasks = Array.from({ length: 6 }, () => doneTask());
-    const first = buildJuryDeck(tasks, JUDGE, new Set(), 10);
-    const seen = new Set(first.map((c) => c.key));
-    const second = buildJuryDeck(tasks, JUDGE, seen, 10);
-    expect(second.length).toBe(0);
+  it("issued cards are OPAQUE: no task id, no isMatch reaches the client", async () => {
+    const tasks = Array.from({ length: 8 }, () => doneTask());
+    const deck = await issueJuryDeck(tasks, JUDGE, nextId);
+    for (const card of deck) {
+      const s = JSON.stringify(card);
+      expect(s).not.toMatch(/isMatch/);
+      expect(s).not.toMatch(/proofTaskId|descTaskId/);
+      // image url references the opaque cardId, never a task id
+      expect(card.proofImageUrl).toBe(`/api/jury/card/${card.cardId}/image`);
+    }
   });
 });
 
-describe("verdicts", () => {
-  it("correct verdict pays 1 pt, double-vote on the same card is rejected", async () => {
-    const r1 = await recordJuryVerdict(JUDGE, "a|a", true);
-    expect("error" in r1).toBe(false);
-    if (!("error" in r1)) {
-      expect(r1.correct).toBe(true);
-      expect(r1.pointsAwarded).toBe(1);
-    }
-    const r2 = await recordJuryVerdict(JUDGE, "a|a", true);
-    expect("error" in r2).toBe(true);
-    expect(awards.length).toBe(1);
+describe("verdicts (opaque cards)", () => {
+  it("resolves correctness server-side from the stored card and pays on correct", async () => {
+    const tasks = Array.from({ length: 8 }, () => doneTask());
+    const deck = await issueJuryDeck(tasks, JUDGE, nextId);
+    // The client can't see the answer, so try both; exactly one is correct.
+    const card = deck[0];
+    const first = await recordJuryVerdict(JUDGE, card.cardId, true);
+    expect("error" in first).toBe(false);
+    // The card is single-use now.
+    const again = await recordJuryVerdict(JUDGE, card.cardId, true);
+    expect("error" in again).toBe(true);
   });
 
-  it("wrong verdict pays nothing but counts as judged", async () => {
-    const r = await recordJuryVerdict(JUDGE, "a|b", true); // said match, was mismatch
-    if (!("error" in r)) {
-      expect(r.correct).toBe(false);
-      expect(r.pointsAwarded).toBe(0);
-      expect(r.judged).toBe(1);
-    }
+  it("FABRICATED card ids earn NOTHING (the faucet is closed)", async () => {
+    const r1 = await recordJuryVerdict(JUDGE, "totally-made-up", true);
+    expect("error" in r1).toBe(true);
+    const r2 = await recordJuryVerdict(JUDGE, "0xaaa|0xbbb", true);
+    expect("error" in r2).toBe(true);
     expect(awards.length).toBe(0);
   });
 
+  it("a card issued to another judge is rejected", async () => {
+    const tasks = Array.from({ length: 6 }, () => doneTask());
+    const deck = await issueJuryDeck(tasks, JUDGE, nextId);
+    const other = "0x" + "1".repeat(40);
+    const r = await recordJuryVerdict(other, deck[0].cardId, true);
+    expect("error" in r).toBe(true);
+    expect((r as { error: string }).error).toMatch(/Not your card/);
+  });
+
   it("daily cap stops payouts but not play", async () => {
+    // Issue many single-match cards by staking known answers directly.
     for (let i = 0; i < JURY_DAILY_POINTS_CAP + 5; i++) {
-      await recordJuryVerdict(JUDGE, `t${i}|t${i}`, true);
+      const id = `c${i}`;
+      mockStore.set(`jury:card:${id}`, JSON.stringify({ judge: JUDGE, proofTaskId: "a", descTaskId: "a", isMatch: true }));
+      await recordJuryVerdict(JUDGE, id, true); // always correct
     }
     expect(awards.length).toBe(JURY_DAILY_POINTS_CAP);
     const stats = mockHashes.get(`jury:stats:${JUDGE.toLowerCase()}`)!;

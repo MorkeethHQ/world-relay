@@ -115,20 +115,20 @@ export async function placeStake(
   if (isLocked(p, now)) return { ok: false, error: "Stakes are locked" };
   if (!p.options.includes(option)) return { ok: false, error: "Unknown option" };
 
+  // Lowercase ONCE and use it for every points op too (audit F4): the debit
+  // must hit the same profile the refund/payout later credit, or a checksummed
+  // address would be charged on pof:0xAbC and refunded on pof:0xabc.
   const w = wallet.toLowerCase();
-  const existing = await redis.hget(stakesKey(id), w);
-  if (existing) return { ok: false, error: "You already staked on this one — stakes are final" };
 
-  // Deduct FIRST (fails closed on insufficient balance), then record. If the
-  // record write fails the points are re-credited.
-  const spend = await spendPoints(wallet, "prediction_stake", amount);
-  if (!spend.ok) return { ok: false, error: spend.error };
-  try {
-    await redis.hset(stakesKey(id), { [w]: JSON.stringify({ option, amount }) });
-  } catch (err) {
-    await awardPoints(wallet, "prediction_stake_refund", amount).catch(console.error);
-    console.error(`[Predictions] stake record failed for ${id}/${w}:`, err);
-    return { ok: false, error: "Stake failed — points refunded" };
+  // Reserve the slot atomically BEFORE spending (audit F5): hsetnx blocks a
+  // concurrent second stake from the same wallet debiting twice for one record.
+  const reserved = await redis.hsetnx(stakesKey(id), w, JSON.stringify({ option, amount }));
+  if (!reserved) return { ok: false, error: "You already staked on this one — stakes are final" };
+
+  const spend = await spendPoints(w, "prediction_stake", amount);
+  if (!spend.ok) {
+    await redis.hdel(stakesKey(id), w).catch(() => {}); // release the reservation
+    return { ok: false, error: spend.error };
   }
   return { ok: true, totalPoints: spend.totalPoints };
 }
@@ -137,7 +137,8 @@ export async function placeStake(
 // Winners split the WHOLE pool pro-rata; no winners -> full refunds.
 export async function resolvePrediction(
   id: string,
-  outcome: string | "VOID"
+  outcome: string | "VOID",
+  now = Date.now()
 ): Promise<{ ok: boolean; error?: string; paid?: number; refunded?: number }> {
   const redis = getRedis();
   if (!redis) return { ok: false, error: "Store unavailable" };
@@ -148,39 +149,50 @@ export async function resolvePrediction(
     if (!p) return { ok: false, error: "Prediction not found" };
     if (p.status !== "open") return { ok: false, error: `Already ${p.status}` };
     if (outcome !== "VOID" && !p.options.includes(outcome)) return { ok: false, error: "Outcome is not one of the options" };
+    // Don't resolve a real outcome before stakes lock (audit F3): a stake
+    // landing in the resolve window would be charged but excluded from payout.
+    // VOID (full refund) is always allowed, e.g. to cancel early.
+    if (outcome !== "VOID" && now < new Date(p.locksAt).getTime()) {
+      return { ok: false, error: "Stakes have not locked yet — resolve after locksAt, or VOID" };
+    }
+
+    // Flip status BEFORE paying (audit F3): a payout loop over many winners can
+    // outlive the 60s lock; without this, a retry after lock-expiry would read
+    // status "open" again and pay everyone twice. Persist "resolving" first;
+    // each payout is also guarded per-wallet so a mid-loop crash never double-pays.
+    p.status = outcome === "VOID" ? "void" : "resolved";
+    p.outcome = outcome === "VOID" ? null : outcome;
+    await redis.set(`${P}${id}`, JSON.stringify(p));
 
     const stakes = await getStakes(id);
     const entries = Object.entries(stakes);
     const total = entries.reduce((s, [, st]) => s + st.amount, 0);
+    const paidSetKey = `ppaid:${id}`;
+
+    const payOnce = async (wallet: string, action: string, amount: number) => {
+      if (amount <= 0) return false;
+      const fresh = await redis.sadd(paidSetKey, wallet.toLowerCase());
+      if (!fresh) return false; // already paid this wallet for this prediction
+      await awardPoints(wallet, action, amount).catch(console.error);
+      return true;
+    };
 
     let paid = 0;
     let refunded = 0;
     if (outcome === "VOID") {
-      for (const [wallet, st] of entries) {
-        await awardPoints(wallet, "prediction_refund", st.amount).catch(console.error);
-        refunded++;
-      }
-      p.status = "void";
+      for (const [wallet, st] of entries) if (await payOnce(wallet, "prediction_refund", st.amount)) refunded++;
     } else {
       const winners = entries.filter(([, st]) => st.option === outcome);
       const winningPool = winners.reduce((s, [, st]) => s + st.amount, 0);
       if (winners.length === 0) {
-        // Nobody called it: refund everyone rather than burning the pool.
-        for (const [wallet, st] of entries) {
-          await awardPoints(wallet, "prediction_refund", st.amount).catch(console.error);
-          refunded++;
-        }
+        for (const [wallet, st] of entries) if (await payOnce(wallet, "prediction_refund", st.amount)) refunded++;
       } else {
         for (const [wallet, st] of winners) {
           const payout = Math.floor((total * st.amount) / winningPool);
-          await awardPoints(wallet, "prediction_win", payout).catch(console.error);
-          paid++;
+          if (await payOnce(wallet, "prediction_win", payout)) paid++;
         }
       }
-      p.status = "resolved";
-      p.outcome = outcome;
     }
-    await redis.set(`${P}${id}`, JSON.stringify(p));
     return { ok: true, paid, refunded };
   } finally {
     await redis.del(`plock:${id}`);
