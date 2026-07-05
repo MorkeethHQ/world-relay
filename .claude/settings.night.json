@@ -1,0 +1,45 @@
+{
+  "permissions": {
+    "defaultMode": "dontAsk",
+    "allow": [
+      "Read",
+      "Edit",
+      "Write",
+      "Grep",
+      "Glob",
+      "Bash(npx tsc:*)",
+      "Bash(npx vitest:*)",
+      "Bash(npx next build:*)",
+      "Bash(npm run:*)",
+      "Bash(git status:*)",
+      "Bash(git log:*)",
+      "Bash(git diff:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git checkout:*)",
+      "Bash(git branch:*)",
+      "Bash(curl:*)",
+      "Bash(cat:*)",
+      "Bash(ls:*)",
+      "Bash(grep:*)",
+      "Bash(tail:*)",
+      "Bash(osascript:*)"
+    ],
+    "deny": [
+      "Bash(git push:*)",
+      "Bash(git reset:*)",
+      "Bash(rm:*)",
+      "Bash(sudo:*)",
+      "Bash(npx vercel:*)",
+      "Bash(npx tsx scripts/fund-batch*)",
+      "Bash(npx tsx scripts/drain-escrow*)",
+      "Bash(npx tsx scripts/settle-direct*)",
+      "Bash(npx tsx scripts/refund-expired*)",
+      "Bash(npx tsx scripts/ops-daily*)",
+      "Edit(.env*)",
+      "Write(.env*)",
+      "Edit(**/.env*)",
+      "Write(**/.env*)"
+    ]
+  }
+}
