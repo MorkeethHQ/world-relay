@@ -264,9 +264,19 @@ export function CampaignPage({
                 : unlockView.potExhausted
                 ? "The pot is fully claimed — points still count."
                 : unlockView.requiresOrb
-                ? "Orb-verified humans only. Every favour must pass AI verification clean."
+                ? "Orb-verified humans only — already verified? It counts automatically. Every favour must pass AI verification clean."
                 : "Every favour must pass AI verification clean."}
             </p>
+            {!unlockView.paid && !unlockView.potExhausted && unlockView.requiresOrb && (
+              <a
+                href="https://world.org/find-orb"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block text-[11px] font-semibold text-blue-600 mt-1.5 underline underline-offset-2"
+              >
+                Not Orb-verified yet? Find an Orb near you
+              </a>
+            )}
           </div>
         )}
 
