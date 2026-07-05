@@ -39,7 +39,7 @@ export default function ErrorPage({
             Something went wrong
           </h1>
           <p className="text-gray-400 text-sm max-w-xs">
-            RELAY FAVOURS hit an unexpected issue. Give it another shot or head
+            FAVOUR hit an unexpected issue. Give it another shot or head
             back to the feed.
           </p>
           {error?.digest && (

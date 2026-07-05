@@ -15,19 +15,19 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "RELAY FAVOURS",
+  title: "FAVOUR",
   description: "Ask favours, complete tasks, earn USDC. AI verifies everything instantly. Inside World App.",
   metadataBase: new URL("https://world-relay.vercel.app"),
   openGraph: {
-    title: "RELAY FAVOURS",
+    title: "FAVOUR",
     description: "Ask favours, complete tasks, earn USDC. AI verifies everything. Inside World App.",
-    images: [{ url: "/og-image.png", width: 1035, height: 720, alt: "RELAY FAVOURS" }],
+    images: [{ url: "/og-image.png", width: 1035, height: 720, alt: "FAVOUR" }],
     type: "website",
-    siteName: "RELAY FAVOURS",
+    siteName: "FAVOUR",
   },
   twitter: {
     card: "summary_large_image",
-    title: "RELAY FAVOURS",
+    title: "FAVOUR",
     description: "Ask favours, complete tasks, earn USDC. AI verifies everything. Inside World App.",
     images: ["/og-image.png"],
   },

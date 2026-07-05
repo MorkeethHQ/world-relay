@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 export const metadata = {
-  title: "Terms & Community Guidelines — RELAY",
+  title: "Terms & Community Guidelines — FAVOUR",
 };
 
 // Canonical, linkable terms and community guidelines. The onboarding flow shows
@@ -26,9 +26,9 @@ export default function TermsPage() {
 
       <div className="mt-8 flex flex-col gap-7 text-gray-700">
         <section className="flex flex-col gap-2">
-          <h2 className="text-[17px] font-semibold text-gray-900">What RELAY is</h2>
+          <h2 className="text-[17px] font-semibold text-gray-900">What FAVOUR is</h2>
           <p className="text-[15px] leading-relaxed">
-            RELAY is a network where people post small real-world favours and
+            FAVOUR is a network where people post small real-world favours and
             others complete them for rewards in points and USDC. You sign in with
             your World wallet to take part. Sign-in proves you control a World
             wallet. It is not, on its own, a proof that you are a unique human.
@@ -58,7 +58,7 @@ export default function TermsPage() {
           <h2 className="text-[17px] font-semibold text-gray-900">Rewards and payments</h2>
           <p className="text-[15px] leading-relaxed">
             Rewards depend on genuine, verified work. USDC bounties are held in
-            escrow and released when a submission passes verification. RELAY may
+            escrow and released when a submission passes verification. FAVOUR may
             flag ambiguous submissions for manual review before any payout.
           </p>
         </section>
@@ -67,7 +67,7 @@ export default function TermsPage() {
           <h2 className="text-[17px] font-semibold text-gray-900">Enforcement</h2>
           <p className="text-[15px] leading-relaxed">
             Accounts that break these rules may be limited or removed. Repeated
-            or serious violations can result in loss of access to RELAY.
+            or serious violations can result in loss of access to FAVOUR.
           </p>
         </section>
 
