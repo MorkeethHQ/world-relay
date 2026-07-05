@@ -1,0 +1,45 @@
+{
+  "baseUrl": "https://world-relay.vercel.app",
+  "tasks": [
+    {
+      "description": "Wear your team's colors or jersey today. Take a photo of yourself in the outfit, face visible, good lighting. Proof note: name the team you're supporting.",
+      "location": "Anywhere",
+      "category": "photo",
+      "bountyUsdc": 5,
+      "rewardType": "points",
+      "deadlineHours": 720,
+      "maxCompletions": 500,
+      "campaignId": "final-whistle-test"
+    },
+    {
+      "description": "Check in at wherever you're watching the final, whether that's a bar, a friend's living room, or your own couch. Photo must show the screen or setup and something in frame that places you there (drink, snack, room detail). Proof note: describe where you are and who you're watching with.",
+      "location": "Anywhere",
+      "category": "check-in",
+      "bountyUsdc": 7,
+      "rewardType": "points",
+      "deadlineHours": 720,
+      "maxCompletions": 500,
+      "campaignId": "final-whistle-test"
+    },
+    {
+      "description": "Write your final score prediction on a piece of paper in big letters and take a photo of it with your hand holding it, face not required. Proof note: state your predicted final score.",
+      "location": "Anywhere",
+      "category": "custom",
+      "bountyUsdc": 6,
+      "rewardType": "points",
+      "deadlineHours": 720,
+      "maxCompletions": 500,
+      "campaignId": "final-whistle-test"
+    },
+    {
+      "description": "Post about the final on any social platform (a story, status, or comment) and take a screenshot showing your post live with your username visible. Proof note: paste the text of what you posted.",
+      "location": "Anywhere",
+      "category": "social",
+      "bountyUsdc": 8,
+      "rewardType": "points",
+      "deadlineHours": 720,
+      "maxCompletions": 500,
+      "campaignId": "final-whistle-test"
+    }
+  ]
+}
