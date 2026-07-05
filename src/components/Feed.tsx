@@ -44,6 +44,7 @@ import {
   POLL_INSERT_AFTER,
   POLL_CARDS_MAX,
 } from "@/lib/board-rank";
+import { JuryMode } from "@/components/JuryMode";
 
 function extractTxHash(result: unknown): string | null {
   if (typeof result !== "object" || result === null) return null;
@@ -244,7 +245,7 @@ const RELAY_BOT_ADDRESS = "0x1101158041fd96f21cbcbb0e752a9a2303e6d70e";
 
 export function Feed({ userId, verificationLevel, onLogout }: { userId: string | null; verificationLevel?: string | null; onLogout?: () => void }) {
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [view, setView] = useState<"board" | "post" | "proof" | "detail" | "campaign">("board");
+  const [view, setView] = useState<"board" | "post" | "proof" | "detail" | "campaign" | "jury">("board");
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [tab, setTab] = useState<Tab>("available");
   const [tabDirection, setTabDirection] = useState<"left" | "right">("right");
@@ -614,6 +615,10 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
     );
   }
 
+  if (view === "jury") {
+    return <JuryMode userId={userId} onClose={() => setView("board")} />;
+  }
+
   if (view === "post") {
     return <PostTask userId={userId} campaignId={postCampaignId ?? undefined} onDone={() => { setPostCampaignId(null); setView("board"); fetchTasks(); }} onCancel={() => { setPostCampaignId(null); setView("board"); }} />;
   }
@@ -816,6 +821,25 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
           </div>
         );
       })()}
+
+      {/* REAL OR NOT — the swipe game. Judge other people's proofs, one tap each. */}
+      {tab === "available" && !loading && (
+        <div className="px-6 pt-3">
+          <button
+            onClick={() => { hapticTap(); setView("jury"); }}
+            className="w-full rounded-2xl bg-gray-950 text-white px-5 py-4 flex items-center justify-between active:scale-[0.98] transition-transform overflow-hidden relative"
+          >
+            <div className="text-left relative z-10">
+              <p className="text-[14px] font-black tracking-widest">REAL OR NOT</p>
+              <p className="text-[12px] text-white/60 mt-0.5">Swipe real proofs from fakes. Right calls earn points.</p>
+            </div>
+            <div className="flex items-center gap-1 relative z-10">
+              <span className="w-8 h-8 rounded-full bg-red-500/20 border border-red-400/50 flex items-center justify-center text-red-400 text-sm font-black">✕</span>
+              <span className="w-8 h-8 rounded-full bg-green-500/20 border border-green-400/50 flex items-center justify-center text-green-400 text-sm font-black">✓</span>
+            </div>
+          </button>
+        </div>
+      )}
 
       {/* Polls tab */}
       {tab === "polls" && (
