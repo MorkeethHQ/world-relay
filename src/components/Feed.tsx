@@ -646,10 +646,12 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      {/* Header - minimal */}
+      {/* Header - minimal. The top tab bar is GONE (Oscar Jul 5: two
+          navigations create confusion) — Polls and History are bottom-nav
+          pages now; this screen is only the board. */}
       <div className="sticky top-0 z-10 bg-white/95 backdrop-blur-md border-b border-gray-100">
         <div className="flex items-center justify-between px-6 py-3">
-          <h1 className="text-[18px] font-bold tracking-tight text-gray-900">RELAY</h1>
+          <h1 className="text-[18px] font-bold tracking-tight text-gray-900">FAVOUR</h1>
           {userId && (
             <button
               onClick={() => { hapticTap(); setPostCampaignId(null); setView("post"); }}
@@ -658,29 +660,6 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
               + New
             </button>
           )}
-        </div>
-
-        {/* Tabs */}
-        <div className="flex px-6 gap-0 items-center" role="tablist">
-          {(["available", "polls", "completed"] as Tab[]).map((t) => {
-            const label = t === "available" ? "Tasks" : t === "polls" ? "Polls" : "History";
-            return (
-              <button
-                key={t}
-                onClick={() => { hapticSelection(); changeTab(t); }}
-                role="tab"
-                aria-selected={tab === t}
-                className={`flex-1 text-[13px] min-h-[40px] py-2.5 font-medium transition-all relative flex items-center justify-center ${
-                  tab === t ? "text-gray-900" : "text-gray-400"
-                }`}
-              >
-                {label}
-                {tab === t && (
-                  <span className="absolute bottom-0 left-1/4 right-1/4 h-0.5 bg-gray-900 rounded-full" />
-                )}
-              </button>
-            );
-          })}
         </div>
       </div>
 
@@ -1562,27 +1541,24 @@ function PostTask({
 
         {/* STEP 0 - Pick type */}
         {step === 0 && (
-          <div className="flex-1 px-6 py-5 flex flex-col gap-4">
-            <Typography variant="body" level={3} className="text-gray-400">What do you need? Tap one to start. You can edit everything next.</Typography>
-            <div className="grid grid-cols-2 gap-2.5">
-              {POST_TEMPLATES.map((t, i) => {
-                const tier = getTaskTier(t.category);
-                const tc = TIER_CONFIG[tier];
-                return (
-                  <button
-                    key={i}
-                    onClick={() => handleTemplate(i)}
-                    className={`flex flex-col items-start gap-2 rounded-2xl border px-4 py-4 text-left transition-all min-h-[100px] active:scale-[0.97] ${
-                      selectedTemplate === i ? "border-gray-900 bg-white" : "border-gray-200 bg-white hover:border-gray-300"
-                    }`}
-                  >
-                    <span className="text-gray-900"><TemplateIcon index={i} /></span>
-                    <Typography variant="body" level={3} className="font-semibold text-gray-900 leading-tight">{t.label}</Typography>
-                    <span className={`text-[10px] font-semibold uppercase tracking-wider ${tc.color}`}>{tc.label} &middot; {tc.time}</span>
-                  </button>
-                );
-              })}
-            </div>
+          // One airy column, example text as the hook, zero system metadata —
+          // the old 2-col grid with uppercase tier labels read "typed, not
+          // breathing" (Oscar Jul 5 review).
+          <div className="flex-1 px-6 py-6 flex flex-col gap-3">
+            <Typography variant="body" level={3} className="text-gray-400 mb-1">What do you need?</Typography>
+            {POST_TEMPLATES.map((t, i) => (
+              <button
+                key={i}
+                onClick={() => handleTemplate(i)}
+                className="flex items-center gap-4 rounded-2xl border border-gray-200 bg-white px-5 py-5 text-left transition-all active:scale-[0.98] hover:border-gray-300"
+              >
+                <span className="text-gray-900 shrink-0"><TemplateIcon index={i} /></span>
+                <span className="min-w-0">
+                  <span className="block text-[15px] font-semibold text-gray-900 leading-tight">{t.label}</span>
+                  <span className="block text-[12px] text-gray-400 mt-1 leading-snug line-clamp-1">{t.desc}</span>
+                </span>
+              </button>
+            ))}
           </div>
         )}
 
@@ -1637,13 +1613,13 @@ function PostTask({
 
         {/* STEP 2 - Reward + fund */}
         {step === 2 && (
-          <div className="flex-1 px-6 py-5 flex flex-col gap-6">
+          <div className="flex-1 px-6 py-6 flex flex-col gap-8">
             <div>
               <Typography variant="label" level={2} className="text-gray-400 mb-2">Reward type</Typography>
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => { hapticSelection(); setRewardType("points"); }}
-                  className={`flex-1 rounded-xl border py-3 text-center transition-all min-h-[44px] active:scale-[0.98] ${
+                  className={`flex-1 rounded-xl border py-4 text-center transition-all min-h-[52px] active:scale-[0.98] ${
                     rewardType === "points" ? "border-gray-900 bg-white" : "border-gray-200 bg-white hover:border-gray-300"
                   }`}
                 >
@@ -1652,7 +1628,7 @@ function PostTask({
                 </button>
                 <button
                   onClick={() => { hapticSelection(); setRewardType("usdc"); }}
-                  className={`flex-1 rounded-xl border py-3 text-center transition-all min-h-[44px] active:scale-[0.98] ${
+                  className={`flex-1 rounded-xl border py-4 text-center transition-all min-h-[52px] active:scale-[0.98] ${
                     rewardType === "usdc" ? "border-gray-900 bg-white" : "border-gray-200 bg-white hover:border-gray-300"
                   }`}
                 >
@@ -1669,14 +1645,14 @@ function PostTask({
                   <button
                     key={amt}
                     onClick={() => { hapticSelection(); setBounty(amt); }}
-                    className={`flex-1 rounded-xl border py-3 text-center transition-all min-h-[44px] active:scale-[0.98] ${
+                    className={`flex-1 rounded-xl border py-4 text-center transition-all min-h-[52px] active:scale-[0.98] ${
                       bounty === amt ? "border-gray-900 bg-white" : "border-gray-200 bg-white hover:border-gray-300"
                     }`}
                   >
                     <Typography variant="number" level={3} className={`whitespace-nowrap ${bounty === amt ? "text-gray-900" : "text-gray-500"}`}>{rewardType === "points" ? `${amt} pts` : `$${amt}`}</Typography>
                   </button>
                 ))}
-                <div className="flex-1 flex items-center gap-1 bg-white border border-gray-200 rounded-xl px-3 py-3 min-h-[44px]">
+                <div className="flex-1 flex items-center gap-1 bg-white border border-gray-200 rounded-xl px-3 py-4 min-h-[52px]">
                   {rewardType === "usdc" && <span className="text-sm text-gray-400">$</span>}
                   <input
                     type="number"
@@ -2302,7 +2278,7 @@ function SubmitProof({
             {result.verdict === "pass" && (
               <div className="mt-3 pt-3 border-t border-green-200 flex flex-col gap-2">
                 {task.rewardType === "points" ? (
-                  <p className="font-semibold text-sm text-purple-600">+{Math.round(task.bountyUsdc)} pts earned</p>
+                  <p className="font-semibold text-sm text-amber-600">+{Math.round(task.bountyUsdc)} pts earned</p>
                 ) : result.escrowReleaseTxHash ? (
                   <a
                     href={`https://worldscan.org/tx/${result.escrowReleaseTxHash}`}

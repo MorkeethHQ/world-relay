@@ -1,7 +1,8 @@
 import type { Task } from "@/lib/types";
 import { rewardAmountLabel, isPointsReward } from "@/lib/reward";
 
-// The one canonical way to display a task reward. Points = purple, money = green.
+// The one canonical way to display a task reward. Points = amber, money = green
+// (points were purple until Oscar's Jul 5 review called it off-brand).
 // Use this everywhere a reward amount is shown so the points/money distinction
 // is visually consistent and can never drift.
 //
@@ -23,7 +24,7 @@ export function RewardBadge({
     return (
       <span className="inline-flex items-center gap-1.5 leading-tight">
         {combo.points > 0 && (
-          <span className={`font-bold ${amountClass} text-purple-600`}>
+          <span className={`font-bold ${amountClass} text-amber-600`}>
             {Math.round(combo.points)} pts
           </span>
         )}
@@ -46,7 +47,7 @@ export function RewardBadge({
   return (
     <span className="inline-flex flex-col items-end leading-tight">
       <span className={`font-bold ${size === "sm" ? "text-sm" : "text-[15px]"} text-gray-900`}>{amountText}</span>
-      <span className={`text-[10px] font-medium ${points ? "text-purple-600" : "text-success-600"}`}>
+      <span className={`text-[10px] font-medium ${points ? "text-amber-600" : "text-success-600"}`}>
         {points ? "points" : "USDC"}
       </span>
     </span>

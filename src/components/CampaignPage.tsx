@@ -479,6 +479,12 @@ export function FeaturedCampaignBanner({
           <div className="inline-flex items-center gap-1.5 mb-1.5">
             <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
             <span className="text-[10px] font-medium text-white/60 tracking-wide uppercase">Campaign</span>
+            {/* Where the money lives: unlock campaigns wear it on the banner */}
+            {campaign.unlock && (
+              <span className="text-[10px] font-bold text-green-300 bg-green-500/20 border border-green-400/40 rounded-full px-2 py-0.5">
+                ${campaign.unlock.unlockAmount} unlock
+              </span>
+            )}
           </div>
           <h3 className="text-[15px] font-bold text-white leading-tight">{campaign.name}</h3>
           <p className="text-xs text-white/50 mt-1">{remaining} tasks &middot; {campaign.rewardKind === "points" ? `${campaign.rewardPerTask}+ pts each` : `$${campaign.rewardPerTask}+ each`}</p>

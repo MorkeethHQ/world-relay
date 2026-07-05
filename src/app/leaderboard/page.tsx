@@ -53,48 +53,6 @@ export default async function LeaderboardPage() {
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-gray-900 to-gray-800 rounded-2xl p-4 text-white">
-          <div className="flex items-center gap-2.5">
-            <span className="text-xl">&#x1F3C6;</span>
-            <div>
-              <h3 className="text-base font-bold text-white">This week&apos;s competition</h3>
-              <p className="text-xs text-gray-400">Top runner wins. Resets Monday.</p>
-            </div>
-          </div>
-        </div>
-
-        <div>
-          <h4 className="text-base font-semibold text-gray-900 mb-3 px-1">This week</h4>
-          {weeklyRunners.length > 0 ? (
-            <div className="flex flex-col gap-2">
-              {weeklyRunners.map((entry, i) => (
-                <div
-                  key={entry.address}
-                  className={`flex items-center gap-3 rounded-xl px-4 py-3 ${
-                    i === 0 ? "bg-yellow-50 border-2 border-yellow-300" :
-                    i === 1 ? "bg-gray-100 border border-gray-200" :
-                    i === 2 ? "bg-orange-50 border border-orange-200" :
-                    "bg-white border border-gray-200"
-                  }`}
-                >
-                  <span className="text-lg font-bold w-7 text-center" style={i < 3 ? { color: MEDAL[i] } : {}}>
-                    {i < 3 ? ["1st", "2nd", "3rd"][i] : `${i + 1}`}
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <span className="text-sm font-medium text-gray-900">{truncateAddr(entry.address)}</span>
-                  </div>
-                  <span className="text-sm font-bold text-gray-900">{entry.weeklyPoints} pts</span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="bg-white border border-gray-200 rounded-xl p-6 text-center">
-              <p className="text-sm text-gray-400">No activity this week yet</p>
-              <p className="text-xs text-gray-400 mt-1">Be the first to earn points!</p>
-            </div>
-          )}
-        </div>
-
         <div>
           <h4 className="text-base font-semibold text-gray-900 mb-3 px-1">All-time runners</h4>
           {topRunners.length > 0 ? (
