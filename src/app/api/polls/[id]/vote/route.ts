@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { vote } from "@/lib/polls-store";
 import { trackEvent } from "@/lib/track";
+import { recordDailyActivity } from "@/lib/proof-of-favour";
 
 // A vote is only counted per verified wallet. userId must be a wallet address;
 // this stops a client from minting fresh ids to vote repeatedly.
@@ -37,5 +38,8 @@ export async function POST(
 
   // The app's most-used action, previously invisible to analytics.
   trackEvent("poll_vote", { pollId: id }).catch(() => {});
+  // A vote is real daily activity: it feeds the streak + once-a-day bonus,
+  // so there is ALWAYS a one-tap way to keep a streak alive.
+  recordDailyActivity(userId).catch(console.error);
   return NextResponse.json({ poll: sanitize(poll) });
 }

@@ -672,10 +672,10 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
       {/* Animated hero - Tasks. The hook leads; the numbers support it. */}
       {tab === "available" && !loading && (
         <div className="px-6 pt-6 pb-2 animate-[fadeSlideIn_0.4s_ease-out]">
-          <p className="text-[26px] font-bold text-gray-900 tracking-tight leading-[1.15]">
-            Do a favour.<br />Prove it. Get rewarded.
+          <p className="text-[19px] font-bold text-gray-900 tracking-tight leading-snug">
+            Do a favour. Prove it. Get rewarded.
           </p>
-          <div className="flex items-center gap-4 mt-3">
+          <div className="flex items-center gap-4 mt-2">
             <div className="flex items-baseline gap-1.5">
               <span className="text-[15px] font-bold text-gray-900">{tasks.filter(t => t.status === "open").length}</span>
               <span className="text-[12px] text-gray-400">open now</span>
@@ -765,75 +765,66 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
         </div>
       )}
 
-      {/* Featured Campaigns */}
+      {/* Hierarchy (Oscar Jul 5 screenshot): ONE hero leads, everything else
+          secondary — the second campaign and the game share a compact duo row,
+          zero-task campaigns are invisible (no link graveyard), and the task
+          list starts inside the first viewport. */}
       {tab === "available" && !loading && campaigns.length > 0 && (() => {
-        // Full banners for campaigns that actually have open tasks (featured
-        // first, max 2 — Oscar Jul 5 review); everything else collapses into a
-        // small text row so it never buries the board.
         const openCountFor = (c: Campaign) =>
           tasks.filter((t) => t.campaignId === c.id && t.status === "open").length;
         const live = campaigns
           .filter((c) => openCountFor(c) > 0)
-          .sort((a, b) => Number(b.featured) - Number(a.featured))
-          .slice(0, 2);
-        const rest = campaigns.filter((c) => !live.some((l) => l.id === c.id));
+          .sort((a, b) => Number(b.featured) - Number(a.featured));
+        const hero = live[0];
+        const second = live[1];
         return (
-          <div className="px-6 pt-4 flex flex-col gap-3">
-            {live.map((c) => (
+          <div className="px-6 pt-4 flex flex-col gap-2.5">
+            {hero && (
               <FeaturedCampaignBanner
-                key={c.id}
-                campaign={c}
+                campaign={hero}
                 taskCount={tasks.length}
                 completedCount={tasks.filter(t => t.status === "completed").length}
                 tasks={tasks}
-                onTap={() => { hapticTap(); setSelectedCampaign(c); setView("campaign"); }}
+                onTap={() => { hapticTap(); setSelectedCampaign(hero); setView("campaign"); }}
               />
-            ))}
-            {rest.length > 0 && (
-              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
-                <span className="text-[11px] text-gray-400 shrink-0">More:</span>
-                {rest.map((c, i) => (
-                  <button
-                    key={c.id}
-                    onClick={() => { hapticTap(); setSelectedCampaign(c); setView("campaign"); }}
-                    className="shrink-0 text-[12px] font-medium text-gray-500 underline underline-offset-2 active:text-gray-900"
-                  >
-                    {c.name}{i < rest.length - 1 ? "" : ""}
-                  </button>
-                ))}
-              </div>
             )}
+            <div className="grid grid-cols-2 gap-2.5">
+              {second && (
+                <button
+                  onClick={() => { hapticTap(); setSelectedCampaign(second); setView("campaign"); }}
+                  className="relative h-[72px] rounded-xl overflow-hidden active:scale-[0.97] transition-transform text-left"
+                >
+                  {second.heroImage && (
+                    <img src={second.heroImage} alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/85 to-black/35" />
+                  <div className="relative h-full px-3.5 py-2.5 flex flex-col justify-end">
+                    <p className="text-[13px] font-bold text-white leading-tight line-clamp-1">{second.name}</p>
+                    <p className="text-[10px] text-white/60 mt-0.5">
+                      {second.unlock ? `$${second.unlock.unlockAmount} unlock` : `${openCountFor(second)} tasks`}
+                    </p>
+                  </div>
+                </button>
+              )}
+              <button
+                onClick={() => { hapticTap(); setView("jury"); }}
+                className={`relative h-[72px] rounded-xl overflow-hidden active:scale-[0.97] transition-transform text-left ${second ? "" : "col-span-2"}`}
+              >
+                <img src="/hero/cyclist.jpg" alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/85 to-black/35" />
+                <div className="relative h-full px-3.5 py-2.5 flex flex-col justify-end">
+                  <p className="text-[13px] font-black text-white leading-tight tracking-wider">REAL OR NOT</p>
+                  <p className="text-[10px] text-white/60 mt-0.5">Swipe proofs, earn points</p>
+                </div>
+                <span className="absolute top-2 right-2 flex -space-x-1">
+                  <span className="w-5 h-5 rounded-full bg-black/50 border border-red-400/60 flex items-center justify-center text-red-400 text-[9px] font-black">✕</span>
+                  <span className="w-5 h-5 rounded-full bg-black/50 border border-green-400/60 flex items-center justify-center text-green-400 text-[9px] font-black">✓</span>
+                </span>
+              </button>
+            </div>
           </div>
         );
       })()}
-
-      {/* REAL OR NOT — the swipe game, dressed like a campaign (hero + scrim):
-          that visual language is the strongest thing on the board. */}
-      {tab === "available" && !loading && (
-        <div className="px-6 pt-3">
-          <button
-            onClick={() => { hapticTap(); setView("jury"); }}
-            className="w-full relative rounded-2xl overflow-hidden active:scale-[0.98] transition-all text-left"
-          >
-            <img src="/hero/cyclist.jpg" alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
-            <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/60 to-black/25" />
-            <div className="relative px-5 py-5 flex items-center justify-between">
-              <div>
-                <div className="inline-flex items-center gap-1.5 mb-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-                  <span className="text-[10px] font-medium text-white/60 tracking-wide uppercase">Game</span>
-                </div>
-                <h3 className="text-[15px] font-black text-white leading-tight tracking-widest">REAL OR NOT</h3>
-                <p className="text-xs text-white/50 mt-1">Swipe proofs. Spot the fakes. Right calls earn points.</p>
-              </div>
-              <div className="flex -space-x-1.5 shrink-0">
-                <span className="w-9 h-9 rounded-full bg-black/40 backdrop-blur-sm border border-red-400/60 flex items-center justify-center text-red-400 text-[13px] font-black">✕</span>
-                <span className="w-9 h-9 rounded-full bg-black/40 backdrop-blur-sm border border-green-400/60 flex items-center justify-center text-green-400 text-[13px] font-black">✓</span>
-              </div>
-            </div>
-          </button>
-        </div>
-      )}
 
       {/* Polls tab */}
       {tab === "polls" && (
