@@ -6,6 +6,7 @@ import { ProofOfFavourCard } from "@/components/ProofOfFavourCard";
 import { VerificationBadge } from "@/components/VerificationBadge";
 import { displayName, profilePicture, useWorldUsers } from "@/hooks/useWorldUser";
 import { rewardAmountLabel } from "@/lib/reward";
+import { shareInvite } from "@/lib/minikit-helpers";
 import {
   Typography,
   Spinner,
@@ -284,6 +285,23 @@ export default function ProfilePage() {
               </div>
             );
           })()}
+
+          {/* Invite a friend (referral: both sides earn points, referrer paid
+              when the invitee completes their first clean favour) */}
+          {userId && userId.startsWith("0x") && (
+            <button
+              onClick={() => shareInvite(userId)}
+              className="w-full bg-gray-900 text-white rounded-2xl px-5 py-4 flex items-center justify-between active:scale-[0.98] transition-transform"
+            >
+              <div className="text-left">
+                <p className="text-[14px] font-semibold">Invite a friend</p>
+                <p className="text-[12px] text-white/60 mt-0.5">You both earn points when they complete their first favour</p>
+              </div>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" /><polyline points="16 6 12 2 8 6" /><line x1="12" y1="2" x2="12" y2="15" />
+              </svg>
+            </button>
+          )}
 
           {/* Footer */}
           <div className="flex items-center justify-center gap-2 pt-2">

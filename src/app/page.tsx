@@ -43,6 +43,15 @@ export default function Home() {
 
   useEffect(() => {
     try { setIsInWorldApp(MiniKit.isInstalled()); } catch { setIsInWorldApp(false); }
+    // Referral capture: a ?ref=<wallet> on the landing URL is remembered until
+    // the first sign-in, where it rides along to /api/verify-identity. Server
+    // side validates everything; storing junk here is harmless.
+    try {
+      const ref = new URLSearchParams(window.location.search).get("ref");
+      if (ref && !localStorage.getItem("relay_user_id")) {
+        localStorage.setItem("favour_ref", ref);
+      }
+    } catch {}
     const stored = localStorage.getItem("relay_user_id");
     const storedLevel = localStorage.getItem("relay_verification_level") as VerificationLevel;
     if (stored) {
@@ -85,8 +94,10 @@ export default function Home() {
               address: addr,
               signature: result.data.signature,
               message: result.data.message,
+              ref: localStorage.getItem("favour_ref") || undefined,
             }),
           });
+          localStorage.removeItem("favour_ref");
 
           MiniKit.getUserByAddress(addr).then(u => {
             setWelcomeMsg(`Welcome, ${u?.username ? `@${u.username}` : displayName(addr)}`);
