@@ -5,8 +5,11 @@
 set -u
 cd "$HOME/CODE/world-relay"
 
-# Headless runs have no keychain/OAuth: key comes from .env.local (chmod 600).
-export ANTHROPIC_API_KEY="$(grep '^ANTHROPIC_API_KEY=' .env.local | cut -d= -f2- | tr -d '\"')"
+# Auth: the Max-plan claude.ai login (keychain is available in the gui launchd
+# domain while Oscar is logged in) — verified working headless Jul 6. NO API
+# key on purpose: setting one would silently switch billing from subscription
+# to per-token API. The 05:00 slot uses quota that is idle anyway.
+unset ANTHROPIC_API_KEY
 export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 
 LOG="$HOME/CODE/world-relay/scripts/.night-shift.log"
