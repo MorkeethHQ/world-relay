@@ -171,6 +171,8 @@ export async function POST(req: NextRequest) {
     // direct submission is the main acquisition path, not /claim.
     const seedCap = await checkSeedCap(task, submitter);
     if (!seedCap.allowed) {
+      // The churn moment: a motivated user told to stop. Now measurable.
+      trackEvent("cap_hit", { submitter: submitter || "" }).catch(() => {});
       return NextResponse.json({ error: "Daily limit reached", message: seedCap.message }, { status: 403 });
     }
     // Verification-tier gate for funded tasks. /claim enforces this, but direct

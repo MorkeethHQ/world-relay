@@ -1,5 +1,6 @@
 import { getRedis } from "./redis";
 import { awardPoints, getProofOfFavour } from "./proof-of-favour";
+import { trackEvent } from "./track";
 
 // Referral loop (decision-log 2026-07-05: consumer engagement is the product).
 // Activation-gated per the Revolut/Kraken pattern: the real reward pays only
@@ -40,6 +41,7 @@ export async function attributeReferral(invitee: string, referrer: string): Prom
 
   await redis.sadd(key.of(referrer), invitee.toLowerCase());
   await awardPoints(invitee, "referral_welcome", REFERRAL_WELCOME_POINTS).catch(console.error);
+  trackEvent("referral_attributed").catch(() => {});
   return true;
 }
 
@@ -63,6 +65,7 @@ export async function recordReferralActivation(invitee: string): Promise<boolean
     if (n > REFERRAL_LIFETIME_CAP) return false;
 
     await awardPoints(referrer, "referral_activated", REFERRAL_ACTIVATION_POINTS).catch(console.error);
+    trackEvent("referral_activated").catch(() => {});
     return true;
   } catch (err) {
     console.error("[Referral] activation failed:", err);

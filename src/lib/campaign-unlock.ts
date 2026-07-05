@@ -3,6 +3,7 @@ import type { Task } from "./types";
 import { getCampaign } from "./campaigns";
 import { getRedis } from "./redis";
 import { getPayoutClients, USDC_ADDRESS } from "./escrow";
+import { trackEvent } from "./track";
 
 // Campaign-unlock mechanic (spec: vault campaign-unlock-mechanic.md, decided
 // Jul 5: threshold unlock, off-chain MVP, Orb is the key).
@@ -226,6 +227,7 @@ export async function tryUnlockPayout(
       return null;
     }
     await redis.srem("unlock:retry", `${campaignId}|${wallet}`);
+    trackEvent("unlock_paid", { campaignId, amount: campaign.unlock.unlockAmount }).catch(() => {});
     console.log(`[Unlock] ${wallet} unlocked $${campaign.unlock.unlockAmount} from ${campaignId}: ${result.hash}`);
     return result.hash;
   } finally {
