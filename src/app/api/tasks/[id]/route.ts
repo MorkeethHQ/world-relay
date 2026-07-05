@@ -3,6 +3,7 @@ import { getTask, setOnChainId } from "@/lib/store";
 import { getAgent } from "@/lib/agents";
 import { getRedis } from "@/lib/redis";
 import { isEscrowTaskFunded } from "@/lib/escrow";
+import { toApiTask } from "@/lib/task-serializer";
 
 /** Return full task detail, omitting only internal keys like claimCode. */
 function detailTask(task: Record<string, unknown>) {
@@ -21,7 +22,7 @@ export async function GET(
     return NextResponse.json({ error: "Task not found" }, { status: 404 });
   }
 
-  return NextResponse.json({ task: detailTask(task as unknown as Record<string, unknown>) });
+  return NextResponse.json({ task: detailTask(toApiTask(task) as unknown as Record<string, unknown>) });
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { listTasks } from "@/lib/store";
 import { isRealMoney } from "@/lib/reward";
+import { toApiTasks } from "@/lib/task-serializer";
 import type { Task, TaskCategory, TaskStatus } from "@/lib/types";
 
 const VALID_CATEGORIES: TaskCategory[] = ["photo", "delivery", "check-in", "custom", "feedback"];
@@ -126,7 +127,7 @@ export async function GET(req: NextRequest) {
   if (sort !== "newest") filtersApplied.sort = sort;
 
   return NextResponse.json({
-    tasks: paginated,
+    tasks: toApiTasks(paginated),
     pagination: { total, limit, offset, hasMore },
     filters_applied: filtersApplied,
   });

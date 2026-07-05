@@ -7,6 +7,7 @@ import { broadcastEvent } from "@/lib/sse";
 import { createEscrowTaskWithKey } from "@/lib/escrow";
 import { getRedis } from "@/lib/redis";
 import { checkAgentAuth } from "@/lib/api-keys";
+import { toApiTask } from "@/lib/task-serializer";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { sanitizeInput } from "@/lib/sanitize";
 
@@ -84,7 +85,7 @@ export async function GET(req: NextRequest) {
       // Include extra fields for completed/failed tasks
       if (t.status === "completed" || t.status === "failed") {
         base.claimant = t.claimant;
-        base.proofImageUrl = t.proofImageUrl;
+        base.proofImageUrl = toApiTask(t).proofImageUrl;
         base.attestationTxHash = t.attestationTxHash;
         if (t.verificationResult) {
           base.verificationResult = {

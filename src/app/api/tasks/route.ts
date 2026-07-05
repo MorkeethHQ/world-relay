@@ -11,11 +11,12 @@ import { trackEvent } from "@/lib/track";
 import { getCampaign } from "@/lib/campaigns";
 import { isEscrowTaskFunded } from "@/lib/escrow";
 import { isTemplateCopy, MIN_DESCRIPTION_LENGTH } from "@/lib/post-templates";
+import { toApiTasks } from "@/lib/task-serializer";
 
 export async function GET() {
   trackEvent("feed_loaded").catch(() => {});
   const tasks = await listTasks();
-  return NextResponse.json({ tasks }, {
+  return NextResponse.json({ tasks: toApiTasks(tasks) }, {
     headers: { "Cache-Control": "public, s-maxage=5, stale-while-revalidate=10" },
   });
 }
