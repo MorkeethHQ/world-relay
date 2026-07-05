@@ -11,12 +11,12 @@ import { trackEvent } from "@/lib/track";
 import { getCampaign } from "@/lib/campaigns";
 import { isEscrowTaskFunded } from "@/lib/escrow";
 import { isTemplateCopy, MIN_DESCRIPTION_LENGTH } from "@/lib/post-templates";
-import { toApiTasks } from "@/lib/task-serializer";
+import { toApiTasks, isPublicTask } from "@/lib/task-serializer";
 import { orderBoardForApi } from "@/lib/board-rank";
 
 export async function GET() {
   trackEvent("feed_loaded").catch(() => {});
-  const tasks = await listTasks();
+  const tasks = (await listTasks()).filter(isPublicTask);
   // BOARD-RULES.md R1+R5 are enforced here too, so API consumers (agents,
   // integrations) get the same board composition as the app.
   const ordered = orderBoardForApi(tasks, Date.now());

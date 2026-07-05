@@ -1,7 +1,7 @@
 import type { Task } from "./types";
 import { getRedis } from "./redis";
 import { awardPoints } from "./proof-of-favour";
-import { proofImagePath } from "./task-serializer";
+import { proofImagePath, isPublicTask } from "./task-serializer";
 
 // REAL OR NOT — the peer jury game (decision-log 2026-07-05 night).
 // One-tap/swipe verdicts on proofs: "does this photo actually match this
@@ -42,6 +42,7 @@ export function isMatchKey(key: string): { proofTaskId: string; descTaskId: stri
 export function juryPool(tasks: Task[], judge: string | null): Task[] {
   return tasks.filter(
     (t) =>
+      isPublicTask(t) &&
       t.status === "completed" &&
       !!t.proofImageUrl &&
       t.verificationResult?.verdict === "pass" &&
