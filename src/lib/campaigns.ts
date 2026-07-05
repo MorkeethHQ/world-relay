@@ -60,7 +60,7 @@ export const CAMPAIGNS: Campaign[] = [
     brand: "RELAY",
     tagline: "Help us build the world's first AI-verified task network",
     description:
-      "Complete real-world tasks across Paris and beyond. Every task is verified by 3 AI models and paid in USDC instantly. Early contributors build reputation that unlocks higher-value tasks later.",
+      "Complete real-world tasks across Paris and beyond. Every task is AI-verified and paid in USDC. Early contributors build reputation that unlocks higher-value tasks later.",
     heroGradient: "from-gray-900 via-gray-800 to-gray-700",
     heroImage: "/hero/friends.jpg",
     accentColor: "#191C20",
@@ -115,7 +115,7 @@ export const CAMPAIGNS: Campaign[] = [
     brand: "FAVOUR",
     tagline: "AI can't see the real world. You can.",
     description:
-      "The big one. AI agents are flying blind on the physical world — real prices, real queues, real hours, real conditions no API has. Capture verified ground truth across your city and rack up points. Every task is checked by 3 AI models; AI-generated or fake proof earns nothing. Grind clean tasks, climb the board, and Orb-verified humans unlock a share of the pot. This is how AI finally gets eyes on the ground.",
+      "The big one. AI agents are flying blind on the physical world — real prices, real queues, real hours, real conditions no API has. Capture verified ground truth across your city and rack up points. Every task is AI-verified; AI-generated or fake proof earns nothing. Grind clean tasks, climb the board, and Orb-verified humans unlock a share of the pot. This is how AI finally gets eyes on the ground.",
     heroGradient: "from-indigo-950 via-blue-900 to-slate-800",
     heroImage: "/hero/cyclist.jpg",
     accentColor: "#1e3a8a",
