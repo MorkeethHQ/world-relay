@@ -3,7 +3,6 @@ import { listTasks, createTask, getTask } from "./store";
 import type { Task } from "./types";
 import { AGENT_REGISTRY } from "./agents";
 import { rewardAmountLabel, sumRewards } from "./reward";
-import { getTodaysChallenge } from "./daily-challenge";
 
 const BASE_URL = "https://world-relay.vercel.app";
 
@@ -43,13 +42,10 @@ function buildNetworkContext(tasks: Task[]): string {
     .map(a => `${a.name}: ${a.personality?.slice(0, 60) || "AI agent"}`)
     .join(", ");
 
-  const challenge = getTodaysChallenge();
-
   return `NETWORK STATE:
 - ${open.length} open (${funded.length} funded with USDC), ${claimed.length} in progress, ${completed.length} completed
 - $${totals.usdc.toFixed(0)} USDC + ${totals.points} pts in available favours
 - AI agents: ${agents}
-- Daily challenge: "${challenge.title}"
 
 TOP AVAILABLE:
 ${topTasks || "None right now."}
