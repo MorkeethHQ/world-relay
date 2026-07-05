@@ -152,6 +152,37 @@ export async function shareTask(opts: ShareTaskOptions): Promise<boolean> {
   return false;
 }
 
+/**
+ * Share a referral invite. The ?ref= wallet rides the link into the landing
+ * page and attributes the invitee at first sign-in (src/lib/referral.ts).
+ */
+export async function shareInvite(userId: string): Promise<boolean> {
+  const title = "FAVOUR — earn for real-world favours";
+  const text = "Join me on FAVOUR: verified humans do small real-world favours and earn. We both get points when you complete your first one.";
+  const url = typeof window !== "undefined"
+    ? `${window.location.origin}/?ref=${encodeURIComponent(userId)}`
+    : "";
+
+  try {
+    if (isMiniKitReady()) {
+      await MiniKit.share({ title, text, url });
+      await hapticSuccess();
+      return true;
+    }
+    if (typeof navigator !== "undefined" && navigator.share) {
+      await navigator.share({ title, text, url });
+      return true;
+    }
+    if (typeof navigator !== "undefined" && navigator.clipboard) {
+      await navigator.clipboard.writeText(`${text}\n${url}`);
+      return true;
+    }
+  } catch {
+    // User cancelled or API not available
+  }
+  return false;
+}
+
 // ---------------------------------------------------------------------------
 // Pay (direct MiniKit.pay, separate from sendTransaction escrow)
 // ---------------------------------------------------------------------------

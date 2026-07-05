@@ -21,6 +21,7 @@ import { checkSeedCap, recordSeededEarn } from "@/lib/seed-caps";
 import { tierGateError } from "@/lib/verification-tier";
 import { recordCampaignCompletion } from "@/lib/campaign-unlock";
 import { getCampaign } from "@/lib/campaigns";
+import { recordReferralActivation } from "@/lib/referral";
 
 export const maxDuration = 60;
 
@@ -368,6 +369,9 @@ export async function POST(req: NextRequest) {
 
   if (task.claimant) {
     if (result.verdict === "pass") {
+      // Referral activation: the invitee's first clean completion pays the
+      // referrer (points only, once, capped — see src/lib/referral.ts).
+      recordReferralActivation(task.claimant).catch(console.error);
       // Count this earn against the claimant's daily seeded-task cap.
       recordSeededEarn(task, task.claimant).catch(console.error);
       // Award attempt and completion points only on a passing verdict.

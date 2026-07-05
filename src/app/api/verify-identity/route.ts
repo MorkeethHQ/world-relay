@@ -4,6 +4,7 @@ import { worldchain } from "viem/chains";
 import { getRedis } from "@/lib/redis";
 import { trackVisitor } from "@/lib/track";
 import { issueSessionToken, SESSION_COOKIE } from "@/lib/session";
+import { attributeReferral } from "@/lib/referral";
 
 // Verify that `signature` over `message` was really produced by `address`.
 // World App wallets are smart-contract accounts, so this must be an on-chain
@@ -129,6 +130,12 @@ export async function POST(req: NextRequest) {
     });
 
     trackVisitor(body.address).catch(() => {});
+
+    // Referral attribution (points only; all validation lives in referral.ts:
+    // wallet format, self-ref, once-ever, invitee must have no completions).
+    if (typeof body.ref === "string") {
+      attributeReferral(body.address, body.ref).catch(console.error);
+    }
 
     const res = NextResponse.json({
       verified: true,
