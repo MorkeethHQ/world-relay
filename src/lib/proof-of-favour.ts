@@ -84,8 +84,63 @@ export type ProofOfFavour = {
   currentStreak: number;
   longestStreak: number;
   lastActivityDate: string; // ISO date string (date only, for streak tracking)
+  streakFreezes?: number; // owned freezes (max STREAK_FREEZE_MAX_HELD); absorb one missed day each
   pointsHistory: Array<{ action: string; points: number; timestamp: string }>; // last 20 entries
 };
+
+// --- Streak freeze: the first points SINK ---
+// Buy insurance for your streak with points. One freeze absorbs exactly one
+// missed day (a 2-day gap); longer gaps still reset. Duolingo's best-documented
+// retention mechanic, points-denominated so it costs us nothing.
+export const STREAK_FREEZE_COST = 30;
+export const STREAK_FREEZE_MAX_HELD = 2;
+
+// Generic points spend (sinks: prediction stakes, future boosts). Fails
+// closed on insufficient balance; records a negative history line.
+export async function spendPoints(
+  address: string,
+  action: string,
+  amount: number
+): Promise<{ ok: boolean; error?: string; totalPoints?: number }> {
+  if (!isRealWallet(address)) return { ok: false, error: "A wallet account is required" };
+  if (!Number.isFinite(amount) || amount <= 0) return { ok: false, error: "Bad amount" };
+  const profile = await getProofOfFavour(address);
+  if (profile.totalPoints < amount) {
+    return { ok: false, error: `Not enough points — you have ${Math.round(profile.totalPoints)}, this needs ${amount}` };
+  }
+  profile.totalPoints -= amount;
+  profile.level = getLevel(profile.totalPoints);
+  profile.pointsHistory.push({ action, points: -amount, timestamp: new Date().toISOString() });
+  if (profile.pointsHistory.length > MAX_HISTORY) {
+    profile.pointsHistory = profile.pointsHistory.slice(-MAX_HISTORY);
+  }
+  await saveProfile(profile);
+  return { ok: true, totalPoints: profile.totalPoints };
+}
+
+export async function buyStreakFreeze(address: string): Promise<{ ok: boolean; error?: string; profile?: ProofOfFavour }> {
+  const profile = await getProofOfFavour(address);
+  if (!isRealWallet(address)) return { ok: false, error: "A wallet account is required" };
+  if ((profile.streakFreezes || 0) >= STREAK_FREEZE_MAX_HELD) {
+    return { ok: false, error: `You already hold ${STREAK_FREEZE_MAX_HELD} freezes` };
+  }
+  if (profile.totalPoints < STREAK_FREEZE_COST) {
+    return { ok: false, error: `A freeze costs ${STREAK_FREEZE_COST} pts — you have ${Math.round(profile.totalPoints)}` };
+  }
+  profile.totalPoints -= STREAK_FREEZE_COST;
+  profile.streakFreezes = (profile.streakFreezes || 0) + 1;
+  profile.level = getLevel(profile.totalPoints);
+  profile.pointsHistory.push({
+    action: "streak_freeze_bought",
+    points: -STREAK_FREEZE_COST,
+    timestamp: new Date().toISOString(),
+  });
+  if (profile.pointsHistory.length > MAX_HISTORY) {
+    profile.pointsHistory = profile.pointsHistory.slice(-MAX_HISTORY);
+  }
+  await saveProfile(profile);
+  return { ok: true, profile };
+}
 
 // --- Level thresholds ---
 
@@ -175,6 +230,17 @@ function updateStreak(profile: ProofOfFavour): void {
   if (diffDays === 1) {
     // Consecutive day
     profile.currentStreak += 1;
+  } else if ((profile.streakFreezes || 0) > 0 && diffDays === 2) {
+    // A single missed day is absorbed by a streak freeze (the first points
+    // sink — see buyStreakFreeze). Longer gaps still reset: freezes protect
+    // a habit, they don't fake one.
+    profile.streakFreezes = (profile.streakFreezes || 0) - 1;
+    profile.currentStreak += 1;
+    profile.pointsHistory.push({
+      action: "streak_freeze_used",
+      points: 0,
+      timestamp: new Date().toISOString(),
+    });
   } else {
     // Gap — reset streak
     profile.currentStreak = 1;

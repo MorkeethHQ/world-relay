@@ -529,6 +529,55 @@ function CompactCard({
 // Full card (profile view)
 // ---------------------------------------------------------------------------
 
+// Streak freeze purchase: one freeze absorbs one missed day; 30 pts each,
+// hold max 2. Self-contained (own state) so any card variant can mount it.
+function StreakFreezeRow({ profile }: { profile: ProofOfFavour }) {
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [override, setOverride] = useState<{ freezes: number; points: number } | null>(null);
+  const freezes = override ? override.freezes : ((profile as { streakFreezes?: number }).streakFreezes || 0);
+
+  const buy = async () => {
+    if (busy) return;
+    setBusy(true);
+    setMsg(null);
+    try {
+      const res = await fetch("/api/proof-of-favour/freeze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ address: profile.address }),
+      });
+      const d = await res.json().catch(() => ({} as Record<string, unknown>));
+      if (!res.ok) setMsg(typeof d.error === "string" ? d.error : "Couldn't buy a freeze");
+      else setOverride({ freezes: Number(d.streakFreezes || 0), points: Number(d.totalPoints || 0) });
+    } catch {
+      setMsg("Network hiccup, try again");
+    }
+    setBusy(false);
+  };
+
+  return (
+    <div>
+      <div className="flex items-center justify-between rounded-xl bg-white/60 border border-gray-200 px-3.5 py-3">
+        <div>
+          <p className="text-[13px] font-semibold text-gray-900">
+            Streak freeze{freezes > 0 ? ` · ${freezes} held` : ""}
+          </p>
+          <p className="text-[11px] text-gray-400 mt-0.5">Covers one missed day. 30 pts each, hold 2.</p>
+        </div>
+        <button
+          onClick={buy}
+          disabled={busy}
+          className="shrink-0 bg-gray-900 text-white text-[12px] font-semibold px-3.5 py-2 rounded-full active:scale-95 transition-transform disabled:opacity-50"
+        >
+          {busy ? "..." : "Buy freeze"}
+        </button>
+      </div>
+      {msg && <p className="text-[11px] text-red-600 mt-1.5">{msg}</p>}
+    </div>
+  );
+}
+
 function FullCard({
   profile,
   nextLevel,
@@ -648,6 +697,9 @@ function FullCard({
           surfaceClassName={`${config.badgeBg} border ${config.badgeBorder}`}
         />
       </div>
+
+      {/* Streak freeze — the first points sink (self-contained row). */}
+      <StreakFreezeRow profile={profile} />
 
       {/* Recent points history */}
       {recentHistory.length > 0 && (

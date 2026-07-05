@@ -51,6 +51,7 @@ export function PollCard({
   const [hasVoted, setHasVoted] = useState(!!poll.youVoted);
   const [localVotes, setLocalVotes] = useState(poll.votes);
   const [localTotal, setLocalTotal] = useState(poll.totalVotes);
+  const [voteError, setVoteError] = useState<string | null>(null);
   // Tracks whether the user voted in THIS session, so a late-arriving fetch
   // can never un-vote a card the user just interacted with.
   const votedThisSessionRef = useRef(false);
@@ -98,7 +99,10 @@ export function PollCard({
       // rejection), LOCK the card on its authoritative tallies — rolling back
       // to an open state produced the "votes for 1 second then flips back"
       // bug for anyone who had voted in an earlier session. Roll back only
-      // when the server said nothing at all (true network failure).
+      // when the server said nothing at all (true network failure). Either
+      // way, SAY what happened (silent shifts read as breakage).
+      setVoteError(result.error || "Vote didn't reach the server — try again");
+      setTimeout(() => setVoteError(null), 4000);
       if (result.poll) {
         setLocalVotes(result.poll.votes);
         setLocalTotal(result.poll.totalVotes);
@@ -129,6 +133,7 @@ export function PollCard({
           <span className="text-xs text-gray-300">&middot;</span>
           <span className="text-xs text-gray-400">{timeLeft(poll.endsAt)}</span>
         </div>
+        {voteError && <p className="text-[11px] text-red-600 mt-1.5">{voteError}</p>}
       </div>
 
       <div className="px-5 pb-5 flex flex-col gap-2">

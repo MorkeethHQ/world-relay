@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { PollsFeed } from "@/components/Polls";
+import { PredictionsSection } from "@/components/Predictions";
 
 // Polls as a first-class bottom-nav page (Oscar Jul 5: one navigation, not
 // two). The Feed keeps its inline poll cards; this is the full surface.
@@ -17,7 +18,8 @@ export default function PollsPage() {
       <div className="sticky top-0 z-10 bg-white/95 backdrop-blur-md border-b border-gray-100 px-6 py-3">
         <h1 className="text-[18px] font-bold tracking-tight text-gray-900">Polls</h1>
       </div>
-      <div className="px-6 py-4 pb-28">
+      <div className="px-6 py-4 pb-28 flex flex-col gap-4">
+        <PredictionsSection userId={userId} />
         <PollsFeed userId={userId} />
       </div>
     </div>

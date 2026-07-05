@@ -1,7 +1,6 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { Tabs, TabItem } from "@worldcoin/mini-apps-ui-kit-react";
 
 const ROUTES = [
   {
@@ -80,11 +79,27 @@ export function BottomNav() {
       role="navigation"
       aria-label="Main navigation"
     >
-      <Tabs value={activeValue} onValueChange={(v) => v && router.push(v)}>
-        {ROUTES.map((route) => (
-          <TabItem key={route.value} value={route.value} icon={route.icon} label={route.label} />
-        ))}
-      </Tabs>
+      {/* Custom compact items — the kit's TabItem renders far too large on
+          mobile with 5 tabs (Oscar Jul 5 night review). */}
+      <div className="flex items-center justify-around pt-1.5 pb-1">
+        {ROUTES.map((route) => {
+          const active = route.value === activeValue;
+          return (
+            <button
+              key={route.value}
+              onClick={() => router.push(route.value)}
+              className={`flex flex-col items-center justify-center gap-0.5 min-w-[56px] min-h-[44px] transition-colors ${
+                active ? "text-gray-900" : "text-gray-400"
+              }`}
+              aria-label={route.label}
+              aria-current={active ? "page" : undefined}
+            >
+              <span className="[&>svg]:w-[21px] [&>svg]:h-[21px]">{route.icon}</span>
+              <span className={`text-[9.5px] leading-none ${active ? "font-semibold" : "font-medium"}`}>{route.label}</span>
+            </button>
+          );
+        })}
+      </div>
     </nav>
   );
 }
