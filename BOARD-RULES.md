@@ -31,6 +31,16 @@ recur silently.
   board caps at `BOARD_CAP` (30). The user's own posts/claims are never hidden by
   any cap.
 
+## Where each rule is enforced
+
+- **Server (`GET /api/tasks` via `orderBoardForApi`):** R5 tier order + R1 feedback
+  demotion, anonymously (no user identity/location server-side), reorder only —
+  the API never drops a task. Agents and integrations get the same composition.
+- **Client (Feed via `rankBoard`/`curateBoard`):** re-ranks with user context (own
+  claims, proximity) and applies display caps: `BOARD_CAP`, duplicate collapse,
+  R2 poll placement. Display caps stay client-side because only the client knows
+  whose board it is (own posts are never hidden).
+
 ## Why these priorities
 
 We optimise for the points journey now (welcome campaign = featured) and brand/UGC

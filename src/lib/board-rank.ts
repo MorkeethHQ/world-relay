@@ -103,6 +103,34 @@ export function rankBoard(
   });
 }
 
+// R1 pass: demote feedback tasks past the cap out of the first FEEDBACK_WINDOW
+// slots. Pure reordering — never drops a task. Exempt tasks (the user's own)
+// neither defer nor count toward the cap.
+export function demoteFeedbackOverflow(ranked: Task[], isExempt: (t: Task) => boolean): Task[] {
+  const placed: Task[] = [];
+  const deferred: Task[] = [];
+  let feedbackInWindow = 0;
+  for (const t of ranked) {
+    if (
+      placed.length < FEEDBACK_WINDOW &&
+      t.category === "feedback" &&
+      !isExempt(t) &&
+      feedbackInWindow >= FEEDBACK_MAX_IN_WINDOW
+    ) {
+      deferred.push(t);
+      continue;
+    }
+    if (placed.length < FEEDBACK_WINDOW && t.category === "feedback") feedbackInWindow++;
+    placed.push(t);
+    if (placed.length === FEEDBACK_WINDOW && deferred.length) {
+      placed.push(...deferred);
+      deferred.length = 0;
+    }
+  }
+  placed.push(...deferred);
+  return placed;
+}
+
 // Curation on top of the ranked list: duplicate-description collapse, the R1
 // feedback share cap, and the board cap. The user's own posts/claims are exempt
 // from every cap and never hidden.
@@ -119,28 +147,22 @@ export function curateBoard(ranked: Task[], userId: string | null): Task[] {
     return true;
   });
 
-  const placed: Task[] = [];
-  const deferred: Task[] = [];
-  let feedbackInWindow = 0;
-  for (const t of deduped) {
-    if (
-      placed.length < FEEDBACK_WINDOW &&
-      t.category === "feedback" &&
-      !isMine(t) &&
-      feedbackInWindow >= FEEDBACK_MAX_IN_WINDOW
-    ) {
-      deferred.push(t);
-      continue;
-    }
-    if (placed.length < FEEDBACK_WINDOW && t.category === "feedback") feedbackInWindow++;
-    placed.push(t);
-    if (placed.length === FEEDBACK_WINDOW && deferred.length) {
-      placed.push(...deferred);
-      deferred.length = 0;
-    }
-  }
-  placed.push(...deferred);
+  const placed = demoteFeedbackOverflow(deduped, isMine);
 
   if (placed.length <= BOARD_CAP) return placed;
   return placed.slice(0, BOARD_CAP).concat(placed.slice(BOARD_CAP).filter(isMine));
+}
+
+// Server-side enforcement of R1 + R5 in GET /api/tasks: open tasks come first in
+// board order (ranked anonymously — no user identity or location server-side),
+// with feedback overflow demoted; everything else (claimed/completed/cancelled)
+// follows in recency order. NEVER drops a task — display caps (BOARD_CAP,
+// duplicate collapse, R2 poll placement) are the client's job, because only the
+// client knows whose board it is. Agents and API consumers therefore see the
+// same composition rules as the app.
+export function orderBoardForApi(tasks: Task[], now: number): Task[] {
+  const open = tasks.filter((t) => t.status === "open");
+  const rest = tasks.filter((t) => t.status !== "open");
+  const ranked = rankBoard(open, { userId: null, userLocation: null, now });
+  return demoteFeedbackOverflow(ranked, () => false).concat(rest);
 }
