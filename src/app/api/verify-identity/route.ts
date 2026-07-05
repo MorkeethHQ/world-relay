@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createPublicClient, http } from "viem";
 import { worldchain } from "viem/chains";
 import { getRedis } from "@/lib/redis";
-import { trackVisitor } from "@/lib/track";
+import { trackVisitor, trackEvent } from "@/lib/track";
 import { issueSessionToken, SESSION_COOKIE } from "@/lib/session";
 import { attributeReferral } from "@/lib/referral";
 
@@ -130,6 +130,7 @@ export async function POST(req: NextRequest) {
     });
 
     trackVisitor(body.address).catch(() => {});
+    trackEvent("sign_in", { level: "wallet" }).catch(() => {});
 
     // Referral attribution (points only; all validation lives in referral.ts:
     // wallet format, self-ref, once-ever, invitee must have no completions).

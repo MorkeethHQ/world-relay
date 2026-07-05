@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { vote } from "@/lib/polls-store";
+import { trackEvent } from "@/lib/track";
 
 // A vote is only counted per verified wallet. userId must be a wallet address;
 // this stops a client from minting fresh ids to vote repeatedly.
@@ -34,5 +35,7 @@ export async function POST(
     return NextResponse.json({ error, poll: sanitize(poll) }, { status: 400 });
   }
 
+  // The app's most-used action, previously invisible to analytics.
+  trackEvent("poll_vote", { pollId: id }).catch(() => {});
   return NextResponse.json({ poll: sanitize(poll) });
 }
