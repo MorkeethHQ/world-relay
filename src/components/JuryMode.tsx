@@ -5,7 +5,7 @@ import { hapticTap, hapticSuccess, hapticError } from "@/lib/minikit-helpers";
 import { CategoryIcon } from "@/components/CategoryIcon";
 
 type JuryCard = {
-  key: string;
+  cardId: string;
   proofImageUrl: string;
   proofNote: string | null;
   description: string;
@@ -44,7 +44,7 @@ export function JuryMode({ userId, onClose }: { userId: string | null; onClose: 
     busy.current = true;
     hapticTap();
     setDx(saidMatch ? 500 : -500);
-    const key = card.key;
+    const cardId = card.cardId;
 
     // Advance IMMEDIATELY — the deck must never wait on the network (the
     // v1 await here made every verdict lag and the card feel stuck).
@@ -59,7 +59,7 @@ export function JuryMode({ userId, onClose }: { userId: string | null; onClose: 
       fetch("/api/jury", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ address: userId, key, verdict: saidMatch ? "match" : "not" }),
+        body: JSON.stringify({ address: userId, cardId, verdict: saidMatch ? "match" : "not" }),
       })
         .then((res) => (res.ok ? res.json() : null))
         .then((result: { correct: boolean; isMatch: boolean; pointsAwarded: number } | null) => {

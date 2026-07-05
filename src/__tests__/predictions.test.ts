@@ -25,6 +25,12 @@ vi.mock("@/lib/redis", () => ({
       for (const [f, v] of Object.entries(obj)) h.set(f, v);
       mockHashes.set(key, h); return 1;
     },
+    hsetnx: async (key: string, field: string, value: string) => {
+      const h = mockHashes.get(key) || new Map<string, string>();
+      if (h.has(field)) return 0;
+      h.set(field, value); mockHashes.set(key, h); return 1;
+    },
+    hdel: async (key: string, field: string) => { mockHashes.get(key)?.delete(field); return 1; },
     hgetall: async (key: string) => Object.fromEntries(mockHashes.get(key) || new Map()),
   }),
 }));
@@ -52,6 +58,7 @@ const W = (n: number) => ("0x" + String(n).padStart(40, "0"));
 const NOW = new Date("2026-07-10T12:00:00Z").getTime();
 const FUTURE = "2026-07-19T18:00:00Z";
 const PAST = "2026-07-01T00:00:00Z";
+const AFTER_LOCK = new Date("2026-07-20T00:00:00Z").getTime();
 
 beforeEach(() => {
   mockStore.clear(); mockSets.clear(); mockHashes.clear();
@@ -99,7 +106,7 @@ describe("resolution", () => {
     await placeStake(p.id, W(1), "A", 30, NOW); // winner
     await placeStake(p.id, W(2), "A", 10, NOW); // winner
     await placeStake(p.id, W(3), "B", 40, NOW); // loser
-    const r = await resolvePrediction(p.id, "A");
+    const r = await resolvePrediction(p.id, "A", AFTER_LOCK);
     expect(r).toMatchObject({ ok: true, paid: 2 });
     // total pool 80, winning pool 40: W1 gets 80*30/40=60, W2 gets 80*10/40=20
     expect(balances.get(W(1))).toBe(70 + 60);
@@ -112,7 +119,7 @@ describe("resolution", () => {
     balances.set(W(1), 50); balances.set(W(2), 50);
     await placeStake(p.id, W(1), "A", 10, NOW);
     await placeStake(p.id, W(2), "B", 20, NOW);
-    const r = await resolvePrediction(p.id, "C");
+    const r = await resolvePrediction(p.id, "C", AFTER_LOCK);
     expect(r.refunded).toBe(2);
     expect(balances.get(W(1))).toBe(50);
     expect(balances.get(W(2))).toBe(50);
@@ -127,9 +134,9 @@ describe("resolution", () => {
     const p = await makeOpen();
     balances.set(W(1), 100);
     await placeStake(p.id, W(1), "A", 10, NOW);
-    expect((await resolvePrediction(p.id, "NOT_AN_OPTION")).ok).toBe(false);
-    expect((await resolvePrediction(p.id, "A")).ok).toBe(true);
-    const again = await resolvePrediction(p.id, "A");
+    expect((await resolvePrediction(p.id, "NOT_AN_OPTION", AFTER_LOCK)).ok).toBe(false);
+    expect((await resolvePrediction(p.id, "A", AFTER_LOCK)).ok).toBe(true);
+    const again = await resolvePrediction(p.id, "A", AFTER_LOCK);
     expect(again.ok).toBe(false);
     expect(again.error).toMatch(/Already resolved/);
     // Paid exactly once: 100 - 10 + 10 (sole winner takes own pool back)

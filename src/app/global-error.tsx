@@ -79,7 +79,7 @@ export default function GlobalError({
               Something went wrong
             </h1>
             <p style={{ color: "#9BA3AE", fontSize: "0.875rem", margin: 0 }}>
-              RELAY FAVOURS hit a critical error. Try reloading the page.
+              FAVOUR hit a critical error. Try reloading the page.
             </p>
             {error?.digest && (
               <p

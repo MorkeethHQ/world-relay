@@ -81,7 +81,7 @@ export async function generateLocationBriefing(task: Task, agentId?: string): Pr
     const response = await client.messages.create({
       model: HAIKU,
       max_tokens: 200,
-      system: `You are RELAY's AI scout. A new task was just posted. Generate a SHORT location-specific briefing for potential claimants. Include: best approach angle for photos, time-of-day tips, and one local context tip. Be specific to the EXACT location — reference street names, landmarks, nearby metro stops. Under 80 words. No greeting.${personalityNote}`,
+      system: `You are FAVOUR's AI scout. A new task was just posted. Generate a SHORT location-specific briefing for potential claimants. Include: best approach angle for photos, time-of-day tips, and one local context tip. Be specific to the EXACT location — reference street names, landmarks, nearby metro stops. Under 80 words. No greeting.${personalityNote}`,
       messages: [{
         role: "user",
         content: `Task: "${task.description}"\nLocation: ${task.location}\nCategory: ${task.category}\nReward: ${rewardAmountLabel(task)}`,
@@ -112,7 +112,7 @@ export async function generateClaimBriefing(task: Task, agentId?: string): Promi
     const response = await client.messages.create({
       model: HAIKU,
       max_tokens: 200,
-      system: `You are RELAY's AI assistant. A verified human just claimed a physical-world task. Generate a SHORT, friendly briefing with 3-4 specific tips for getting their proof photo verified on the first try. Be specific to THIS task — no generic advice. Use bullet points. Keep it under 100 words. No greeting, no sign-off.${personalityNote}`,
+      system: `You are FAVOUR's AI assistant. A verified human just claimed a physical-world task. Generate a SHORT, friendly briefing with 3-4 specific tips for getting their proof photo verified on the first try. Be specific to THIS task — no generic advice. Use bullet points. Keep it under 100 words. No greeting, no sign-off.${personalityNote}`,
       messages: [{
         role: "user",
         content: `Task: "${task.description}"\nLocation: ${task.location}\nCategory: ${task.category}\nReward: ${rewardAmountLabel(task)}\n\nCategory tips: ${CATEGORY_TIPS[task.category] || CATEGORY_TIPS.custom}`,
@@ -139,7 +139,7 @@ export async function generateFollowUpQuestion(
     const response = await client.messages.create({
       model: HAIKU,
       max_tokens: 150,
-      system: `You are RELAY's AI verifier. A proof photo was submitted but you're not fully confident it proves the task was completed. Ask ONE specific follow-up question to the claimant that would help you decide. Be conversational and specific — reference what you can see in the photo and what's missing. Under 60 words. No greeting.`,
+      system: `You are FAVOUR's AI verifier. A proof photo was submitted but you're not fully confident it proves the task was completed. Ask ONE specific follow-up question to the claimant that would help you decide. Be conversational and specific — reference what you can see in the photo and what's missing. Under 60 words. No greeting.`,
       messages: [{
         role: "user",
         content: [
@@ -186,7 +186,7 @@ export async function evaluateFollowUp(
     const response = await client.messages.create({
       model: HAIKU,
       max_tokens: 256,
-      system: `You are RELAY's AI verifier re-evaluating a proof after receiving additional context from the claimant via chat.
+      system: `You are FAVOUR's AI verifier re-evaluating a proof after receiving additional context from the claimant via chat.
 
 You previously flagged this proof with medium confidence. Now the claimant has responded with more information. Re-evaluate considering BOTH the original photo(s) AND the new context from the conversation.
 
@@ -229,7 +229,7 @@ export async function mediateDispute(
     const response = await client.messages.create({
       model: HAIKU,
       max_tokens: 300,
-      system: `You are RELAY's AI dispute mediator. A task proof was flagged and the poster and claimant may have discussed it in the XMTP thread.
+      system: `You are FAVOUR's AI dispute mediator. A task proof was flagged and the poster and claimant may have discussed it in the XMTP thread.
 
 Review ALL evidence: the original proof photo(s), the AI's initial analysis, and the full conversation thread. Consider both sides fairly.
 
