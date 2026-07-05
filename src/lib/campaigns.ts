@@ -41,7 +41,7 @@ export const CAMPAIGNS: Campaign[] = [
     brand: "FAVOUR",
     tagline: "New here? Learn the ropes and climb the board.",
     description:
-      "Welcome to FAVOUR. Get started with a series of small, real-world favours — a photo of your street, a quick honest review, a small kind act. Every one earns points, builds your reputation, and teaches you how FAVOUR works. Complete the whole journey to top the welcome leaderboard and earn first access when paid USDC bounties open up. No experience needed, no rush — this one runs all season.",
+      "Welcome to FAVOUR. Get started with a series of small, real-world favours — a photo of your street, a quick honest review, a small kind act. Every one earns points, builds your reputation, and teaches you how FAVOUR works. Complete the whole journey to top the welcome leaderboard. No experience needed, no rush — this one runs all season.",
     heroGradient: "from-amber-900 via-orange-800 to-rose-800",
     heroImage: "/hero/coffee.jpg",
     accentColor: "#c2410c",
@@ -69,9 +69,9 @@ export const CAMPAIGNS: Campaign[] = [
     id: "say-it-out-loud",
     name: "Say It Out Loud",
     brand: "FAVOUR",
-    tagline: "Post about FAVOUR in your own words. Clean posts unlock real USDC.",
+    tagline: "Post about FAVOUR in your own words. One clean post unlocks real USDC.",
     description:
-      "The first FAVOUR campaign with a cash unlock. Post about FAVOUR on X in your own words — what you did, what you earned, what surprised you. Every clean, AI-verified post earns 10 points. Complete 3 clean posts as an Orb-verified human and $2 USDC unlocks straight to your wallet. First come, first unlocked — the pot is capped and when it's gone it's gone.",
+      "The first FAVOUR campaign with a cash unlock. Post about FAVOUR on X in your own words — what you did, what you earned, what surprised you. Every clean, AI-verified post earns 10 points. ONE clean post as an Orb-verified human unlocks $2 USDC straight to your wallet. First come, first unlocked — the pot covers 5 humans and when it's gone it's gone.",
     heroGradient: "from-sky-950 via-blue-900 to-indigo-900",
     heroImage: "/hero/friends.jpg",
     accentColor: "#1d4ed8",
@@ -89,12 +89,14 @@ export const CAMPAIGNS: Campaign[] = [
     location: "Worldwide",
     endsAt: "2026-08-31T23:59:59Z",
     featured: false,
+    // Oscar Jul 5 (ultimate review decision 2): one clean Orb post unlocks $2 —
+    // non-zero marginal reward per post, same $10 budget, 5 unlocks total.
     unlock: {
       pot: 10,
-      unlockThreshold: 3,
+      unlockThreshold: 1,
       unlockAmount: 2,
       requiresOrb: true,
-      maxCountedPerUser: 3,
+      maxCountedPerUser: 1,
     },
   },
   {

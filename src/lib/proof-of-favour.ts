@@ -11,14 +11,24 @@ const MAX_HISTORY = 20;
 // The all-time schedule is designed so a runner's totalPoints tracks roughly
 // favoursCompleted * 10 + longestStreak * 2, and does not drift over time.
 export const SEASON_ECONOMY = {
-  FAVOUR_COMPLETED: 10, // headline reward for a verified completion
-  FAVOUR_ATTEMPTED: 2, // submitted proof / attempted a favour
-  FAVOUR_CLAIMED: 2, // claimed an open favour
+  FAVOUR_COMPLETED: 10, // completion fallback when a task has no points price (funded tasks)
+  FAVOUR_ATTEMPTED: 0, // was 2 — a pass now pays exactly the advertised task price (Oscar, Jul 5)
+  FAVOUR_CLAIMED: 0, // was 2 — claim-time points were an uncapped farm with no completion required (Oscar, Jul 5)
   FAVOUR_POSTED: 3, // posted a favour for others
   DAILY_ACTIVITY: 1, // once-per-day show-up bonus
-  STREAK_BONUS_PER_DAY: 1, // per consecutive day, on completion
+  STREAK_BONUS_PER_DAY: 1, // per consecutive day, on completion (separate history line, not part of the task price)
   STREAK_BONUS_MAX_DAYS: 7, // cap the streak bonus at 7 days (max +7)
 } as const;
+
+// Honest pricing (decision-log 2026-07-05): a points task pays EXACTLY its
+// advertised bounty. Clamped to the same band the create/seed validators
+// enforce so a bad stored value can't mint unbounded points.
+export const MAX_TASK_POINTS = 25;
+export function completionPointsFor(rewardType: string, bountyUsdc: number): number {
+  if (rewardType !== "points") return SEASON_ECONOMY.FAVOUR_COMPLETED;
+  const p = Math.round(bountyUsdc);
+  return Math.min(Math.max(p, 1), MAX_TASK_POINTS);
+}
 
 // Streak bonus paid on a completion, capped so no single task pays more than
 // FAVOUR_COMPLETED + STREAK_BONUS_MAX_DAYS.
@@ -282,6 +292,7 @@ export async function recordFavourClaimed(address: string): Promise<ProofOfFavou
   const profile = await getProofOfFavour(address);
   if (!isRealWallet(address)) return profile;
   const points = SEASON_ECONOMY.FAVOUR_CLAIMED;
+  if (points === 0) return profile; // claim-time points killed Jul 5 (uncapped farm)
   profile.totalPoints += points;
   profile.level = getLevel(profile.totalPoints);
 
@@ -303,31 +314,35 @@ export async function recordFavourClaimed(address: string): Promise<ProofOfFavou
 export async function recordFavourAttempted(address: string): Promise<ProofOfFavour> {
   const profile = await getProofOfFavour(address);
   if (!isRealWallet(address)) return profile;
-  const points = SEASON_ECONOMY.FAVOUR_ATTEMPTED;
-  profile.totalPoints += points;
+  // Attempt is a stat, not a payout: the pass pays exactly the advertised task
+  // price (see completionPointsFor), so the old flat attempt bonus is gone.
   profile.favoursAttempted += 1;
-  profile.level = getLevel(profile.totalPoints);
-
-  profile.pointsHistory.push({
-    action: "favour_attempted",
-    points,
-    timestamp: new Date().toISOString(),
-  });
-  if (profile.pointsHistory.length > MAX_HISTORY) {
-    profile.pointsHistory = profile.pointsHistory.slice(-MAX_HISTORY);
+  const points = SEASON_ECONOMY.FAVOUR_ATTEMPTED;
+  if (points > 0) {
+    profile.totalPoints += points;
+    profile.level = getLevel(profile.totalPoints);
+    profile.pointsHistory.push({
+      action: "favour_attempted",
+      points,
+      timestamp: new Date().toISOString(),
+    });
+    if (profile.pointsHistory.length > MAX_HISTORY) {
+      profile.pointsHistory = profile.pointsHistory.slice(-MAX_HISTORY);
+    }
   }
 
   updateStreak(profile);
   await saveProfile(profile);
-  trackWeeklyPoints(address, points).catch(console.error);
+  if (points > 0) trackWeeklyPoints(address, points).catch(console.error);
   return profile;
 }
 
 export async function recordFavourCompleted(
   address: string,
-  streak: number
+  streak: number,
+  completionPoints: number = SEASON_ECONOMY.FAVOUR_COMPLETED
 ): Promise<ProofOfFavour> {
-  const completion = SEASON_ECONOMY.FAVOUR_COMPLETED;
+  const completion = completionPoints;
   const streakBonus = streakBonusFor(streak);
   const totalAwarded = completion + streakBonus;
 

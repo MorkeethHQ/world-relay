@@ -8,7 +8,7 @@ import { notifyProofSubmitted, notifyVerified, notifyFlagged, notifyPaymentRelea
 import { addNotification } from "@/lib/notifications-store";
 import { postAttestation } from "@/lib/attestation";
 import { recordCompletion, recordFailure, getReputation, getTrustScore, getVerificationMultiplier } from "@/lib/reputation";
-import { recordFavourAttempted, recordFavourCompleted, recordFavourFailed } from "@/lib/proof-of-favour";
+import { recordFavourAttempted, recordFavourCompleted, recordFavourFailed, completionPointsFor } from "@/lib/proof-of-favour";
 import { getRedis } from "@/lib/redis";
 import { fireWebhook } from "@/lib/webhooks";
 import { releaseEscrow, resolveDon } from "@/lib/escrow";
@@ -396,7 +396,12 @@ export async function POST(req: NextRequest) {
       recordFavourAttempted(task.claimant).catch(console.error);
       recordCompletion(task.claimant, task.bountyUsdc, result.confidence, task.claimantVerification || undefined, taskIsFunded).catch(console.error);
       const claimantRep2 = await getReputation(task.claimant);
-      recordFavourCompleted(task.claimant, claimantRep2.currentStreak).catch(console.error);
+      // Honest pricing: a points task pays exactly its advertised bounty.
+      recordFavourCompleted(
+        task.claimant,
+        claimantRep2.currentStreak,
+        completionPointsFor(task.rewardType, task.bountyUsdc)
+      ).catch(console.error);
     } else if (result.verdict === "fail") {
       recordFailure(task.claimant).catch(console.error);
       recordFavourFailed(task.claimant).catch(console.error);

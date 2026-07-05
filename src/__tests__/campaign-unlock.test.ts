@@ -154,16 +154,16 @@ describe("threshold unlock", () => {
     expect(calls.length).toBe(1);
   });
 
-  it("repeating the SAME task never advances progress (distinct tasks required)", async () => {
+  it("repeating the SAME task counts once and can never pay twice", async () => {
     const { sender, calls } = okSender();
     const sameTask = cleanTask();
-    for (let i = 0; i < UNLOCK.unlockThreshold + 2; i++) {
+    for (let i = 0; i < UNLOCK.unlockThreshold + 4; i++) {
       await recordCampaignCompletion(sameTask, sender);
     }
     const p = await getUnlockProgress(CAMPAIGN_ID, WALLET);
-    expect(p!.progress).toBe(1);
-    expect(p!.paid).toBe(false);
-    expect(calls.length).toBe(0);
+    expect(p!.progress).toBe(1); // distinct-task set: repeats never advance
+    // With threshold 1 that single distinct task unlocks exactly once.
+    expect(calls.length).toBe(UNLOCK.unlockThreshold === 1 ? 1 : 0);
   });
 
   it("progress caps at maxCountedPerUser", async () => {
