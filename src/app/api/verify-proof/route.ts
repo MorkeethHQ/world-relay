@@ -19,6 +19,8 @@ import { sanitizeInput } from "@/lib/sanitize";
 import { trackEvent } from "@/lib/track";
 import { checkSeedCap, recordSeededEarn } from "@/lib/seed-caps";
 import { tierGateError } from "@/lib/verification-tier";
+import { recordCampaignCompletion } from "@/lib/campaign-unlock";
+import { getCampaign } from "@/lib/campaigns";
 
 export const maxDuration = 60;
 
@@ -336,6 +338,28 @@ export async function POST(req: NextRequest) {
     body: `Someone submitted proof for "${task.description.slice(0, 40)}..."`,
     taskId,
   }).catch(console.error);
+
+  // Campaign unlock: count clean (pass + Orb) completions toward the campaign
+  // threshold and pay the unlock when reached. Awaited because it can move real
+  // USDC; failures land in the unlock retry set drained by the reconcile cron.
+  let campaignUnlockTx: string | null = null;
+  if (result.verdict === "pass" && task.claimant && task.campaignId) {
+    const unlockOutcome = await recordCampaignCompletion({ ...task, verificationResult: result }).catch((err) => {
+      console.error("[Unlock] recordCampaignCompletion failed:", err);
+      return null;
+    });
+    campaignUnlockTx = unlockOutcome?.unlockTx ?? null;
+    if (campaignUnlockTx && task.claimant) {
+      notifyPaymentReleased(task.claimant, getCampaign(task.campaignId)?.unlock?.unlockAmount || 0).catch(console.error);
+      addNotification({
+        userId: task.claimant,
+        type: "payment_released",
+        title: "Campaign unlock!",
+        body: `You completed the campaign clean — USDC sent to your wallet.`,
+        taskId,
+      }).catch(console.error);
+    }
+  }
 
   if (task.claimant) {
     if (result.verdict === "pass") {

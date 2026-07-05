@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Task } from "@/lib/types";
 import type { Campaign } from "@/lib/campaigns";
 import { Button, Pill } from "@worldcoin/mini-apps-ui-kit-react";
@@ -110,6 +110,27 @@ export function CampaignPage({
   );
   useWorldUsers(allAddresses);
 
+  // Unlock progress (campaigns with a funded pot only). Read-only endpoint;
+  // progress is written exclusively by the server verify path.
+  type UnlockView = {
+    threshold: number;
+    unlockAmount: number;
+    requiresOrb: boolean;
+    progress: number;
+    paid: boolean;
+    payTx: string | null;
+    potExhausted: boolean;
+  };
+  const [unlockView, setUnlockView] = useState<UnlockView | null>(null);
+  useEffect(() => {
+    if (!campaign.unlock) return;
+    const url = `/api/campaigns/${campaign.id}/progress${userId ? `?address=${encodeURIComponent(userId)}` : ""}`;
+    fetch(url)
+      .then((r) => r.json())
+      .then((d) => setUnlockView(d.unlock || null))
+      .catch(() => {});
+  }, [campaign.id, campaign.unlock, userId, completedTasks.length]);
+
   return (
     <div className="flex flex-col min-h-screen max-w-lg mx-auto w-full bg-gray-50">
       {/* Hero - full bleed photo */}
@@ -212,6 +233,42 @@ export function CampaignPage({
             </span>
           ))}
         </div>
+
+        {/* Cash unlock progress (funded-pot campaigns only) */}
+        {unlockView && (
+          <div className="bg-white border border-gray-200 rounded-2xl p-5">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[13px] font-semibold text-gray-900">
+                {unlockView.paid
+                  ? `$${unlockView.unlockAmount} USDC unlocked`
+                  : `Unlock $${unlockView.unlockAmount} USDC`}
+              </p>
+              <span className="text-[11px] text-gray-400">
+                {Math.min(unlockView.progress, unlockView.threshold)}/{unlockView.threshold} clean favours
+              </span>
+            </div>
+            <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all duration-700 ease-out"
+                style={{
+                  width: `${Math.min(100, Math.round((unlockView.progress / unlockView.threshold) * 100))}%`,
+                  background: unlockView.paid
+                    ? "linear-gradient(90deg, #4ade80, #22d3ee)"
+                    : "linear-gradient(90deg, #60a5fa, #6366f1)",
+                }}
+              />
+            </div>
+            <p className="text-[11px] text-gray-400 mt-2">
+              {unlockView.paid
+                ? "Sent to your wallet."
+                : unlockView.potExhausted
+                ? "The pot is fully claimed — points still count."
+                : unlockView.requiresOrb
+                ? "Orb-verified humans only. Every favour must pass AI verification clean."
+                : "Every favour must pass AI verification clean."}
+            </p>
+          </div>
+        )}
 
         {/* Description card */}
         <div className="bg-white border border-gray-200 rounded-2xl p-5">
