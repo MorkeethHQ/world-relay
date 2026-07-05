@@ -149,10 +149,10 @@ export function CampaignPage({
           {/* Back button */}
           <button
             onClick={onBack}
-            className="absolute top-4 left-4 w-10 h-10 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center active:scale-95 transition-transform border border-white/10"
+            className="absolute top-4 left-4 w-11 h-11 rounded-full bg-black/60 backdrop-blur-md flex items-center justify-center active:scale-95 transition-transform border border-white/25"
             aria-label="Go back"
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="15 18 9 12 15 6" />
             </svg>
           </button>
@@ -227,11 +227,16 @@ export function CampaignPage({
           <span className="shrink-0 inline-flex items-center gap-1.5 bg-white border border-gray-200 rounded-full px-3 py-2 text-xs text-gray-600 shadow-sm">
             AI-verified
           </span>
-          {campaign.categories.map((cat) => (
+          {/* Max 3 category chips — a campaign spanning every category made
+              this row a scroll marathon (Oscar Jul 5 review). */}
+          {campaign.categories.slice(0, 3).map((cat) => (
             <span key={cat} className="shrink-0 inline-flex items-center gap-1 bg-white border border-gray-200 rounded-full px-3 py-2 text-xs text-gray-500 shadow-sm">
               <CategoryIcon category={cat} size={12} /> {cat}
             </span>
           ))}
+          {campaign.categories.length > 3 && (
+            <span className="shrink-0 text-xs text-gray-400 px-1">+{campaign.categories.length - 3}</span>
+          )}
         </div>
 
         {/* Cash unlock progress (funded-pot campaigns only) */}
@@ -272,7 +277,7 @@ export function CampaignPage({
                 href="https://world.org/find-orb"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-block text-[11px] font-semibold text-blue-600 mt-1.5 underline underline-offset-2"
+                className="inline-block text-[11px] font-semibold text-gray-900 mt-1.5 underline underline-offset-2"
               >
                 Not Orb-verified yet? Find an Orb near you
               </a>
@@ -414,9 +419,18 @@ export function CampaignPage({
           </div>
         )}
 
+        {/* A second, unmissable way out — the hero back arrow alone was easy
+            to miss (Oscar Jul 5 review: "I can't go back"). */}
+        <button
+          onClick={onBack}
+          className="w-full py-3 rounded-xl border border-gray-200 bg-white text-sm text-gray-900 font-semibold active:scale-[0.98] transition-all"
+        >
+          Back to favours
+        </button>
+
         {/* Footer */}
         <div className="flex items-center justify-center gap-2 pt-2">
-          <span className="text-[10px] text-gray-300">Powered by RELAY</span>
+          <span className="text-[10px] text-gray-300">Powered by FAVOUR</span>
           <span className="text-[10px] text-gray-300">&middot;</span>
           <span className="text-[10px] text-gray-300">AI-verified on World Chain</span>
         </div>

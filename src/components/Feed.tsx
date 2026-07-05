@@ -690,20 +690,26 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
         className="flex-1 flex flex-col"
       >
 
-      {/* Animated hero - Tasks */}
+      {/* Animated hero - Tasks. The hook leads; the numbers support it. */}
       {tab === "available" && !loading && (
         <div className="px-6 pt-6 pb-2 animate-[fadeSlideIn_0.4s_ease-out]">
-          <p className="text-[32px] font-bold text-gray-900 tracking-tight leading-none">{tasks.filter(t => t.status === "open").length}</p>
-          <p className="text-[15px] text-gray-400 mt-1">open tasks right now</p>
-          <div className="flex items-center gap-5 mt-4">
+          <p className="text-[26px] font-bold text-gray-900 tracking-tight leading-[1.15]">
+            Do a favour.<br />Prove it. Get rewarded.
+          </p>
+          <div className="flex items-center gap-4 mt-3">
             <div className="flex items-baseline gap-1.5">
-              <span className="text-[20px] font-bold text-gray-900">{tasks.filter(t => t.status === "completed").length}</span>
+              <span className="text-[15px] font-bold text-gray-900">{tasks.filter(t => t.status === "open").length}</span>
+              <span className="text-[12px] text-gray-400">open now</span>
+            </div>
+            <div className="w-1 h-1 rounded-full bg-gray-200" />
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-[15px] font-bold text-gray-900">{tasks.filter(t => t.status === "completed").length}</span>
               <span className="text-[12px] text-gray-400">verified</span>
             </div>
             <div className="w-1 h-1 rounded-full bg-gray-200" />
             <div className="flex items-baseline gap-1.5">
-              <span className="text-[20px] font-bold text-gray-900">${tasks.filter(t => t.status === "completed" && t.rewardType !== "points" && t.escrowTxHash).reduce((s, t) => s + t.bountyUsdc, 0).toFixed(0)}</span>
-              <span className="text-[12px] text-gray-400">paid</span>
+              <span className="text-[15px] font-bold text-gray-900">${tasks.filter(t => t.status === "completed" && t.rewardType !== "points" && t.escrowTxHash).reduce((s, t) => s + t.bountyUsdc, 0).toFixed(0)}</span>
+              <span className="text-[12px] text-gray-400">paid out</span>
             </div>
           </div>
         </div>
@@ -782,40 +788,40 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
 
       {/* Featured Campaigns */}
       {tab === "available" && !loading && campaigns.length > 0 && (() => {
-        // One hero for the featured campaign (the "start here" signal), a
-        // compact rail for the rest — six stacked look-alike banners buried the
-        // task list below the fold and all showed the same board-wide count.
-        const featured = campaigns.find((c) => c.featured) || campaigns[0];
-        const rest = campaigns.filter((c) => c.id !== featured.id);
+        // Full banners for campaigns that actually have open tasks (featured
+        // first, max 2 — Oscar Jul 5 review); everything else collapses into a
+        // small text row so it never buries the board.
         const openCountFor = (c: Campaign) =>
           tasks.filter((t) => t.campaignId === c.id && t.status === "open").length;
+        const live = campaigns
+          .filter((c) => openCountFor(c) > 0)
+          .sort((a, b) => Number(b.featured) - Number(a.featured))
+          .slice(0, 2);
+        const rest = campaigns.filter((c) => !live.some((l) => l.id === c.id));
         return (
           <div className="px-6 pt-4 flex flex-col gap-3">
-            <FeaturedCampaignBanner
-              campaign={featured}
-              taskCount={tasks.length}
-              completedCount={tasks.filter(t => t.status === "completed").length}
-              tasks={tasks}
-              onTap={() => { hapticTap(); setSelectedCampaign(featured); setView("campaign"); }}
-            />
+            {live.map((c) => (
+              <FeaturedCampaignBanner
+                key={c.id}
+                campaign={c}
+                taskCount={tasks.length}
+                completedCount={tasks.filter(t => t.status === "completed").length}
+                tasks={tasks}
+                onTap={() => { hapticTap(); setSelectedCampaign(c); setView("campaign"); }}
+              />
+            ))}
             {rest.length > 0 && (
-              <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-1 px-1">
-                {rest.map((c) => {
-                  const open = openCountFor(c);
-                  return (
-                    <button
-                      key={c.id}
-                      onClick={() => { hapticTap(); setSelectedCampaign(c); setView("campaign"); }}
-                      className="shrink-0 flex items-center gap-2 bg-white border border-gray-200 rounded-full pl-2.5 pr-3 py-2 active:scale-95 transition-transform"
-                    >
-                      <span className="text-[14px]">{c.icon}</span>
-                      <span className="text-[12px] font-medium text-gray-700">{c.name}</span>
-                      {open > 0 && (
-                        <span className="text-[10px] font-bold text-white bg-gray-900 rounded-full px-1.5 py-0.5">{open}</span>
-                      )}
-                    </button>
-                  );
-                })}
+              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+                <span className="text-[11px] text-gray-400 shrink-0">More:</span>
+                {rest.map((c, i) => (
+                  <button
+                    key={c.id}
+                    onClick={() => { hapticTap(); setSelectedCampaign(c); setView("campaign"); }}
+                    className="shrink-0 text-[12px] font-medium text-gray-500 underline underline-offset-2 active:text-gray-900"
+                  >
+                    {c.name}{i < rest.length - 1 ? "" : ""}
+                  </button>
+                ))}
               </div>
             )}
           </div>
@@ -829,14 +835,17 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
             onClick={() => { hapticTap(); setView("jury"); }}
             className="w-full rounded-2xl bg-gray-950 text-white px-5 py-4 flex items-center justify-between active:scale-[0.98] transition-transform overflow-hidden relative"
           >
-            <div className="text-left relative z-10">
-              <p className="text-[14px] font-black tracking-widest">REAL OR NOT</p>
-              <p className="text-[12px] text-white/60 mt-0.5">Swipe real proofs from fakes. Right calls earn points.</p>
+            <div className="flex items-center gap-3 relative z-10">
+              <div className="flex -space-x-1.5 shrink-0">
+                <span className="w-9 h-9 rounded-full bg-gray-800 border-2 border-gray-950 flex items-center justify-center text-red-400 text-[13px] font-black">✕</span>
+                <span className="w-9 h-9 rounded-full bg-gray-800 border-2 border-gray-950 flex items-center justify-center text-green-400 text-[13px] font-black">✓</span>
+              </div>
+              <div className="text-left">
+                <p className="text-[14px] font-black tracking-widest">REAL OR NOT</p>
+                <p className="text-[12px] text-white/60 mt-0.5">Swipe real proofs from fakes. Right calls earn points.</p>
+              </div>
             </div>
-            <div className="flex items-center gap-1 relative z-10">
-              <span className="w-8 h-8 rounded-full bg-red-500/20 border border-red-400/50 flex items-center justify-center text-red-400 text-sm font-black">✕</span>
-              <span className="w-8 h-8 rounded-full bg-green-500/20 border border-green-400/50 flex items-center justify-center text-green-400 text-sm font-black">✓</span>
-            </div>
+            <svg className="relative z-10 shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
           </button>
         </div>
       )}
@@ -2347,7 +2356,7 @@ function SubmitProof({
                 </div>
                 <button
                   onClick={() => { hapticTap(); onDone(); }}
-                  className="w-full py-2.5 rounded-xl text-sm text-gray-500 font-medium active:scale-[0.98] transition-all"
+                  className="w-full py-2.5 rounded-xl border border-gray-200 bg-white text-sm text-gray-900 font-semibold active:scale-[0.98] transition-all"
                 >
                   Back to favours
                 </button>

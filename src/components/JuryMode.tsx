@@ -39,40 +39,42 @@ export function JuryMode({ userId, onClose }: { userId: string | null; onClose: 
 
   const card = cards[0];
 
-  const vote = useCallback(async (saidMatch: boolean) => {
+  const vote = useCallback((saidMatch: boolean) => {
     if (!card || busy.current) return;
     busy.current = true;
+    hapticTap();
     setDx(saidMatch ? 500 : -500);
+    const key = card.key;
 
-    let result: { correct: boolean; isMatch: boolean; pointsAwarded: number } | null = null;
-    if (userId) {
-      try {
-        const res = await fetch("/api/jury", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ address: userId, key: card.key, verdict: saidMatch ? "match" : "not" }),
-        });
-        if (res.ok) result = await res.json();
-      } catch {}
-    }
-    // Signed-out play still works (no points, no persistence).
-    const correct = result ? result.correct : null;
-    if (correct === true) hapticSuccess(); else if (correct === false) hapticError(); else hapticTap();
-
+    // Advance IMMEDIATELY — the deck must never wait on the network (the
+    // v1 await here made every verdict lag and the card feel stuck).
     setTimeout(() => {
-      if (result) {
-        setFlash({ correct: result.correct, isMatch: result.isMatch, points: result.pointsAwarded });
-        setSession((s) => ({
-          judged: s.judged + 1,
-          correct: s.correct + (result!.correct ? 1 : 0),
-          points: s.points + result!.pointsAwarded,
-        }));
-      }
       setCards((c) => c.slice(1));
       setDx(0);
       busy.current = false;
-      setTimeout(() => setFlash(null), 900);
-    }, 180);
+    }, 160);
+
+    // Resolve the verdict in the background; flash lands on the next card.
+    if (userId) {
+      fetch("/api/jury", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ address: userId, key, verdict: saidMatch ? "match" : "not" }),
+      })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((result: { correct: boolean; isMatch: boolean; pointsAwarded: number } | null) => {
+          if (!result) return;
+          if (result.correct) hapticSuccess(); else hapticError();
+          setFlash({ correct: result.correct, isMatch: result.isMatch, points: result.pointsAwarded });
+          setSession((s) => ({
+            judged: s.judged + 1,
+            correct: s.correct + (result.correct ? 1 : 0),
+            points: s.points + result.pointsAwarded,
+          }));
+          setTimeout(() => setFlash(null), 800);
+        })
+        .catch(() => {});
+    }
   }, [card, userId]);
 
   const onTouchStart = (e: React.TouchEvent) => {
@@ -97,7 +99,9 @@ export function JuryMode({ userId, onClose }: { userId: string | null; onClose: 
   const leanNot = dx < -40;
 
   return (
-    <div className="fixed inset-0 z-50 bg-gray-950 flex flex-col" style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
+    // z-[60] so the immersive deck covers the app's fixed bottom nav (z-50) —
+    // the nav was overlaying and cropping the verdict buttons.
+    <div className="fixed inset-0 z-[60] bg-gray-950 flex flex-col" style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
       {/* Header */}
       <div className="flex items-center justify-between px-5 py-4">
         <button onClick={() => { hapticTap(); onClose(); }} className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center active:scale-95 transition-transform" aria-label="Close">

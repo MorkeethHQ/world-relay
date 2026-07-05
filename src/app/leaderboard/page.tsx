@@ -40,13 +40,13 @@ export default async function LeaderboardPage() {
     <div className="min-h-screen bg-gray-50 text-gray-900 max-w-lg mx-auto">
       <div className="px-6 pt-6 pb-28 flex flex-col gap-6">
 
-        <div className="bg-gradient-to-br from-indigo-600 to-purple-600 rounded-2xl p-4 text-white">
+        <div className="bg-gray-950 rounded-2xl p-4 text-white">
           <div className="flex items-center justify-between gap-2.5">
             <div className="flex items-center gap-2.5">
               <span className="text-xl">&#x1F5D3;&#xFE0F;</span>
               <div>
                 <h3 className="text-base font-bold text-white">Season {season.number}</h3>
-                <p className="text-xs text-indigo-100">{resetsLabel}</p>
+                <p className="text-xs text-white/50">{resetsLabel}</p>
               </div>
             </div>
             <span className="text-2xl font-bold text-white tabular-nums">{season.daysRemaining}d</span>
@@ -105,7 +105,8 @@ export default async function LeaderboardPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium text-gray-900">{truncateAddr(runner.address)}</span>
-                      <span className="text-xs bg-gray-100 text-gray-600 rounded px-1.5 py-0.5">{runner.level}</span>
+                      {/* Level as a quiet inline word, not a grey box (Oscar Jul 5 review) */}
+                      <span className="text-[11px] text-gray-400">{runner.level}</span>
                     </div>
                     <div className="flex items-center gap-3 mt-0.5">
                       <span className="text-xs text-gray-400">{runner.favoursCompleted} completed</span>

@@ -72,15 +72,17 @@ export function PollCard({
 
   const maxVotes = Math.max(...Object.values(localVotes), 1);
 
+  // Single tap = vote. The old two-step (select, then a separate Vote button)
+  // read as "my tap didn't register" (Oscar Jul 5 review).
   const handleVote = (option: string) => {
     if (hasVoted || isEnded || !userId) return;
     hapticTap();
     setSelected(option);
+    confirmVote(option);
   };
 
-  const confirmVote = async () => {
-    if (!selected || !userId) return;
-    const choice = selected;
+  const confirmVote = async (choice: string) => {
+    if (!choice || !userId) return;
 
     // Optimistically show the vote as counted.
     hapticSuccess();
@@ -185,13 +187,6 @@ export function PollCard({
         })}
       </div>
 
-      {!showResults && selected && (
-        <div className="px-5 pb-5">
-          <Button onClick={confirmVote} variant="primary" fullWidth size="lg">
-            Vote
-          </Button>
-        </div>
-      )}
     </div>
   );
 }

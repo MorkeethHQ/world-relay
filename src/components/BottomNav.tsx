@@ -1,7 +1,6 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { SafeAreaView } from "@worldcoin/mini-apps-ui-kit-react";
 
 const ROUTES = [
   {
@@ -49,7 +48,15 @@ export function BottomNav() {
   )?.value ?? "/";
 
   return (
-    <SafeAreaView edges={["bottom"]} className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200" role="navigation" aria-label="Main navigation">
+    // Plain fixed nav — the UI-kit SafeAreaView wrapper broke the fixed
+    // positioning in the World App webview ("menu doesn't stick to the ground",
+    // Oscar Jul 5 review). Safe-area handled with env() padding directly.
+    <nav
+      className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200"
+      style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+      role="navigation"
+      aria-label="Main navigation"
+    >
       <div className="flex items-center justify-around py-2">
         {ROUTES.map((route) => {
           const active = route.value === activeValue;
@@ -69,6 +76,6 @@ export function BottomNav() {
           );
         })}
       </div>
-    </SafeAreaView>
+    </nav>
   );
 }
