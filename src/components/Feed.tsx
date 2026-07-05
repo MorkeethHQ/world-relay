@@ -776,19 +776,46 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
       )}
 
       {/* Featured Campaigns */}
-      {tab === "available" && !loading && campaigns.length > 0 && (
-        <div className="px-6 pt-4 flex flex-col gap-3">
-          {campaigns.map((c) => (
+      {tab === "available" && !loading && campaigns.length > 0 && (() => {
+        // One hero for the featured campaign (the "start here" signal), a
+        // compact rail for the rest — six stacked look-alike banners buried the
+        // task list below the fold and all showed the same board-wide count.
+        const featured = campaigns.find((c) => c.featured) || campaigns[0];
+        const rest = campaigns.filter((c) => c.id !== featured.id);
+        const openCountFor = (c: Campaign) =>
+          tasks.filter((t) => t.campaignId === c.id && t.status === "open").length;
+        return (
+          <div className="px-6 pt-4 flex flex-col gap-3">
             <FeaturedCampaignBanner
-              key={c.id}
-              campaign={c}
+              campaign={featured}
               taskCount={tasks.length}
               completedCount={tasks.filter(t => t.status === "completed").length}
-              onTap={() => { hapticTap(); setSelectedCampaign(c); setView("campaign"); }}
+              tasks={tasks}
+              onTap={() => { hapticTap(); setSelectedCampaign(featured); setView("campaign"); }}
             />
-          ))}
-        </div>
-      )}
+            {rest.length > 0 && (
+              <div className="flex gap-2 overflow-x-auto no-scrollbar -mx-1 px-1">
+                {rest.map((c) => {
+                  const open = openCountFor(c);
+                  return (
+                    <button
+                      key={c.id}
+                      onClick={() => { hapticTap(); setSelectedCampaign(c); setView("campaign"); }}
+                      className="shrink-0 flex items-center gap-2 bg-white border border-gray-200 rounded-full pl-2.5 pr-3 py-2 active:scale-95 transition-transform"
+                    >
+                      <span className="text-[14px]">{c.icon}</span>
+                      <span className="text-[12px] font-medium text-gray-700">{c.name}</span>
+                      {open > 0 && (
+                        <span className="text-[10px] font-bold text-white bg-gray-900 rounded-full px-1.5 py-0.5">{open}</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Polls tab */}
       {tab === "polls" && (
@@ -1894,7 +1921,15 @@ function SubmitProof({
       });
 
       if (!res.ok) {
-        setResult({ verdict: "error", reasoning: "We couldn't process your submission just now. Your proof wasn't judged. Please try again." });
+        // The server writes actionable rejections (daily cap with reset info,
+        // verification-tier requirements, already-claimed). Show them verbatim —
+        // a generic "try again" tells users to retry actions that fail forever.
+        const err = await res.json().catch(() => ({} as Record<string, unknown>));
+        const serverMsg =
+          (typeof err.message === "string" && err.message) ||
+          (typeof err.error === "string" && err.error) ||
+          "We couldn't process your submission just now. Your proof wasn't judged. Please try again.";
+        setResult({ verdict: "error", reasoning: serverMsg });
         setSubmitting(false);
         hapticError();
         return;
@@ -1913,7 +1948,8 @@ function SubmitProof({
 
       if (data.verification.verdict === "pass") {
         hapticSuccess();
-        setTimeout(onDone, 5000);
+        // No auto-navigate: the pass panel is the reward moment and carries the
+        // Share CTA — let the user leave when they're done reading it.
       } else if (data.verification.verdict === "fail") {
         hapticError();
       } else {
@@ -2285,7 +2321,12 @@ function SubmitProof({
                     + Post a favour
                   </button>
                 </div>
-                <p className="text-[10px] text-green-600/70 text-center mt-1">Now ask someone to help you with something</p>
+                <button
+                  onClick={() => { hapticTap(); onDone(); }}
+                  className="w-full py-2.5 rounded-xl text-sm text-gray-500 font-medium active:scale-[0.98] transition-all"
+                >
+                  Back to favours
+                </button>
               </div>
             )}
             {result.verdict === "flag" && (
@@ -2310,7 +2351,7 @@ function SubmitProof({
                   <li>Add a note explaining what you found</li>
                 </ul>
                 <button
-                  onClick={() => { setResult(null); setImages([]); setProofNote(""); setPreCheck(null); hasAutoChecked.current = false; }}
+                  onClick={() => { setResult(null); setPreCheck(null); hasAutoChecked.current = false; }}
                   className="mt-1 w-full py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm text-gray-700 font-medium active:scale-[0.98] transition-all"
                 >
                   Try Again
