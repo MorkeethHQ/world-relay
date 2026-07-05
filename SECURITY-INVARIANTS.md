@@ -33,6 +33,12 @@ mechanically blocks the easy-to-regress ones.
 6. **One escrow funds one payout.** Funded tasks are single-completion.
 7. **Verification tier gates funded tasks only** (not points), on every claim path
    (`/claim` and the `verify-proof` direct-submit path).
+8. **Campaign cash unlocks only through the clean gate.** (`src/lib/campaign-unlock.ts`)
+   Progress counts ONLY pass-verdict + Orb-verified completions, written ONLY by the
+   verify-proof pass path. The pot is a hard cap enforced by slot reservation BEFORE
+   the transfer; the payout tx hash is persisted BEFORE awaiting its receipt; `paid`
+   flips only on a confirmed success receipt; unresolved broadcasts back off (never
+   re-send); failures land in `unlock:retry`, drained by the reconcile cron.
 
 ## Review method for any money/identity/reward change
 

@@ -5,6 +5,7 @@ import { broadcastEvent } from "@/lib/sse";
 import { notifyPaymentReleased } from "@/lib/notifications";
 import { addNotification } from "@/lib/notifications-store";
 import { postSettlementConfirmation } from "@/lib/xmtp";
+import { retryPendingUnlocks } from "@/lib/campaign-unlock";
 
 // Reconciles funded "pass" tasks whose payout never confirmed on-chain.
 //
@@ -79,12 +80,22 @@ export async function GET(req: NextRequest) {
     });
   }
 
+  // Campaign unlocks whose payout broadcast was lost, reverted, or never sent.
+  // tryUnlockPayout is idempotent (state + lock in redis), same discipline as
+  // releaseEscrow above.
+  const unlocks = await retryPendingUnlocks().catch((err) => {
+    console.error("[Reconcile] retryPendingUnlocks failed:", err);
+    return { retried: 0, settled: 0 };
+  });
+
   return NextResponse.json({
     checked: pending.length,
     settled: settled.length,
     settledTaskIds: settled,
     stillPending: stillPending.length,
     stillPendingTaskIds: stillPending,
+    unlockRetries: unlocks.retried,
+    unlocksSettled: unlocks.settled,
     checkedAt: new Date().toISOString(),
   });
 }

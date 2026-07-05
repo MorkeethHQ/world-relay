@@ -21,6 +21,17 @@ export type Campaign = {
   location: string;
   endsAt: string;
   featured: boolean;
+  // Campaign-unlock mechanic (see BOARD-RULES.md sibling doc + campaign-unlock.ts).
+  // Present only on campaigns with a real funded pot. All four fields required
+  // together: pot is a HARD cap in USDC; a user unlocks unlockAmount once, after
+  // unlockThreshold clean completions; requiresOrb gates the cash (no Orb, no cash).
+  unlock?: {
+    pot: number;
+    unlockThreshold: number;
+    unlockAmount: number;
+    requiresOrb: true;
+    maxCountedPerUser: number;
+  };
 };
 
 export const CAMPAIGNS: Campaign[] = [
@@ -53,6 +64,38 @@ export const CAMPAIGNS: Campaign[] = [
     location: "Worldwide",
     endsAt: "2026-12-31T23:59:59Z",
     featured: true,
+  },
+  {
+    id: "say-it-out-loud",
+    name: "Say It Out Loud",
+    brand: "FAVOUR",
+    tagline: "Post about FAVOUR in your own words. Clean posts unlock real USDC.",
+    description:
+      "The first FAVOUR campaign with a cash unlock. Post about FAVOUR on X in your own words — what you did, what you earned, what surprised you. Every clean, AI-verified post earns 10 points. Complete 3 clean posts as an Orb-verified human and $2 USDC unlocks straight to your wallet. First come, first unlocked — the pot is capped and when it's gone it's gone.",
+    heroGradient: "from-sky-950 via-blue-900 to-indigo-900",
+    heroImage: "/hero/friends.jpg",
+    accentColor: "#1d4ed8",
+    icon: "\u{1F4E3}",
+    totalBudget: 10,
+    rewardPerTask: 10,
+    rewardKind: "points",
+    taskCount: 3,
+    categories: ["social"],
+    taskDescriptions: [
+      "Post about FAVOUR on X in your own words: what you did or earned",
+      "Post the most surprising thing about FAVOUR so far",
+      "Post what you'd tell a friend who's never used FAVOUR",
+    ],
+    location: "Worldwide",
+    endsAt: "2026-08-31T23:59:59Z",
+    featured: false,
+    unlock: {
+      pot: 10,
+      unlockThreshold: 3,
+      unlockAmount: 2,
+      requiresOrb: true,
+      maxCountedPerUser: 3,
+    },
   },
   {
     id: "relay-launch",

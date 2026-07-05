@@ -189,6 +189,14 @@ function getWalletClient() {
   return { client: createWalletClient({ account, chain: worldchain, transport: http(RPC_URL) }), account };
 }
 
+// The payout signer (relayer) + public client, for the other real-money path
+// (campaign unlock, src/lib/campaign-unlock.ts). Same key, same discipline.
+export function getPayoutClients() {
+  const wallet = getWalletClient();
+  if (!wallet) return null;
+  return { wallet, pub: getPublicClient() };
+}
+
 // ── Settlement state (atomic-or-recoverable release) ────────────
 //
 // releaseEscrow performs two on-chain steps: releasePayment (funds move to the
