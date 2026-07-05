@@ -1547,12 +1547,12 @@ function PostTask({
               <button
                 key={i}
                 onClick={() => handleTemplate(i)}
-                className="flex items-center gap-4 rounded-2xl border border-gray-200 bg-white px-5 py-5 text-left transition-all active:scale-[0.98] hover:border-gray-300"
+                className="flex items-start gap-3.5 rounded-2xl border border-gray-200 bg-white px-4 py-4 text-left transition-all active:scale-[0.98] hover:border-gray-300"
               >
-                <span className="text-gray-900 shrink-0"><TemplateIcon index={i} /></span>
-                <span className="min-w-0">
-                  <span className="block text-[15px] font-semibold text-gray-900 leading-tight">{t.label}</span>
-                  <span className="block text-[12px] text-gray-400 mt-1 leading-snug line-clamp-1">{t.desc}</span>
+                <span className="text-gray-900 shrink-0 mt-0.5"><TemplateIcon index={i} /></span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[14px] font-semibold text-gray-900 leading-tight">{t.label}</span>
+                  <span className="block text-[12px] text-gray-400 mt-1 leading-relaxed line-clamp-2">{t.desc}</span>
                 </span>
               </button>
             ))}
