@@ -23,7 +23,9 @@ recur silently.
   `feedback` bypass let unfunded USDC question-tasks onto the board). Claimed tasks
   show only to their claimant.
 - **R4/R5 — Tier order.** my claims > funded USDC > featured campaign (the current
-  points-journey funnel) > other points > feedback > stale (>7 days unclaimed).
+  points-journey funnel) > other points > feedback > stale (>7 days unclaimed,
+  SINGLE-completion tasks only — evergreen multi-completion tasks reopen after
+  every pass and never rot by age).
   Within a tier: non-feedback before feedback (a campaign's question-tasks must
   not be its first cards), then urgent (deadline < 4h, or funded bounty ≥ $15 —
   points amounts are never urgent), then proximity, then newest.
