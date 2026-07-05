@@ -18,7 +18,7 @@ import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { sanitizeInput } from "@/lib/sanitize";
 import { trackEvent } from "@/lib/track";
 import { checkSeedCap, recordSeededEarn } from "@/lib/seed-caps";
-import { tierGateError } from "@/lib/verification-tier";
+import { tierGateError, getUserVerificationLevel } from "@/lib/verification-tier";
 import { recordCampaignCompletion } from "@/lib/campaign-unlock";
 import { getCampaign } from "@/lib/campaigns";
 import { recordReferralActivation } from "@/lib/referral";
@@ -157,6 +157,14 @@ export async function POST(req: NextRequest) {
   // settlement path key off this so a funded pass is never processed silently.
   const taskIsFunded = task.onChainId !== null || !!task.escrowTxHash;
 
+  // The submitter's verification tier, resolved once: it must travel into the
+  // store on direct submission (claimantVerification feeds the campaign-unlock
+  // clean gate and the trust surface — it was silently dropped here, so unlock
+  // progress could never accrue via the app's main "Do it" path), and it gates
+  // the consensus spend below.
+  const submitterLevel = submitter ? await getUserVerificationLevel(submitter) : null;
+  const claimantLevel = (task.claimantVerification || submitterLevel) as "orb" | "device" | "wallet" | null;
+
   // Set claimant on first submission (replaces the claim step)
   if (task.status === "open" && submitter) {
     // Daily per-wallet cap on official (seeded) tasks — enforced here because
@@ -192,7 +200,14 @@ export async function POST(req: NextRequest) {
   const proofImageUrls = await Promise.all(
     proofImages.map((img: string, i: number) => uploadProofImage(img, taskId, i))
   );
-  await submitProof(taskId, proofImageUrls[0] || null, proofNote || null, proofImageUrls.length > 0 ? proofImageUrls : null, submitter);
+  await submitProof(
+    taskId,
+    proofImageUrls[0] || null,
+    proofNote || null,
+    proofImageUrls.length > 0 ? proofImageUrls : null,
+    submitter,
+    claimantLevel === "orb" || claimantLevel === "device" || claimantLevel === "wallet" ? claimantLevel : null
+  );
   trackEvent("proof_submitted", { taskId, submitter: submitter || "", hasImages: proofImageUrls.length > 0, bounty: task.bountyUsdc }).catch(() => {});
   await postProofSubmitted(taskId, proofNote);
 
@@ -208,11 +223,14 @@ export async function POST(req: NextRequest) {
 
   const withinLimit = await checkRateLimit();
   const useRealVerification = !!process.env.ANTHROPIC_API_KEY && withinLimit;
-  // Cost rule (Oscar, Jul 5): 3-model consensus runs ONLY where money is at
-  // stake — escrow-funded tasks and unlock-campaign tasks. Plain points tasks
-  // verify on single Claude so feed activity can't burn the capped OpenRouter
-  // budget ($10/mo hard limit on the key is the final backstop).
-  const moneyAtStake = taskIsFunded || !!(task.campaignId && getCampaign(task.campaignId)?.unlock);
+  // Cost rule (Oscar, Jul 5): 3-model consensus runs ONLY where money can
+  // actually move — escrow-funded tasks, and unlock-campaign tasks when the
+  // claimant is Orb-verified (the unlock pays Orb only, so a non-Orb submission
+  // to an unlock campaign can never move money and gets single Claude like any
+  // points task). Keeps the capped OpenRouter budget ($10/mo hard limit) for
+  // the verifications the pot depends on.
+  const unlockCampaign = !!(task.campaignId && getCampaign(task.campaignId)?.unlock);
+  const moneyAtStake = taskIsFunded || (unlockCampaign && claimantLevel === "orb");
   const useConsensus = useRealVerification && !!process.env.OPENROUTER_API_KEY && moneyAtStake;
 
   let result: { verdict: "pass" | "flag" | "fail"; reasoning: string; confidence: number; models?: Array<{ name: string; verdict: "pass" | "flag" | "fail"; confidence: number; reasoning: string }>; consensusMethod?: "majority" | "unanimous" };

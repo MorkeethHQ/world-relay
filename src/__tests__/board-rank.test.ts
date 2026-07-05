@@ -104,6 +104,14 @@ describe("R5: tier order", () => {
     expect(ranked.map((t) => t.id)).toEqual([myClaim, money, featured, points, feedback, stale].map((t) => t.id));
   });
 
+  it("evergreen multi-completion tasks never go stale (the welcome journey must not self-bury)", () => {
+    const old = new Date(NOW - 30 * 24 * HOUR).toISOString();
+    const evergreen = task({ createdAt: old, maxCompletions: 1000 } as Partial<Task>);
+    const oneShot = task({ createdAt: old });
+    expect(boardTier(evergreen, null, null, NOW)).not.toBe(TIER.STALE);
+    expect(boardTier(oneShot, null, null, NOW)).toBe(TIER.STALE);
+  });
+
   it("a featured-campaign feedback task ranks as FEATURED, not FEEDBACK", () => {
     const t = task({ campaignId: featuredId, category: "feedback" });
     expect(boardTier(t, null, featuredId, NOW)).toBe(TIER.FEATURED);

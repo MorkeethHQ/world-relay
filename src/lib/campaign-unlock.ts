@@ -68,6 +68,9 @@ async function resolveTxOnChain(hash: string): Promise<"success" | "reverted" | 
 function stateKey(campaignId: string, wallet: string) {
   return `unlock:${campaignId}:state:${wallet.toLowerCase()}`;
 }
+// Progress is a SET of distinct task ids, not a counter: multi-completion tasks
+// reopen after every pass, so a counter would let one user hit the threshold by
+// repeating the same task three times with three near-identical proofs.
 function progressKey(campaignId: string, wallet: string) {
   return `unlock:${campaignId}:progress:${wallet.toLowerCase()}`;
 }
@@ -101,7 +104,7 @@ export async function getUnlockProgress(campaignId: string, wallet: string): Pro
   const campaign = getCampaign(campaignId);
   if (!campaign?.unlock) return null;
   const redis = getRedis();
-  const progress = redis ? Number((await redis.get(progressKey(campaignId, wallet))) || 0) : 0;
+  const progress = redis ? Number((await redis.scard(progressKey(campaignId, wallet))) || 0) : 0;
   const state = await loadState(campaignId, wallet);
   const paidCount = redis ? Number((await redis.get(paidCountKey(campaignId))) || 0) : 0;
   const potExhausted =
@@ -138,11 +141,13 @@ export async function recordCampaignCompletion(
   const redis = getRedis();
   if (!redis) return none;
 
-  // Count, capped at maxCountedPerUser.
-  const current = Number((await redis.get(progressKey(campaignId, wallet))) || 0);
+  // Count DISTINCT tasks, capped at maxCountedPerUser. sadd is idempotent, so
+  // repeating the same (multi-completion) task never advances progress.
+  const current = Number((await redis.scard(progressKey(campaignId, wallet))) || 0);
   let progress = current;
   if (current < campaign.unlock.maxCountedPerUser) {
-    progress = await redis.incr(progressKey(campaignId, wallet));
+    await redis.sadd(progressKey(campaignId, wallet), task.id);
+    progress = Number((await redis.scard(progressKey(campaignId, wallet))) || 0);
   }
 
   if (progress < campaign.unlock.unlockThreshold) return { counted: progress > current, unlockTx: null };

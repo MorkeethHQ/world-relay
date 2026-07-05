@@ -55,8 +55,18 @@ export const TIER = {
   STALE: 5, // open >7 days with no claim
 } as const;
 
+// Staleness applies to SINGLE-completion tasks only: an evergreen
+// multi-completion task (campaign furniture, maxCompletions > 1) reopens after
+// every pass without touching createdAt, so age says nothing about it being
+// dead — without this exemption the featured welcome journey would sink to the
+// bottom tier 7 days after seeding.
 export function isStale(t: Task, now: number): boolean {
-  return t.status === "open" && !t.claimant && now - new Date(t.createdAt).getTime() > STALE_AFTER_MS;
+  return (
+    t.status === "open" &&
+    !t.claimant &&
+    (t.maxCompletions ?? 1) <= 1 &&
+    now - new Date(t.createdAt).getTime() > STALE_AFTER_MS
+  );
 }
 
 export function boardTier(t: Task, userId: string | null, featuredCampaignId: string | null, now: number): number {

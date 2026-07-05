@@ -27,12 +27,14 @@ vi.mock("@/lib/redis", () => ({
     del: async (key: string) => { mockStore.delete(key); return 1; },
     sadd: async (key: string, member: string) => {
       const s = mockSets.get(key) || new Set<string>();
-      s.add(member); mockSets.set(key, s); return 1;
+      const added = s.has(member) ? 0 : 1;
+      s.add(member); mockSets.set(key, s); return added;
     },
     srem: async (key: string, member: string) => {
       mockSets.get(key)?.delete(member); return 1;
     },
     smembers: async (key: string) => [...(mockSets.get(key) || [])],
+    scard: async (key: string) => (mockSets.get(key) || new Set()).size,
   }),
 }));
 
@@ -150,6 +152,18 @@ describe("threshold unlock", () => {
     const again = await tryUnlockPayout(CAMPAIGN_ID, WALLET, sender);
     expect(again).toBe("0xtx1");
     expect(calls.length).toBe(1);
+  });
+
+  it("repeating the SAME task never advances progress (distinct tasks required)", async () => {
+    const { sender, calls } = okSender();
+    const sameTask = cleanTask();
+    for (let i = 0; i < UNLOCK.unlockThreshold + 2; i++) {
+      await recordCampaignCompletion(sameTask, sender);
+    }
+    const p = await getUnlockProgress(CAMPAIGN_ID, WALLET);
+    expect(p!.progress).toBe(1);
+    expect(p!.paid).toBe(false);
+    expect(calls.length).toBe(0);
   });
 
   it("progress caps at maxCountedPerUser", async () => {
