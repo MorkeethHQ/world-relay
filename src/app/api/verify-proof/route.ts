@@ -207,7 +207,12 @@ export async function POST(req: NextRequest) {
 
   const withinLimit = await checkRateLimit();
   const useRealVerification = !!process.env.ANTHROPIC_API_KEY && withinLimit;
-  const useConsensus = useRealVerification && !!process.env.OPENROUTER_API_KEY;
+  // Cost rule (Oscar, Jul 5): 3-model consensus runs ONLY where money is at
+  // stake — escrow-funded tasks and unlock-campaign tasks. Plain points tasks
+  // verify on single Claude so feed activity can't burn the capped OpenRouter
+  // budget ($10/mo hard limit on the key is the final backstop).
+  const moneyAtStake = taskIsFunded || !!(task.campaignId && getCampaign(task.campaignId)?.unlock);
+  const useConsensus = useRealVerification && !!process.env.OPENROUTER_API_KEY && moneyAtStake;
 
   let result: { verdict: "pass" | "flag" | "fail"; reasoning: string; confidence: number; models?: Array<{ name: string; verdict: "pass" | "flag" | "fail"; confidence: number; reasoning: string }>; consensusMethod?: "majority" | "unanimous" };
   let consensusResult: ConsensusResult | null = null;

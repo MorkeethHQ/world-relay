@@ -387,16 +387,18 @@ export async function verifyProofConsensus(
         reasoning: "Model unavailable — flagged for manual review",
       };
     }),
+    // Cost rule (Oscar, Jul 5): cheap vision models on the OpenRouter side —
+    // the diversity is what catches spoofing, not the model size.
     callOpenRouter(
-      "openai/gpt-4o",
-      "GPT-4o",
+      "openai/gpt-4o-mini",
+      "GPT-4o mini",
       systemPrompt,
       userText,
       images
     ).catch((err) => {
-      console.error("[Consensus] GPT-4o failed:", err);
+      console.error("[Consensus] GPT-4o mini failed:", err);
       return {
-        name: "GPT-4o",
+        name: "GPT-4o mini",
         verdict: "flag" as const,
         confidence: 0,
         reasoning: "Model unavailable — flagged for manual review",
