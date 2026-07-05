@@ -737,13 +737,13 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
               feedTopRef.current?.scrollIntoView({ behavior: "smooth" });
               setNewTaskToast({ count: 0, visible: false });
             }}
-            className="w-full bg-info-100 border border-info-300 rounded-xl px-5 py-3 flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
+            className="w-full bg-white border border-gray-200 rounded-xl px-5 py-3 flex items-center justify-center gap-2 active:scale-[0.98] transition-transform shadow-sm"
           >
             <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-info-600 opacity-75" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-info-600" />
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
             </span>
-            <span className="text-sm font-medium text-info-600">
+            <span className="text-sm font-medium text-gray-900">
               {newTaskToast.count} new {newTaskToast.count === 1 ? "favour" : "favours"} available
             </span>
           </button>
@@ -1070,7 +1070,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
         <AlertDialogContent>
           <AlertDialogHeader
             icon={
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="rgb(var(--info-600))" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#111827" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
               </svg>
             }
@@ -1139,8 +1139,8 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
                     <Typography variant="body" level={3} className="text-gray-700">{step}</Typography>
                   </div>
                 ))}
-                <div className="bg-info-50 border border-info-200 rounded-xl px-3 py-2 mt-1">
-                  <Typography variant="body" level={4} className="text-info-600">{info.tip}</Typography>
+                <div className="bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 mt-1">
+                  <Typography variant="body" level={4} className="text-gray-500">{info.tip}</Typography>
                 </div>
               </div>
             );
@@ -1167,8 +1167,8 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
         <AlertDialogContent>
           <AlertDialogHeader>
             <div className="flex flex-col items-center gap-2 pt-2">
-              <div className="w-12 h-12 rounded-full bg-info-100 flex items-center justify-center">
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="rgb(var(--info-600))" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#111827" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="12" cy="12" r="10" />
                   <line x1="12" y1="8" x2="12" y2="16" />
                   <line x1="8" y1="12" x2="16" y2="12" />
@@ -1263,7 +1263,7 @@ function TaskCard({
             {distance !== null && (
               <>
                 <span className="text-xs text-gray-300">&middot;</span>
-                <span className="text-xs text-info-600 font-medium">{formatDistance(distance)}</span>
+                <span className="text-xs text-gray-500 font-medium">{formatDistance(distance)}</span>
               </>
             )}
             <span className="text-xs text-gray-300">&middot;</span>
@@ -1736,7 +1736,7 @@ function PostTask({
                 href={`https://worldscan.org/tx/${escrowSuccess}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-sm text-info-600 underline underline-offset-2"
+                className="text-sm text-gray-900 underline underline-offset-2"
               >
                 View escrow transaction
               </a>

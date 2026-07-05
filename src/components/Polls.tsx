@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Button, Typography, Input, TopBar } from "@worldcoin/mini-apps-ui-kit-react";
-import { hapticTap, hapticSuccess } from "@/lib/minikit-helpers";
+import { hapticTap, hapticSuccess, hapticError } from "@/lib/minikit-helpers";
 
 type Poll = {
   id: string;
@@ -94,20 +94,17 @@ export function PollCard({
     const result = await onVote(poll.id, choice);
 
     if (!result.ok) {
-      if (result.error === "Already voted") {
-        // The server already has a vote from this wallet (e.g. from a previous
-        // session before youVoted hydrated). Lock the card on the server's
-        // authoritative tallies instead of resetting it to an open state the
-        // user can never successfully act on.
-        if (result.poll) {
-          setLocalVotes(result.poll.votes);
-          setLocalTotal(result.poll.totalVotes);
-        }
+      // Whenever the server returns the poll (already-voted, ended, any state
+      // rejection), LOCK the card on its authoritative tallies — rolling back
+      // to an open state produced the "votes for 1 second then flips back"
+      // bug for anyone who had voted in an earlier session. Roll back only
+      // when the server said nothing at all (true network failure).
+      if (result.poll) {
+        setLocalVotes(result.poll.votes);
+        setLocalTotal(result.poll.totalVotes);
         setHasVoted(true);
         return;
       }
-      // Any other rejection (poll ended, bad wallet, network...): roll the
-      // optimistic state back so the poll is not shown as voted.
       votedThisSessionRef.current = false;
       setLocalVotes(poll.votes);
       setLocalTotal(poll.totalVotes);
@@ -216,9 +213,12 @@ function CreatePoll({
 
   const isValid = question.trim().length > 0 && options.filter((o) => o.trim()).length >= 2;
 
+  const [createError, setCreateError] = useState<string | null>(null);
+
   const handleSubmit = async () => {
     if (!isValid || submitting) return;
     setSubmitting(true);
+    setCreateError(null);
     try {
       const res = await fetch("/api/polls", {
         method: "POST",
@@ -230,14 +230,20 @@ function CreatePoll({
           durationHours: 72,
         }),
       });
-      // Only treat a 2xx as success; a 4xx must not fire the success flow.
+      // Only treat a 2xx as success; a 4xx must not fire the success flow —
+      // and it must SAY why (silent failure, Oscar Jul 5 review).
       if (!res.ok) {
+        const err = await res.json().catch(() => ({} as Record<string, unknown>));
+        setCreateError(typeof err.error === "string" ? err.error : "Couldn't create the poll. Try again.");
+        hapticError();
         setSubmitting(false);
         return;
       }
       hapticSuccess();
       onCreated();
     } catch {
+      setCreateError("Network hiccup — the poll wasn't created. Try again.");
+      hapticError();
       setSubmitting(false);
     }
   };
@@ -289,6 +295,7 @@ function CreatePoll({
           <Button onClick={handleSubmit} disabled={!isValid || submitting} variant="primary" fullWidth size="lg">
             {submitting ? "Creating..." : "Create Poll"}
           </Button>
+          {createError && <p className="text-xs text-red-600 mt-2 text-center">{createError}</p>}
         </div>
       </div>
     </div>

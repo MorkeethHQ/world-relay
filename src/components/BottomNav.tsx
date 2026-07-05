@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
+import { Tabs, TabItem } from "@worldcoin/mini-apps-ui-kit-react";
 
 const ROUTES = [
   {
@@ -69,34 +70,21 @@ export function BottomNav() {
   )?.value ?? "/";
 
   return (
-    // Plain fixed nav — the UI-kit SafeAreaView wrapper broke the fixed
-    // positioning in the World App webview ("menu doesn't stick to the ground",
-    // Oscar Jul 5 review). Safe-area handled with env() padding directly.
+    // Hybrid: OUR fixed wrapper (the kit's SafeAreaView broke fixed
+    // positioning in the World App webview — "menu doesn't stick to the
+    // ground", Oscar Jul 5), with the kit's native Tabs/TabItem inside so the
+    // nav stays on World's design language.
     <nav
       className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200"
       style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
       role="navigation"
       aria-label="Main navigation"
     >
-      <div className="flex items-center justify-around py-2">
-        {ROUTES.map((route) => {
-          const active = route.value === activeValue;
-          return (
-            <button
-              key={route.value}
-              onClick={() => router.push(route.value)}
-              className={`flex flex-col items-center justify-center gap-1 min-w-[64px] min-h-[44px] transition-colors ${
-                active ? "text-gray-900" : "text-gray-400"
-              }`}
-              aria-label={route.label}
-              aria-current={active ? "page" : undefined}
-            >
-              {route.icon}
-              <span className="text-[10px] font-medium leading-none">{route.label}</span>
-            </button>
-          );
-        })}
-      </div>
+      <Tabs value={activeValue} onValueChange={(v) => v && router.push(v)}>
+        {ROUTES.map((route) => (
+          <TabItem key={route.value} value={route.value} icon={route.icon} label={route.label} />
+        ))}
+      </Tabs>
     </nav>
   );
 }
