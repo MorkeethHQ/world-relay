@@ -19,6 +19,8 @@ vi.mock("@/lib/redis", () => ({
       mockSets.get(key)!.add(member);
     },
     smembers: async (key: string) => Array.from(mockSets.get(key) || []),
+    sismember: async (key: string, member: string) => (mockSets.get(key)?.has(member) ? 1 : 0),
+    srem: async (key: string, member: string) => { mockSets.get(key)?.delete(member); },
     pipeline: () => {
       const ops: Array<() => any> = [];
       return {

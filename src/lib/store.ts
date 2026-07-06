@@ -274,7 +274,12 @@ export async function submitProof(
     const task = await getTask(id);
     if (!task) return null;
     if (task.status !== "open" && task.status !== "claimed") return null;
-    if (task.status === "open" && submitter) {
+    if (task.status === "open") {
+      // An open task has no claimant yet. Proof may attach only if the submitter
+      // is claiming it in the same step (verify-proof always passes a submitter;
+      // the XMTP flow requires a prior CLAIM). Without one there is no claimant
+      // to verify or pay, so reject rather than orphan the proof.
+      if (!submitter) return null;
       task.claimant = submitter;
       task.status = "claimed";
       task.claimantVerification = verificationLevel ?? null;
