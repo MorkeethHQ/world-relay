@@ -63,6 +63,30 @@ describe("invariant guards", () => {
     expect(read(f!), "confirm route must not release escrow (funded settles via AI verification)").not.toMatch(/releaseEscrow/);
   });
 
+  it("Inv 1: every points mutator serializes its read-modify-write under withWalletLock (no mint)", () => {
+    // totalPoints is a JSON blob updated read-modify-write; without a per-wallet
+    // lock two concurrent writers lose a deduction = a points MINT (proven: 10
+    // concurrent spends of 10 on a 100-pt balance left 90, not 0). Each mutator
+    // below must run inside withWalletLock. Mechanical check: the function body
+    // (decl → next top-level `export `) must reference withWalletLock.
+    const pof = files.find((p) => p.endsWith(join("lib", "proof-of-favour.ts")));
+    expect(pof, "proof-of-favour.ts not found").toBeTruthy();
+    const src = read(pof!);
+    const mutators = [
+      "spendPoints", "buyStreakFreeze", "awardPoints", "recordFavourClaimed",
+      "recordFavourAttempted", "recordFavourCompleted", "recordFavourFailed",
+      "recordFavourPosted", "recordDailyActivity",
+    ];
+    for (const name of mutators) {
+      const start = src.indexOf(`export async function ${name}`);
+      expect(start, `${name} not found in proof-of-favour.ts`).toBeGreaterThanOrEqual(0);
+      const rest = src.slice(start + 1);
+      const nextExport = rest.indexOf("\nexport ");
+      const body = nextExport === -1 ? rest : rest.slice(0, nextExport);
+      expect(body, `${name} must wrap its read-modify-write in withWalletLock`).toMatch(/withWalletLock\(/);
+    }
+  });
+
   it("Inv 2: escrow release sites record settlement (no fire-and-forget)", () => {
     // Every route that calls releaseEscrow must also record the outcome via
     // markSettled/markSettlementPending, never discard it.

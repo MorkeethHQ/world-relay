@@ -104,42 +104,48 @@ export async function spendPoints(
 ): Promise<{ ok: boolean; error?: string; totalPoints?: number }> {
   if (!isRealWallet(address)) return { ok: false, error: "A wallet account is required" };
   if (!Number.isFinite(amount) || amount <= 0) return { ok: false, error: "Bad amount" };
-  const profile = await getProofOfFavour(address);
-  if (profile.totalPoints < amount) {
-    return { ok: false, error: `Not enough points — you have ${Math.round(profile.totalPoints)}, this needs ${amount}` };
-  }
-  profile.totalPoints -= amount;
-  profile.level = getLevel(profile.totalPoints);
-  profile.pointsHistory.push({ action, points: -amount, timestamp: new Date().toISOString() });
-  if (profile.pointsHistory.length > MAX_HISTORY) {
-    profile.pointsHistory = profile.pointsHistory.slice(-MAX_HISTORY);
-  }
-  await saveProfile(profile);
-  return { ok: true, totalPoints: profile.totalPoints };
+  // Balance check + debit + save must be one atomic section, or a concurrent
+  // spend/award can clobber the deduction (mint). See withWalletLock.
+  return withWalletLock(address, async () => {
+    const profile = await getProofOfFavour(address);
+    if (profile.totalPoints < amount) {
+      return { ok: false, error: `Not enough points — you have ${Math.round(profile.totalPoints)}, this needs ${amount}` };
+    }
+    profile.totalPoints -= amount;
+    profile.level = getLevel(profile.totalPoints);
+    profile.pointsHistory.push({ action, points: -amount, timestamp: new Date().toISOString() });
+    if (profile.pointsHistory.length > MAX_HISTORY) {
+      profile.pointsHistory = profile.pointsHistory.slice(-MAX_HISTORY);
+    }
+    await saveProfile(profile);
+    return { ok: true, totalPoints: profile.totalPoints };
+  });
 }
 
 export async function buyStreakFreeze(address: string): Promise<{ ok: boolean; error?: string; profile?: ProofOfFavour }> {
-  const profile = await getProofOfFavour(address);
   if (!isRealWallet(address)) return { ok: false, error: "A wallet account is required" };
-  if ((profile.streakFreezes || 0) >= STREAK_FREEZE_MAX_HELD) {
-    return { ok: false, error: `You already hold ${STREAK_FREEZE_MAX_HELD} freezes` };
-  }
-  if (profile.totalPoints < STREAK_FREEZE_COST) {
-    return { ok: false, error: `A freeze costs ${STREAK_FREEZE_COST} pts — you have ${Math.round(profile.totalPoints)}` };
-  }
-  profile.totalPoints -= STREAK_FREEZE_COST;
-  profile.streakFreezes = (profile.streakFreezes || 0) + 1;
-  profile.level = getLevel(profile.totalPoints);
-  profile.pointsHistory.push({
-    action: "streak_freeze_bought",
-    points: -STREAK_FREEZE_COST,
-    timestamp: new Date().toISOString(),
+  return withWalletLock(address, async () => {
+    const profile = await getProofOfFavour(address);
+    if ((profile.streakFreezes || 0) >= STREAK_FREEZE_MAX_HELD) {
+      return { ok: false, error: `You already hold ${STREAK_FREEZE_MAX_HELD} freezes` };
+    }
+    if (profile.totalPoints < STREAK_FREEZE_COST) {
+      return { ok: false, error: `A freeze costs ${STREAK_FREEZE_COST} pts — you have ${Math.round(profile.totalPoints)}` };
+    }
+    profile.totalPoints -= STREAK_FREEZE_COST;
+    profile.streakFreezes = (profile.streakFreezes || 0) + 1;
+    profile.level = getLevel(profile.totalPoints);
+    profile.pointsHistory.push({
+      action: "streak_freeze_bought",
+      points: -STREAK_FREEZE_COST,
+      timestamp: new Date().toISOString(),
+    });
+    if (profile.pointsHistory.length > MAX_HISTORY) {
+      profile.pointsHistory = profile.pointsHistory.slice(-MAX_HISTORY);
+    }
+    await saveProfile(profile);
+    return { ok: true, profile };
   });
-  if (profile.pointsHistory.length > MAX_HISTORY) {
-    profile.pointsHistory = profile.pointsHistory.slice(-MAX_HISTORY);
-  }
-  await saveProfile(profile);
-  return { ok: true, profile };
 }
 
 // --- Level thresholds ---
@@ -288,6 +294,55 @@ async function saveProfile(profile: ProofOfFavour): Promise<void> {
   await redis.sadd(POF_INDEX_KEY, profile.address).catch(console.error);
 }
 
+// --- Per-wallet write lock (points MINT guard) ---
+// totalPoints lives inside one JSON blob mutated read-modify-write (GET+parse →
+// change → SET). With no serialization two concurrent writers — a spend racing
+// an award, or two spends — both read the old balance and the second SET
+// clobbers the first. The lost deduction is a points MINT (SECURITY-INVARIANTS
+// "points can only be earned by real completions"). Every mutator below runs
+// its read+write inside this lock, so all writes for one wallet are serialized.
+// The lock auto-expires (px) so a crashed request can never deadlock a wallet.
+const LOCK_TTL_MS = 5000;
+const LOCK_RETRY_MS = 50;
+// Fail-closed ceiling. In production the app and Upstash are co-located
+// (~2-5ms/round-trip), so even a heavy same-wallet burst drains in well under a
+// second; this ceiling is only hit by pathological racing, where rejecting one
+// write ("busy, retry") is the correct outcome — never a mint.
+const LOCK_MAX_WAIT_MS = 7000;
+// Release only if we still hold the token — never delete a lock a later writer
+// acquired after ours lapsed.
+const RELEASE_LUA =
+  "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end";
+
+async function withWalletLock<T>(address: string, fn: () => Promise<T>): Promise<T> {
+  const redis = getRedis();
+  // No redis (local/dev) or non-wallet (never persists) → no cross-request race
+  // to guard; run directly so tests and dev stay lock-free.
+  if (!redis || !isRealWallet(address)) return fn();
+  const lockKey = `lock:pof:${address}`;
+  const token = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const deadline = Date.now() + LOCK_MAX_WAIT_MS;
+  for (;;) {
+    const got = await redis.set(lockKey, token, { nx: true, px: LOCK_TTL_MS });
+    if (got === "OK") break;
+    if (Date.now() > deadline) {
+      // Fail closed: reject this one write rather than run it unserialized and
+      // risk a mint. Callers surface it as a transient "busy" error.
+      throw new Error("points system busy — please retry");
+    }
+    await new Promise((r) => setTimeout(r, LOCK_RETRY_MS));
+  }
+  try {
+    return await fn();
+  } finally {
+    try {
+      await redis.eval(RELEASE_LUA, [lockKey], [token]);
+    } catch (e) {
+      console.error("[PoF] lock release failed:", e);
+    }
+  }
+}
+
 export async function getWeeklyLeaderboard(limit = 10): Promise<Array<{ address: string; weeklyPoints: number }>> {
   const redis = getRedis();
   if (!redis) return [];
@@ -332,75 +387,81 @@ export async function awardPoints(
   action: string,
   points: number
 ): Promise<ProofOfFavour> {
-  const profile = await getProofOfFavour(address);
-  if (!isRealWallet(address)) return profile;
-  profile.totalPoints += points;
-  profile.level = getLevel(profile.totalPoints);
-
-  // Append to history, keep last MAX_HISTORY entries
-  profile.pointsHistory.push({
-    action,
-    points,
-    timestamp: new Date().toISOString(),
-  });
-  if (profile.pointsHistory.length > MAX_HISTORY) {
-    profile.pointsHistory = profile.pointsHistory.slice(-MAX_HISTORY);
-  }
-
-  updateStreak(profile);
-
-  await saveProfile(profile);
-  trackWeeklyPoints(address, points).catch(console.error);
-  return profile;
-}
-
-export async function recordFavourClaimed(address: string): Promise<ProofOfFavour> {
-  const profile = await getProofOfFavour(address);
-  if (!isRealWallet(address)) return profile;
-  const points = SEASON_ECONOMY.FAVOUR_CLAIMED;
-  if (points === 0) return profile; // claim-time points killed Jul 5 (uncapped farm)
-  profile.totalPoints += points;
-  profile.level = getLevel(profile.totalPoints);
-
-  profile.pointsHistory.push({
-    action: "favour_claimed",
-    points,
-    timestamp: new Date().toISOString(),
-  });
-  if (profile.pointsHistory.length > MAX_HISTORY) {
-    profile.pointsHistory = profile.pointsHistory.slice(-MAX_HISTORY);
-  }
-
-  updateStreak(profile);
-  await saveProfile(profile);
-  trackWeeklyPoints(address, points).catch(console.error);
-  return profile;
-}
-
-export async function recordFavourAttempted(address: string): Promise<ProofOfFavour> {
-  const profile = await getProofOfFavour(address);
-  if (!isRealWallet(address)) return profile;
-  // Attempt is a stat, not a payout: the pass pays exactly the advertised task
-  // price (see completionPointsFor), so the old flat attempt bonus is gone.
-  profile.favoursAttempted += 1;
-  const points = SEASON_ECONOMY.FAVOUR_ATTEMPTED;
-  if (points > 0) {
+  return withWalletLock(address, async () => {
+    const profile = await getProofOfFavour(address);
+    if (!isRealWallet(address)) return profile;
     profile.totalPoints += points;
     profile.level = getLevel(profile.totalPoints);
+
+    // Append to history, keep last MAX_HISTORY entries
     profile.pointsHistory.push({
-      action: "favour_attempted",
+      action,
       points,
       timestamp: new Date().toISOString(),
     });
     if (profile.pointsHistory.length > MAX_HISTORY) {
       profile.pointsHistory = profile.pointsHistory.slice(-MAX_HISTORY);
     }
-  }
 
-  updateStreak(profile);
-  await saveProfile(profile);
-  if (points > 0) trackWeeklyPoints(address, points).catch(console.error);
-  return profile;
+    updateStreak(profile);
+
+    await saveProfile(profile);
+    trackWeeklyPoints(address, points).catch(console.error);
+    return profile;
+  });
+}
+
+export async function recordFavourClaimed(address: string): Promise<ProofOfFavour> {
+  return withWalletLock(address, async () => {
+    const profile = await getProofOfFavour(address);
+    if (!isRealWallet(address)) return profile;
+    const points = SEASON_ECONOMY.FAVOUR_CLAIMED;
+    if (points === 0) return profile; // claim-time points killed Jul 5 (uncapped farm)
+    profile.totalPoints += points;
+    profile.level = getLevel(profile.totalPoints);
+
+    profile.pointsHistory.push({
+      action: "favour_claimed",
+      points,
+      timestamp: new Date().toISOString(),
+    });
+    if (profile.pointsHistory.length > MAX_HISTORY) {
+      profile.pointsHistory = profile.pointsHistory.slice(-MAX_HISTORY);
+    }
+
+    updateStreak(profile);
+    await saveProfile(profile);
+    trackWeeklyPoints(address, points).catch(console.error);
+    return profile;
+  });
+}
+
+export async function recordFavourAttempted(address: string): Promise<ProofOfFavour> {
+  return withWalletLock(address, async () => {
+    const profile = await getProofOfFavour(address);
+    if (!isRealWallet(address)) return profile;
+    // Attempt is a stat, not a payout: the pass pays exactly the advertised task
+    // price (see completionPointsFor), so the old flat attempt bonus is gone.
+    profile.favoursAttempted += 1;
+    const points = SEASON_ECONOMY.FAVOUR_ATTEMPTED;
+    if (points > 0) {
+      profile.totalPoints += points;
+      profile.level = getLevel(profile.totalPoints);
+      profile.pointsHistory.push({
+        action: "favour_attempted",
+        points,
+        timestamp: new Date().toISOString(),
+      });
+      if (profile.pointsHistory.length > MAX_HISTORY) {
+        profile.pointsHistory = profile.pointsHistory.slice(-MAX_HISTORY);
+      }
+    }
+
+    updateStreak(profile);
+    await saveProfile(profile);
+    if (points > 0) trackWeeklyPoints(address, points).catch(console.error);
+    return profile;
+  });
 }
 
 export async function recordFavourCompleted(
@@ -412,103 +473,111 @@ export async function recordFavourCompleted(
   const streakBonus = streakBonusFor(streak);
   const totalAwarded = completion + streakBonus;
 
-  const profile = await getProofOfFavour(address);
-  if (!isRealWallet(address)) return profile;
-  profile.totalPoints += totalAwarded;
-  profile.favoursCompleted += 1;
-  profile.level = getLevel(profile.totalPoints);
+  return withWalletLock(address, async () => {
+    const profile = await getProofOfFavour(address);
+    if (!isRealWallet(address)) return profile;
+    profile.totalPoints += totalAwarded;
+    profile.favoursCompleted += 1;
+    profile.level = getLevel(profile.totalPoints);
 
-  profile.pointsHistory.push({
-    action: "favour_completed",
-    points: completion,
-    timestamp: new Date().toISOString(),
-  });
-  if (streakBonus > 0) {
     profile.pointsHistory.push({
-      action: "streak_bonus",
-      points: streakBonus,
+      action: "favour_completed",
+      points: completion,
       timestamp: new Date().toISOString(),
     });
-  }
-  if (profile.pointsHistory.length > MAX_HISTORY) {
-    profile.pointsHistory = profile.pointsHistory.slice(-MAX_HISTORY);
-  }
+    if (streakBonus > 0) {
+      profile.pointsHistory.push({
+        action: "streak_bonus",
+        points: streakBonus,
+        timestamp: new Date().toISOString(),
+      });
+    }
+    if (profile.pointsHistory.length > MAX_HISTORY) {
+      profile.pointsHistory = profile.pointsHistory.slice(-MAX_HISTORY);
+    }
 
-  updateStreak(profile);
-  await saveProfile(profile);
-  trackWeeklyPoints(address, totalAwarded).catch(console.error);
-  return profile;
+    updateStreak(profile);
+    await saveProfile(profile);
+    trackWeeklyPoints(address, totalAwarded).catch(console.error);
+    return profile;
+  });
 }
 
 export async function recordFavourFailed(address: string): Promise<ProofOfFavour> {
-  const profile = await getProofOfFavour(address);
-  if (!isRealWallet(address)) return profile;
-  profile.currentStreak = 0;
+  return withWalletLock(address, async () => {
+    const profile = await getProofOfFavour(address);
+    if (!isRealWallet(address)) return profile;
+    profile.currentStreak = 0;
 
-  profile.pointsHistory.push({
-    action: "favour_failed",
-    points: 0,
-    timestamp: new Date().toISOString(),
+    profile.pointsHistory.push({
+      action: "favour_failed",
+      points: 0,
+      timestamp: new Date().toISOString(),
+    });
+    if (profile.pointsHistory.length > MAX_HISTORY) {
+      profile.pointsHistory = profile.pointsHistory.slice(-MAX_HISTORY);
+    }
+
+    profile.lastActivityDate = todayDateStr();
+    await saveProfile(profile);
+    return profile;
   });
-  if (profile.pointsHistory.length > MAX_HISTORY) {
-    profile.pointsHistory = profile.pointsHistory.slice(-MAX_HISTORY);
-  }
-
-  profile.lastActivityDate = todayDateStr();
-  await saveProfile(profile);
-  return profile;
 }
 
 export async function recordFavourPosted(address: string): Promise<ProofOfFavour> {
-  const profile = await getProofOfFavour(address);
-  if (!isRealWallet(address)) return profile;
-  const points = SEASON_ECONOMY.FAVOUR_POSTED;
-  profile.totalPoints += points;
-  profile.favoursPosted += 1;
-  profile.level = getLevel(profile.totalPoints);
+  return withWalletLock(address, async () => {
+    const profile = await getProofOfFavour(address);
+    if (!isRealWallet(address)) return profile;
+    const points = SEASON_ECONOMY.FAVOUR_POSTED;
+    profile.totalPoints += points;
+    profile.favoursPosted += 1;
+    profile.level = getLevel(profile.totalPoints);
 
-  profile.pointsHistory.push({
-    action: "favour_posted",
-    points,
-    timestamp: new Date().toISOString(),
+    profile.pointsHistory.push({
+      action: "favour_posted",
+      points,
+      timestamp: new Date().toISOString(),
+    });
+    if (profile.pointsHistory.length > MAX_HISTORY) {
+      profile.pointsHistory = profile.pointsHistory.slice(-MAX_HISTORY);
+    }
+
+    updateStreak(profile);
+    await saveProfile(profile);
+    trackWeeklyPoints(address, points).catch(console.error);
+    return profile;
   });
-  if (profile.pointsHistory.length > MAX_HISTORY) {
-    profile.pointsHistory = profile.pointsHistory.slice(-MAX_HISTORY);
-  }
-
-  updateStreak(profile);
-  await saveProfile(profile);
-  trackWeeklyPoints(address, points).catch(console.error);
-  return profile;
 }
 
 export async function recordDailyActivity(address: string): Promise<ProofOfFavour> {
-  const profile = await getProofOfFavour(address);
-  if (!isRealWallet(address)) return profile;
-  const today = todayDateStr();
+  return withWalletLock(address, async () => {
+    const profile = await getProofOfFavour(address);
+    if (!isRealWallet(address)) return profile;
+    const today = todayDateStr();
 
-  // Only award daily activity points once per day
-  if (profile.lastActivityDate === today) {
+    // Only award daily activity points once per day
+    if (profile.lastActivityDate === today) {
+      return profile;
+    }
+
+    const points = SEASON_ECONOMY.DAILY_ACTIVITY;
+    profile.totalPoints += points;
+    profile.level = getLevel(profile.totalPoints);
+
+    profile.pointsHistory.push({
+      action: "daily_activity",
+      points,
+      timestamp: new Date().toISOString(),
+    });
+    if (profile.pointsHistory.length > MAX_HISTORY) {
+      profile.pointsHistory = profile.pointsHistory.slice(-MAX_HISTORY);
+    }
+
+    updateStreak(profile);
+    await saveProfile(profile);
+    trackWeeklyPoints(address, points).catch(console.error);
     return profile;
-  }
-
-  const points = SEASON_ECONOMY.DAILY_ACTIVITY;
-  profile.totalPoints += points;
-  profile.level = getLevel(profile.totalPoints);
-
-  profile.pointsHistory.push({
-    action: "daily_activity",
-    points,
-    timestamp: new Date().toISOString(),
   });
-  if (profile.pointsHistory.length > MAX_HISTORY) {
-    profile.pointsHistory = profile.pointsHistory.slice(-MAX_HISTORY);
-  }
-
-  updateStreak(profile);
-  await saveProfile(profile);
-  trackWeeklyPoints(address, points).catch(console.error);
-  return profile;
 }
 
 export async function getTopRunners(limit = 10): Promise<ProofOfFavour[]> {
