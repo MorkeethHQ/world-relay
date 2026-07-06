@@ -507,6 +507,31 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
     });
   }, [tasks, tab, userLocation, userId]);
 
+  // Freshness for returning users: remember when this device last saw the board,
+  // then flag open favours posted since then so a returning user immediately sees
+  // the app moved while they were away (the main "it's alive" signal). The
+  // reference time is captured once on mount and held for the session; the stored
+  // value is advanced to now so the NEXT return compares against this visit.
+  const freshSince = useRef<number | null>(null);
+  const [freshReady, setFreshReady] = useState(false);
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("favour_last_visit");
+      freshSince.current = stored ? Number(stored) : null;
+      localStorage.setItem("favour_last_visit", String(Date.now()));
+    } catch {}
+    setFreshReady(true);
+  }, []);
+  const freshIds = useMemo(() => {
+    const since = freshSince.current;
+    if (!freshReady || !since) return new Set<string>();
+    return new Set(
+      filtered
+        .filter((t) => t.status === "open" && new Date(t.createdAt).getTime() > since)
+        .map((t) => t.id)
+    );
+  }, [filtered, freshReady]);
+
   const [heroVisible, setHeroVisible] = useState(true);
   const { myTaskCount, completedByClaiming, totalEarned, totalPosted, totalClaimed } = useMemo(() => {
     const myTasks = tasks.filter(t => t.poster === userId || t.claimant === userId);
@@ -687,9 +712,24 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
             </div>
             <div className="w-1 h-1 rounded-full bg-gray-200" />
             <div className="flex items-baseline gap-1.5">
-              <span className="text-[15px] font-bold text-gray-900">${tasks.filter(t => t.status === "completed" && t.rewardType !== "points" && t.escrowTxHash).reduce((s, t) => s + t.bountyUsdc, 0).toFixed(0)}</span>
+              <span className="text-[15px] font-bold text-gray-900">${tasks.filter(t => (t.onChainId != null || t.escrowTxHash) && t.settlementTx).reduce((s, t) => s + t.bountyUsdc, 0).toFixed(0)}</span>
               <span className="text-[12px] text-gray-400">paid out</span>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Returning-user freshness: activity while you were away. */}
+      {tab === "available" && !loading && freshReady && freshIds.size > 0 && (
+        <div className="px-6 pb-1 animate-[fadeSlideIn_0.4s_ease-out]">
+          <div className="inline-flex items-center gap-2 rounded-full bg-white border border-gray-200 pl-2.5 pr-3 py-1.5">
+            <span className="relative flex w-2 h-2">
+              <span className="absolute inline-flex w-full h-full rounded-full bg-green-400 opacity-70 animate-ping" />
+              <span className="relative inline-flex w-2 h-2 rounded-full bg-green-500" />
+            </span>
+            <span className="text-[12px] font-medium text-gray-700">
+              {freshIds.size} new since you were here
+            </span>
           </div>
         </div>
       )}
@@ -978,6 +1018,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
                     userId={userId}
                     userLocation={userLocation}
                     verificationLevel={verificationLevel}
+                    isNew={tab === "available" && freshIds.has(task.id)}
                     onTap={() => {
                       setSelectedTask(task);
                       setView("detail");
@@ -1223,6 +1264,7 @@ function TaskCard({
   onTap,
   onClaim,
   onSubmitProof,
+  isNew,
 }: {
   task: Task;
   userId: string | null;
@@ -1231,6 +1273,7 @@ function TaskCard({
   onTap: () => void;
   onClaim: () => void;
   onSubmitProof: () => void;
+  isNew?: boolean;
 }) {
   const isOwnTask = task.poster === userId;
   const isClaimant = task.claimant === userId;
@@ -1256,6 +1299,9 @@ function TaskCard({
         <div className="flex-1 min-w-0">
           <p className="text-[15px] font-medium leading-snug break-words text-gray-900">{task.description}</p>
           <div className="flex items-center gap-2 mt-1.5">
+            {isNew && (
+              <span className="text-[10px] font-bold uppercase tracking-wide text-gray-900 bg-gray-100 rounded px-1.5 py-0.5 shrink-0">New</span>
+            )}
             <span className="text-xs text-gray-400 truncate max-w-[140px]">{task.location}</span>
             {distance !== null && (
               <>
