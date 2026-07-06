@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.favour.watch</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/zsh</string>
+    <string>-lc</string>
+    <!-- Same nvm-default guard as ops: watch-hourly.ts also calls global fetch. -->
+    <string>export NVM_DIR="$HOME/.nvm"; [ -s "$NVM_DIR/nvm.sh" ] &amp;&amp; . "$NVM_DIR/nvm.sh" &gt;/dev/null 2>&amp;1; nvm use default &gt;/dev/null 2>&amp;1; cd $HOME/CODE/world-relay &amp;&amp; npx tsx scripts/watch-hourly.ts &gt;&gt; $HOME/CODE/world-relay/scripts/.watch-cron.log 2>&amp;1</string>
+  </array>
+  <key>StartInterval</key>
+  <integer>3600</integer>
+  <key>RunAtLoad</key>
+  <false/>
+</dict>
+</plist>

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.favour.ops</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/zsh</string>
+    <string>-lc</string>
+    <!-- Source nvm and select the default node (v22) so global `fetch` exists.
+         Without this, launchd resolved node to /usr/local/bin/node v16.15.0,
+         which has no global fetch, and every viem RPC read died with
+         `fetch is not defined` (7 failed runs in .ops-cron.log). -->
+    <string>export NVM_DIR="$HOME/.nvm"; [ -s "$NVM_DIR/nvm.sh" ] &amp;&amp; . "$NVM_DIR/nvm.sh" &gt;/dev/null 2>&amp;1; nvm use default &gt;/dev/null 2>&amp;1; cd $HOME/CODE/world-relay &amp;&amp; npx tsx scripts/ops-daily.ts &gt;&gt; $HOME/CODE/world-relay/scripts/.ops-cron.log 2>&amp;1</string>
+  </array>
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key>
+    <integer>8</integer>
+    <key>Minute</key>
+    <integer>10</integer>
+  </dict>
+  <key>RunAtLoad</key>
+  <false/>
+</dict>
+</plist>

@@ -10,7 +10,10 @@ cd "$HOME/CODE/world-relay"
 # key on purpose: setting one would silently switch billing from subscription
 # to per-token API. The 05:00 slot uses quota that is idle anyway.
 unset ANTHROPIC_API_KEY
-export PATH="/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+# ~/.local/bin FIRST — that is where `claude` lives. Omitting it was why the
+# launchd run died with `command not found: claude` (the login shell added it,
+# but this hard PATH reset dropped it again).
+export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 
 LOG="$HOME/CODE/world-relay/scripts/.night-shift.log"
 echo "=== night shift $(date -u +%Y-%m-%dT%H:%M:%SZ) ===" >> "$LOG"
