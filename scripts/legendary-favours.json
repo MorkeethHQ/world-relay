@@ -1,0 +1,46 @@
+{
+  "_readme": "Legendary Favours campaign — 5 escrow-funded USDC favours, $2 each, $10 total. Dry run: npx tsx scripts/fund-batch.ts scripts/legendary-favours.json  | Fund+seed: add --live (moves real USDC from XMTP_WALLET_KEY, needs Oscar).",
+  "baseUrl": "https://world-relay.vercel.app",
+  "tasks": [
+    {
+      "description": "Water a public plant or street tree that looks like it needs it. Proof: one clear photo of you actually watering it. $2 USDC lands in your wallet the moment the AI verifies the photo.",
+      "location": "Anywhere",
+      "category": "photo",
+      "bountyUsdc": 2.0,
+      "deadlineHours": 336,
+      "campaignId": "legendary-favours"
+    },
+    {
+      "description": "Find the best hidden view in your city and photograph it. Proof: the photo, plus one line in your note on how to get there. $2 USDC on verified completion.",
+      "location": "Any city",
+      "category": "photo",
+      "bountyUsdc": 2.0,
+      "deadlineHours": 336,
+      "campaignId": "legendary-favours"
+    },
+    {
+      "description": "Where do locals actually watch football where you are? Photo the spot and rate the atmosphere 1-10 in your note. $2 USDC on verified completion.",
+      "location": "Any city",
+      "category": "review",
+      "bountyUsdc": 2.0,
+      "deadlineHours": 336,
+      "campaignId": "legendary-favours"
+    },
+    {
+      "description": "Pick up 5 pieces of litter on one street. Proof: one photo of the litter in your hand or going into a bin, at the spot. $2 USDC on verified completion.",
+      "location": "Anywhere",
+      "category": "photo",
+      "bountyUsdc": 2.0,
+      "deadlineHours": 336,
+      "campaignId": "legendary-favours"
+    },
+    {
+      "description": "Leave a handwritten, kind note somewhere public for a stranger to find. Proof: one photo of the note where you left it. $2 USDC on verified completion.",
+      "location": "Anywhere",
+      "category": "custom",
+      "bountyUsdc": 2.0,
+      "deadlineHours": 336,
+      "campaignId": "legendary-favours"
+    }
+  ]
+}

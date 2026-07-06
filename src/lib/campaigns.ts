@@ -36,6 +36,33 @@ export type Campaign = {
 
 export const CAMPAIGNS: Campaign[] = [
   {
+    id: "legendary-favours",
+    name: "Legendary Favours",
+    brand: "FAVOUR",
+    tagline: "Five favours. Real USDC. Proof or nothing.",
+    description:
+      "Five standout favours, each paying real USDC the moment the AI verifies your proof. No points here — this is money, settled on-chain to your wallet. Do one, photograph it honestly, get paid. First come, first paid: each favour pays once.",
+    heroGradient: "from-gray-950 via-emerald-900 to-green-800",
+    heroImage: "/hero/world-cup.jpg",
+    accentColor: "#16a34a",
+    icon: "\u{1F3C6}",
+    totalBudget: 10,
+    rewardPerTask: 2,
+    rewardKind: "usdc",
+    taskCount: 5,
+    categories: ["photo", "review", "custom"],
+    taskDescriptions: [
+      "Water a public plant or street tree that needs it",
+      "Photograph the best hidden view in your city",
+      "Find where locals watch football, rate the atmosphere",
+      "Pick up 5 pieces of litter on one street",
+      "Leave a handwritten kind note for a stranger to find",
+    ],
+    location: "Worldwide",
+    endsAt: "2026-07-20T23:59:59Z",
+    featured: true,
+  },
+  {
     id: "first-favour",
     name: "Your First Favours",
     brand: "FAVOUR",
