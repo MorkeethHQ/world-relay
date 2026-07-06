@@ -558,19 +558,19 @@ function StreakFreezeRow({ profile }: { profile: ProofOfFavour }) {
 
   return (
     <div>
-      <div className="flex items-center justify-between gap-3 rounded-xl bg-white/60 border border-gray-200 px-3.5 py-3">
+      <div className="flex items-center justify-between gap-2.5 rounded-xl bg-white/60 border border-gray-200 px-3 py-2.5">
         <div className="min-w-0">
-          <p className="text-[13px] font-semibold text-gray-900 truncate">
+          <p className="text-[12px] font-semibold text-gray-900 truncate">
             Streak freeze{freezes > 0 ? ` · ${freezes} held` : ""}
           </p>
-          <p className="text-[11px] text-gray-400 mt-0.5">Covers one missed day. 30 pts each, hold 2.</p>
+          <p className="text-[10px] text-gray-400 mt-0.5 truncate">Covers one missed day</p>
         </div>
         <button
           onClick={buy}
           disabled={busy}
-          className="shrink-0 whitespace-nowrap bg-gray-900 text-white text-[12px] font-semibold px-3 py-2 rounded-full active:scale-95 transition-transform disabled:opacity-50"
+          className="shrink-0 whitespace-nowrap bg-gray-900 text-white text-[11px] font-semibold px-2.5 py-1.5 rounded-full active:scale-95 transition-transform disabled:opacity-50"
         >
-          {busy ? "..." : "Buy freeze"}
+          {busy ? "..." : "Buy · 30"}
         </button>
       </div>
       {msg && <p className="text-[11px] text-red-600 mt-1.5">{msg}</p>}

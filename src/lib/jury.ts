@@ -81,7 +81,19 @@ export async function issueJuryDeck(
   randomId: () => string
 ): Promise<JuryCard[]> {
   const redis = getRedis();
-  const composed = composeDeck(tasks, judge);
+  // Exclude proofs this judge has already ruled on. Dedup is by TASK, not by
+  // cardId: every deck mints fresh cardIds for the same proofs, so a per-cardId
+  // guard alone let the same favour come back forever. jury:judged:{judge} is
+  // the set of proofTaskIds already judged (written in recordJuryVerdict).
+  let pool = tasks;
+  if (redis && judge) {
+    const judged = await redis.smembers(`jury:judged:${judge.toLowerCase()}`).catch(() => [] as string[]);
+    if (judged && judged.length) {
+      const seen = new Set(judged.map(String));
+      pool = tasks.filter((t) => !seen.has(t.id));
+    }
+  }
+  const composed = composeDeck(pool, judge);
   const cards: JuryCard[] = [];
   for (const { answer, content } of composed) {
     const cardId = randomId();
@@ -127,6 +139,9 @@ export async function recordJuryVerdict(
   const fresh = await redis.sadd(`jury:seen:${judge.toLowerCase()}`, cardId);
   if (!fresh) return { error: "Already judged" };
   await redis.del(`jury:card:${cardId}`).catch(() => {});
+  // Record the underlying proof as judged so future decks never resurface it
+  // (a proof is judged once per human, regardless of how many cards wrap it).
+  await redis.sadd(`jury:judged:${judge.toLowerCase()}`, answer.proofTaskId).catch(() => {});
 
   const correct = saidMatch === answer.isMatch;
 

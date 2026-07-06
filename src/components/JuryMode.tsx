@@ -52,6 +52,16 @@ export function JuryMode({ userId, onClose }: { userId: string | null; onClose: 
     setShowIntro(false);
   };
 
+  // Warm the NEXT proof image while the current card is on top, so advancing
+  // never waits on a network fetch (the main source of the swipe lag).
+  useEffect(() => {
+    const next = cards[1]?.proofImageUrl;
+    if (next && typeof window !== "undefined") {
+      const img = new window.Image();
+      img.src = next;
+    }
+  }, [cards]);
+
   const card = cards[0];
 
   const vote = useCallback((saidMatch: boolean) => {
@@ -67,7 +77,7 @@ export function JuryMode({ userId, onClose }: { userId: string | null; onClose: 
       setCards((c) => c.slice(1));
       setDx(0);
       busy.current = false;
-    }, 160);
+    }, 110);
 
     // Resolve the verdict in the background; flash lands on the next card.
     if (userId) {
@@ -152,8 +162,8 @@ export function JuryMode({ userId, onClose }: { userId: string | null; onClose: 
                   <p className="text-[13px] font-semibold text-gray-900 leading-snug mt-1">Water the neighbour&rsquo;s plants</p>
                 </div>
                 <div className="absolute bottom-0 inset-x-0 h-28 bg-gray-100" />
-                <div className="jury-stamp-real absolute top-14 left-3 rotate-[-12deg] border-4 border-green-500 text-green-500 font-black text-xl px-2.5 py-0.5 rounded-lg">REAL</div>
-                <div className="jury-stamp-not absolute top-14 right-3 rotate-[12deg] border-4 border-red-500 text-red-500 font-black text-xl px-2.5 py-0.5 rounded-lg">NOT</div>
+                <div className="jury-stamp-real absolute bottom-8 left-3 rotate-[-12deg] border-4 border-green-500 text-green-500 font-black text-xl px-2.5 py-0.5 rounded-lg bg-white/70">REAL</div>
+                <div className="jury-stamp-not absolute bottom-8 right-3 rotate-[12deg] border-4 border-red-500 text-red-500 font-black text-xl px-2.5 py-0.5 rounded-lg bg-white/70">NOT</div>
               </div>
             </div>
             <div className="space-y-3 pb-1">
@@ -195,7 +205,7 @@ export function JuryMode({ userId, onClose }: { userId: string | null; onClose: 
 
             <div
               className="absolute inset-x-5 top-1 bottom-4 rounded-3xl bg-white border border-gray-200 shadow-lg overflow-hidden flex flex-col select-none touch-pan-y"
-              style={{ transform: `translateX(${dx}px) rotate(${tilt}deg)`, transition: dragging.current ? "none" : "transform 180ms ease-out" }}
+              style={{ transform: `translateX(${dx}px) rotate(${tilt}deg)`, transition: dragging.current ? "none" : "transform 130ms ease-out" }}
               onTouchStart={onTouchStart}
               onTouchMove={onTouchMove}
               onTouchEnd={onTouchEnd}
