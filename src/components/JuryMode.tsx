@@ -24,6 +24,9 @@ export function JuryMode({ userId, onClose }: { userId: string | null; onClose: 
   const [flash, setFlash] = useState<Flash>(null);
   const [session, setSession] = useState({ judged: 0, correct: 0, points: 0 });
   const [dx, setDx] = useState(0);
+  // One-time explainer before the first swipe (Oscar: walk through the concept
+  // first). Shown until dismissed, then never again for this device.
+  const [showIntro, setShowIntro] = useState(false);
   const startX = useRef(0);
   const dragging = useRef(false);
   const busy = useRef(false);
@@ -36,6 +39,18 @@ export function JuryMode({ userId, onClose }: { userId: string | null; onClose: 
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [userId]);
+
+  useEffect(() => {
+    try {
+      if (!localStorage.getItem("favour_jury_intro_seen")) setShowIntro(true);
+    } catch {}
+  }, []);
+
+  const dismissIntro = () => {
+    try { localStorage.setItem("favour_jury_intro_seen", "1"); } catch {}
+    hapticTap();
+    setShowIntro(false);
+  };
 
   const card = cards[0];
 
@@ -117,7 +132,47 @@ export function JuryMode({ userId, onClose }: { userId: string | null; onClose: 
 
       {/* Card stage */}
       <div className="flex-1 relative px-5 pb-2 overflow-hidden">
-        {loading ? (
+        {showIntro ? (
+          <div className="absolute inset-0 flex flex-col px-1">
+            <style>{`
+              @keyframes juryDemoTilt {0%,12%{transform:translateX(0) rotate(0)}28%,40%{transform:translateX(34px) rotate(9deg)}56%,60%{transform:translateX(0) rotate(0)}76%,88%{transform:translateX(-34px) rotate(-9deg)}100%{transform:translateX(0) rotate(0)}}
+              @keyframes juryStampReal {0%,16%{opacity:0}28%,44%{opacity:1}58%,100%{opacity:0}}
+              @keyframes juryStampNot {0%,60%{opacity:0}76%,90%{opacity:1}96%,100%{opacity:0}}
+              @keyframes juryStepIn {from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+              .jury-demo{animation:juryDemoTilt 4.2s ease-in-out infinite}
+              .jury-stamp-real{opacity:0;animation:juryStampReal 4.2s ease-in-out infinite}
+              .jury-stamp-not{opacity:0;animation:juryStampNot 4.2s ease-in-out infinite}
+              .jury-step{opacity:0;animation:juryStepIn .32s ease-out forwards}
+              @media (prefers-reduced-motion: reduce){.jury-demo,.jury-stamp-real,.jury-stamp-not,.jury-step{animation:none}.jury-step{opacity:1}}
+            `}</style>
+            <div className="flex-1 flex items-center justify-center">
+              <div className="jury-demo relative w-[188px] h-[236px] rounded-3xl bg-white border border-gray-200 shadow-lg overflow-hidden">
+                <div className="px-4 pt-4">
+                  <span className="text-[10px] uppercase tracking-wide text-gray-400 font-semibold">the favour</span>
+                  <p className="text-[13px] font-semibold text-gray-900 leading-snug mt-1">Water the neighbour&rsquo;s plants</p>
+                </div>
+                <div className="absolute bottom-0 inset-x-0 h-28 bg-gray-100" />
+                <div className="jury-stamp-real absolute top-14 left-3 rotate-[-12deg] border-4 border-green-500 text-green-500 font-black text-xl px-2.5 py-0.5 rounded-lg">REAL</div>
+                <div className="jury-stamp-not absolute top-14 right-3 rotate-[12deg] border-4 border-red-500 text-red-500 font-black text-xl px-2.5 py-0.5 rounded-lg">NOT</div>
+              </div>
+            </div>
+            <div className="space-y-3 pb-1">
+              {[
+                "Every card is a real favour someone completed.",
+                "Swipe right if the photo proves it. Left if it looks fake.",
+                "Call it right and you earn a point. Up to 20 a day.",
+              ].map((t, i) => (
+                <div key={i} className="jury-step flex items-start gap-3" style={{ animationDelay: `${0.1 + i * 0.09}s` }}>
+                  <span className="mt-0.5 w-5 h-5 rounded-full bg-gray-900 text-white text-[11px] font-bold flex items-center justify-center shrink-0">{i + 1}</span>
+                  <p className="text-[13px] text-gray-600 leading-snug">{t}</p>
+                </div>
+              ))}
+            </div>
+            <button onClick={dismissIntro} className="mb-6 mt-4 w-full py-3.5 rounded-xl bg-gray-900 text-white text-sm font-semibold active:scale-[0.98] transition-transform" style={{ marginBottom: "calc(env(safe-area-inset-bottom, 0px) + 24px)" }}>
+              Start judging
+            </button>
+          </div>
+        ) : loading ? (
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="w-8 h-8 border-2 border-gray-200 border-t-gray-900 rounded-full animate-spin" />
           </div>
@@ -185,7 +240,7 @@ export function JuryMode({ userId, onClose }: { userId: string | null; onClose: 
       </div>
 
       {/* Verdict buttons */}
-      {card && !loading && (
+      {card && !loading && !showIntro && (
         <div className="flex items-center justify-center gap-10 pb-8 pt-2" style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 32px)" }}>
           <button onClick={() => vote(false)} aria-label="Not real" className="w-16 h-16 rounded-full bg-white border-2 border-red-200 shadow-sm flex items-center justify-center active:scale-90 transition-transform">
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="3" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
