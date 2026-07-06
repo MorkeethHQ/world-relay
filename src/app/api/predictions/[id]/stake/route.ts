@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { placeStake } from "@/lib/predictions";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { trackEvent } from "@/lib/track";
+import { ownershipError } from "@/lib/session";
 
 // POST { address, option, amount } — stake points on an outcome. Points only;
 // deducted immediately, final once placed, locked at locksAt.
@@ -15,6 +16,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!body?.address || !body.option || !body.amount) {
     return NextResponse.json({ error: "address, option and amount required" }, { status: 400 });
   }
+
+  // A stake debits body.address's points and is final. Without this gate anyone
+  // could spend another wallet's points (grief). Dormant until SESSION_ENFORCE
+  // is on; logs spoof attempts meanwhile.
+  const ownErr = ownershipError(req, body.address, Date.now());
+  if (ownErr) return NextResponse.json({ error: ownErr }, { status: 403 });
 
   const result = await placeStake(id, body.address, body.option, Number(body.amount));
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: 400 });

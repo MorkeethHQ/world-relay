@@ -80,8 +80,19 @@ export function sessionEnforced(): boolean {
 // cookie to match the wallet address they claim to act as. Returns an error
 // string to return as 403, or null when the request may proceed.
 export function ownershipError(req: NextRequest, claimedAddress: unknown, nowMs: number): string | null {
-  if (!sessionEnforced()) return null;
   const authed = getAuthedAddress(req, nowMs);
+  // Shadow audit — runs even while enforcement is OFF: a session cookie that is
+  // present but does NOT match the wallet the request claims to act as is a
+  // definite spoof attempt (someone acting as another wallet). Log it so abuse
+  // is visible before SESSION_ENFORCE is flipped on. A missing cookie is normal
+  // pre-enforcement (returning users haven't re-authenticated yet), so it is not
+  // treated as abuse here.
+  if (authed && !addressMatches(authed, claimedAddress)) {
+    console.warn(
+      `[session] OWNERSHIP MISMATCH cookie=${authed} claimed=${String(claimedAddress).toLowerCase()} enforced=${sessionEnforced()} path=${req.nextUrl?.pathname ?? "?"}`
+    );
+  }
+  if (!sessionEnforced()) return null;
   if (!authed) return "Please re-open the app to re-authenticate before this action.";
   if (!addressMatches(authed, claimedAddress)) return "Session does not match the wallet for this action.";
   return null;

@@ -3,6 +3,7 @@ import { listTasks } from "@/lib/store";
 import { issueJuryDeck, recordJuryVerdict } from "@/lib/jury";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { trackEvent } from "@/lib/track";
+import { ownershipError } from "@/lib/session";
 
 const WALLET_RE = /^0x[0-9a-fA-F]{40}$/;
 
@@ -28,6 +29,11 @@ export async function POST(req: NextRequest) {
   if (!body?.address || !WALLET_RE.test(body.address) || !cardId || !["match", "not"].includes(body.verdict)) {
     return NextResponse.json({ error: "address (wallet), cardId and verdict required" }, { status: 400 });
   }
+
+  // Correct verdicts award points to body.address — gate so no one farms points
+  // onto (or as) another wallet. Dormant until SESSION_ENFORCE is on.
+  const ownErr = ownershipError(req, body.address, Date.now());
+  if (ownErr) return NextResponse.json({ error: ownErr }, { status: 403 });
 
   const result = await recordJuryVerdict(body.address, cardId, body.verdict === "match");
   if ("error" in result) return NextResponse.json(result, { status: 409 });

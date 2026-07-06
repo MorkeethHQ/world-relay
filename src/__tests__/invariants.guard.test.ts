@@ -54,6 +54,22 @@ describe("invariant guards", () => {
     }
   });
 
+  it("Inv 4: points-spending routes enforce session ownership (anti-grief)", () => {
+    // stake/freeze/jury all debit or award points off a body-supplied address.
+    // Without the ownershipError gate anyone could spend or farm points as
+    // another wallet. The gate is dormant until SESSION_ENFORCE=true but must be
+    // present so flipping the flag closes the hole everywhere at once.
+    for (const route of [
+      join("predictions", "[id]", "stake"),
+      join("proof-of-favour", "freeze"),
+      join("jury"),
+    ]) {
+      const f = files.find((p) => p.endsWith(join(route, "route.ts")));
+      expect(f, `${route}/route.ts not found`).toBeTruthy();
+      expect(read(f!), `${route} route must call ownershipError`).toMatch(/ownershipError\(/);
+    }
+  });
+
   it("Inv 2: manual poster-confirm never releases funded escrow (money is AI-verified only)", () => {
     // The confirm route is manual (non-AI) and was the spoofable theft vector.
     // Funded escrow must move only through AI verification, so confirm must not
