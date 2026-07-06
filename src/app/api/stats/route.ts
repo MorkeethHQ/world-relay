@@ -93,15 +93,18 @@ async function computeStats(redis: NonNullable<ReturnType<typeof getRedis>>) {
 
     // Reward volume — points and real money are tracked separately and never mixed.
     const amount = Number(task.bountyUsdc) || 0;
-    if (task.rewardType === "points") {
+    const isFunded = task.onChainId != null || !!task.escrowTxHash;
+    if (isFunded) {
+      // Real USDC. Funded face value is the deposited/committed volume...
+      totalBounty += amount;
+      fundedUsdcTasks += 1;
+      // ...but "paid out" means an on-chain settlement was actually RECORDED
+      // (settlementTx), never merely status === completed. The old proxy
+      // overcounted completed-but-unsettled and test tasks ($16 vs a real $7).
+      // Mirrors /api/admin/analytics `settledPaid`.
+      if (task.settlementTx) paidOut += amount;
+    } else if (task.rewardType === "points") {
       if (task.status === "completed") pointsAwarded += amount;
-    } else {
-      // Real USDC: only count as "distributed" when the task was actually escrow-funded.
-      if (task.escrowTxHash) {
-        totalBounty += amount;
-        fundedUsdcTasks += 1;
-        if (task.status === "completed") paidOut += amount;
-      }
     }
 
     // Activity
