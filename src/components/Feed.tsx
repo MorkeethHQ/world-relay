@@ -180,6 +180,7 @@ function proofInstructions(task: Task): { short: string; steps: string[]; tip: s
 
 import { CategoryIcon } from "@/components/CategoryIcon";
 import { RewardBadge } from "@/components/RewardBadge";
+import { LivenessStrip } from "@/components/LivenessStrip";
 import { rewardAmountLabel, isRealMoney, isFunded } from "@/lib/reward";
 
 type TaskTier = "quick" | "medium" | "effort";
@@ -716,6 +717,14 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
               <span className="text-[12px] text-gray-400">paid out</span>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Liveness: real recent activity from logged events (renders nothing when
+          there's none). Keeps a thin board feeling alive without fake data. */}
+      {tab === "available" && !loading && (
+        <div className="px-6">
+          <LivenessStrip refreshKey={tasks.length} />
         </div>
       )}
 
