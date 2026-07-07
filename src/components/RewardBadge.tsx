@@ -14,11 +14,29 @@ export function RewardBadge({
   task,
   size = "md",
   combo,
+  hero = false,
 }: {
   task?: Pick<Task, "rewardType" | "bountyUsdc" | "escrowTxHash">;
   size?: "sm" | "md";
   combo?: { points: number; usdc: number };
+  // Hero mode: one big number, colored by kind, unit shown once. For browse
+  // cards where the reward must be the loudest thing on the card and the
+  // amount label must never be repeated (feed-design-audit Jul 6).
+  hero?: boolean;
 }) {
+  if (hero && task) {
+    const points = isPointsReward(task);
+    const num = points ? `${Math.round(task.bountyUsdc)}` : `$${task.bountyUsdc}`;
+    const unit = points ? "pts" : "USDC";
+    const color = points ? "text-amber-600" : "text-success-600";
+    return (
+      <span className="inline-flex flex-col items-end leading-none">
+        <span className={`font-extrabold text-[22px] ${color}`}>{num}</span>
+        <span className={`text-[10px] font-semibold ${color} mt-0.5`}>{unit}</span>
+      </span>
+    );
+  }
+
   if (combo) {
     const amountClass = size === "sm" ? "text-sm" : "text-[15px]";
     return (

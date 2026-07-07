@@ -1297,7 +1297,7 @@ function TaskCard({
           <CategoryIcon category={task.category} size={18} />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-[15px] font-medium leading-snug break-words text-gray-900">{task.description}</p>
+          <p className="text-[15px] font-medium leading-snug break-words text-gray-900 line-clamp-2">{task.description}</p>
           <div className="flex items-center gap-2 mt-1.5">
             {isNew && (
               <span className="text-[10px] font-bold uppercase tracking-wide text-gray-900 bg-gray-100 rounded px-1.5 py-0.5 shrink-0">New</span>
@@ -1314,7 +1314,7 @@ function TaskCard({
           </div>
         </div>
         <div className="shrink-0 text-right">
-          <RewardBadge task={task} />
+          <RewardBadge task={task} hero />
         </div>
       </div>
 
@@ -1323,7 +1323,7 @@ function TaskCard({
           onClick={(e) => { e.stopPropagation(); onSubmitProof(); }}
           className="w-full bg-gray-900 text-white text-[13px] font-semibold py-3 rounded-xl active:scale-[0.98] transition-transform min-h-[44px]"
         >
-          Do it{(task.escrowTxHash || task.rewardType === "points") ? ` - earn ${rewardLabel(task)}` : ""}
+          Do it
         </button>
       )}
 
