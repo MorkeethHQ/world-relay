@@ -180,7 +180,7 @@ function proofInstructions(task: Task): { short: string; steps: string[]; tip: s
 
 import { CategoryIcon } from "@/components/CategoryIcon";
 import { RewardBadge } from "@/components/RewardBadge";
-import { rewardAmountLabel, isRealMoney } from "@/lib/reward";
+import { rewardAmountLabel, isRealMoney, isFunded } from "@/lib/reward";
 
 type TaskTier = "quick" | "medium" | "effort";
 
@@ -1282,10 +1282,15 @@ function TaskCard({
     : null;
 
   const hoursLeft = (new Date(task.deadline).getTime() - Date.now()) / 3600_000;
-  const isUrgent = task.status === "open" && (hoursLeft < 4 || task.bountyUsdc >= 15);
   const isAgentTask = !!(task.agent || task.poster?.startsWith("agent_"));
   const taskAgeDays = (Date.now() - new Date(task.createdAt).getTime()) / (24 * 3600_000);
   const isStale = task.status === "open" && !task.claimant && taskAgeDays >= 7;
+  // Funding + urgency signals for the browse card. isUnfundedMoney and endingSoon
+  // are mutually exclusive (one requires unfunded, the other funded), so at most
+  // one status chip shows per card. Green/urgency only ever attaches to real money.
+  const funded = isFunded(task);
+  const isUnfundedMoney = task.status === "open" && task.rewardType !== "points" && !funded;
+  const endingSoon = task.status === "open" && funded && hoursLeft > 0 && hoursLeft < 4;
 
   return (
     <div
@@ -1298,9 +1303,19 @@ function TaskCard({
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-[15px] font-medium leading-snug break-words text-gray-900 line-clamp-2">{task.description}</p>
-          <div className="flex items-center gap-2 mt-1.5">
+          <div className="flex items-center flex-wrap gap-x-2 gap-y-1 mt-1.5">
             {isNew && (
               <span className="text-[10px] font-bold uppercase tracking-wide text-gray-900 bg-gray-100 rounded px-1.5 py-0.5 shrink-0">New</span>
+            )}
+            {isUnfundedMoney ? (
+              <span className="text-[10px] font-bold uppercase tracking-wide text-warning-700 bg-warning-100 rounded px-1.5 py-0.5 shrink-0">Not funded</span>
+            ) : endingSoon ? (
+              <span className="text-[10px] font-bold uppercase tracking-wide text-warning-700 bg-warning-100 rounded px-1.5 py-0.5 shrink-0">Ending soon</span>
+            ) : isStale ? (
+              <span className="text-[10px] font-bold uppercase tracking-wide text-gray-400 bg-gray-100 rounded px-1.5 py-0.5 shrink-0">Open a while</span>
+            ) : null}
+            {isAgentTask && (
+              <span className="text-[10px] font-bold uppercase tracking-wide text-gray-500 bg-gray-100 rounded px-1.5 py-0.5 shrink-0">Agent</span>
             )}
             <span className="text-xs text-gray-400 truncate max-w-[140px]">{task.location}</span>
             {distance !== null && (
@@ -1339,7 +1354,6 @@ function TaskCard({
       {isOwnTask && task.status === "open" && (
         <div className="flex items-center gap-1.5">
           <span className="text-[11px] text-gray-400">You posted</span>
-          {task.rewardType !== "points" && !task.escrowTxHash && <span className="text-[11px] text-warning-600">&middot; Not funded yet</span>}
         </div>
       )}
     </div>
@@ -1547,7 +1561,7 @@ function PostTask({
 
   // Reward-shaped object so RewardBadge / reward.ts stay the single source of truth
   // for the points-vs-money distinction on the confirmation screen.
-  const rewardPreview = { rewardType, bountyUsdc: parseFloat(bounty) || 0, escrowTxHash: escrowSuccess };
+  const rewardPreview = { rewardType, bountyUsdc: parseFloat(bounty) || 0, escrowTxHash: escrowSuccess, onChainId: null };
 
   const stepTitle = step === 0 ? "Pick a type" : step === 1 ? "Describe it" : step === 2 ? "Set the reward" : "You're live";
   const stepAnim = dir === "back" ? "tab-slide-left" : "tab-slide-right";
