@@ -89,7 +89,10 @@ export default async function LeaderboardPage() {
           {[
             { value: platform.totalTasks, label: "Tasks posted" },
             { value: platform.totalCompleted, label: "Completed" },
-            { value: `$${platform.totalBountyUsdc}`, label: "USDC distributed" },
+            // Invariant #2: "distributed" means settled on-chain. totalBountyUsdc is
+            // escrow-FUNDED bounties (money committed, not yet paid out), so label it
+            // honestly as bounties in escrow — never as money distributed.
+            { value: `$${platform.totalBountyUsdc}`, label: "USDC in bounties" },
             { value: topRunners.length, label: "Runners" },
           ].map((stat) => (
             <div key={stat.label} className="bg-white border border-gray-200 rounded-2xl py-4 px-4 text-center">

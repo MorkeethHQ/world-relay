@@ -119,22 +119,26 @@ function PredictionCard({ p, userId, onStaked }: { p: ApiPrediction; userId: str
         })}
 
         {canStake && option && (
-          <div className="flex items-center gap-2 pt-1">
-            {STAKE_CHIPS.map((amt) => (
-              <button
-                key={amt}
-                onClick={() => { hapticTap(); setAmount(amt); }}
-                className={`flex-1 rounded-xl border py-2.5 text-center text-[13px] font-semibold transition-all active:scale-[0.97] ${
-                  amount === amt ? "border-amber-600 bg-amber-50 text-amber-700" : "border-gray-200 bg-white text-gray-500"
-                }`}
-              >
-                {amt}
-              </button>
-            ))}
+          <div className="flex flex-col gap-2 pt-1">
+            <div className="flex items-center gap-2">
+              {STAKE_CHIPS.map((amt) => (
+                <button
+                  key={amt}
+                  onClick={() => { hapticTap(); setAmount(amt); }}
+                  className={`flex-1 rounded-xl border py-2.5 text-center text-[14px] font-semibold transition-all active:scale-[0.97] ${
+                    amount === amt ? "border-amber-600 bg-amber-50 text-amber-700" : "border-gray-200 bg-white text-gray-500"
+                  }`}
+                >
+                  {amt}
+                </button>
+              ))}
+            </div>
+            {/* Stake amount on its own full-width row so it's legible, not crammed
+                into a narrow dark chip (Oscar live-test Jul 8). */}
             <button
               onClick={stake}
               disabled={busy}
-              className="flex-[1.4] bg-gray-900 text-white rounded-xl py-2.5 text-[13px] font-semibold active:scale-[0.97] transition-transform disabled:opacity-50"
+              className="w-full bg-gray-900 text-white rounded-xl py-3.5 text-[16px] font-semibold active:scale-[0.98] transition-transform disabled:opacity-50"
             >
               {busy ? "..." : `Stake ${amount}`}
             </button>
