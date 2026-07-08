@@ -37,6 +37,7 @@ export default function HistoryPage() {
     <div className="min-h-screen bg-gray-50 max-w-lg mx-auto">
       <div className="sticky top-0 z-10 bg-white/95 backdrop-blur-md border-b border-gray-100 px-6 py-3">
         <h1 className="text-[18px] font-bold tracking-tight text-gray-900">History</h1>
+        <p className="text-[11px] text-gray-400 mt-0.5">Recently completed across FAVOUR</p>
       </div>
 
       <div className="px-6 py-4 pb-28 flex flex-col gap-4">

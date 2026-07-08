@@ -187,16 +187,44 @@ export function JuryMode({ userId, onClose }: { userId: string | null; onClose: 
             <div className="w-8 h-8 border-2 border-gray-200 border-t-gray-900 rounded-full animate-spin" />
           </div>
         ) : !card ? (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-8 text-center">
-            <p className="text-2xl font-bold text-gray-900">All judged</p>
-            <p className="text-sm text-gray-400">
-              {session.judged > 0
-                ? `${session.correct} of ${session.judged} right${session.points > 0 ? `, +${session.points} pts` : ""}. New proofs land as favours get completed.`
-                : "No proofs to judge right now. Complete some favours and come back."}
-            </p>
-            <button onClick={onClose} className="mt-3 px-6 py-3 rounded-xl bg-gray-900 text-white text-sm font-semibold active:scale-95 transition-transform">
-              Back to favours
-            </button>
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 px-8 text-center">
+            {session.judged > 0 ? (
+              <>
+                {/* Celebratory finish: the deck's done, thank the human. Staggered
+                    entrance so it lands as a moment, not just an empty state. */}
+                <div className="w-20 h-20 rounded-full bg-green-500 flex items-center justify-center animate-[countUp_0.5s_ease-out]">
+                  <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                </div>
+                <div className="animate-[fadeSlideIn_0.4s_ease-out_0.1s_both]">
+                  <p className="text-2xl font-bold text-gray-900">Thanks for keeping FAVOUR human</p>
+                  <p className="text-sm text-gray-400 mt-1">You judged every proof in the deck.</p>
+                </div>
+                <div className="flex items-center gap-2 animate-[fadeSlideIn_0.4s_ease-out_0.2s_both]">
+                  <div className="px-4 py-2 rounded-xl bg-gray-100">
+                    <p className="text-lg font-bold text-gray-900 tabular-nums leading-none">{session.correct}/{session.judged}</p>
+                    <p className="text-[10px] text-gray-400 uppercase tracking-wide mt-1">called right</p>
+                  </div>
+                  {session.points > 0 && (
+                    <div className="px-4 py-2 rounded-xl bg-amber-50">
+                      <p className="text-lg font-bold text-amber-600 tabular-nums leading-none">+{session.points}</p>
+                      <p className="text-[10px] text-amber-500 uppercase tracking-wide mt-1">points</p>
+                    </div>
+                  )}
+                </div>
+                <p className="text-xs text-gray-400 animate-[fadeSlideIn_0.4s_ease-out_0.3s_both]">New proofs land as favours get completed.</p>
+                <button onClick={onClose} className="mt-1 px-6 py-3 rounded-xl bg-gray-900 text-white text-sm font-semibold active:scale-95 transition-transform animate-[fadeSlideIn_0.4s_ease-out_0.35s_both]">
+                  Back to favours
+                </button>
+              </>
+            ) : (
+              <>
+                <p className="text-2xl font-bold text-gray-900">All judged</p>
+                <p className="text-sm text-gray-400">No proofs to judge right now. Complete some favours and come back.</p>
+                <button onClick={onClose} className="mt-3 px-6 py-3 rounded-xl bg-gray-900 text-white text-sm font-semibold active:scale-95 transition-transform">
+                  Back to favours
+                </button>
+              </>
+            )}
           </div>
         ) : (
           <>
