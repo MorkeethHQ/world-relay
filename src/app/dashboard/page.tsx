@@ -167,7 +167,29 @@ export default function ProfilePage() {
             const myTasks = userId
               ? tasks.filter((t) => t.poster === userId || t.claimant === userId)
               : [];
-            if (myTasks.length === 0) return null;
+            // A user can have a streak (from polls/jury/daily activity) with zero
+            // favours. Show an honest empty-state so that reads as intentional,
+            // not a broken/missing history (Oscar live-test Jul 8; streak stays
+            // activity-based by decision).
+            if (myTasks.length === 0) {
+              return (
+                <div>
+                  <div className="flex items-center justify-between mb-3 px-1">
+                    <Typography variant="subtitle" level={2} className="text-gray-900">
+                      Your activity
+                    </Typography>
+                  </div>
+                  <div className="bg-white rounded-2xl border border-gray-200 px-4 py-8 text-center">
+                    <Typography variant="body" level={3} className="text-gray-400">
+                      No favours yet
+                    </Typography>
+                    <Typography variant="body" level={4} className="text-gray-400 mt-1">
+                      Complete or post a favour and it shows up here.
+                    </Typography>
+                  </div>
+                </div>
+              );
+            }
             return (
               <div>
                 <div className="flex items-center justify-between mb-3 px-1">
