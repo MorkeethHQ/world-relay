@@ -1,5 +1,5 @@
 import type { Task } from "@/lib/types";
-import { rewardAmountLabel, isPointsReward } from "@/lib/reward";
+import { rewardAmountLabel, isPointsReward, isFunded } from "@/lib/reward";
 
 // The one canonical way to display a task reward. Points = amber, money = green
 // (points were purple until Oscar's Jul 5 review called it off-brand).
@@ -14,11 +14,32 @@ export function RewardBadge({
   task,
   size = "md",
   combo,
+  hero = false,
 }: {
-  task?: Pick<Task, "rewardType" | "bountyUsdc" | "escrowTxHash">;
+  task?: Pick<Task, "rewardType" | "bountyUsdc" | "escrowTxHash" | "onChainId">;
   size?: "sm" | "md";
   combo?: { points: number; usdc: number };
+  // Hero mode: one big number, colored by kind, unit shown once. For browse
+  // cards where the reward must be the loudest thing on the card and the
+  // amount label must never be repeated (feed-design-audit Jul 6).
+  hero?: boolean;
 }) {
+  if (hero && task) {
+    const points = isPointsReward(task);
+    // DESIGN-SYSTEM: green means real escrowed USDC ONLY. A posted-but-unfunded
+    // USDC task must never show money-green — it is not real money yet.
+    const unfundedMoney = !points && !isFunded(task);
+    const num = points ? `${Math.round(task.bountyUsdc)}` : `$${task.bountyUsdc}`;
+    const unit = points ? "pts" : "USDC";
+    const color = unfundedMoney ? "text-gray-400" : points ? "text-amber-600" : "text-success-600";
+    return (
+      <span className="inline-flex flex-col items-end leading-none">
+        <span className={`font-extrabold text-[22px] tabular-nums ${color}`}>{num}</span>
+        <span className={`text-[10px] font-semibold ${color} mt-0.5`}>{unit}</span>
+      </span>
+    );
+  }
+
   if (combo) {
     const amountClass = size === "sm" ? "text-sm" : "text-[15px]";
     return (
