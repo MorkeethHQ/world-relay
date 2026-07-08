@@ -173,7 +173,7 @@ export function Onboarding({
       : "You are set up in preview mode. Discover favours to complete and polls to vote on.";
 
   return (
-    <div className="fixed inset-0 z-50 bg-white flex flex-col max-w-lg mx-auto w-full">
+    <div className="fixed inset-0 z-[60] bg-white flex flex-col max-w-lg mx-auto w-full">
       {/* Back navigation. Available between the intro steps, not on the terminal
           success screen, and not while a sign-in is in flight. */}
       {step > 0 && step < 4 && (
@@ -244,7 +244,9 @@ export function Onboarding({
               ].map((row, i) => (
                 <div
                   key={row.title}
-                  className="flex items-start gap-4 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3.5 animate-[staggerIn_0.4s_ease-out_both]"
+                  // Borderless rows: an outlined, filled box reads as a tappable
+                  // button — these are just an explainer list (Oscar review Jul 8).
+                  className="flex items-start gap-4 px-1 py-1.5 animate-[staggerIn_0.4s_ease-out_both]"
                   style={{ animationDelay: `${i * 70}ms` }}
                 >
                   <div className="text-gray-900 shrink-0 mt-0.5">{row.icon}</div>

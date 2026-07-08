@@ -104,7 +104,7 @@ export async function placeStake(
   amount: number,
   now = Date.now()
 ): Promise<{ ok: boolean; error?: string; totalPoints?: number }> {
-  if (!/^0x[0-9a-fA-F]{40}$/.test(wallet)) return { ok: false, error: "A wallet account is required" };
+  if (!/^0x[0-9a-fA-F]{40}$/.test(wallet)) return { ok: false, error: "Sign in with your World wallet to stake — no Orb needed." };
   if (!Number.isInteger(amount) || amount < PREDICTION_MIN_STAKE || amount > PREDICTION_MAX_STAKE) {
     return { ok: false, error: `Stake must be ${PREDICTION_MIN_STAKE}-${PREDICTION_MAX_STAKE} pts` };
   }
