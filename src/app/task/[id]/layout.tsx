@@ -11,7 +11,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   if (!task) {
     return {
-      title: "RELAY FAVOURS — Task Not Found",
+      title: "FAVOUR — Task Not Found",
       description: "This task doesn't exist or has expired.",
     };
   }
@@ -23,7 +23,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     ? `$${task.bountyUsdc} USDC`
     : `${Math.round(task.bountyUsdc)} pts`;
   const title = `${status}: ${task.description.slice(0, 60)}${task.description.length > 60 ? "..." : ""}`;
-  const description = `${bounty} bounty on RELAY FAVOURS — ${task.location}. ${
+  const description = `${bounty} bounty on FAVOUR — ${task.location}. ${
     task.status === "completed"
       ? "Verified by 3-model AI consensus."
       : task.status === "open"
@@ -32,17 +32,17 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }`;
 
   return {
-    title: `RELAY FAVOURS — ${title}`,
+    title: `FAVOUR — ${title}`,
     description,
     openGraph: {
-      title: `RELAY FAVOURS — ${title}`,
+      title: `FAVOUR — ${title}`,
       description,
       type: "website",
-      siteName: "RELAY FAVOURS",
+      siteName: "FAVOUR",
     },
     twitter: {
       card: "summary",
-      title: `RELAY FAVOURS — ${title}`,
+      title: `FAVOUR — ${title}`,
       description,
     },
   };

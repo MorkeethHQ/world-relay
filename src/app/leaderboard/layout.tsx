@@ -1,6 +1,6 @@
 export const metadata = {
-  title: "Ranks | RELAY FAVOURS",
-  description: "Top runners on RELAY, ranked by points, completed favours, and streaks",
+  title: "Ranks | FAVOUR",
+  description: "Top runners on FAVOUR, ranked by points, completed favours, and streaks",
 };
 
 export default function LeaderboardLayout({

@@ -206,7 +206,7 @@ export default async function AgentProfilePage({ params }: { params: Promise<{ i
 
         {/* Footer */}
         <div className="flex items-center justify-center gap-2 text-xs text-gray-400 mt-4">
-          <span>RELAY FAVOURS</span>
+          <span>FAVOUR</span>
           <span>·</span>
           <span>World Chain</span>
           <span>·</span>

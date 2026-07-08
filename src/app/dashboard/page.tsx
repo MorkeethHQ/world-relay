@@ -262,7 +262,7 @@ export default function ProfilePage() {
 
           {/* Footer */}
           <div className="flex items-center justify-center gap-2 pt-2">
-            <Typography variant="body" level={4} className="text-gray-300">RELAY FAVOURS</Typography>
+            <Typography variant="body" level={4} className="text-gray-300">FAVOUR</Typography>
             <Typography variant="body" level={4} className="text-gray-300">·</Typography>
             <Typography variant="body" level={4} className="text-gray-300">World Chain</Typography>
           </div>

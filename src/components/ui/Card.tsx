@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-// Minimal RELAY surface: 2xl radius, gray surface, hairline border, no emoji.
+// Minimal FAVOUR surface: 2xl radius, gray surface, hairline border, no emoji.
 // Thin wrapper so screens stop hand-rolling the same rounded-2xl bg-gray-50 block.
 export function Card({
   children,

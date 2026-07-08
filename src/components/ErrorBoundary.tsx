@@ -40,7 +40,7 @@ export class ErrorBoundary extends Component<Props, State> {
             <div className="text-center">
               <h2 className="text-lg font-semibold text-gray-900">Something went wrong</h2>
               <p className="text-sm text-gray-400 mt-1">
-                RELAY hit an unexpected error. Your data is safe.
+                FAVOUR hit an unexpected error. Your data is safe.
               </p>
             </div>
             <button

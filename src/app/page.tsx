@@ -94,7 +94,7 @@ export default function Home() {
       try {
         const result = await MiniKit.walletAuth({
           nonce: crypto.randomUUID().replace(/-/g, ""),
-          statement: "Sign in to RELAY FAVOURS",
+          statement: "Sign in to FAVOUR",
           expirationTime: new Date(Date.now() + 3600_000),
         });
         if (result?.data?.address) {
@@ -200,7 +200,7 @@ export default function Home() {
 
         <div className="flex flex-col items-center gap-4 w-full max-w-sm">
           <h1 className="text-[56px] font-bold tracking-tight text-gray-900 leading-none animate-[countUp_0.6s_ease-out]">
-            RELAY
+            FAVOUR
           </h1>
           <p className="text-[15px] text-gray-400 text-center leading-relaxed max-w-[240px] animate-[fadeSlideIn_0.5s_ease-out_0.2s_both]">
             Real tasks. Real people.<br />Verified on-chain.

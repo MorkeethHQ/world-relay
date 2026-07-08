@@ -738,7 +738,7 @@ function FullCard({
           level={4}
           className="uppercase tracking-[0.2em] text-gray-400"
         >
-          RELAY FAVOURS
+          FAVOUR
         </Typography>
       </div>
     </div>

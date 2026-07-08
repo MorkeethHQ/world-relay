@@ -1,5 +1,7 @@
 #!/bin/zsh
-# FAVOUR night shift — unattended Claude Code triage run (launchd 05:00).
+# FAVOUR Night Watch — unattended Claude Code triage run on the FAVOUR repo
+# (launchd 05:00). NB: "Night Watch" = this per-repo guardian pass. NOT the
+# "Night Run" (the multi-track agent build-plan operation that writes to the vault).
 # Fresh session each night, night-only permission settings (deny git push,
 # deny money scripts, deny .env), hard budget cap. Report lands in the vault.
 set -u
@@ -16,7 +18,7 @@ unset ANTHROPIC_API_KEY
 export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
 
 LOG="$HOME/CODE/world-relay/scripts/.night-shift.log"
-echo "=== night shift $(date -u +%Y-%m-%dT%H:%M:%SZ) ===" >> "$LOG"
+echo "=== FAVOUR Night Watch $(date -u +%Y-%m-%dT%H:%M:%SZ) ===" >> "$LOG"
 
 claude -p "$(cat scripts/night-shift-prompt.md)" \
   --settings .claude/settings.night.json \
@@ -27,6 +29,6 @@ claude -p "$(cat scripts/night-shift-prompt.md)" \
 STATUS=$?
 
 if [ $STATUS -ne 0 ]; then
-  osascript -e 'display notification "Night shift exited non-zero — check .night-shift.log" with title "FAVOUR night shift"' || true
+  osascript -e 'display notification "Night Watch exited non-zero — check .night-shift.log" with title "FAVOUR Night Watch"' || true
 fi
 echo "=== exit $STATUS $(date -u +%Y-%m-%dT%H:%M:%SZ) ===" >> "$LOG"

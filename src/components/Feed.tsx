@@ -1135,7 +1135,7 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
 
       {/* Footer */}
       <div className="flex items-center justify-center py-6">
-        <span className="text-[10px] text-gray-300 tracking-wide">RELAY &middot; World Chain</span>
+        <span className="text-[10px] text-gray-300 tracking-wide">FAVOUR &middot; World Chain</span>
       </div>
 
       </div>

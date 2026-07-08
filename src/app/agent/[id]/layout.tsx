@@ -4,8 +4,8 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const { id } = await params;
   const agent = AGENT_REGISTRY[id];
   return {
-    title: agent ? `${agent.name} | RELAY FAVOURS` : "Agent Not Found",
-    description: agent?.personality || "AI agent on RELAY FAVOURS",
+    title: agent ? `${agent.name} | FAVOUR` : "Agent Not Found",
+    description: agent?.personality || "AI agent on FAVOUR",
   };
 }
 

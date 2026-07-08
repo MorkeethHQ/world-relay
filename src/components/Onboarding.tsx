@@ -17,7 +17,7 @@ import {
  *
  * Flow:
  *   0. Welcome
- *   1. What RELAY is (do favours / vote polls, earn points + USDC)
+ *   1. What FAVOUR is (do favours / vote polls, earn points + USDC)
  *   2. Accept terms (readable guidelines + recorded "I agree")
  *   3. Sign in with World wallet (existing MiniKit walletAuth)
  *   4. Land in the app (copy reflects the real verification level)
@@ -210,7 +210,7 @@ export function Onboarding({
         {step === 0 && (
           <div className="flex flex-col items-center text-center gap-5">
             <h1 className="text-[64px] font-bold tracking-tight text-gray-900 leading-none animate-[countUp_0.6s_ease-out]">
-              RELAY
+              FAVOUR
             </h1>
             <Typography variant="body" level={2} className="text-gray-500 max-w-[260px]">
               Real tasks. Real people. Verified on-chain.
@@ -232,7 +232,7 @@ export function Onboarding({
                 What you can do here
               </Typography>
               <Typography variant="body" level={3} className="text-gray-500">
-                RELAY connects people who need small favours with people ready to help.
+                FAVOUR connects people who need small favours with people ready to help.
               </Typography>
             </div>
             <div className="flex flex-col gap-3">
@@ -288,7 +288,7 @@ export function Onboarding({
               </Typography>
               <Typography variant="body" level={3} className="text-gray-500 max-w-[300px]">
                 {isInWorldApp
-                  ? "Sign in with your World wallet to start using RELAY. This links your account so you can post favours, earn rewards, and get paid."
+                  ? "Sign in with your World wallet to start using FAVOUR. This links your account so you can post favours, earn rewards, and get paid."
                   : "Continue to set up a preview account. Sign in with your World wallet inside World App for the full experience."}
               </Typography>
             </div>
@@ -383,9 +383,9 @@ export function Onboarding({
             <p className="text-[12px] text-gray-400">Version {TERMS_VERSION}</p>
 
             <section className="flex flex-col gap-1.5">
-              <h3 className="text-[15px] font-semibold text-gray-900">What RELAY is</h3>
+              <h3 className="text-[15px] font-semibold text-gray-900">What FAVOUR is</h3>
               <p className="text-[14px] leading-relaxed">
-                RELAY lets people post small real-world favours and lets others
+                FAVOUR lets people post small real-world favours and lets others
                 complete them for rewards in points and USDC. You sign in with
                 your World wallet to take part. Sign-in proves you control a
                 World wallet. It is not, on its own, a proof that you are a

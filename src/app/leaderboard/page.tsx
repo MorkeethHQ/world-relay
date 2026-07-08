@@ -103,7 +103,7 @@ export default async function LeaderboardPage() {
         </div>
 
         <div className="flex items-center justify-center gap-2 pt-2">
-          <span className="text-xs text-gray-300">RELAY FAVOURS</span>
+          <span className="text-xs text-gray-300">FAVOUR</span>
           <span className="text-xs text-gray-300">&#x00B7;</span>
           <span className="text-xs text-gray-300">World Chain</span>
         </div>
