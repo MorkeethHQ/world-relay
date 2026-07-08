@@ -28,7 +28,7 @@ function isMiniKit(): boolean {
   try { return typeof window !== "undefined" && MiniKit.isInstalled(); } catch { return false; }
 }
 import { VerificationBadge, RequiredTierBadge } from "@/components/VerificationBadge";
-import { encodeCreateTask, encodeClaimTask, encodeReleasePayment, encodeUniswapSwap, readTaskCount, RELAY_ESCROW_ADDRESS, DOUBLE_OR_NOTHING_ADDRESS, encodeCreateDoubleOrNothing, encodeStakeAndClaimWithApproval, readDonTaskCount, type SwapToken } from "@/lib/contracts";
+import { encodeCreateTask, encodeClaimTask, encodeReleasePayment, encodeUniswapSwap, readTaskCount, readUsdcBalance, RELAY_ESCROW_ADDRESS, DOUBLE_OR_NOTHING_ADDRESS, encodeCreateDoubleOrNothing, encodeStakeAndClaimWithApproval, readDonTaskCount, type SwapToken } from "@/lib/contracts";
 import { hapticSuccess, hapticError, hapticTap, hapticHeavy, hapticMedium, hapticSelection, shareTask } from "@/lib/minikit-helpers";
 import { TASK_TEMPLATES } from "@/lib/agents";
 import { POST_TEMPLATES, MIN_DESCRIPTION_LENGTH } from "@/lib/post-templates";
@@ -83,6 +83,15 @@ function formatDistance(km: number): string {
   if (km < 1) return `${Math.round(km * 1000)}m away`;
   if (km < 10) return `${km.toFixed(1)}km away`;
   return `${Math.round(km)}km away`;
+}
+
+// Remote/online favours have no physical place, so distance is meaningless —
+// never show "you're 10757km away" for them (Oscar live-test Jul 8). Covers the
+// online-post default ("Online") plus the agent/campaign variants.
+function isRemoteLocation(loc?: string | null): boolean {
+  if (!loc) return true;
+  const l = loc.trim().toLowerCase();
+  return l === "online" || l === "remote" || l === "anywhere" || l === "worldwide" || l.startsWith("any ");
 }
 
 // Delegates to the canonical reward formatter so points/money never drift.
@@ -1518,6 +1527,18 @@ function PostTask({
     let escrowTxHash: string | null = null;
 
     if (rewardType === "usdc" && isMiniKit() && RELAY_ESCROW_ADDRESS) {
+      // Pre-check USDC balance so an unfunded wallet gets a clear message instead
+      // of World App's opaque "error signing your transaction" (which is what a
+      // reverting deposit transferFrom looks like). Only block when we can read a
+      // balance AND it's short — an RPC hiccup (null) must not stop a funded user.
+      const needed = parseFloat(bounty);
+      const bal = await readUsdcBalance(userId);
+      if (bal !== null && bal < needed) {
+        hapticError();
+        setTxError(`You need $${needed} USDC in your World wallet to fund this favour — you have $${bal.toFixed(2)}. Top up USDC on World Chain, or post a Points favour instead (free).`);
+        setSubmitting(false);
+        return;
+      }
       const txPayload = encodeCreateTask(description, parseFloat(bounty), 24);
       if (txPayload) {
         try {
@@ -2216,8 +2237,8 @@ function SubmitProof({
                 </>
               )}
 
-              {/* Location warning */}
-              {proofCoords && task.lat && task.lng && (() => {
+              {/* Location warning — skip entirely for remote/online favours */}
+              {proofCoords && task.lat && task.lng && !isRemoteLocation(task.location) && (() => {
                 const dist = haversineKm(proofCoords.lat, proofCoords.lng, task.lat!, task.lng!);
                 if (dist <= 2) return null;
                 return (
@@ -2347,7 +2368,7 @@ function SubmitProof({
               </span>
             </div>
             <p className="text-xs text-gray-500 leading-relaxed">{String(result.reasoning)}</p>
-            {result.locationVerified !== undefined && result.locationVerified !== null && (
+            {result.locationVerified !== undefined && result.locationVerified !== null && !isRemoteLocation(task.location) && (
               <div className="flex items-center gap-1.5 mt-2">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={result.locationVerified ? "#4ade80" : "#f59e0b"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />

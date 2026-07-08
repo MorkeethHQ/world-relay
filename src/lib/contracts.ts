@@ -78,6 +78,13 @@ const ERC20_ABI = [
     ],
     outputs: [{ name: "", type: "bool" }],
   },
+  {
+    name: "balanceOf",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ name: "account", type: "address" }],
+    outputs: [{ name: "", type: "uint256" }],
+  },
 ] as const;
 
 const PERMIT2_ABI = [
@@ -251,6 +258,27 @@ export async function readTaskCount(): Promise<number> {
     functionName: "taskCount",
   });
   return Number(count);
+}
+
+// Client-side USDC balance (6 decimals) for a wallet, as a float. Used to
+// pre-check funding BEFORE MiniKit.sendTransaction so a user with $0 USDC gets a
+// clear "you need $X" message instead of World App's opaque "error signing your
+// transaction" (which is what a reverting deposit transferFrom surfaces as).
+// Returns null if it can't be read, so callers can choose not to block on RPC hiccups.
+export async function readUsdcBalance(address: string): Promise<number | null> {
+  if (!/^0x[0-9a-fA-F]{40}$/.test(address)) return null;
+  try {
+    const client = createPublicClient({ chain: worldchain, transport: http(RPC_URL) });
+    const bal = await client.readContract({
+      address: USDC_ADDRESS,
+      abi: ERC20_ABI,
+      functionName: "balanceOf",
+      args: [address as `0x${string}`],
+    });
+    return Number(bal) / 1e6;
+  } catch {
+    return null;
+  }
 }
 
 // ── Double-or-Nothing contract ──────────────────────────────────
