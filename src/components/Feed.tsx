@@ -230,9 +230,29 @@ function SkeletonCard() {
 function useUserLocation() {
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   useEffect(() => {
-    if (!navigator.geolocation) return;
+    if (typeof window === "undefined" || !navigator.geolocation) return;
+    // Reuse a recent grant so returning users aren't re-prompted for location on
+    // every sign-in (Oscar live-test Jul 8). The World App webview does not cache
+    // the geolocation permission per-origin the way a normal browser does, so each
+    // getCurrentPosition call re-triggers the prompt. Cache the last fix for 24h.
+    const CACHE_KEY = "favour_geo";
+    const MAX_AGE_MS = 24 * 3600_000;
+    try {
+      const raw = localStorage.getItem(CACHE_KEY);
+      if (raw) {
+        const c = JSON.parse(raw);
+        if (c && typeof c.lat === "number" && typeof c.lng === "number" && Date.now() - c.ts < MAX_AGE_MS) {
+          setCoords({ lat: c.lat, lng: c.lng });
+          return;
+        }
+      }
+    } catch { /* corrupt cache — fall through to a fresh fix */ }
     navigator.geolocation.getCurrentPosition(
-      (pos) => setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      (pos) => {
+        const c = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        setCoords(c);
+        try { localStorage.setItem(CACHE_KEY, JSON.stringify({ ...c, ts: Date.now() })); } catch { /* storage full/blocked — coords still set in memory */ }
+      },
       () => {},
       { enableHighAccuracy: true, timeout: 10000 }
     );

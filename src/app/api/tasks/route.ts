@@ -20,7 +20,17 @@ export async function GET() {
   // BOARD-RULES.md R1+R5 are enforced here too, so API consumers (agents,
   // integrations) get the same board composition as the app.
   const ordered = orderBoardForApi(tasks, Date.now());
-  return NextResponse.json({ tasks: toApiTasks(ordered) }, {
+  // Perf (Oscar live-test Jul 8): the board/list view renders only verdict,
+  // confidence and reasoning — never the per-model AI breakdown. Dropping
+  // verificationResult.models here cuts ~24% off the list payload (~44KB across
+  // ~85 tasks, measured on prod). The detail page (/task/[id]) fetches the full
+  // task separately, so its model panel is unaffected.
+  const list = toApiTasks(ordered).map((t) =>
+    t.verificationResult?.models
+      ? { ...t, verificationResult: { ...t.verificationResult, models: undefined } }
+      : t
+  );
+  return NextResponse.json({ tasks: list }, {
     headers: { "Cache-Control": "public, s-maxage=5, stale-while-revalidate=10" },
   });
 }

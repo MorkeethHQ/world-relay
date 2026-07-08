@@ -52,8 +52,26 @@ export default function Home() {
         localStorage.setItem("favour_ref", ref);
       }
     } catch {}
-    const stored = localStorage.getItem("relay_user_id");
+    let stored = localStorage.getItem("relay_user_id");
     const storedLevel = localStorage.getItem("relay_verification_level") as VerificationLevel;
+    // Self-heal a stale/legacy id (Oscar live-test Jul 8). Early builds could
+    // persist a non-wallet id — an old IDKit nullifier, or a dev_ id carried in.
+    // Inside World App a valid id is always a 0x wallet; a non-0x id silently
+    // breaks every wallet-gated action: staking returns "wallet account required",
+    // and jury verdicts are rejected so nothing is earned AND the same proofs
+    // repeat forever (the judged-set only fills on an accepted verdict). If we're
+    // in World App with a non-wallet stored id, drop it and route back through
+    // walletAuth, which mints a fresh 0x id. Browser-preview dev_ ids (MiniKit not
+    // installed) are left untouched.
+    let inWorldApp = false;
+    try { inWorldApp = MiniKit.isInstalled(); } catch {}
+    const isWalletId = !!stored && /^0x[0-9a-fA-F]{40}$/.test(stored);
+    if (stored && !isWalletId && inWorldApp) {
+      localStorage.removeItem("relay_user_id");
+      localStorage.removeItem("relay_verification_level");
+      localStorage.removeItem("relay_onboarded");
+      stored = null;
+    }
     if (stored) {
       setUserId(stored);
       setVerificationLevel(storedLevel);

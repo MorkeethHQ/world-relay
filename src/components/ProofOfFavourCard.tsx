@@ -568,7 +568,13 @@ function StreakFreezeRow({ profile }: { profile: ProofOfFavour }) {
         <button
           onClick={buy}
           disabled={busy}
-          className="shrink-0 whitespace-nowrap bg-gray-900 text-white text-[11px] font-semibold px-2.5 py-1.5 rounded-full active:scale-95 transition-transform disabled:opacity-50"
+          // Pill shape + padding forced inline: the Worldcoin UI-kit ships an
+          // unlayered preflight (see globals.css) that beats Tailwind's layered
+          // rounded-full / px / py utilities, rendering this as a dark square with
+          // text hugging the edges (Oscar live-test Jul 8). Inline styles win the
+          // cascade regardless of layer, so this is the surgical, app-safe fix.
+          style={{ borderRadius: 9999, padding: "7px 14px" }}
+          className="shrink-0 whitespace-nowrap bg-gray-900 text-white text-[11px] font-semibold active:scale-95 transition-transform disabled:opacity-50"
         >
           {busy ? "..." : "Buy · 30"}
         </button>
