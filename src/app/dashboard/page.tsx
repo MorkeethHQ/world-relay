@@ -74,6 +74,7 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
   const [verificationLevel, setVerificationLevel] = useState<string | null>(null);
+  const [referral, setReferral] = useState<{ invited: number; activated: number; cap: number; capReached: boolean } | null>(null);
 
   useEffect(() => {
     const stored = localStorage.getItem("relay_user_id");
@@ -81,6 +82,14 @@ export default function ProfilePage() {
     if (stored) setUserId(stored);
     if (storedLevel) setVerificationLevel(storedLevel);
   }, []);
+
+  useEffect(() => {
+    if (!userId || !userId.startsWith("0x")) return;
+    fetch(`/api/referral/stats?address=${userId}`)
+      .then((r) => r.json())
+      .then((d) => { if (!d.error) setReferral(d); })
+      .catch(() => {});
+  }, [userId]);
 
   useEffect(() => {
     Promise.all([
@@ -246,18 +255,37 @@ export default function ProfilePage() {
           {/* Invite a friend (referral: both sides earn points, referrer paid
               when the invitee completes their first clean favour) */}
           {userId && userId.startsWith("0x") && (
-            <button
-              onClick={() => shareInvite(userId)}
-              className="w-full bg-gray-900 text-white rounded-2xl px-5 py-4 flex items-center justify-between active:scale-[0.98] transition-transform"
-            >
-              <div className="text-left">
-                <p className="text-[14px] font-semibold">Invite a friend</p>
-                <p className="text-[12px] text-white/60 mt-0.5">You both earn points when they complete their first favour</p>
-              </div>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" /><polyline points="16 6 12 2 8 6" /><line x1="12" y1="2" x2="12" y2="15" />
-              </svg>
-            </button>
+            <div className="bg-gray-900 text-white rounded-2xl overflow-hidden">
+              <button
+                onClick={() => shareInvite(userId)}
+                className="w-full px-5 py-4 flex items-center justify-between active:scale-[0.98] transition-transform"
+              >
+                <div className="text-left">
+                  <p className="text-[14px] font-semibold">Invite a friend</p>
+                  <p className="text-[12px] text-white/60 mt-0.5">You both earn points when they complete their first favour</p>
+                </div>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" /><polyline points="16 6 12 2 8 6" /><line x1="12" y1="2" x2="12" y2="15" />
+                </svg>
+              </button>
+              {referral && referral.invited > 0 && (
+                <div className="border-t border-white/10 px-5 py-3 flex items-center gap-5">
+                  <div>
+                    <p className="text-[16px] font-bold tabular-nums leading-none">{referral.invited}</p>
+                    <p className="text-[11px] text-white/50 mt-1">invited</p>
+                  </div>
+                  <div>
+                    <p className="text-[16px] font-bold tabular-nums leading-none">{referral.activated}</p>
+                    <p className="text-[11px] text-white/50 mt-1">active friend{referral.activated === 1 ? "" : "s"}</p>
+                  </div>
+                  <p className="text-[11px] text-white/40 ml-auto text-right leading-snug">
+                    {referral.capReached
+                      ? `Reward cap reached (${referral.cap})`
+                      : `${referral.activated}/${referral.cap} rewarded`}
+                  </p>
+                </div>
+              )}
+            </div>
           )}
 
           {/* Footer */}
