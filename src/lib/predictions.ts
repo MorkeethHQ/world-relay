@@ -24,6 +24,7 @@ export type Prediction = {
   status: "open" | "resolved" | "void";
   outcome: string | null;
   creator: string;
+  externalId?: string; // links to an external fixture (e.g. ESPN event id) for auto create/resolve
 };
 
 export type Stake = { option: string; amount: number };
@@ -31,6 +32,15 @@ export type Stake = { option: string; amount: number };
 const P = "prediction:";
 const INDEX = "prediction:__index";
 const stakesKey = (id: string) => `pstake:${id}`;
+const extKey = (externalId: string) => `prediction:ext:${externalId}`;
+
+// Resolve the prediction id previously created for an external fixture, if any.
+export async function findPredictionByExternalId(externalId: string): Promise<string | null> {
+  const redis = getRedis();
+  if (!redis) return null;
+  const id = await redis.get(extKey(externalId));
+  return typeof id === "string" ? id : null;
+}
 
 export function isLocked(p: Prediction, now: number): boolean {
   return p.status !== "open" || new Date(p.locksAt).getTime() <= now;
@@ -41,6 +51,7 @@ export async function createPrediction(input: {
   options: string[];
   locksAt: string;
   creator: string;
+  externalId?: string;
 }): Promise<Prediction> {
   const redis = getRedis();
   if (!redis) throw new Error("Store unavailable");
@@ -53,7 +64,19 @@ export async function createPrediction(input: {
     status: "open",
     outcome: null,
     creator: input.creator,
+    ...(input.externalId ? { externalId: input.externalId } : {}),
   };
+  // Dedupe on external fixtures: reserve the fixture id atomically so a cron
+  // re-run (or two overlapping runs) never creates the same match twice.
+  if (input.externalId) {
+    const reserved = await redis.set(extKey(input.externalId), p.id, { nx: true });
+    if (!reserved) {
+      const existingId = await redis.get(extKey(input.externalId));
+      const existing = existingId ? await getPrediction(String(existingId)) : null;
+      if (existing) return existing;
+      await redis.set(extKey(input.externalId), p.id); // stale pointer, re-point
+    }
+  }
   await redis.set(`${P}${p.id}`, JSON.stringify(p));
   await redis.sadd(INDEX, p.id);
   return p;

@@ -35,6 +35,7 @@ export async function POST(req: NextRequest) {
     options: body.options,
     locksAt: body.locksAt,
     creator: "favour",
+    externalId: typeof body.externalId === "string" ? body.externalId : undefined,
   });
   return NextResponse.json({ prediction: p }, { status: 201 });
 }
