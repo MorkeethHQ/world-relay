@@ -67,14 +67,19 @@ export async function createPrediction(input: {
     ...(input.externalId ? { externalId: input.externalId } : {}),
   };
   // Dedupe on external fixtures: reserve the fixture id atomically so a cron
-  // re-run (or two overlapping runs) never creates the same match twice.
+  // re-run (or two overlapping runs) never creates the same match twice. Only
+  // the winner of this nx write goes on to create the record + index — a loser
+  // NEVER re-points or creates a duplicate (which would orphan a prediction and
+  // freeze any stakes on it), it returns the winner's prediction instead.
   if (input.externalId) {
     const reserved = await redis.set(extKey(input.externalId), p.id, { nx: true });
     if (!reserved) {
-      const existingId = await redis.get(extKey(input.externalId));
-      const existing = existingId ? await getPrediction(String(existingId)) : null;
-      if (existing) return existing;
-      await redis.set(extKey(input.externalId), p.id); // stale pointer, re-point
+      for (let i = 0; i < 3; i++) {
+        const existingId = await redis.get(extKey(input.externalId));
+        const existing = existingId ? await getPrediction(String(existingId)) : null;
+        if (existing) return existing; // the winner's record (possibly written just now)
+      }
+      throw new Error("prediction reservation contended"); // caller skips this fixture, retries next run
     }
   }
   await redis.set(`${P}${p.id}`, JSON.stringify(p));

@@ -36,38 +36,50 @@ function parseEvents(json: unknown, league: string): Fixture[] {
   if (!Array.isArray(events)) return [];
   const out: Fixture[] = [];
   for (const ev of events) {
-    const e = ev as Record<string, unknown>;
-    const comp = (e.competitions as Record<string, unknown>[] | undefined)?.[0];
-    if (!comp) continue;
-    const competitors = (comp.competitors as Record<string, unknown>[] | undefined) || [];
-    const home = competitors.find((c) => c.homeAway === "home");
-    const away = competitors.find((c) => c.homeAway === "away");
-    if (!home || !away) continue;
-    const status = ((comp.status as Record<string, unknown>)?.type || {}) as Record<string, unknown>;
-    const state = String(status.state || "pre");
-    const completed = status.completed === true;
-    const homeName = String((home.team as Record<string, unknown>)?.displayName || "Home");
-    const awayName = String((away.team as Record<string, unknown>)?.displayName || "Away");
-    const hs = home.score != null ? Number(home.score) : null;
-    const as = away.score != null ? Number(away.score) : null;
-    let winner: Fixture["winner"] = null;
-    if (completed) {
-      if (home.winner === true) winner = "home";
-      else if (away.winner === true) winner = "away";
-      else winner = "draw";
+    try {
+      const e = ev as Record<string, unknown>;
+      const comp = (e.competitions as Record<string, unknown>[] | undefined)?.[0];
+      if (!comp) continue;
+      const competitors = Array.isArray(comp.competitors) ? (comp.competitors as Record<string, unknown>[]) : [];
+      const home = competitors.find((c) => c.homeAway === "home");
+      const away = competitors.find((c) => c.homeAway === "away");
+      if (!home || !away) continue;
+      const status = ((comp.status as Record<string, unknown>)?.type || {}) as Record<string, unknown>;
+      const state = String(status.state || "pre");
+      const completed = status.completed === true;
+      const homeName = String((home.team as Record<string, unknown>)?.displayName || "Home");
+      const awayName = String((away.team as Record<string, unknown>)?.displayName || "Away");
+      const hsRaw = home.score != null ? Number(home.score) : null;
+      const asRaw = away.score != null ? Number(away.score) : null;
+      const homeScore = Number.isFinite(hsRaw as number) ? (hsRaw as number) : null;
+      const awayScore = Number.isFinite(asRaw as number) ? (asRaw as number) : null;
+      let winner: Fixture["winner"] = null;
+      if (completed) {
+        // Trust ESPN's winner flag first, then the score. Only equal scores are
+        // a draw. If completed but still unclear (no flag AND no scores — a brief
+        // data-lag window), leave null so the cron SKIPS and retries next hour
+        // rather than resolving wrongly: a resolution is irreversible and moves
+        // points. This avoids paying "Draw" on a knockout during the lag window.
+        if (home.winner === true) winner = "home";
+        else if (away.winner === true) winner = "away";
+        else if (homeScore != null && awayScore != null) winner = homeScore > awayScore ? "home" : awayScore > homeScore ? "away" : "draw";
+        else winner = null;
+      }
+      out.push({
+        id: String(e.id),
+        league,
+        home: homeName,
+        away: awayName,
+        kickoff: String(e.date),
+        state,
+        completed,
+        homeScore,
+        awayScore,
+        winner,
+      });
+    } catch {
+      continue; // one malformed event must never blank the whole day's fixtures
     }
-    out.push({
-      id: String(e.id),
-      league,
-      home: homeName,
-      away: awayName,
-      kickoff: String(e.date),
-      state,
-      completed,
-      homeScore: Number.isFinite(hs as number) ? hs : null,
-      awayScore: Number.isFinite(as as number) ? as : null,
-      winner,
-    });
   }
   return out;
 }
@@ -98,12 +110,18 @@ export async function fetchFixtures(daysBack = 1, daysAhead = 4, now = new Date(
   for (let d = -daysBack; d <= daysAhead; d++) {
     dates.push(yyyymmdd(new Date(now.getTime() + d * 86400_000)));
   }
-  const byId = new Map<string, Fixture>();
+  // Fetch every league×date concurrently (independent calls) so latency doesn't
+  // scale linearly with the window and blow the cron's function budget.
+  const jobs: Promise<{ date: string; fixtures: Fixture[] }>[] = [];
   for (const league of FOOTBALL_LEAGUES) {
     for (const date of dates) {
-      const fixtures = await fetchDay(league, date);
-      for (const f of fixtures) byId.set(f.id, f); // later (fresher) day wins
+      jobs.push(fetchDay(league, date).then((fixtures) => ({ date, fixtures })));
     }
   }
+  const results = await Promise.all(jobs);
+  // Merge with the later date winning, independent of fetch completion order.
+  results.sort((a, b) => a.date.localeCompare(b.date));
+  const byId = new Map<string, Fixture>();
+  for (const { fixtures } of results) for (const f of fixtures) byId.set(f.id, f);
   return [...byId.values()];
 }
