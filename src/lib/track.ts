@@ -11,6 +11,22 @@ export async function trackVisitor(address: string): Promise<void> {
   ]);
 }
 
+// Reach: every app-open, deduped by a persistent per-device client id (fired by
+// PageTracker on load, ANONYMOUS opens included). This is the same thing World's
+// portal counts as "users" — our visitors:all only captured people who reached
+// sign-in, missing everyone who opened and bounced. Keyed by client id (not
+// wallet), so it counts real distinct opens with no sign-in dependency.
+export async function trackReach(clientId: string): Promise<void> {
+  const redis = getRedis();
+  if (!redis || !clientId || clientId.length > 64) return;
+  const today = new Date().toISOString().slice(0, 10);
+  await Promise.all([
+    redis.sadd("reach:all", clientId),
+    redis.sadd(`reach:${today}`, clientId),
+    redis.expire(`reach:${today}`, 90 * 86400),
+  ]);
+}
+
 export async function trackEvent(
   event: string,
   data?: Record<string, string | number | boolean>,

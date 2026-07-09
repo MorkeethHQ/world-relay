@@ -7,6 +7,10 @@
     {
       "path": "/api/cron/reconcile-settlements",
       "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/football-sync",
+      "schedule": "0 * * * *"
     }
   ]
 }

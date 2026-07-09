@@ -606,6 +606,7 @@ function FullCard({
     appeared ? profile.favoursAttempted : 0,
     800
   );
+  const displayPosted = useCountUp(appeared ? profile.favoursPosted : 0, 800);
 
   const recentHistory = profile.pointsHistory.slice(-5).reverse();
 
@@ -684,11 +685,18 @@ function FullCard({
         </div>
       </div>
 
-      {/* Stats grid (shared <Stat> primitive, themed per level) */}
-      <div className="grid grid-cols-3 gap-2.5">
+      {/* Stats grid (shared <Stat> primitive, themed per level). 2x2 so
+          "Posted" gets equal billing — posting a favour is a first-class act,
+          not a hidden one (Oscar Jul 9: incentivise posting). */}
+      <div className="grid grid-cols-2 gap-2.5">
         <Stat
           label="Completed"
           value={displayCompleted}
+          surfaceClassName={`${config.badgeBg} border ${config.badgeBorder}`}
+        />
+        <Stat
+          label="Posted"
+          value={displayPosted}
           surfaceClassName={`${config.badgeBg} border ${config.badgeBorder}`}
         />
         <Stat

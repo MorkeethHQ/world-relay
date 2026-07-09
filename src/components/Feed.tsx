@@ -724,6 +724,30 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
         className="flex-1 flex flex-col"
       >
 
+      {/* REAL OR NOT — promoted to the top module (Oscar Jul 9: "make it the
+          top of the page"). Full-width hero, and no longer gated behind a live
+          campaign existing (previously it hid whenever campaigns were empty). */}
+      {tab === "available" && !loading && (
+        <div className="px-6 pt-4 animate-[fadeSlideIn_0.4s_ease-out]">
+          <button
+            onClick={() => { hapticTap(); setView("jury"); }}
+            className="relative w-full h-[104px] rounded-2xl overflow-hidden active:scale-[0.98] transition-transform text-left"
+          >
+            <img src="/hero/cyclist.jpg" alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover" />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-black/25" />
+            <div className="relative h-full px-5 py-4 flex flex-col justify-end">
+              <span className="text-[10px] font-bold text-white/70 tracking-[0.2em] uppercase">The game</span>
+              <p className="text-[22px] font-black text-white leading-none tracking-wider mt-1">REAL OR NOT</p>
+              <p className="text-[12px] text-white/70 mt-1.5">Swipe proofs, spot the fakes, earn points</p>
+            </div>
+            <span className="absolute top-3 right-3 flex -space-x-1.5">
+              <span className="w-7 h-7 rounded-full bg-black/50 border border-red-400/60 flex items-center justify-center text-red-400 text-[11px] font-black">✕</span>
+              <span className="w-7 h-7 rounded-full bg-black/50 border border-green-400/60 flex items-center justify-center text-green-400 text-[11px] font-black">✓</span>
+            </span>
+          </button>
+        </div>
+      )}
+
       {/* Animated hero - Tasks. The hook leads; the numbers support it. */}
       {tab === "available" && !loading && (
         <div className="px-6 pt-6 pb-2 animate-[fadeSlideIn_0.4s_ease-out]">
@@ -843,10 +867,9 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
         </div>
       )}
 
-      {/* Hierarchy (Oscar Jul 5 screenshot): ONE hero leads, everything else
-          secondary — the second campaign and the game share a compact duo row,
-          zero-task campaigns are invisible (no link graveyard), and the task
-          list starts inside the first viewport. */}
+      {/* Campaigns (Oscar Jul 9: below REAL OR NOT, above favours). ONE hero
+          leads, a second live campaign stacks below it as a full-width secondary
+          banner, zero-task campaigns are invisible (no link graveyard). */}
       {tab === "available" && !loading && campaigns.length > 0 && (() => {
         const openCountFor = (c: Campaign) =>
           tasks.filter((t) => t.campaignId === c.id && t.status === "open").length;
@@ -866,40 +889,23 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
                 onTap={() => { hapticTap(); setSelectedCampaign(hero); setView("campaign"); }}
               />
             )}
-            <div className="grid grid-cols-2 gap-2.5">
-              {second && (
-                <button
-                  onClick={() => { hapticTap(); setSelectedCampaign(second); setView("campaign"); }}
-                  className="relative h-[72px] rounded-xl overflow-hidden active:scale-[0.97] transition-transform text-left"
-                >
-                  {second.heroImage && (
-                    <img src={second.heroImage} alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
-                  )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/85 to-black/35" />
-                  <div className="relative h-full px-3.5 py-2.5 flex flex-col justify-end">
-                    <p className="text-[13px] font-bold text-white leading-tight line-clamp-1">{second.name}</p>
-                    <p className="text-[10px] text-white/60 mt-0.5">
-                      {second.unlock ? `$${second.unlock.unlockAmount} unlock` : `${openCountFor(second)} tasks`}
-                    </p>
-                  </div>
-                </button>
-              )}
+            {second && (
               <button
-                onClick={() => { hapticTap(); setView("jury"); }}
-                className={`relative h-[72px] rounded-xl overflow-hidden active:scale-[0.97] transition-transform text-left ${second ? "" : "col-span-2"}`}
+                onClick={() => { hapticTap(); setSelectedCampaign(second); setView("campaign"); }}
+                className="relative h-[72px] rounded-xl overflow-hidden active:scale-[0.97] transition-transform text-left"
               >
-                <img src="/hero/cyclist.jpg" alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
+                {second.heroImage && (
+                  <img src={second.heroImage} alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
+                )}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/85 to-black/35" />
                 <div className="relative h-full px-3.5 py-2.5 flex flex-col justify-end">
-                  <p className="text-[13px] font-black text-white leading-tight tracking-wider">REAL OR NOT</p>
-                  <p className="text-[10px] text-white/60 mt-0.5">Swipe proofs, earn points</p>
+                  <p className="text-[13px] font-bold text-white leading-tight line-clamp-1">{second.name}</p>
+                  <p className="text-[10px] text-white/60 mt-0.5">
+                    {second.unlock ? `$${second.unlock.unlockAmount} unlock` : `${openCountFor(second)} tasks`}
+                  </p>
                 </div>
-                <span className="absolute top-2 right-2 flex -space-x-1">
-                  <span className="w-5 h-5 rounded-full bg-black/50 border border-red-400/60 flex items-center justify-center text-red-400 text-[9px] font-black">✕</span>
-                  <span className="w-5 h-5 rounded-full bg-black/50 border border-green-400/60 flex items-center justify-center text-green-400 text-[9px] font-black">✓</span>
-                </span>
               </button>
-            </div>
+            )}
           </div>
         );
       })()}
@@ -914,6 +920,14 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
       {/* Content */}
       {tab !== "polls" && (
       <div className="flex-1 px-6 py-4">
+        {/* Section eyebrow — gives favours a little breathing room below the
+            campaigns block and names the third section (Oscar Jul 9). */}
+        {tab === "available" && !loading && (
+          <div className="flex items-baseline justify-between pt-1 pb-3">
+            <h2 className="text-[13px] font-bold text-gray-900 tracking-tight">Favours</h2>
+            <span className="text-[11px] text-gray-400">{tasks.filter(t => t.status === "open").length} open</span>
+          </div>
+        )}
         {/* Profile summary for "Mine" tab */}
         {tab === "mine" && (
           <div className="mb-4">

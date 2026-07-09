@@ -8,7 +8,7 @@ import { rewardAmountLabel } from "@/lib/reward";
 // live here now, NOT on the profile (Oscar Jul 5: profile felt like an admin
 // dashboard; "history can have total paid out, total points, these things").
 type Stats = {
-  users?: { total?: number; verified?: number };
+  users?: { total?: number; verified?: number; reached?: number };
   volume?: { paidOutUsdc?: number; pointsDistributed?: number };
 };
 
@@ -28,7 +28,7 @@ export default function HistoryPage() {
 
   useEffect(() => {
     Promise.all([
-      fetch("/api/tasks").then((r) => r.json()).then((d) => setTasks((d.tasks || []).filter((t: Task) => t.status === "completed"))),
+      fetch("/api/history").then((r) => r.json()).then((d) => setTasks(d.tasks || [])),
       fetch("/api/stats").then((r) => r.json()).then(setStats).catch(() => {}),
     ]).finally(() => setLoading(false));
   }, []);
@@ -52,8 +52,8 @@ export default function HistoryPage() {
             <p className="text-[11px] text-white/50 mt-1">points earned</p>
           </div>
           <div>
-            <p className="text-[22px] font-bold leading-none">{stats.users?.verified ?? 0}</p>
-            <p className="text-[11px] text-white/50 mt-1">verified humans</p>
+            <p className="text-[22px] font-bold leading-none">{stats.users?.reached ?? stats.users?.verified ?? 0}</p>
+            <p className="text-[11px] text-white/50 mt-1">people reached</p>
           </div>
         </div>
 
@@ -65,7 +65,7 @@ export default function HistoryPage() {
           <p className="text-sm text-gray-400 text-center py-16">No completed favours yet.</p>
         ) : (
           <div className="flex flex-col gap-2.5">
-            {tasks.slice().reverse().map((task) => (
+            {tasks.map((task) => (
               <div key={task.id} className="rounded-2xl overflow-hidden bg-white border border-gray-200">
                 {task.proofImageUrl && (
                   <div className="relative">

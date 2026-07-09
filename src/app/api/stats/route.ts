@@ -147,11 +147,20 @@ async function computeStats(redis: NonNullable<ReturnType<typeof getRedis>>) {
   const today = new Date().toISOString().slice(0, 10);
   const yesterday = new Date(now - 86400 * 1000).toISOString().slice(0, 10);
 
-  const [visitorsTotal, visitorsToday, visitorsYesterday] = await Promise.all([
+  const [visitorsTotal, visitorsToday, visitorsYesterday, reachTotal, reachToday] = await Promise.all([
     redis.scard("visitors:all"),
     redis.scard(`visitors:${today}`),
     redis.scard(`visitors:${yesterday}`),
+    redis.scard("reach:all"),
+    redis.scard(`reach:${today}`),
   ]);
+
+  // "Reached" = distinct people who opened the app, deduped per device. reach:all
+  // counts anonymous opens too (World's meter); visitors:all is the older
+  // sign-in-reacher set. Both are real lower bounds on distinct people, so the
+  // max is a valid conservative live count — no hardcoded number, converges to
+  // World's figure as anonymous opens accumulate.
+  const reached = Math.max(reachTotal, visitorsTotal);
 
   // Average is per funded USDC task only. Points-only tasks are a separate
   // currency and must never dilute the dollar average.
@@ -161,6 +170,7 @@ async function computeStats(redis: NonNullable<ReturnType<typeof getRedis>>) {
     users: {
       total: allUsers.size,
       verified: verifiedAddresses.size,
+      reached,
       activeRunners: claimants.size,
       activePosters: posters.size,
     },
@@ -186,6 +196,7 @@ async function computeStats(redis: NonNullable<ReturnType<typeof getRedis>>) {
       total: visitorsTotal,
       today: visitorsToday,
       yesterday: visitorsYesterday,
+      reachedToday: reachToday,
     },
   };
 }
