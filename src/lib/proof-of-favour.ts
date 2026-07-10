@@ -1,4 +1,8 @@
 import { getRedis } from "./redis";
+import { fundingRewardPoints, FUNDING_REWARD_PER_USD, FUNDING_REWARD_CAP } from "./reward";
+// Re-exported so existing importers (and tests) keep their `@/lib/proof-of-favour`
+// path; the pure calc itself lives in the client-safe reward.ts source of truth.
+export { fundingRewardPoints, FUNDING_REWARD_PER_USD, FUNDING_REWARD_CAP };
 
 const POF_PREFIX = "pof:";
 const POF_INDEX_KEY = "pof:__index";
@@ -29,6 +33,13 @@ export function completionPointsFor(rewardType: string, bountyUsdc: number): num
   const p = Math.round(bountyUsdc);
   return Math.min(Math.max(p, 1), MAX_TASK_POINTS);
 }
+
+// Funding reward (Oscar Jul 10): the real incentive is bringing REAL USDC demand,
+// not posting free points tasks. A funder earns points scaled to the dollars they
+// escrowed (fundingRewardPoints, defined in reward.ts) — but ONLY when the task
+// actually settles on-chain (money moved to a runner), never at fund time. That
+// makes it farm-proof: a fund-then-cancel refund never pays, because points ride
+// the confirmed settlement, not the post. Award logic: recordFundingReward below.
 
 // Streak bonus paid on a completion, capped so no single task pays more than
 // FAVOUR_COMPLETED + STREAK_BONUS_MAX_DAYS.
@@ -547,6 +558,33 @@ export async function recordFavourPosted(address: string): Promise<ProofOfFavour
     trackWeeklyPoints(address, points).catch(console.error);
     return profile;
   });
+}
+
+// Award the FUNDER points once their USDC-funded task actually settles on-chain.
+// Called from the single settlement choke point (store.markSettled), which runs
+// only on a confirmed on-chain release (invariant 2: "paid means settled"). So
+// this never fires on fund or refund. Idempotent per task via a redis set, and
+// points-only (never USDC). No-op for points tasks, agents, or seed posters.
+export async function recordFundingReward(task: {
+  id: string;
+  poster: string;
+  bountyUsdc: number;
+  onChainId: number | null;
+  escrowTxHash?: string | null;
+  rewardType?: string;
+}): Promise<void> {
+  const redis = getRedis();
+  if (!redis) return;
+  const funded = task.onChainId != null || !!task.escrowTxHash;
+  if (!funded || task.rewardType === "points") return;
+  if (!isRealWallet(task.poster)) return;
+  const points = fundingRewardPoints(task.bountyUsdc);
+  if (points <= 0) return;
+  // Once per task, forever — guards double settlement paths (verify-proof pass +
+  // reconcile cron) and any retry from ever double-paying the funder.
+  const fresh = await redis.sadd("funding_rewarded", task.id);
+  if (!fresh) return;
+  await awardPoints(task.poster, "funding_reward", points).catch(console.error);
 }
 
 export async function recordDailyActivity(address: string): Promise<ProofOfFavour> {

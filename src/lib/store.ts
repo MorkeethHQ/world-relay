@@ -1,6 +1,7 @@
 import type { Task, TaskStatus, TaskCategory, TaskType, RewardType, AiFollowUp, RecurringConfig } from "./types";
 import { getRedis } from "./redis";
 import { getAgent } from "./agents";
+import { recordFundingReward } from "./proof-of-favour";
 export type { Task, TaskStatus, TaskCategory };
 
 const TASK_PREFIX = "task:";
@@ -351,6 +352,9 @@ export async function markSettled(id: string, forwardTx: string): Promise<Task |
   task.pendingRelease = false;
   task.settlementTx = forwardTx;
   await persistTask(task);
+  // Funder earns points on the CONFIRMED settlement (money actually moved to the
+  // runner) — the farm-proof point to reward funding. Idempotent; never on refund.
+  await recordFundingReward(task).catch(() => {});
   return task;
 }
 
