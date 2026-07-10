@@ -190,7 +190,7 @@ function proofInstructions(task: Task): { short: string; steps: string[]; tip: s
 import { CategoryIcon } from "@/components/CategoryIcon";
 import { RewardBadge } from "@/components/RewardBadge";
 import { LivenessStrip } from "@/components/LivenessStrip";
-import { rewardAmountLabel, isRealMoney, isFunded } from "@/lib/reward";
+import { rewardAmountLabel, isRealMoney, isFunded, fundingRewardPoints } from "@/lib/reward";
 
 type TaskTier = "quick" | "medium" | "effort";
 
@@ -1790,6 +1790,25 @@ function PostTask({
               </div>
               {rewardType === "points" && <Typography variant="body" level={4} className="text-gray-400 mt-1.5">Points run from 1 to 10.</Typography>}
             </div>
+
+            {/* Funder incentive: you earn points for bringing real USDC demand,
+                credited on completion. Amber = points (design system). Hints at
+                future point utility without over-promising a token. */}
+            {rewardType === "usdc" && fundingRewardPoints(parseFloat(bounty) || 0) > 0 && (
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
+                <span className="text-amber-600 mt-0.5">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" /></svg>
+                </span>
+                <div>
+                  <Typography variant="body" level={3} className="text-amber-700 font-semibold">
+                    You&rsquo;ll earn {fundingRewardPoints(parseFloat(bounty) || 0)} pts
+                  </Typography>
+                  <Typography variant="body" level={4} className="text-amber-700/70 mt-0.5">
+                    Credited when your favour is completed &mdash; your reward for funding real demand. Points are your early stake in FAVOUR, and they&rsquo;ll mean more soon.
+                  </Typography>
+                </div>
+              </div>
+            )}
 
             {/* Reward + escrow explainer */}
             <div className="bg-white border border-gray-200 rounded-xl p-4">

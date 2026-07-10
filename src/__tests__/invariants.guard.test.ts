@@ -112,4 +112,32 @@ describe("invariant guards", () => {
       expect(s, `releaseEscrow in ${f} must record settlement`).toMatch(/markSettl(ed|ementPending)/);
     }
   });
+
+  it("Inv 2: funder reward fires only on confirmed settlement, never at fund/post time (farm-proof)", () => {
+    // recordFundingReward pays the funder points; it must ride the settlement
+    // choke point (store.markSettled), NOT a create/fund/PATCH route — otherwise
+    // a fund-then-cancel refund would farm points with no money ever moving.
+    const callers = files.filter((f) => /recordFundingReward\s*\(/.test(read(f)));
+    const offenders = callers.filter(
+      (f) => !f.endsWith(join("lib", "store.ts")) && !f.endsWith(join("lib", "proof-of-favour.ts"))
+    );
+    expect(offenders, `recordFundingReward must only run from store.markSettled, not: ${offenders.join(", ")}`).toEqual([]);
+    const store = files.find((p) => p.endsWith(join("lib", "store.ts")));
+    const s = read(store!);
+    const start = s.indexOf("export async function markSettled");
+    expect(start, "markSettled not found").toBeGreaterThanOrEqual(0);
+    const body = s.slice(start, s.indexOf("\nexport ", start + 1));
+    expect(body, "markSettled must award the funder via recordFundingReward").toMatch(/recordFundingReward\(/);
+  });
+
+  it("Inv 2: funder reward is idempotent and funded-only (a task pays its funder at most once)", () => {
+    // Two settlement paths (verify-proof pass + reconcile cron) and retries must
+    // never double-pay; and points tasks / unfunded posts must never pay.
+    const pof = read(files.find((p) => p.endsWith(join("lib", "proof-of-favour.ts")))!);
+    const start = pof.indexOf("export async function recordFundingReward");
+    expect(start, "recordFundingReward not found").toBeGreaterThanOrEqual(0);
+    const body = pof.slice(start, pof.indexOf("\nexport ", start + 1));
+    expect(body, "recordFundingReward must guard once-per-task with a redis set").toMatch(/sadd\(["']funding_rewarded["']/);
+    expect(body, "recordFundingReward must skip points tasks and unfunded posts").toMatch(/rewardType === "points"/);
+  });
 });

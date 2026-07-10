@@ -9,6 +9,18 @@ export function isPointsReward(task: Pick<Task, "rewardType">): boolean {
   return task.rewardType === "points";
 }
 
+// Funding reward (points) a funder earns when their USDC-funded task settles.
+// Pure + client-safe so the post form can preview it and the server can award
+// the exact same number — one source, no drift. The award itself lives
+// server-side in proof-of-favour, fired only on confirmed on-chain settlement.
+export const FUNDING_REWARD_PER_USD = 10;
+export const FUNDING_REWARD_CAP = 250;
+export function fundingRewardPoints(bountyUsdc: number): number {
+  if (!Number.isFinite(bountyUsdc) || bountyUsdc <= 0) return 0;
+  const pts = Math.round(bountyUsdc) * FUNDING_REWARD_PER_USD;
+  return Math.min(Math.max(pts, 0), FUNDING_REWARD_CAP);
+}
+
 // True when a task carries real on-chain escrow (either signal).
 export function isFunded(task: Pick<Task, "onChainId" | "escrowTxHash">): boolean {
   return task.onChainId !== null || !!task.escrowTxHash;
