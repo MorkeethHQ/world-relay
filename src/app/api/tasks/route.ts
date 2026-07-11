@@ -169,8 +169,12 @@ export async function POST(req: NextRequest) {
   trackEvent("task_created", { taskId: task.id, poster, bounty: task.bountyUsdc, category: task.category, funded: !!verifiedEscrowTxHash }).catch(() => {});
   postTaskCreated(task).catch(console.error);
 
-  // Award Proof of Favour points for posting a task
-  recordFavourPosted(poster).catch(console.error);
+  // Award Proof of Favour points for posting a task — but ONLY for a capped
+  // points post (throttled to 1/day above) or a genuinely funded USDC post.
+  // An unfunded "usdc" post has no daily cap, so awarding it +3 let a farmer
+  // mint ~15 pts/min by posting unfunded tasks; gate the reward on real funding.
+  const postEarns = rewardType === "points" || verifiedOnChainId != null || !!verifiedEscrowTxHash;
+  if (postEarns) recordFavourPosted(poster).catch(console.error);
 
   // Fire-and-forget AI scout briefing (with agent personality if available)
   generateLocationBriefing(task, task.agent?.id || undefined).then(briefing => {
