@@ -140,4 +140,29 @@ describe("invariant guards", () => {
     expect(body, "recordFundingReward must guard once-per-task with a redis set").toMatch(/sadd\(["']funding_rewarded["']/);
     expect(body, "recordFundingReward must skip points tasks and unfunded posts").toMatch(/rewardType === "points"/);
   });
+
+  it("Inv 2: escrow release refuses a task claimed on-chain by a non-relayer (no payout hijack)", () => {
+    // releasePayment pays the ON-CHAIN claimant. Anyone can call claimTask()
+    // directly, so releaseEscrow must compare the claimant to the relayer and
+    // bail if a third party (or a self-claiming runner) holds the claim — else it
+    // pays them AND double-forwards to the recipient from the relayer's funds.
+    const f = files.find((p) => p.endsWith(join("lib", "escrow.ts")));
+    expect(f, "escrow.ts not found").toBeTruthy();
+    const s = read(f!);
+    const start = s.indexOf("export async function releaseEscrow");
+    expect(start, "releaseEscrow not found").toBeGreaterThanOrEqual(0);
+    const body = s.slice(start, s.indexOf("\nexport ", start + 1));
+    expect(body, "releaseEscrow must compare the on-chain claimant against the relayer").toMatch(/relayer[\s\S]*claimant|claimant[\s\S]*relayer/);
+  });
+
+  it("Inv 5: feedback-tasks route gates unverified point minting (ownership + daily earn cap)", () => {
+    // The endpoint awards points off a public `address` with no proof; without a
+    // gate it minted ~120 pts/day/wallet across templates. It must enforce session
+    // ownership AND cap the earn to once per wallet per day.
+    const f = files.find((p) => p.endsWith(join("feedback-tasks", "route.ts")));
+    expect(f, "feedback-tasks/route.ts not found").toBeTruthy();
+    const s = read(f!);
+    expect(s, "feedback-tasks must call ownershipError").toMatch(/ownershipError\(/);
+    expect(s, "feedback-tasks must cap the daily earn (once-per-day earn lock)").toMatch(/earned:/);
+  });
 });

@@ -344,6 +344,22 @@ export async function releaseEscrow(onChainId: number, recipientAddress?: string
   }
   const recipient = recipientAddress as `0x${string}`;
 
+  // Mutual exclusion: releaseEscrow is called from two settlement paths (verify-
+  // proof pass + the hourly reconcile cron) and can be manually re-triggered.
+  // Two concurrent runs on the same task could both pass the double-pay guard's
+  // "no forwardTx recorded yet" window and both transfer USDC. Serialize per task.
+  // The forwardTx guard in forwardPayout remains the second line of defence if
+  // this lock ever lapses (px) mid-settlement.
+  const redis = getRedis();
+  const lockKey = `settle:lock:${onChainId}`;
+  if (redis) {
+    const got = await redis.set(lockKey, "1", { nx: true, px: 120_000 });
+    if (!got) {
+      console.error(`[Escrow] Task ${onChainId}: settlement already in progress, skipping concurrent release`);
+      return null;
+    }
+  }
+
   try {
     const pub = getPublicClient();
     const state = await loadSettlement(onChainId);
@@ -367,6 +383,22 @@ export async function releaseEscrow(onChainId: number, recipientAddress?: string
 
     // Task must be Open or Claimed to proceed
     if (onChainTask.status !== 0 && onChainTask.status !== 1) {
+      return null;
+    }
+
+    // SECURITY (invariant 2): releasePayment pays the ON-CHAIN claimant. This flow
+    // relies on the relayer being that claimant — for an Open task it claims just
+    // below. But if the task is ALREADY Claimed by anyone other than the relayer
+    // (an attacker calling claimTask() directly, or a runner self-claiming on-chain
+    // via the client), releasePayment sends the escrow to THEM and forwardPayout
+    // then pays `recipient` a second time out of the relayer's own USDC — theft +
+    // double-pay. A funded escrow claimed on-chain by a non-relayer is compromised:
+    // refuse, alert, and leave it for out-of-band handling. Never auto-release it.
+    const relayer = wallet.account.address.toLowerCase();
+    if (onChainTask.status === 1 && onChainTask.claimant.toLowerCase() !== relayer) {
+      console.error(
+        `[Escrow] Task ${onChainId}: on-chain claimant ${onChainTask.claimant} is not the relayer ${wallet.account.address} — refusing to release (on-chain claim hijack).`
+      );
       return null;
     }
 
@@ -410,6 +442,8 @@ export async function releaseEscrow(onChainId: number, recipientAddress?: string
   } catch (err) {
     console.error(`[Escrow] Failed to release task ${onChainId}:`, err);
     return null;
+  } finally {
+    if (redis) await redis.del(lockKey).catch(() => {});
   }
 }
 
