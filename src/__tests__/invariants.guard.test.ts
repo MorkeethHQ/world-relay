@@ -25,6 +25,19 @@ const files = walk(SRC);
 const read = (f: string) => readFileSync(f, "utf8");
 
 describe("invariant guards", () => {
+  it("Inv 6: escrow onChainId binding is uniqueness-guarded (one escrow funds one task)", () => {
+    // C1 (Jul 12 audit): without an atomic uniqueness claim, task B could bind
+    // task A's already-funded onChainId (isEscrowTaskFunded only proves it's
+    // funded, not that it belongs here) and settle against the LIVE on-chain
+    // amount — draining the victim's escrow. Both binding paths (createTask +
+    // setOnChainId) must go through claimOnChainId before persisting.
+    const store = files.find((f) => /lib\/store\.ts$/.test(f))!;
+    const src = read(store);
+    expect(src, "store must define an atomic onChainId claim (claimOnChainId)").toMatch(/claimOnChainId/);
+    const guardedCalls = (src.match(/claimOnChainId\(/g) || []).length;
+    expect(guardedCalls, "createTask + setOnChainId must both enforce claimOnChainId (def + 2 call sites)").toBeGreaterThanOrEqual(3);
+  });
+
   it("Inv 3: no placeholder escrow tx hash — funded means a real 0x+64hex hash", () => {
     // The seed route once shipped escrowTxHash: "funded", which passed every
     // truthiness-based funding guard with no on-chain backing.
