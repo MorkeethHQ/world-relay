@@ -168,8 +168,8 @@ export function JuryMode({ userId, onClose }: { userId: string | null; onClose: 
             </div>
             <div className="space-y-3 pb-1">
               {[
-                "Every card is a real favour someone completed.",
-                "Swipe right if the photo proves it. Left if it looks fake.",
+                "Every photo is a real proof — but it may be pinned to the wrong favour.",
+                "Swipe right if the photo proves THIS favour. Left if it doesn't match.",
                 "Call it right and you earn a point. Up to 20 a day.",
               ].map((t, i) => (
                 <div key={i} className="jury-step flex items-start gap-3" style={{ animationDelay: `${0.1 + i * 0.09}s` }}>
@@ -268,7 +268,7 @@ export function JuryMode({ userId, onClose }: { userId: string | null; onClose: 
             {flash && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                 <div className={`px-6 py-4 rounded-2xl text-center ${flash.correct ? "bg-green-500" : "bg-red-500"}`}>
-                  <p className="text-white font-black text-xl">{flash.correct ? "Called it" : flash.isMatch ? "It was real" : "It was fake"}</p>
+                  <p className="text-white font-black text-xl">{flash.correct ? "Called it" : flash.isMatch ? "It matched" : "Wrong favour"}</p>
                   {flash.points > 0 && <p className="text-white/90 text-sm font-semibold">+{flash.points} pt</p>}
                 </div>
               </div>
@@ -280,11 +280,11 @@ export function JuryMode({ userId, onClose }: { userId: string | null; onClose: 
       {/* Verdict buttons */}
       {card && !loading && !showIntro && (
         <div className="flex items-center justify-center gap-10 pb-8 pt-2" style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 32px)" }}>
-          <button onClick={() => vote(false)} aria-label="Not real" className="w-16 h-16 rounded-full bg-white border-2 border-red-200 shadow-sm flex items-center justify-center active:scale-90 transition-transform">
+          <button onClick={() => vote(false)} aria-label="Doesn't match" className="w-16 h-16 rounded-full bg-white border-2 border-red-200 shadow-sm flex items-center justify-center active:scale-90 transition-transform">
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="3" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
           </button>
           <p className="text-[11px] text-gray-400 max-w-[90px] text-center leading-tight">Does the photo prove this favour?</p>
-          <button onClick={() => vote(true)} aria-label="Real" className="w-16 h-16 rounded-full bg-white border-2 border-green-200 shadow-sm flex items-center justify-center active:scale-90 transition-transform">
+          <button onClick={() => vote(true)} aria-label="Matches" className="w-16 h-16 rounded-full bg-white border-2 border-green-200 shadow-sm flex items-center justify-center active:scale-90 transition-transform">
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
           </button>
         </div>

@@ -75,6 +75,10 @@ describe("R3: board visibility", () => {
     expect(isBoardVisible(funded(), null, NOW)).toBe(true);
   });
 
+  it("a 0-value points task is NOT visible (reads as broken/empty inventory)", () => {
+    expect(isBoardVisible(task({ rewardType: "points", bountyUsdc: 0 }), null, NOW)).toBe(false);
+  });
+
   it("claimed tasks show only to their claimant; expired/cancelled/past-deadline never show", () => {
     const mine = task({ status: "claimed", claimant: "me" });
     expect(isBoardVisible(mine, "me", NOW)).toBe(true);
