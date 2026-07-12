@@ -30,12 +30,23 @@ describe("invariant guards", () => {
     // task A's already-funded onChainId (isEscrowTaskFunded only proves it's
     // funded, not that it belongs here) and settle against the LIVE on-chain
     // amount — draining the victim's escrow. Both binding paths (createTask +
-    // setOnChainId) must go through claimOnChainId before persisting.
+    // setOnChainId AND seedTask) must go through claimOnChainId before persisting.
     const store = files.find((f) => /lib\/store\.ts$/.test(f))!;
     const src = read(store);
     expect(src, "store must define an atomic onChainId claim (claimOnChainId)").toMatch(/claimOnChainId/);
     const guardedCalls = (src.match(/claimOnChainId\(/g) || []).length;
-    expect(guardedCalls, "createTask + setOnChainId must both enforce claimOnChainId (def + 2 call sites)").toBeGreaterThanOrEqual(3);
+    // def + 3 call sites (createTask, setOnChainId, seedTask). seedTask persists
+    // directly, so it must claim too or it reopens the drain via a bind-less funded task.
+    expect(guardedCalls, "createTask + setOnChainId + seedTask must all enforce claimOnChainId (def + 3 call sites)").toBeGreaterThanOrEqual(4);
+  });
+
+  it("Inv 6: existing pre-fix escrows are backfilled (claimOnChainId only binds NEW tasks)", () => {
+    // C1 writes a bind only at create/link time, so escrows funded BEFORE the fix
+    // had no bind and stayed drainable. A one-time backfill must exist to bind them.
+    const scriptsDir = join(__dirname, "..", "..", "scripts");
+    const hasBackfill = readdirSync(scriptsDir).includes("backfill-escrow-binds.ts");
+    expect(hasBackfill, "a backfill that binds pre-existing funded escrows must exist").toBe(true);
+    expect(read(join(scriptsDir, "backfill-escrow-binds.ts"))).toMatch(/escrow:bind:/);
   });
 
   it("Inv 3: no placeholder escrow tx hash — funded means a real 0x+64hex hash", () => {

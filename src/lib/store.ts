@@ -187,6 +187,13 @@ export async function spawnRecurringTask(completedTask: Task): Promise<Task | nu
 }
 
 export async function seedTask(task: Task): Promise<void> {
+  // Invariant 6: a seeded task that carries an escrow must claim its onChainId
+  // bind too — otherwise this path (though currently unused) would be a way to
+  // persist a funded task with no bind, reopening the cross-task escrow-drain
+  // that createTask/setOnChainId close. Fail closed if the escrow is bound elsewhere.
+  if (task.onChainId != null && !(await claimOnChainId(task.onChainId, task.id))) {
+    throw new Error(`escrow ${task.onChainId} is already bound to another task`);
+  }
   await persistTask(task);
 }
 
