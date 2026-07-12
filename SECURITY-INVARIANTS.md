@@ -45,5 +45,14 @@ mechanically blocks the easy-to-regress ones.
 - Name the failure CLASS, don't just read the diff. One bug ⇒ assume siblings.
 - Hunt each class to `file:line` adversarially ("how do I break this?").
 - Verify every finding against the real code AND a live request before believing it.
-- Prefer an automated guard (extend the guard test) over a promise.
+- Prefer an automated guard (extend the guard test) over a promise. A guard that
+  only greps source for a call site is a doc aid, NOT a gate — make it behavioral
+  (exercise the collision / the failure it's supposed to stop).
+- **A write-time invariant is retroactively false for existing data.** Any change
+  that starts enforcing a uniqueness/binding/required-field rule (e.g. Inv 6's
+  `escrow:bind:*`) MUST ship with (a) a backfill that makes existing rows conform
+  and (b) a count of how many rows currently violate it. "New code path enforces
+  it" ≠ "the invariant holds." The Jul 12 escrow-drain fix passed tsc + 116 tests
+  while ~$7 of pre-fix escrows stayed drainable because the bind was never
+  backfilled — caught only by the live-request rule below.
 - `tsc` + `next build` + guard test green before merge.
