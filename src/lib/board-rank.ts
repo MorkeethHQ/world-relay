@@ -40,7 +40,10 @@ export function isBoardVisible(t: Task, userId: string | null, now: number): boo
   if (t.status === "expired" || t.status === "cancelled") return false;
   if (t.status === "open") {
     if (new Date(t.deadline).getTime() < now) return false;
-    return t.rewardType === "points" || isRealMoney(t);
+    // A points task must actually reward something: a 0-value points task shows a
+    // "0 pts" badge and reads as broken/empty inventory, so keep it off the board.
+    if (t.rewardType === "points") return t.bountyUsdc > 0;
+    return isRealMoney(t);
   }
   return t.status === "claimed" && !!userId && t.claimant === userId;
 }

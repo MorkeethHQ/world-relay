@@ -1342,7 +1342,11 @@ function TaskCard({
   const hoursLeft = (new Date(task.deadline).getTime() - Date.now()) / 3600_000;
   const isAgentTask = !!(task.agent || task.poster?.startsWith("agent_"));
   const taskAgeDays = (Date.now() - new Date(task.createdAt).getTime()) / (24 * 3600_000);
-  const isStale = task.status === "open" && !task.claimant && taskAgeDays >= 7;
+  // Mirror board-rank.ts:isStale — an evergreen multi-completion task (campaign
+  // furniture) reopens without touching createdAt, so age says nothing about it
+  // being dead. Without this exemption every featured campaign card wrongly shows
+  // "Open a while" even though the ranker still treats it as alive.
+  const isStale = task.status === "open" && !task.claimant && (task.maxCompletions ?? 1) <= 1 && taskAgeDays >= 7;
   // Funding + urgency signals for the browse card. isUnfundedMoney and endingSoon
   // are mutually exclusive (one requires unfunded, the other funded), so at most
   // one status chip shows per card. Green/urgency only ever attaches to real money.
@@ -1638,8 +1642,11 @@ function PostTask({
 
   const presets = rewardType === "points" ? ["1", "5", "10"] : ["5", "15", "25"];
 
+  // Root fills the viewport MINUS the fixed BottomNav reserve (main has pb-20=5rem).
+  // Using min-h-screen (100vh) here pushed the footer CTA into the bottom 5rem that
+  // the fixed nav overlays, so "Post & Fund" was clipped behind the nav.
   return (
-    <div className="flex flex-col min-h-screen max-w-lg mx-auto w-full bg-gray-50">
+    <div className="flex flex-col min-h-[calc(100vh-5rem)] max-w-lg mx-auto w-full bg-gray-50">
       <TopBar
         title={stepTitle}
         startAdornment={
@@ -1776,7 +1783,11 @@ function PostTask({
                       bounty === amt ? "border-gray-900 bg-white" : "border-gray-200 bg-white hover:border-gray-300"
                     }`}
                   >
-                    <Typography variant="number" level={3} className={`whitespace-nowrap ${bounty === amt ? "text-gray-900" : "text-gray-500"}`}>{rewardType === "points" ? `${amt} pts` : `$${amt}`}</Typography>
+                    <Typography variant="number" level={3} className={`whitespace-nowrap ${bounty === amt ? "text-gray-900" : "text-gray-500"}`}>{rewardType === "points" ? (
+                      <>{amt}<span className="text-[13px] font-normal text-gray-400 ml-0.5">pts</span></>
+                    ) : (
+                      <><span className="text-[13px] font-normal text-gray-400 mr-0.5">$</span>{amt}</>
+                    )}</Typography>
                   </button>
                 ))}
                 <div className="flex-1 flex items-center gap-1 bg-white border border-gray-200 rounded-xl px-3 py-4 min-h-[52px]">
@@ -1891,8 +1902,9 @@ function PostTask({
         )}
       </div>
 
-      {/* Footer action bar (per step) */}
-      <div className="px-6 pb-8 pt-2" style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 24px)" }}>
+      {/* Footer action bar (per step). mt-auto pins it to the bottom of the
+          available space so a short step doesn't leave the CTA floating mid-screen. */}
+      <div className="mt-auto px-6 pb-8 pt-2" style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 24px)" }}>
         {txError && (
           <div className="mb-4 bg-error-100 border border-error-200 rounded-xl p-4 flex items-center justify-between">
             <Typography variant="body" level={3} className="text-error-700 font-medium">{txError}</Typography>
