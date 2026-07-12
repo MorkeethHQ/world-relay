@@ -485,17 +485,23 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
 
   const PULL_THRESHOLD = 60;
 
+  // Pull-to-refresh must gate on the ACTUAL scroll position. The feed scrolls the
+  // window/document, not feedContainerRef (that div never scrolls, so its
+  // scrollTop was permanently 0 — the "only pull at the very top" guard never
+  // engaged, and every upward swipe inflated the pull spacer a few px and
+  // re-rendered the whole feed mid-gesture: the "items move a little on scroll"
+  // bug). Read window.scrollY so the gesture only starts when genuinely at the top.
+  const isAtTop = () => (typeof window === "undefined" ? true : window.scrollY <= 0);
+
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    const container = feedContainerRef.current;
-    if (!container || container.scrollTop > 0) return;
+    if (!isAtTop()) return;
     touchStartY.current = e.touches[0].clientY;
     isPulling.current = true;
   }, []);
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
     if (!isPulling.current || isRefreshing) return;
-    const container = feedContainerRef.current;
-    if (!container || container.scrollTop > 0) {
+    if (!isAtTop()) {
       isPulling.current = false;
       setPullDistance(0);
       return;

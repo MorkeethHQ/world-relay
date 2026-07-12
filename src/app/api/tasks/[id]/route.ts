@@ -47,6 +47,17 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 
   if (typeof body.onChainId === "number" && typeof body.escrowTxHash === "string") {
+    // The POST funding invariants must also hold on this PATCH funding path, or a
+    // poster funds around them: (a) one escrow deposit funds exactly one payout,
+    // so a funded task must be single-completion (a reopening funded task pays
+    // completer #1 and marks #2+ settled against the cached tx for $0); (b) only a
+    // USDC task may hold escrow, so points labels never sit on real money.
+    if ((task.maxCompletions ?? 1) > 1) {
+      return NextResponse.json({ error: "Funded tasks must be single-completion." }, { status: 400 });
+    }
+    if (task.rewardType === "points") {
+      return NextResponse.json({ error: "Only USDC tasks can be funded with escrow." }, { status: 400 });
+    }
     // Same server-side funding gate as POST /api/tasks: never trust a
     // client-supplied escrow marker. Without this, a poster (identity is just a
     // public address) could point their own task at ANY funded on-chain escrow

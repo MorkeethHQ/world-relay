@@ -25,6 +25,30 @@ const files = walk(SRC);
 const read = (f: string) => readFileSync(f, "utf8");
 
 describe("invariant guards", () => {
+  it("Inv 6: escrow onChainId binding is uniqueness-guarded (one escrow funds one task)", () => {
+    // C1 (Jul 12 audit): without an atomic uniqueness claim, task B could bind
+    // task A's already-funded onChainId (isEscrowTaskFunded only proves it's
+    // funded, not that it belongs here) and settle against the LIVE on-chain
+    // amount — draining the victim's escrow. Both binding paths (createTask +
+    // setOnChainId AND seedTask) must go through claimOnChainId before persisting.
+    const store = files.find((f) => /lib\/store\.ts$/.test(f))!;
+    const src = read(store);
+    expect(src, "store must define an atomic onChainId claim (claimOnChainId)").toMatch(/claimOnChainId/);
+    const guardedCalls = (src.match(/claimOnChainId\(/g) || []).length;
+    // def + 3 call sites (createTask, setOnChainId, seedTask). seedTask persists
+    // directly, so it must claim too or it reopens the drain via a bind-less funded task.
+    expect(guardedCalls, "createTask + setOnChainId + seedTask must all enforce claimOnChainId (def + 3 call sites)").toBeGreaterThanOrEqual(4);
+  });
+
+  it("Inv 6: existing pre-fix escrows are backfilled (claimOnChainId only binds NEW tasks)", () => {
+    // C1 writes a bind only at create/link time, so escrows funded BEFORE the fix
+    // had no bind and stayed drainable. A one-time backfill must exist to bind them.
+    const scriptsDir = join(__dirname, "..", "..", "scripts");
+    const hasBackfill = readdirSync(scriptsDir).includes("backfill-escrow-binds.ts");
+    expect(hasBackfill, "a backfill that binds pre-existing funded escrows must exist").toBe(true);
+    expect(read(join(scriptsDir, "backfill-escrow-binds.ts"))).toMatch(/escrow:bind:/);
+  });
+
   it("Inv 3: no placeholder escrow tx hash — funded means a real 0x+64hex hash", () => {
     // The seed route once shipped escrowTxHash: "funded", which passed every
     // truthiness-based funding guard with no on-chain backing.
@@ -139,5 +163,30 @@ describe("invariant guards", () => {
     const body = pof.slice(start, pof.indexOf("\nexport ", start + 1));
     expect(body, "recordFundingReward must guard once-per-task with a redis set").toMatch(/sadd\(["']funding_rewarded["']/);
     expect(body, "recordFundingReward must skip points tasks and unfunded posts").toMatch(/rewardType === "points"/);
+  });
+
+  it("Inv 2: escrow release refuses a task claimed on-chain by a non-relayer (no payout hijack)", () => {
+    // releasePayment pays the ON-CHAIN claimant. Anyone can call claimTask()
+    // directly, so releaseEscrow must compare the claimant to the relayer and
+    // bail if a third party (or a self-claiming runner) holds the claim — else it
+    // pays them AND double-forwards to the recipient from the relayer's funds.
+    const f = files.find((p) => p.endsWith(join("lib", "escrow.ts")));
+    expect(f, "escrow.ts not found").toBeTruthy();
+    const s = read(f!);
+    const start = s.indexOf("export async function releaseEscrow");
+    expect(start, "releaseEscrow not found").toBeGreaterThanOrEqual(0);
+    const body = s.slice(start, s.indexOf("\nexport ", start + 1));
+    expect(body, "releaseEscrow must compare the on-chain claimant against the relayer").toMatch(/relayer[\s\S]*claimant|claimant[\s\S]*relayer/);
+  });
+
+  it("Inv 5: feedback-tasks route gates unverified point minting (ownership + daily earn cap)", () => {
+    // The endpoint awards points off a public `address` with no proof; without a
+    // gate it minted ~120 pts/day/wallet across templates. It must enforce session
+    // ownership AND cap the earn to once per wallet per day.
+    const f = files.find((p) => p.endsWith(join("feedback-tasks", "route.ts")));
+    expect(f, "feedback-tasks/route.ts not found").toBeTruthy();
+    const s = read(f!);
+    expect(s, "feedback-tasks must call ownershipError").toMatch(/ownershipError\(/);
+    expect(s, "feedback-tasks must cap the daily earn (once-per-day earn lock)").toMatch(/earned:/);
   });
 });

@@ -16,6 +16,24 @@ async function persistTask(task: Task): Promise<void> {
   ]);
 }
 
+// Invariant 6 (one escrow funds one payout): an on-chain escrow id may back at
+// most ONE task. Claim it atomically (SET NX) so a second task can never bind an
+// escrow that is already funding another task — the cross-task escrow-drain
+// vector where task B references task A's funded onChainId and settles against
+// the live on-chain amount. Returns false if the escrow is already bound elsewhere.
+const ONCHAIN_BIND_PREFIX = "escrow:bind:";
+
+export async function claimOnChainId(onChainId: number, taskId: string): Promise<boolean> {
+  const redis = getRedis();
+  if (!redis) return true; // no store (unit tests/local) — nothing to enforce against
+  const key = `${ONCHAIN_BIND_PREFIX}${onChainId}`;
+  const claimed = await redis.set(key, taskId, { nx: true });
+  if (claimed) return true;
+  // Already bound — allow only if it is THIS task re-binding the same escrow (idempotent).
+  const owner = await redis.get(key);
+  return owner === taskId;
+}
+
 function normalizeTask(task: Task): Task {
   if (task.agent === undefined) task.agent = null;
   if ((task as any).aiFollowUp === undefined) task.aiFollowUp = null;
@@ -92,6 +110,11 @@ export async function createTask(input: {
         parentTaskId: input.recurring.parentTaskId || null,
       }
     : null;
+  // Invariant 6: if this task is funded, atomically claim the escrow so it can
+  // never be bound to a second task. Fail closed (throw) before persisting.
+  if (input.onChainId != null && !(await claimOnChainId(input.onChainId, id))) {
+    throw new Error(`escrow ${input.onChainId} is already bound to another task`);
+  }
   const task: Task = {
     id,
     poster: input.poster,
@@ -164,6 +187,13 @@ export async function spawnRecurringTask(completedTask: Task): Promise<Task | nu
 }
 
 export async function seedTask(task: Task): Promise<void> {
+  // Invariant 6: a seeded task that carries an escrow must claim its onChainId
+  // bind too — otherwise this path (though currently unused) would be a way to
+  // persist a funded task with no bind, reopening the cross-task escrow-drain
+  // that createTask/setOnChainId close. Fail closed if the escrow is bound elsewhere.
+  if (task.onChainId != null && !(await claimOnChainId(task.onChainId, task.id))) {
+    throw new Error(`escrow ${task.onChainId} is already bound to another task`);
+  }
   await persistTask(task);
 }
 
@@ -375,6 +405,10 @@ export async function setTaskCampaign(id: string, campaignId: string | null): Pr
 export async function setOnChainId(id: string, onChainId: number, escrowTxHash: string): Promise<Task | null> {
   const task = await getTask(id);
   if (!task) return null;
+  // Invariant 6: refuse to bind an escrow that already funds another task.
+  if (!(await claimOnChainId(onChainId, id))) {
+    throw new Error(`escrow ${onChainId} is already bound to another task`);
+  }
   task.onChainId = onChainId;
   task.escrowTxHash = escrowTxHash;
   await persistTask(task);

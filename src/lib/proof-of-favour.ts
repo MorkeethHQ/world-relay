@@ -129,6 +129,10 @@ export async function spendPoints(
       profile.pointsHistory = profile.pointsHistory.slice(-MAX_HISTORY);
     }
     await saveProfile(profile);
+    // Spends must debit the weekly sprint too, or the weekly zset (gross earns
+    // only) ratchets upward on any spend→re-earn churn while all-time (net) stays
+    // flat — the two boards would disagree. Mirror the award path's weekly track.
+    trackWeeklyPoints(address, -amount).catch(console.error);
     return { ok: true, totalPoints: profile.totalPoints };
   });
 }
@@ -155,6 +159,7 @@ export async function buyStreakFreeze(address: string): Promise<{ ok: boolean; e
       profile.pointsHistory = profile.pointsHistory.slice(-MAX_HISTORY);
     }
     await saveProfile(profile);
+    trackWeeklyPoints(profile.address, -STREAK_FREEZE_COST).catch(console.error);
     return { ok: true, profile };
   });
 }
