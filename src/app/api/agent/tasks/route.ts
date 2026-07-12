@@ -4,7 +4,7 @@ import { generateLocationBriefing } from "@/lib/ai-chat";
 import { addMessage } from "@/lib/messages";
 import { postTaskCreated } from "@/lib/xmtp";
 import { broadcastEvent } from "@/lib/sse";
-import { createEscrowTaskWithKey } from "@/lib/escrow";
+import { createEscrowTaskWithKey, isEscrowTaskFunded } from "@/lib/escrow";
 import { getRedis } from "@/lib/redis";
 import { checkAgentAuth } from "@/lib/api-keys";
 import { toApiTask } from "@/lib/task-serializer";
@@ -164,9 +164,19 @@ export async function POST(req: NextRequest) {
   let escrowTxHash: string | null = null;
   let fundingMethod: "self" | "wallet" | "human" = "human";
 
-  // Path A: Agent already funded on-chain — verify the tx exists
+  // Path A: Agent claims it funded on-chain — VERIFY on-chain (Inv 3); never
+  // trust the caller's on_chain_id. Without this an agent could reference ANY
+  // funded escrow (incl. a victim's) and settle against the live amount (H1).
   if (escrow_tx_hash && on_chain_id != null) {
-    onChainId = Number(on_chain_id);
+    const candidateId = Number(on_chain_id);
+    const funded = await isEscrowTaskFunded(candidateId, Number(bounty_usdc)).catch(() => false);
+    if (!funded) {
+      return NextResponse.json({
+        error: "escrow not verified on-chain for the given on_chain_id + bounty",
+        hint: "Fund the escrow on World Chain (chainId 480) first, or omit on_chain_id for human funding",
+      }, { status: 400 });
+    }
+    onChainId = candidateId;
     escrowTxHash = escrow_tx_hash;
     fundingMethod = "self";
   }
