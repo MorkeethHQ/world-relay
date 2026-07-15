@@ -13,6 +13,12 @@ import { isEscrowTaskFunded } from "@/lib/escrow";
 import { isTemplateCopy, MIN_DESCRIPTION_LENGTH } from "@/lib/post-templates";
 import { toApiTasks, isPublicTask } from "@/lib/task-serializer";
 import { orderBoardForApi } from "@/lib/board-rank";
+import {
+  resolvePostingPrivilege,
+  auditPostingPrivilege,
+  seedAuthEnforced,
+  SEED_SECRET_HEADER,
+} from "@/lib/seeder";
 
 export async function GET() {
   trackEvent("feed_loaded").catch(() => {});
@@ -80,12 +86,24 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid longitude" }, { status: 400 });
   }
 
-  const resolvedAgentId = agentId || (poster?.startsWith("agent:") ? poster.replace("agent:", "") : null);
-
-  // Free points tasks are throttled so they can't spam the feed or inflate points.
-  // Admin (platform owner) and agents are exempt so campaigns can still be seeded.
+  // Posting PRIVILEGE (authenticated) and agent IDENTITY (AGENT_REGISTRY) are
+  // resolved separately. They shared the `agent:` namespace until Jul 15, which
+  // both kept the agent layer dark on 107/107 tasks and let any caller mint the
+  // seeding exemption by typing "agent:" into a public field. See src/lib/seeder.ts.
+  // Enforcement is dormant (SEED_AUTH_ENFORCE) until the seeding caller sends the
+  // header; auditPostingPrivilege logs every would-be denial until then.
   const OWNER = "0x1101158041fd96f21cbcbb0e752a9a2303e6d70e";
-  const isAdmin = !!resolvedAgentId || (typeof poster === "string" && poster.toLowerCase() === OWNER);
+  const privilege = resolvePostingPrivilege({
+    poster,
+    agentId,
+    seedSecretHeader: req.headers.get(SEED_SECRET_HEADER),
+    adminSecret: process.env.ADMIN_SECRET,
+    ownerAddress: OWNER,
+    enforced: seedAuthEnforced(),
+  });
+  auditPostingPrivilege(privilege, poster);
+  const resolvedAgentId = privilege.agentId;
+  const isAdmin = privilege.isAdmin;
   // Board quality: user posts must be written in the poster's own words.
   // Verbatim template copy and near-empty descriptions clutter the board with
   // identical tasks (agents/admin are exempt — seeding has its own copy).
