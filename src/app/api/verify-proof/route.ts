@@ -279,7 +279,9 @@ export async function POST(req: NextRequest) {
   if (task.claimant) {
     const claimantRep = await getReputation(task.claimant);
     const claimantTrust = Math.round(getTrustScore(claimantRep) * 100);
-    const vLevel = task.claimantVerification || claimantRep.verificationLevel || "wallet";
+    // claimantLevel, NOT task.claimantVerification: `task` was loaded at :138 and
+    // is stale on the direct-submit path (open => the field is still null there).
+    const vLevel = claimantLevel || claimantRep.verificationLevel || "wallet";
     const levelLabel = vLevel === "orb" ? "orb-level" : vLevel === "device" ? "device-level" : "wallet-level";
     const multiplier = getVerificationMultiplier(vLevel);
     const multiplierNote = multiplier > 1 ? ` (${multiplier}x multiplier)` : "";
@@ -370,7 +372,11 @@ export async function POST(req: NextRequest) {
   // USDC; failures land in the unlock retry set drained by the reconcile cron.
   let campaignUnlockTx: string | null = null;
   if (result.verdict === "pass" && task.claimant && task.campaignId) {
-    const unlockOutcome = await recordCampaignCompletion({ ...task, verificationResult: result }).catch((err) => {
+    // claimantVerification MUST come from claimantLevel, not the spread: `task` is
+    // the :138 snapshot, still `open`, so its claimantVerification is null and the
+    // clean gate (campaign-unlock.ts:139) rejected every direct submission. This is
+    // why unlock:* had 0 keys in prod: the gate never passed once.
+    const unlockOutcome = await recordCampaignCompletion({ ...task, claimantVerification: claimantLevel, verificationResult: result }).catch((err) => {
       console.error("[Unlock] recordCampaignCompletion failed:", err);
       return null;
     });
@@ -396,7 +402,11 @@ export async function POST(req: NextRequest) {
       recordSeededEarn(task, task.claimant).catch(console.error);
       // Award attempt and completion points only on a passing verdict.
       recordFavourAttempted(task.claimant).catch(console.error);
-      recordCompletion(task.claimant, task.bountyUsdc, result.confidence, task.claimantVerification || undefined, taskIsFunded).catch(console.error);
+      // claimantLevel, NOT the stale task.claimantVerification: passing the stale
+      // null left rep.verificationLevel at "wallet" for every Orb human (live: 0 of
+      // 33 correct), so getTrustScore withheld the orb +0.3 and mis-sorted the
+      // leaderboard. Existing rows need a backfill; this only fixes writes from now.
+      recordCompletion(task.claimant, task.bountyUsdc, result.confidence, claimantLevel || undefined, taskIsFunded).catch(console.error);
       const claimantRep2 = await getReputation(task.claimant);
       // Honest pricing: a points task pays exactly its advertised bounty.
       recordFavourCompleted(
