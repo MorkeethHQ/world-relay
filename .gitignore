@@ -59,3 +59,6 @@ sdks/python/**/__pycache__/
 scripts/.pulse-state.json
 scripts/.*.log
 pulse.log
+
+# ops scratch state, rewritten every watch run
+scripts/.watch-state.json
