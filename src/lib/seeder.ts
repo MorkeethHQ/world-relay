@@ -1,36 +1,30 @@
 import { timingSafeEqual } from "crypto";
 import { getAgent } from "./agents";
 
-// Posting privilege vs agent identity — two things that shared one namespace.
+// Posting privilege vs agent identity. Two separate concerns; keep them separate.
 //
-// `agent:` on POST /api/tasks has always meant two unrelated things:
-//   1. "the platform seeded this" (poster: "agent:relay"). Its only job is to earn
-//      the anti-spam exemption so campaigns can be seeded. Documented behaviour
-//      (vault: 01 Projects/Relay/funding-campaign-flow.md:39,47).
-//   2. "a registry agent posted this" (poster: "agent:shelfwatch", or an explicit
-//      agentId). This should drive that agent's verificationPrompt.
+// The `agent:` poster prefix carries two unrelated meanings that must not be
+// conflated:
+//   1. "the platform seeded this" — needs the anti-spam exemption so campaigns can
+//      be seeded.
+//   2. "a registry agent posted this" — should drive that agent's
+//      verificationPrompt (see AGENT_REGISTRY in agents.ts).
 //
-// Privilege was keyed off `poster.startsWith("agent:")` and never validated against
-// AGENT_REGISTRY, so (1) silently satisfied (2)'s code path. Two consequences, both
-// live on prod as of 2026-07-15:
-//   - `getAgent("relay")` returns null (no such key), so task.agent was null on
-//     107/107 tasks and the agent layer has NEVER executed. Silently: no log, no 400.
-//   - `isAdmin = !!resolvedAgentId` off a public, spoofable field, with no session
-//     enforcement on this route, let ANY caller mint the exemption by typing "agent:".
+// The invariants enforced here:
+//   - PRIVILEGE is granted only by an authenticated secret, or the owner address.
+//     Never by a caller-supplied string. Inv 4: identity is proven, not claimed.
+//   - IDENTITY comes from AGENT_REGISTRY. An id that is not in the registry is
+//     surfaced in logs, never silently coerced to null.
+//   - Registry membership grants NO privilege. Agent names are public, so treating
+//     a known name as authority would just relocate the trust boundary onto a
+//     guessable string. Auth is auth; identity is identity.
 //
-// The split enforced here:
-//   - PRIVILEGE comes from an authenticated secret (or the owner address), never
-//     from a string a stranger can type.
-//   - IDENTITY comes from AGENT_REGISTRY, and an id that isn't in it is surfaced
-//     rather than silently nulled.
-// Registry membership grants NO privilege: "agent:shelfwatch" typed by a stranger
-// must not earn admin either. Auth is auth; identity is identity.
-//
-// Ships DORMANT behind SEED_AUTH_ENFORCE, mirroring the SESSION_ENFORCE precedent
-// in session.ts: the live seeding caller lives outside this repo and posts
-// `agent:relay` with no secret today. Enforcing before that caller sends the header
-// would break the flow behind all 10 on-chain settlements. While dormant, the
-// shadow log below makes every would-be denial visible.
+// Rollout follows the SESSION_ENFORCE precedent in session.ts: the gate is staged
+// behind SEED_AUTH_ENFORCE so the seeding caller (which lives outside this repo)
+// can be updated to send the header before enforcement begins, rather than having
+// seeded campaign tasks start failing on deploy. auditPostingPrivilege shadow-logs
+// each request that enforcement would reject, so the migration is measurable.
+// Rollback is one env var.
 
 export const SEED_SECRET_HEADER = "x-seed-secret";
 
@@ -109,9 +103,9 @@ export function auditPostingPrivilege(p: PostingPrivilege, poster: unknown, path
   }
   if (p.legacyExemptionUsed) {
     console.warn(
-      `[seed] LEGACY EXEMPTION poster="${String(poster)}" path=${path} enforced=false — ` +
-        `admin granted off an unauthenticated "agent:" string. This request would be DENIED ` +
-        `once SEED_AUTH_ENFORCE=true. Send the ${SEED_SECRET_HEADER} header.`
+      `[seed] UNAUTHENTICATED SEEDER poster="${String(poster)}" path=${path} enforced=false — ` +
+        `this request would be DENIED once SEED_AUTH_ENFORCE=true. ` +
+        `Update this caller to send the ${SEED_SECRET_HEADER} header.`
     );
   }
 }
