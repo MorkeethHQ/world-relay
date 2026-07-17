@@ -19,14 +19,26 @@
  * migration SECURITY-INVARIANTS.md:51 requires. That rule exists BECAUSE of the
  * Jul 12 case and still did not catch this one.
  *
- * THE TRUTH SOURCE, and why it is this one:
- *   totalEarnedUsdc := USDC that actually reached the wallet
- *                    = settled task bounties (task.settlementTx, receipt verified
- *                      on-chain here, not trusted from the stored hash)
- *                    + campaign unlock payouts (unlock:*:state:*.paid, payTx
- *                      receipt verified the same way)
+ * THE TRUTH SOURCE, and its KNOWN LIMITS (corrected after the first run, 2026-07-17):
+ *   totalEarnedUsdc := gross bounty of settled tasks (task.settlementTx, receipt
+ *                      verified on-chain here, not trusted from the stored hash)
+ *                    + campaign unlock payouts (unlock:*:state:*.paid, verified same)
  * "Paid means settled" (CLAUDE.md, Invariant #2): a hash is not a payment until a
  * success receipt says so. A reverted or unresolvable tx is NOT counted.
+ *
+ * Two limits, measured, NOT hand-waved. This is GROSS-BOUNTY-SETTLED, not
+ * "what reached the wallet" — an earlier version of this header claimed the latter
+ * and was wrong:
+ *   1. FEES. escrow.ts:296 forwards bounty MINUS feeRate+communityRate (5% live), so
+ *      a $2 task lands $1.90 and a $1 task lands $0.95. This script books the gross
+ *      bounty. Deliberate: "earned" = the bounty won, the fee is a disclosed cut.
+ *   2. settlementTx IS LOSSY. Payments demonstrably happen without it being written
+ *      (Jul 17: 3 tasks with no settlementTx were all already paid on-chain). So this
+ *      UNDER-counts anyone whose settlement went unrecorded.
+ * Net effect measured against the chain: this writes ~$21 where the real total to
+ * wallets with rep records is ~$22.40. It errs CONSERVATIVE, which is the right way
+ * to err for a number that previously read $299. The authoritative ledger is the
+ * relayer's on-chain USDC transfers; reconcile against those, not against this.
  *
  * What this deliberately does NOT do: credit funded+passed tasks that never
  * settled ($3 across 3 real wallets as of today). Those people are genuinely owed
