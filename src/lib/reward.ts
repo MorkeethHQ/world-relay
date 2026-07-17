@@ -27,8 +27,27 @@ export function isFunded(task: Pick<Task, "onChainId" | "escrowTxHash">): boolea
 }
 
 // True only when real USDC is actually escrowed on-chain for this task.
+// DISPLAY signal: safe for labels, filters and badges. It leans on rewardType and
+// on isFunded's truthiness, so it answers "should this read as a money task?" —
+// NOT "may I book dollars against this?". For that, use hasOnChainEscrow.
 export function isRealMoney(task: Pick<Task, "rewardType" | "escrowTxHash" | "onChainId">): boolean {
   return task.rewardType !== "points" && isFunded(task);
+}
+
+// CREDIT signal: the strictest one. Real USDC verifiably escrowed on-chain, proven
+// by an actual tx hash rather than a truthy string.
+//
+// isFunded (and so isRealMoney) accept ANY truthy escrowTxHash. That is deliberate
+// for gates and labels, where leaning loose only adds protection — but it is wrong
+// for crediting, where leaning loose invents money. The placeholder is not
+// hypothetical: legacy seeds shipped escrowTxHash "funded" and passed every
+// truthiness funding guard (Inv 3, see the note in api/seed/route.ts).
+//
+// Use this anywhere dollars get BOOKED (reputation, payouts, earnings totals).
+// Written 2026-07-17 after rep.totalEarnedUsdc had to be rebuilt from on-chain
+// truth across 24 wallets ($278 phantom; one wallet read $150 against a real $6).
+export function hasOnChainEscrow(task: Pick<Task, "escrowTxHash" | "onChainId">): boolean {
+  return task.onChainId != null && /^0x[0-9a-fA-F]{64}$/.test(String(task.escrowTxHash));
 }
 
 // The reward amount as a human label, e.g. "10 pts" or "$5 USDC".
