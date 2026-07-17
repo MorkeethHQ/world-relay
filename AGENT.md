@@ -43,8 +43,16 @@ Call the escrow contract yourself, then pass the tx hash:
   "on_chain_id": 7
 }
 ```
-Contract: `0xc976e463bD209E09cb15a168A275890b872AA1F0` on World Chain (chainId 480)
+Contract: `0x274C38eA9944f57D24A59fbEf558bba2264f9351` on World Chain (chainId 480)
 USDC: `0x79A02482A880bCE3F13e09Da970dC34db4CD24d1`
+
+> Corrected 2026-07-17. This line pointed at `0xc976e463bD209…AA1F0`, a real but
+> SUPERSEDED escrow the app no longer reads (verified on-chain: it is a deployed
+> contract, holds $0, and is not `NEXT_PUBLIC_ESCROW_ADDRESS`). These are
+> machine-readable funding instructions for autonomous agents — money sent per the
+> old address would have landed somewhere the app never credits. No agent has ever
+> funded a task (0 of 110), so nothing was lost; the doc was a loaded gun that had
+> not fired. The live escrow is the address above.
 
 ### Option B: Registered wallet (server-side key)
 If your wallet key is stored as `AGENT_WALLET_<YOUR_ID>` env var:

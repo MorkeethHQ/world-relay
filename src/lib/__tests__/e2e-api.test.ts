@@ -81,10 +81,23 @@ function mockTask(overrides?: Partial<Task>): Task {
 // Precondition: ANTHROPIC_API_KEY must be set
 // ---------------------------------------------------------------------------
 const API_KEY = process.env.ANTHROPIC_API_KEY;
+// Explicit opt-in. The old guard only skipped when ANTHROPIC_API_KEY was ABSENT —
+// but this file self-loads .env.local (:15), which HAS the key, so the guard could
+// never fire here and every `vitest run` billed real Anthropic calls and inherited
+// their flakiness. Measured 2026-07-17: 3 red on one run, 0 red on the next, same
+// commit. A suite whose green is unreliable is worse than no suite, because green is
+// the merge gate.
+//
+//   E2E_LIVE_API=1 npx vitest run src/lib/__tests__/e2e-api.test.ts
+//
+// Gated here rather than via vitest.config `exclude`, because exclude also drops the
+// file when you name it explicitly — the opt-in command would silently match zero
+// tests and print a reassuring "no test files found".
+const LIVE_OPT_IN = process.env.E2E_LIVE_API === "1";
 
 describe("E2E Anthropic API tests", () => {
-  if (!API_KEY) {
-    it.skip("ANTHROPIC_API_KEY not set — skipping E2E tests", () => {});
+  if (!API_KEY || !LIVE_OPT_IN) {
+    it.skip(`live-API tests skipped (${!API_KEY ? "no ANTHROPIC_API_KEY" : "set E2E_LIVE_API=1 to run"})`, () => {});
     return;
   }
 

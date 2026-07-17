@@ -45,5 +45,30 @@ broad reviews missed live money bugs because broad reads skim; the guard test
 ## Brand
 - Name is **FAVOUR** (dropping RELAY). Rename in copy/metadata/store listing only.
 - **Frozen forever — never change these:** the escrow contract address
-  (`0x274C38…9351`, on-chain/immutable) and `NEXT_PUBLIC_WORLD_APP_ID` (registered
-  with World). Renaming these breaks production and on-chain funds.
+  (`0x274C38…9351`) and `NEXT_PUBLIC_WORLD_APP_ID` (registered with World).
+  Renaming these breaks production and on-chain funds.
+
+## The escrow is a PROXY, not an immutable contract (corrected Jul 17 2026)
+
+This doc said "on-chain/immutable". That is false and it mattered, because it framed
+the money contract as a thing nobody could change.
+
+- `0x274C38…9351` is a **UUPS proxy** (328 bytes). Real logic lives at implementation
+  `0x3E359dA2a355E14C8410480ffC7f0Fd569BbD221`. The ADDRESS is stable — that part of
+  "frozen" is right and is exactly what a proxy buys. The CODE behind it is swappable.
+- **The upgrade authority is `owner()` = `0x1101…D70e` — the RELAYER HOT WALLET.**
+  That is `XMTP_WALLET_KEY`: it sits in `.env.local`, it is in Vercel env, and it
+  auto-signs every payout and cron. Whoever holds that key can replace the escrow
+  logic and take whatever it holds. Today that is $2, so the blast radius is small.
+- **The source no longer exists.** `git log --all -S"fundTask" -- '*.sol'` = 0 commits;
+  it is not on Oscar's machine; the contract is UNVERIFIED on the explorer (so is the
+  implementation). The build artifact carries the ABI (70 entries) + bytecode but only
+  keccak hashes of the sources, not their text. Backed up Jul 17 to
+  `01 Projects/Relay/escrow-recovery/`, since it was one gitignored folder on one laptop.
+  `contracts/src/RelayAgentEscrowV2.sol` is an EARLIER version — no `fundTask`.
+
+**Sequencing rule this creates:** do NOT open user self-funding until the upgrade
+authority is off the hot wallet. The whole point of that feature is to put other
+people's money into this contract, and right now the key that pays out is also the key
+that can rewrite it. Order: move ownership to a cold/multisig wallet → recover or
+re-verify the source → then open funding.
