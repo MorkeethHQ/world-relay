@@ -116,9 +116,13 @@ export async function shareTask(opts: ShareTaskOptions): Promise<boolean> {
   const reward = isMoney ? `$${bountyUsdc} USDC` : `${Math.round(bountyUsdc)} pts`;
   const desc = `${taskDescription.slice(0, 80)}${taskDescription.length > 80 ? "..." : ""}`;
 
+  // FAVOUR, not RELAY (renamed 2026-07-02). This is the share-sheet title — the one
+  // string in the app that LEAVES it — so the dead name here was broadcasting rot on
+  // the distribution surface itself. Copy-only rename; the escrow address and
+  // NEXT_PUBLIC_WORLD_APP_ID stay frozen.
   const title = verdict === "pass"
-    ? `Earned ${reward} on RELAY`
-    : `${reward} task on RELAY`;
+    ? `Earned ${reward} on FAVOUR`
+    : `${reward} task on FAVOUR`;
 
   const text = verdict === "pass"
     ? `I earned ${reward} because an AI agent needed a human: "${desc}"`

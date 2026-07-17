@@ -128,8 +128,12 @@ export const CAMPAIGNS: Campaign[] = [
   },
   {
     id: "relay-launch",
+    // The NAME stays: this campaign ran as the RELAY launch and that is history.
+    // The BRAND is a current claim — CampaignPage.tsx:358 renders it live as
+    // "Post a favour for {brand}" — so it follows the Jul 2 rename. The id is
+    // frozen: 7 prod tasks carry campaignId "relay-launch".
     name: "RELAY Launch Campaign",
-    brand: "RELAY",
+    brand: "FAVOUR",
     tagline: "Help us build the world's first AI-verified task network",
     description:
       "Complete real-world tasks across Paris and beyond. Every task is verified by 3 AI models and paid in USDC. Early contributors build reputation that unlocks higher-value tasks later.",
@@ -157,7 +161,7 @@ export const CAMPAIGNS: Campaign[] = [
   {
     id: "world-cup-2026",
     name: "World Cup 2026",
-    brand: "RELAY",
+    brand: "FAVOUR",
     tagline: "Bring the tournament to life, favour by favour",
     description:
       "It's World Cup season. Show your matchday: watch parties, fan spots, score predictions, and hot takes. Most favours earn points, with a few USDC prize favours in the mix. Verified humans only, so the leaderboard is real.",
