@@ -30,7 +30,18 @@ export type DailyPrompt = {
   options?: string[]; // choice only
   unit?: string; // number only, e.g. "EUR"
   hint?: string;
+  // The payoff, written with the question and shown ONLY in the reveal. It must
+  // never travel to someone who has not answered — the route strips it (see
+  // publicPrompt) or the gate leaks its own reward.
+  fact?: string;
 };
+
+// The prompt as it is safe to hand to someone who has NOT answered yet.
+export function publicPrompt(p: DailyPrompt): DailyPrompt {
+  const { fact, ...rest } = p;
+  void fact;
+  return rest;
+}
 
 export type DailySubmission = {
   answer: string; // the contribution

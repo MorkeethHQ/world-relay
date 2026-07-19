@@ -20,6 +20,7 @@ type Prompt = {
   options?: string[];
   unit?: string;
   hint?: string;
+  fact?: string; // only present once you have answered
 };
 
 type Results = {
@@ -105,7 +106,11 @@ export default function DailyFavour({
       }
       hapticSuccess();
       setAwarded(data.pointsAwarded ?? null);
-      setState((s) => (s ? { ...s, submitted: true, results: data.results, streak: data.streak } : s));
+      setState((s) =>
+        s
+          ? { ...s, submitted: true, results: data.results, streak: data.streak, prompt: data.prompt ?? s.prompt }
+          : s,
+      );
       setBeat("reveal");
       onDone?.();
     } catch {
@@ -267,6 +272,15 @@ export default function DailyFavour({
                   );
                 })}
             </div>
+
+            {prompt.fact && (
+              <div className="rounded-xl bg-gray-50 border border-gray-100 px-4 py-3 mt-1">
+                <p className="text-[10px] font-medium text-gray-400 tracking-wide uppercase mb-1">
+                  Today&rsquo;s fact
+                </p>
+                <p className="text-[13px] text-gray-900 leading-relaxed">{prompt.fact}</p>
+              </div>
+            )}
 
             {awarded !== null && (
               <p className="text-[12px] text-amber-600 font-medium tabular-nums">

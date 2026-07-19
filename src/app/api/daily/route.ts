@@ -5,6 +5,7 @@ import {
   getSubmission,
   getStreak,
   submitDaily,
+  publicPrompt,
   utcDate,
 } from "@/lib/daily";
 import { getAuthedAddress, addressMatches } from "@/lib/session";
@@ -26,7 +27,7 @@ export async function GET(req: NextRequest) {
   if (!address) {
     // Browsing is never gated — a cold visitor sees the question, just not the
     // answers. Gate the ACTING, not the browsing.
-    return NextResponse.json({ date, prompt, submitted: false, results: null, streak: 0 });
+    return NextResponse.json({ date, prompt: publicPrompt(prompt), submitted: false, results: null, streak: 0 });
   }
 
   const [submission, results, streak] = await Promise.all([
@@ -35,9 +36,11 @@ export async function GET(req: NextRequest) {
     getStreak(address),
   ]);
 
+  // The fun fact is the reveal's payoff, so it only ships to someone who has
+  // already contributed. Anyone else gets the prompt with it stripped.
   return NextResponse.json({
     date,
-    prompt,
+    prompt: submission ? prompt : publicPrompt(prompt),
     submitted: submission !== null,
     yourAnswer: submission?.answer ?? null,
     results,
@@ -87,5 +90,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: result.error }, { status });
   }
 
-  return NextResponse.json(result);
+  // They have now contributed, so the fact is theirs — return the FULL prompt
+  // so the reveal can pay it out without a second round trip.
+  return NextResponse.json({ ...result, prompt: await getPrompt(utcDate(Date.now())) });
 }
