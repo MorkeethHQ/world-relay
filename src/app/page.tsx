@@ -266,7 +266,7 @@ export default function Home() {
           enter the market. Browsing below is never blocked (DESIGN: gate the
           acting, not the browsing) — the board stays visible and readable. */}
       <div className="px-4 pt-4">
-        <DailyFavour userId={userId} />
+        <DailyFavour userId={userId} onReauth={handleVerify} />
       </div>
 
       <Feed userId={userId} verificationLevel={verificationLevel} onLogout={handleLogout} />

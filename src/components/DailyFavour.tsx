@@ -43,22 +43,27 @@ type DailyState = {
   streak: number;
 };
 
-type Beat = "guess" | "answer" | "reveal";
+type Beat = "answer" | "guess" | "reveal";
 
 export default function DailyFavour({
   userId,
   onDone,
+  onReauth,
 }: {
   userId: string | null;
   onDone?: () => void;
+  // Existing users are signed in from localStorage but hold no session cookie,
+  // so a strict route 403s them. Re-running wallet auth mints one.
+  onReauth?: () => void;
 }) {
   const [state, setState] = useState<DailyState | null>(null);
-  const [beat, setBeat] = useState<Beat>("guess");
+  const [beat, setBeat] = useState<Beat>("answer");
   const [guess, setGuess] = useState<string>("");
   const [answer, setAnswer] = useState<string>("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [awarded, setAwarded] = useState<number | null>(null);
+  const [needsAuth, setNeedsAuth] = useState(false);
 
   const load = useCallback(async () => {
     const qs = userId ? `?address=${userId}` : "";
@@ -101,6 +106,13 @@ export default function DailyFavour({
           return;
         }
         hapticError();
+        if (res.status === 403) {
+          // Not a failure they caused: their sign-in predates the session
+          // cookie. Offer the one tap that fixes it.
+          setNeedsAuth(true);
+          setMsg(null);
+          return;
+        }
         setMsg(data.error || "Could not submit");
         return;
       }
@@ -140,36 +152,93 @@ export default function DailyFavour({
   );
 
   return (
-    <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
-      {/* Hero */}
-      <div className="bg-gray-950 px-5 py-4">
-        <div className="flex items-center gap-1.5 mb-1.5">
-          <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-          <span className="text-[10px] font-medium text-white/60 tracking-wide uppercase">
-            Top favour
+    <div className="rounded-3xl overflow-hidden border border-amber-200/70 bg-gradient-to-b from-amber-50 to-white shadow-sm">
+      {/* Hero. Deliberately AMBER, not the gray-950 strip every other card wears:
+          this is the one surface everybody meets first, and amber is already the
+          canonical points colour (DESIGN-SYSTEM.md), so it reads as its own place
+          without inventing an off-system hue. */}
+      <div className="px-5 pt-5 pb-4">
+        <div className="flex items-center gap-1.5 mb-3">
+          <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+          <span className="text-[10px] font-semibold text-amber-700 tracking-wide uppercase">
+            Today&rsquo;s favour
           </span>
           {streak > 0 && (
-            <span className="ml-auto text-[10px] text-white/50 tabular-nums">
+            <span className="ml-auto text-[10px] font-medium text-amber-700/70 tabular-nums">
               {streak} day{streak === 1 ? "" : "s"} in a row
             </span>
           )}
         </div>
-        <p className="text-[15px] font-bold text-white leading-snug">{prompt.question}</p>
-        <p className="text-[11px] text-white/50 mt-1">
+
+        {/* Bigger. This is the first thing anyone sees in the app. */}
+        <p className="text-[22px] font-bold text-gray-900 leading-[1.2] tracking-tight">
+          {prompt.question}
+        </p>
+        <p className="text-[12px] text-gray-500 mt-1.5">
           {beat === "reveal"
             ? `${results?.total ?? 0} ${results?.total === 1 ? "person" : "people"} answered today`
-            : "Everyone on earth gets the same question today"}
+            : prompt.hint || "Everyone on earth gets this same question today"}
         </p>
       </div>
 
-      <div className="p-4 flex flex-col gap-3">
-        {/* BEAT 1 — the guess, before they see anything */}
+      <div className="px-5 pb-5 flex flex-col gap-3">
+        {/* BEAT 1 — ANSWER. No preamble, no toll: the options are tappable the
+            instant the card renders. Answering about yourself is the natural
+            first act; guessing the world is the fun second beat. */}
+        {beat === "answer" && (
+          <>
+            {isChoice ? (
+              <div className="flex flex-col gap-2">
+                {(prompt.options || []).map((o) => (
+                  <button
+                    key={o}
+                    type="button"
+                    onClick={() => {
+                      hapticTap();
+                      setAnswer(o);
+                      setBeat("guess");
+                    }}
+                    className="min-h-[52px] px-4 rounded-2xl border border-gray-200 bg-white text-[16px] font-medium text-gray-900 text-left transition-colors hover:border-gray-900 active:scale-[0.99]"
+                  >
+                    {o}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <>
+                <input
+                  inputMode="decimal"
+                  autoFocus
+                  value={answer}
+                  onChange={(e) => setAnswer(e.target.value)}
+                  placeholder={prompt.unit ? `Number of ${prompt.unit}` : "Your answer"}
+                  className="min-h-[52px] px-4 rounded-2xl border border-gray-200 bg-white text-[18px] font-medium tabular-nums focus:outline-none focus:border-gray-900"
+                />
+                <button
+                  type="button"
+                  disabled={!answer}
+                  onClick={() => {
+                    hapticTap();
+                    setBeat("guess");
+                  }}
+                  className="min-h-[52px] rounded-2xl bg-gray-900 text-white text-[15px] font-semibold disabled:opacity-25 active:scale-[0.99]"
+                >
+                  Next
+                </button>
+              </>
+            )}
+          </>
+        )}
+
+        {/* BEAT 2 — GUESS the world. Now it is a game, not an entry fee. */}
         {beat === "guess" && (
           <>
-            <p className="text-[14px] text-gray-900 font-medium">
-              First: what do you think the world will say?
+            <p className="text-[15px] font-semibold text-gray-900">
+              Now the fun part: what will everyone else say?
             </p>
-            {prompt.hint && <p className="text-[12px] text-gray-400 -mt-1">{prompt.hint}</p>}
+            <p className="text-[12px] text-gray-500 -mt-1.5">
+              You said &ldquo;{answer}&rdquo;. Guess right and you earn more.
+            </p>
             {isChoice ? (
               <div className="flex flex-wrap gap-2">
                 {(prompt.options || []).map((o) => chip(o, guess === o, () => setGuess(o), o))}
@@ -177,68 +246,66 @@ export default function DailyFavour({
             ) : (
               <input
                 inputMode="decimal"
+                autoFocus
                 value={guess}
                 onChange={(e) => setGuess(e.target.value)}
-                placeholder={prompt.unit ? `Number of ${prompt.unit}` : "Your guess"}
-                className="min-h-[44px] px-4 rounded-xl border border-gray-200 text-[14px] tabular-nums focus:outline-none focus:border-gray-900"
+                placeholder="What will the world's median be?"
+                className="min-h-[52px] px-4 rounded-2xl border border-gray-200 bg-white text-[18px] font-medium tabular-nums focus:outline-none focus:border-gray-900"
               />
             )}
-            <button
-              type="button"
-              disabled={!guess}
-              onClick={() => {
-                hapticTap();
-                setBeat("answer");
-              }}
-              className="min-h-[44px] rounded-xl bg-gray-900 text-white text-[14px] font-medium disabled:opacity-30 active:scale-[0.98]"
-            >
-              Lock it in
-            </button>
-          </>
-        )}
 
-        {/* BEAT 2 — their own answer */}
-        {beat === "answer" && (
-          <>
-            <p className="text-[14px] text-gray-900 font-medium">Now your own answer.</p>
-            <p className="text-[12px] text-gray-400 -mt-1">
-              You guessed the world would say &ldquo;{guess}&rdquo;.
-            </p>
-            {isChoice ? (
-              <div className="flex flex-wrap gap-2">
-                {(prompt.options || []).map((o) => chip(o, answer === o, () => setAnswer(o), o))}
-              </div>
+            {needsAuth ? (
+              <>
+                <p className="text-[13px] text-gray-900 font-medium">
+                  One tap to verify and you&rsquo;re in.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    hapticTap();
+                    onReauth?.();
+                  }}
+                  className="min-h-[52px] rounded-2xl bg-gray-900 text-white text-[15px] font-semibold active:scale-[0.99]"
+                >
+                  Verify and answer
+                </button>
+              </>
             ) : (
-              <input
-                inputMode="decimal"
-                value={answer}
-                onChange={(e) => setAnswer(e.target.value)}
-                placeholder={prompt.unit ? `Number of ${prompt.unit}` : "Your answer"}
-                className="min-h-[44px] px-4 rounded-xl border border-gray-200 text-[14px] tabular-nums focus:outline-none focus:border-gray-900"
-              />
+              <>
+                {msg && <p className="text-[12px] text-red-600">{msg}</p>}
+                {!userId && (
+                  <p className="text-[12px] text-gray-500">Sign in to do today&rsquo;s favour.</p>
+                )}
+                <button
+                  type="button"
+                  disabled={!guess || busy || !userId}
+                  onClick={submit}
+                  className="min-h-[52px] rounded-2xl bg-gray-900 text-white text-[15px] font-semibold disabled:opacity-25 active:scale-[0.99]"
+                >
+                  {busy ? "Sending" : "Reveal the world"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    hapticTap();
+                    setBeat("answer");
+                  }}
+                  className="text-[12px] text-gray-500 underline underline-offset-2"
+                >
+                  Change my answer
+                </button>
+              </>
             )}
-            {msg && <p className="text-[12px] text-red-600">{msg}</p>}
-            {!userId && (
-              <p className="text-[12px] text-gray-400">Sign in to do today&rsquo;s favour.</p>
-            )}
-            <button
-              type="button"
-              disabled={!answer || busy || !userId}
-              onClick={submit}
-              className="min-h-[44px] rounded-xl bg-gray-900 text-white text-[14px] font-medium disabled:opacity-30 active:scale-[0.98]"
-            >
-              {busy ? "Sending" : "Answer and reveal"}
-            </button>
           </>
         )}
 
         {/* BEAT 3 — the boom */}
         {beat === "reveal" && results && (
           <>
-            <p className="text-[15px] font-semibold text-gray-900 leading-snug">{results.verdict}</p>
+            <p className="text-[17px] font-bold text-gray-900 leading-snug">{results.verdict}</p>
 
             {results.guessWasClose && (
-              <p className="text-[12px] text-amber-600 font-medium">
+              <p className="text-[13px] text-amber-700 font-semibold">
                 You called it. Your guess was close.
               </p>
             )}
@@ -253,20 +320,20 @@ export default function DailyFavour({
                   return (
                     <div
                       key={label}
-                      className={`relative rounded-xl overflow-hidden border ${
-                        isYours ? "border-gray-900" : "border-gray-100 bg-gray-50"
+                      className={`relative rounded-2xl overflow-hidden border ${
+                        isYours ? "border-gray-900 bg-white" : "border-gray-100 bg-white"
                       }`}
                     >
                       <div
-                        className="absolute inset-y-0 left-0 bg-amber-600 opacity-10 transition-all duration-700"
+                        className="absolute inset-y-0 left-0 bg-amber-500 opacity-20 transition-all duration-700"
                         style={{ width: `${pct}%` }}
                       />
-                      <div className="relative flex items-center justify-between px-4 py-3">
-                        <span className="text-[14px] text-gray-900">
+                      <div className="relative flex items-center justify-between px-4 py-3.5">
+                        <span className="text-[15px] text-gray-900">
                           {label}
                           {isYours && <span className="text-[11px] text-gray-400 ml-2">you</span>}
                         </span>
-                        <span className="text-[14px] font-bold text-gray-900 tabular-nums">{pct}%</span>
+                        <span className="text-[15px] font-bold text-gray-900 tabular-nums">{pct}%</span>
                       </div>
                     </div>
                   );
@@ -274,8 +341,8 @@ export default function DailyFavour({
             </div>
 
             {prompt.fact && (
-              <div className="rounded-xl bg-gray-50 border border-gray-100 px-4 py-3 mt-1">
-                <p className="text-[10px] font-medium text-gray-400 tracking-wide uppercase mb-1">
+              <div className="rounded-2xl bg-white border border-amber-200/70 px-4 py-3 mt-1">
+                <p className="text-[10px] font-semibold text-amber-700 tracking-wide uppercase mb-1">
                   Today&rsquo;s fact
                 </p>
                 <p className="text-[13px] text-gray-900 leading-relaxed">{prompt.fact}</p>
@@ -283,14 +350,13 @@ export default function DailyFavour({
             )}
 
             {awarded !== null && (
-              <p className="text-[12px] text-amber-600 font-medium tabular-nums">
-                +{awarded} pts
-                {streak >= 3 ? ` · ${streak} day streak` : ""}
+              <p className="text-[13px] text-amber-700 font-semibold tabular-nums">
+                +{awarded} pts{streak >= 3 ? ` · ${streak} day streak` : ""}
               </p>
             )}
 
-            <p className="text-[12px] text-gray-400">
-              Come back tomorrow for a new question. The favours below are open now.
+            <p className="text-[12px] text-gray-500">
+              New question tomorrow. The favours below are open now.
             </p>
           </>
         )}
