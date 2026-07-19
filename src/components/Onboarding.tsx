@@ -271,13 +271,25 @@ export function Onboarding({
                 By continuing you agree to complete favours honestly, treat other people with respect, and follow the community guidelines. Rewards depend on genuine, verified work.
               </Typography>
             </div>
-            <button
-              type="button"
-              onClick={() => setShowTerms(true)}
-              className="text-[14px] font-medium text-gray-900 underline underline-offset-4 decoration-gray-300 hover:decoration-gray-900 transition-colors"
-            >
-              Read the full terms
-            </button>
+            <div className="flex flex-col items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowTerms(true)}
+                className="text-[14px] font-medium text-gray-900 underline underline-offset-4 decoration-gray-300 hover:decoration-gray-900 transition-colors"
+              >
+                Read the full terms
+              </button>
+              {/* Privacy policy must be reachable before acceptance, not only
+                  from the Dev Portal listing (World Dev Portal Terms 2.4). */}
+              <a
+                href="/privacy"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[14px] font-medium text-gray-500 underline underline-offset-4 decoration-gray-300 hover:text-gray-900 hover:decoration-gray-900 transition-colors"
+              >
+                Privacy policy
+              </a>
+            </div>
           </div>
         )}
 

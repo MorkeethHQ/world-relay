@@ -117,9 +117,15 @@ async function main() {
 
     // Create app task linked to on-chain
     try {
+      // Seeding privilege comes from the authenticated header, never from the
+      // `agent:` poster string (src/lib/seeder.ts, Inv 4). Without this the run
+      // still posts, but drops to unprivileged and the board-quality gates apply.
       const res = await fetch(`${appUrl}/api/tasks`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(process.env.ADMIN_SECRET ? { "x-seed-secret": process.env.ADMIN_SECRET } : {}),
+        },
         body: JSON.stringify({
           poster: `agent:${t.agentId}`,
           agentId: t.agentId,

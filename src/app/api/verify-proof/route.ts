@@ -21,6 +21,7 @@ import { checkSeedCap, recordSeededEarn } from "@/lib/seed-caps";
 import { tierGateError, getUserVerificationLevel } from "@/lib/verification-tier";
 import { recordCampaignCompletion } from "@/lib/campaign-unlock";
 import { getCampaign } from "@/lib/campaigns";
+import { isRealMoney, hasOnChainEscrow } from "@/lib/reward";
 import { recordReferralActivation } from "@/lib/referral";
 
 export const maxDuration = 60;
@@ -152,10 +153,23 @@ export async function POST(req: NextRequest) {
   if (submitter && task.poster === submitter) {
     return NextResponse.json({ error: "Can't submit proof for your own task" }, { status: 403 });
   }
-  // Unified funded signal. A task holds real money if it has an on-chain escrow
-  // id or a stored escrow tx hash. Both the safe-mode gate (below) and the
-  // settlement path key off this so a funded pass is never processed silently.
+  // Two signals, NOT one. They answer different questions and their safe defaults
+  // point in OPPOSITE directions, so a single "unified funded signal" is wrong for
+  // one of its two callers no matter which way it leans.
+  //
+  // GATE signal — deliberately LOOSE, fail-safe. "Might this task hold money?"
+  // Drives the tier gate, moneyAtStake and the consensus spend. Leaning loose here
+  // only ever adds protection: the worst case is gating a task that turned out to
+  // be points.
   const taskIsFunded = task.onChainId !== null || !!task.escrowTxHash;
+
+  // CREDIT signal — deliberately STRICT, fail-closed. "May I book dollars against
+  // this?" Only ever used to credit reputation. Both halves are load-bearing:
+  // isRealMoney rejects points tasks (whose bountyUsdc holds a POINTS value, the
+  // 9060dda bug), hasOnChainEscrow rejects a truthy placeholder hash with no chain
+  // backing (Inv 3). Derived from reward.ts, the single source (CLAUDE.md) —
+  // an inline copy here is how the two definitions drift apart.
+  const taskIsRealMoney = isRealMoney(task) && hasOnChainEscrow(task);
 
   // The submitter's verification tier, resolved once: it must travel into the
   // store on direct submission (claimantVerification feeds the campaign-unlock
@@ -406,7 +420,9 @@ export async function POST(req: NextRequest) {
       // null left rep.verificationLevel at "wallet" for every Orb human (live: 0 of
       // 33 correct), so getTrustScore withheld the orb +0.3 and mis-sorted the
       // leaderboard. Existing rows need a backfill; this only fixes writes from now.
-      recordCompletion(task.claimant, task.bountyUsdc, result.confidence, claimantLevel || undefined, taskIsFunded).catch(console.error);
+      // taskIsRealMoney, NOT taskIsFunded: only a verified on-chain escrow may be
+      // booked as dollars. See the two-signal note at the top of this route.
+      recordCompletion(task.claimant, task.bountyUsdc, result.confidence, claimantLevel || undefined, taskIsRealMoney).catch(console.error);
       const claimantRep2 = await getReputation(task.claimant);
       // Honest pricing: a points task pays exactly its advertised bounty.
       recordFavourCompleted(

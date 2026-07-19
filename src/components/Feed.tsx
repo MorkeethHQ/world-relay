@@ -46,6 +46,22 @@ import {
 } from "@/lib/board-rank";
 import { JuryMode } from "@/components/JuryMode";
 
+// Fire-and-forget telemetry. The event name must be in CLIENT_EVENTS in
+// /api/track, which is an allowlist because that route is public.
+//
+// The .catch() here is DELIBERATE and is the opposite of the error-swallowing bug
+// fixed elsewhere today. Swallowing is wrong in a probe that concludes an absence
+// (a failed query silently becomes "nothing found"). It is right here: analytics
+// must never break a user mid-post, and nothing reads the return value. Telemetry
+// that can throw is worse than no telemetry.
+function trackClientEvent(event: string, data: Record<string, number>): void {
+  fetch("/api/track", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ event, data }),
+  }).catch(() => {});
+}
+
 function extractTxHash(result: unknown): string | null {
   if (typeof result !== "object" || result === null) return null;
   const r = result as Record<string, unknown>;
@@ -1556,8 +1572,18 @@ function PostTask({
       // reverting deposit transferFrom looks like). Only block when we can read a
       // balance AND it's short — an RPC hiccup (null) must not stop a funded user.
       const needed = parseFloat(bounty);
+      // The denominator. Without it, fund_wall_hit is a number with nothing to
+      // divide by — we could not tell "the wall blocks everyone" from "nobody tries".
+      trackClientEvent("usdc_post_attempt", { needed });
       const bal = await readUsdcBalance(userId);
       if (bal !== null && bal < needed) {
+        // Measured 2026-07-17: 0 of 22 escrow-funded tasks were funded by a real
+        // user — every one came from the agent:relay seeder. We assumed this wall was
+        // why. We could not know: it returns BEFORE any record is written, so every
+        // user it turns away has been invisible. Absence of a record is not absence
+        // of the event. This makes the wall countable before anyone builds a fix for
+        // a problem that may not exist.
+        trackClientEvent("fund_wall_hit", { needed, balance: bal });
         hapticError();
         setTxError(`You need $${needed} USDC in your World wallet to fund this favour — you have $${bal.toFixed(2)}. Top up USDC on World Chain, or post a Points favour instead (free).`);
         setSubmitting(false);
