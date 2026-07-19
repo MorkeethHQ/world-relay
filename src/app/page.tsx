@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { MiniKit } from "@worldcoin/minikit-js";
 import { Feed } from "@/components/Feed";
+import DailyFavour from "@/components/DailyFavour";
 import { Onboarding } from "@/components/Onboarding";
 import { displayName } from "@/hooks/useWorldUser";
 import {
@@ -260,6 +261,13 @@ export default function Home() {
           </div>
         </div>
       )}
+
+      {/* THE TOP FAVOUR — sits ABOVE the board. You do one favour before you
+          enter the market. Browsing below is never blocked (DESIGN: gate the
+          acting, not the browsing) — the board stays visible and readable. */}
+      <div className="px-4 pt-4">
+        <DailyFavour userId={userId} />
+      </div>
 
       <Feed userId={userId} verificationLevel={verificationLevel} onLogout={handleLogout} />
     </div>
