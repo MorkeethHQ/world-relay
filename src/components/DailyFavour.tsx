@@ -64,6 +64,9 @@ export default function DailyFavour({
   const [msg, setMsg] = useState<string | null>(null);
   const [awarded, setAwarded] = useState<number | null>(null);
   const [needsAuth, setNeedsAuth] = useState(false);
+  // Done EARLIER (loaded already-submitted) collapses to a one-line summary.
+  // Done JUST NOW stays open, because the reveal is the payoff they earned.
+  const [expanded, setExpanded] = useState(false);
 
   const load = useCallback(async () => {
     const qs = userId ? `?address=${userId}` : "";
@@ -124,6 +127,7 @@ export default function DailyFavour({
           : s,
       );
       setBeat("reveal");
+      setExpanded(true);
       onDone?.();
     } catch {
       hapticError();
@@ -150,6 +154,27 @@ export default function DailyFavour({
       {value}
     </button>
   );
+
+  // Already done today: a slim strip, not a hero. Tap to reopen the reveal.
+  if (beat === "reveal" && results && !expanded) {
+    return (
+      <button
+        type="button"
+        onClick={() => { hapticTap(); setExpanded(true); }}
+        className="w-full text-left rounded-2xl border border-amber-200/70 bg-amber-50/60 px-4 py-3 flex items-center gap-3 active:scale-[0.99] transition-transform"
+      >
+        <div className="min-w-0 flex-1">
+          <p className="text-[10px] font-semibold text-amber-700 tracking-wide uppercase">
+            Today&rsquo;s favour &middot; done
+          </p>
+          <p className="text-[13px] text-gray-900 truncate mt-0.5">{results.verdict}</p>
+        </div>
+        <span className="text-[11px] text-amber-700 font-semibold shrink-0 tabular-nums">
+          {streak > 0 ? `${streak}d` : ""}
+        </span>
+      </button>
+    );
+  }
 
   return (
     <div className="rounded-3xl overflow-hidden border border-amber-200/70 bg-gradient-to-b from-amber-50 to-white shadow-sm">
@@ -357,9 +382,16 @@ export default function DailyFavour({
               </p>
             )}
 
-            <p className="text-[12px] text-gray-500">
-              New question tomorrow. The favours below are open now.
-            </p>
+            <div className="flex items-center justify-between">
+              <p className="text-[12px] text-gray-500">New question tomorrow.</p>
+              <button
+                type="button"
+                onClick={() => { hapticTap(); setExpanded(false); }}
+                className="text-[12px] text-gray-500 underline underline-offset-2 min-h-[44px]"
+              >
+                Hide
+              </button>
+            </div>
           </>
         )}
       </div>

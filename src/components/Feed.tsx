@@ -34,6 +34,7 @@ import { TASK_TEMPLATES } from "@/lib/agents";
 import { POST_TEMPLATES, MIN_DESCRIPTION_LENGTH } from "@/lib/post-templates";
 import { useWorldUsers, displayName } from "@/hooks/useWorldUser";
 import { getCampaigns, type Campaign } from "@/lib/campaigns";
+import DailyFavour from "@/components/DailyFavour";
 import { CampaignPage, FeaturedCampaignBanner } from "@/components/CampaignPage";
 import { PollsFeed, FeedPolls } from "@/components/Polls";
 import {
@@ -289,7 +290,7 @@ type Tab = "available" | "polls" | "mine" | "completed";
 
 const RELAY_BOT_ADDRESS = "0x1101158041fd96f21cbcbb0e752a9a2303e6d70e";
 
-export function Feed({ userId, verificationLevel, onLogout }: { userId: string | null; verificationLevel?: string | null; onLogout?: () => void }) {
+export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId: string | null; verificationLevel?: string | null; onLogout?: () => void; onReauth?: () => void }) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [view, setView] = useState<"board" | "post" | "proof" | "detail" | "campaign" | "jury">("board");
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -745,6 +746,17 @@ export function Feed({ userId, verificationLevel, onLogout }: { userId: string |
         key={tab}
         className="flex-1 flex flex-col"
       >
+
+      {/* THE TOP FAVOUR — the daily gate, above the board.
+          It lives HERE, inside the "available" tab, and not above <Feed> in
+          page.tsx: Feed is a view ROUTER (board / post / proof / detail /
+          campaign / jury), so mounting it one level up pinned it to every screen
+          in the app, including the post wizard and the proof flow. */}
+      {tab === "available" && !loading && (
+        <div className="px-6 pt-4">
+          <DailyFavour userId={userId} onReauth={onReauth} />
+        </div>
+      )}
 
       {/* REAL OR NOT — promoted to the top module (Oscar Jul 9: "make it the
           top of the page"). Full-width hero, and no longer gated behind a live

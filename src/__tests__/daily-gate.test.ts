@@ -322,3 +322,27 @@ describe("the daily route requires a real session, kill switch or not", () => {
     expect(src).toMatch(/\^0x\[0-9a-fA-F\]\{40\}\$/);
   });
 });
+
+// ── Where the card is allowed to appear ──────────────────────────────────────
+// Shipped mounted above <Feed> in page.tsx. Feed is not the board — it is a view
+// ROUTER (board / post / proof / detail / campaign / jury), so one level up
+// pinned the daily card to EVERY screen in the app, including the post wizard
+// and the proof flow. It now lives inside the "available" tab only.
+describe("the daily card is scoped to the board, not the whole app", () => {
+  it("is not mounted in page.tsx above the view router", async () => {
+    const src = await import("node:fs").then((fs) => fs.readFileSync("src/app/page.tsx", "utf8"));
+    const code = src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+    expect(code).not.toMatch(/<DailyFavour/);
+  });
+
+  it("renders inside Feed gated on the available tab", async () => {
+    const src = await import("node:fs").then((fs) =>
+      fs.readFileSync("src/components/Feed.tsx", "utf8"),
+    );
+    const at = src.indexOf("<DailyFavour");
+    expect(at).toBeGreaterThan(-1);
+    // The nearest preceding gate must be the available-tab check.
+    const before = src.slice(Math.max(0, at - 300), at);
+    expect(before).toMatch(/tab === "available"/);
+  });
+});
