@@ -61,6 +61,12 @@ export default function TermsPage() {
             escrow and released when a submission passes verification. FAVOUR may
             flag ambiguous submissions for manual review before any payout.
           </p>
+          <p className="text-[15px] leading-relaxed">
+            A total fee of 5% is deducted from each bounty on payout: 3% to
+            FAVOUR and 2% to the community pool. The rates are set in the escrow
+            contract on World Chain and apply to the poster&rsquo;s bounty, so a
+            $10 favour pays out $9.50 to the person who completed it.
+          </p>
         </section>
 
         <section className="flex flex-col gap-2">
@@ -73,7 +79,11 @@ export default function TermsPage() {
 
         <p className="text-[13px] text-gray-400 leading-relaxed">
           By continuing through onboarding and tapping &ldquo;I agree&rdquo;, you
-          accept these terms and community guidelines.
+          accept these terms and community guidelines. See also our{" "}
+          <Link href="/privacy" className="underline hover:text-gray-600">
+            Privacy Policy
+          </Link>
+          .
         </p>
       </div>
     </div>
