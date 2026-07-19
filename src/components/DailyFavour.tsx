@@ -158,8 +158,10 @@ export default function DailyFavour({
           canonical points colour (DESIGN-SYSTEM.md), so it reads as its own place
           without inventing an off-system hue. */}
       <div className="px-5 pt-5 pb-4">
+        {/* No pulsing status dot. A blinking amber light is a named slop tell
+            (observability-console theater) — semantic colour is fine, making it
+            twinkle is not. The label carries it. */}
         <div className="flex items-center gap-1.5 mb-3">
-          <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
           <span className="text-[10px] font-semibold text-amber-700 tracking-wide uppercase">
             Today&rsquo;s favour
           </span>

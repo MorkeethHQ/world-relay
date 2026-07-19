@@ -159,8 +159,7 @@ export function CampaignPage({
 
           {/* Campaign identity */}
           <div className="mb-6">
-            <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/10 rounded-full px-3 py-1.5 mb-4">
-              <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+            <div className="inline-flex items-center gap-2 mb-4">
               <span className="text-[11px] font-medium text-white/80 tracking-wide">LIVE CAMPAIGN</span>
             </div>
             <h1 className="text-[28px] font-bold text-white leading-[1.15] tracking-tight mb-2">
@@ -477,8 +476,9 @@ export function FeaturedCampaignBanner({
       <div className="relative px-5 py-5 flex items-center justify-between">
         <div>
           <div className="inline-flex items-center gap-1.5 mb-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-            <span className="text-[10px] font-medium text-white/60 tracking-wide uppercase">Campaign</span>
+            {/* No pulsing light. Green is reserved for real money in this app;
+                blinking it as decoration is the console-theater tell. */}
+            <span className="text-[10px] font-semibold text-white/60 tracking-[0.15em] uppercase">Campaign</span>
             {/* Where the money lives: unlock campaigns wear it on the banner */}
             {campaign.unlock && (
               <span className="text-[10px] font-bold text-green-300 bg-green-500/20 border border-green-400/40 rounded-full px-2 py-0.5">

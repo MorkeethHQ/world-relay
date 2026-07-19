@@ -67,16 +67,15 @@ function PredictionCard({ p, userId, onStaked }: { p: ApiPrediction; userId: str
   };
 
   return (
-    <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+    <div className="bg-white border border-gray-200 rounded-md overflow-hidden">
       {/* Hero strip */}
       <div className="bg-gray-950 px-5 py-4">
         <div className="flex items-center gap-1.5 mb-1.5">
-          <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-          <span className="text-[10px] font-medium text-white/60 tracking-wide uppercase">Prediction</span>
+          <span className="text-[10px] font-semibold text-white/60 tracking-[0.11em] uppercase">Staking</span>
           <span className="ml-auto text-[10px] text-white/50">{p.status === "resolved" ? "Resolved" : p.status === "void" ? "Voided" : locksIn(p.locksAt)}</span>
         </div>
         <p className="text-[15px] font-bold text-white leading-snug">{p.question}</p>
-        <p className="text-[11px] text-white/50 mt-1">
+        <p className="text-[11px] text-white/50 mt-1 font-mono">
           {total > 0 ? `${total} pts staked · ${p.stakers} ${p.stakers === 1 ? "staker" : "stakers"}` : "Be the first to stake"}
           {p.myStake ? ` · you: ${p.myStake.amount} pts on ${p.myStake.option}` : ""}
         </p>
@@ -92,7 +91,7 @@ function PredictionCard({ p, userId, onStaked }: { p: ApiPrediction; userId: str
 
           if (showPools) {
             return (
-              <div key={opt} className={`relative rounded-xl overflow-hidden border ${isOutcome ? "border-green-300 bg-green-50" : "border-gray-100 bg-gray-50"}`}>
+              <div key={opt} className={`relative rounded-[4px] overflow-hidden border ${isOutcome ? "border-green-300 bg-green-50" : "border-gray-100 bg-gray-50"}`}>
                 <div className="absolute inset-y-0 left-0 bg-amber-600 opacity-10 transition-all duration-700" style={{ width: `${pct}%` }} />
                 <div className="relative flex items-center justify-between px-4 py-3">
                   <span className={`text-sm ${isOutcome || isMine ? "font-semibold text-gray-900" : "text-gray-600"}`}>
