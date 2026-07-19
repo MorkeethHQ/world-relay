@@ -164,3 +164,37 @@ describe("the validator must agree with the formats we ask for", () => {
     expect(rate.brief).toMatch(/number/i);
   });
 });
+
+// ── The coherence pass ───────────────────────────────────────────────────────
+// validatePrompt is structural: it catches malformed, not meaningless. A real
+// generation shipped "If you had to lose one, which would you keep?" — perfect
+// JSON, no subject, would have been the gate into the app for every verified
+// human on earth. So a second adversarial call reads the finished prompt cold.
+//
+// The split verdict matters: the QUESTION is the gate and a bad one falls back
+// to the pool, but the FACT is a bonus and a doubtful one is DROPPED instead of
+// costing us a good question. Before the split, the critic was rejecting sound
+// questions because their fact was an invented statistic — 4/8 generating. After:
+// 6/8, all keeping their fact.
+describe("a doubtful fact is dropped, never shipped", () => {
+  it("keeps fact optional on the type so it can be stripped", () => {
+    const p = validatePrompt({
+      question: "Are you sitting or standing?",
+      type: "choice",
+      options: ["Sitting", "Standing"],
+    });
+    expect(p).not.toBeNull();
+    expect(p!.fact).toBeUndefined();
+  });
+
+  it("the generator is instructed never to invent a statistic", async () => {
+    // A fake fact is worse than no fact, and this app's entire thesis is that
+    // published does not mean true.
+    const src = await import("node:fs").then((fs) =>
+      fs.readFileSync("src/lib/daily-generator.ts", "utf8"),
+    );
+    expect(src).toMatch(/NEVER invent or approximate a statistic/);
+    expect(src).toMatch(/questionOk/);
+    expect(src).toMatch(/factOk/);
+  });
+});

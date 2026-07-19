@@ -98,6 +98,68 @@ function normalise(q: string): string {
   return q.toLowerCase().replace(/[^a-z0-9 ]/g, "").replace(/\s+/g, " ").trim();
 }
 
+
+// THE COHERENCE PASS.
+//
+// validatePrompt is structural: it catches malformed, not meaningless. A model
+// can return perfectly-shaped JSON whose question makes no sense — "If you had
+// to lose one, which would you keep?" passed every structural rule and would
+// have gone in front of every verified human on earth as the gate to the app.
+//
+// So a second, adversarial call reads the finished prompt cold and tries to
+// reject it. Cheap (one extra short call), and the failure mode is a fallback to
+// the pool rather than nonsense shipped worldwide.
+export async function critiquePrompt(
+  prompt: DailyPrompt,
+  apiKey: string,
+): Promise<{ ok: boolean; factOk: boolean; reason: string }> {
+  const system = `You are the last check before a question goes to every verified human on earth as the gate into an app. Be harsh. Your default is REJECT.
+
+Reject if ANY of these is true:
+- The question does not parse, contradicts itself, or is missing its subject ("If you had to lose one, which would you keep?" — lose WHAT?).
+- The options do not actually answer the question.
+- A stranger could not understand it in 3 seconds with no context.
+- It cannot be answered truthfully from anywhere in the world in 30 seconds.
+- It assumes a country, climate, religion, wealth level, job, or time of day.
+- It is sensitive: health, politics, sexuality, income.
+- The fact is likely false, or is a statistic that sounds invented.
+
+Judge the QUESTION and the FACT separately. A weak fact does not condemn a good question — say so and we will simply drop the fact.
+
+Reply ONLY with JSON: {"questionOk": true|false, "factOk": true|false, "reason": "short"}`;
+
+  const body = [
+    `Question: ${prompt.question}`,
+    prompt.options ? `Options: ${prompt.options.join(" | ")}` : `Type: number${prompt.unit ? ` (${prompt.unit})` : ""}`,
+    prompt.hint ? `Hint: ${prompt.hint}` : "",
+    prompt.fact ? `Fact shown after answering: ${prompt.fact}` : "",
+  ].filter(Boolean).join("\n");
+
+  try {
+    const anthropic = new Anthropic({ apiKey });
+    const res = await anthropic.messages.create({
+      model: MODEL,
+      max_tokens: 300,
+      system,
+      messages: [{ role: "user", content: body }],
+    });
+    const text = res.content.find((b) => b.type === "text")?.text ?? "";
+    const start = text.indexOf("{");
+    const end = text.lastIndexOf("}");
+    if (start === -1 || end <= start) return { ok: false, factOk: false, reason: "critic returned no verdict" };
+    const parsed = JSON.parse(text.slice(start, end + 1));
+    return {
+      ok: parsed.questionOk === true,
+      factOk: parsed.factOk === true,
+      reason: String(parsed.reason || "").slice(0, 120),
+    };
+  } catch (err) {
+    // A critic that is down must not block the day. The structural airlock has
+    // already passed, so let it through rather than falling back on every call.
+    return { ok: true, factOk: true, reason: `critic unavailable: ${(err as Error).message}` };
+  }
+}
+
 export async function generatePrompt(date: string): Promise<{ prompt: DailyPrompt; generated: boolean; reason?: string }> {
   const fallback = { prompt: promptForDate(date), generated: false };
 
@@ -130,7 +192,12 @@ JSON shape:
 - options: required for choice (2-5, short, no duplicates). Omit for number.
 - unit: optional, for number questions (e.g. "hours").
 - hint: optional, one short line easing the question ("Best guess is fine").
-- fact: REQUIRED. One genuinely interesting true sentence related to the question, shown to the user only AFTER they answer, as the payoff. Must be accurate and non-obvious. No statistics you are unsure of.`;
+- fact: REQUIRED. One genuinely interesting TRUE sentence related to the question, shown only AFTER they answer, as the payoff.
+
+FACT RULES (these matter — a fake fact is worse than no fact):
+- Prefer etymology, history, physical or biological facts, or how something works. "Window comes from Old Norse vindauga, wind eye, from before glass" is a great fact.
+- NEVER invent or approximate a statistic. No percentages, no "studies show", no "researchers found", no cortisol/dopamine claims, no averages you cannot personally vouch for.
+- If you are not certain it is true, write a different fact. Certainty beats interest.`;
 
   const user = `Write the question for ${date}.
 
@@ -169,7 +236,15 @@ ${avoid.map((q) => `- ${q}`).join("\n")}`;
       return { ...fallback, reason: "generated a repeat" };
     }
 
-    return { prompt: { ...validated, date }, generated: true };
+    const critique = await critiquePrompt(validated, key);
+    // The QUESTION is the gate — a bad one falls back to the pool. The FACT is a
+    // bonus, so a doubtful one is DROPPED rather than costing us a good question.
+    // Shipping an invented statistic to every verified human would be its own
+    // small betrayal of the thing this app is for.
+    if (!critique.ok) return { ...fallback, reason: `critic rejected question: ${critique.reason}` };
+    const cleaned = critique.factOk ? validated : { ...validated, fact: undefined };
+
+    return { prompt: { ...cleaned, date }, generated: true, reason: critique.factOk ? undefined : `fact dropped: ${critique.reason}` };
   } catch (err) {
     // Model down, bad JSON, network — the gate still opens on the pool.
     return { ...fallback, reason: `generation failed: ${(err as Error).message}` };
