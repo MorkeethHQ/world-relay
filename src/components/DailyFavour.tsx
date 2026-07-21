@@ -69,12 +69,18 @@ export default function DailyFavour({
   const [expanded, setExpanded] = useState(false);
 
   const load = useCallback(async () => {
-    const qs = userId ? `?address=${userId}` : "";
-    const res = await fetch(`/api/daily${qs}`);
-    if (!res.ok) return;
-    const data: DailyState = await res.json();
-    setState(data);
-    if (data.submitted) setBeat("reveal");
+    try {
+      const qs = userId ? `?address=${userId}` : "";
+      const res = await fetch(`/api/daily${qs}`);
+      if (!res.ok) return;
+      const data: DailyState = await res.json();
+      setState(data);
+      if (data.submitted) setBeat("reveal");
+    } catch {
+      // Offline or a bad response — surfaced elsewhere; do not leave an
+      // unhandled rejection or crash the load, and the skeleton below still
+      // gives a visible (if stuck) state instead of a silent white card.
+    }
   }, [userId]);
 
   useEffect(() => {
