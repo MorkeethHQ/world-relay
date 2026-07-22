@@ -16,6 +16,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 
 const hashes = new Map<string, Map<string, string>>();
 const strings = new Map<string, string>();
+const sets = new Map<string, Set<string>>();
 
 vi.mock("@/lib/redis", () => ({
   getRedis: () => ({
@@ -27,6 +28,7 @@ vi.mock("@/lib/redis", () => ({
       if (!h) return null;
       return Object.fromEntries(h.entries());
     },
+    hkeys: async (k: string) => [...(hashes.get(k)?.keys() ?? [])],
     hsetnx: async (k: string, f: string, v: string) => {
       if (!hashes.has(k)) hashes.set(k, new Map());
       const h = hashes.get(k)!;
@@ -34,6 +36,17 @@ vi.mock("@/lib/redis", () => ({
       h.set(f, v);
       return 1;
     },
+    sadd: async (k: string, v: string) => {
+      if (!sets.has(k)) sets.set(k, new Set());
+      sets.get(k)!.add(v);
+      return 1;
+    },
+    smembers: async (k: string) => [...(sets.get(k) ?? [])],
+    scard: async (k: string) => sets.get(k)?.size ?? 0,
+    expire: async () => 1,
+    lpush: async () => 1,
+    ltrim: async () => "OK",
+    hincrby: async () => 1,
   }),
 }));
 
@@ -81,6 +94,7 @@ async function useNumberPrompt(date = DATE) {
 beforeEach(() => {
   hashes.clear();
   strings.clear();
+  sets.clear();
   awarded.length = 0;
 });
 

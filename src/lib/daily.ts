@@ -86,9 +86,28 @@ export const PROMPTS: Omit<DailyPrompt, "date">[] = [
 const promptKey = (date: string) => `daily:prompt:${date}`;
 const subsKey = (date: string) => `daily:sub:${date}`;
 const streakKey = (address: string) => `daily:streak:${address}`;
+// Survival history — the kill-number's raw material (see daily-survival.ts).
+const histKey = (address: string, week: string) => `daily:hist:${address}:${week}`;
+const activesKey = (week: string) => `daily:hist:actives:${week}`;
+// Time capsule — the permanent per-day archive of what the world said.
+const capsuleKey = (date: string) => `daily:capsule:${date}`;
+const CAPSULE_INDEX_KEY = "daily:capsule:index";
+// History keys expire after ~13 months; capsules NEVER expire (see below).
+const HIST_TTL_SECONDS = 400 * 86400;
 
 export function utcDate(now: number): string {
   return new Date(now).toISOString().slice(0, 10);
+}
+
+// ISO-8601 week id, e.g. "2026-W30". The week belongs to the year of its
+// Thursday, which is what makes the Dec/Jan boundary come out right.
+export function isoWeekOf(date: string): string {
+  const d = new Date(`${date}T00:00:00Z`);
+  const day = d.getUTCDay() || 7; // Mon=1 .. Sun=7
+  d.setUTCDate(d.getUTCDate() + 4 - day); // shift to this week's Thursday
+  const year = d.getUTCFullYear();
+  const week = Math.ceil(((d.getTime() - Date.UTC(year, 0, 1)) / 86400000 + 1) / 7);
+  return `${year}-W${String(week).padStart(2, "0")}`;
 }
 
 function previousDate(date: string): string {
@@ -269,6 +288,114 @@ async function bumpStreak(address: string, date: string): Promise<number> {
   return next;
 }
 
+// ---------------------------------------------------------------------------
+// SURVIVAL HISTORY. Written at submit time, read by the kill-number readout
+// (lib/daily-survival.ts + scripts/daily-survival.ts). Two shapes per ISO week:
+//   daily:hist:<address>:<week>  SET of dates this address completed
+//   daily:hist:actives:<week>    SET of addresses active that week
+// Best-effort by design: a metrics failure must never eat a submission. But it
+// logs — a silently empty metric is worse than a loud one.
+async function recordHistory(address: string, date: string): Promise<void> {
+  const redis = getRedis();
+  if (!redis) return;
+  const week = isoWeekOf(date);
+  await Promise.all([
+    redis.sadd(histKey(address, week), date),
+    redis.expire(histKey(address, week), HIST_TTL_SECONDS),
+    redis.sadd(activesKey(week), address),
+    redis.expire(activesKey(week), HIST_TTL_SECONDS),
+  ]);
+}
+
+// Everyone who has submitted on a given date. One HKEYS — used by the notify
+// audience builder, never by anything latency-critical.
+export async function listSubmitters(date: string): Promise<string[]> {
+  const redis = getRedis();
+  if (!redis) return [];
+  const keys = await redis.hkeys(subsKey(date));
+  return Array.isArray(keys) ? keys.map((k) => String(k)) : [];
+}
+
+export async function listWeekActives(week: string): Promise<string[]> {
+  const redis = getRedis();
+  if (!redis) return [];
+  const members = await redis.smembers(activesKey(week));
+  return Array.isArray(members) ? members.map((m) => String(m)) : [];
+}
+
+export async function daysCompletedInWeek(address: string, week: string): Promise<number> {
+  const redis = getRedis();
+  if (!redis) return 0;
+  const n = await redis.scard(histKey(address, week));
+  return Number.isFinite(Number(n)) ? Number(n) : 0;
+}
+
+// ---------------------------------------------------------------------------
+// TIME CAPSULE. The per-day aggregate — question + distribution + median — is
+// structurally irreplaceable: once the day is gone you can rebuild it only
+// while daily:sub:<date> still exists. So we persist it at every submit (last
+// write wins, so it always carries the latest totals) with NO expiry, and
+// index the dates so the archive is enumerable forever.
+export type DailyCapsule = {
+  date: string;
+  question: string;
+  type: DailyPromptType;
+  options?: string[];
+  unit?: string;
+  fact?: string;
+  total: number;
+  distribution: Record<string, number>;
+  median?: number;
+  updatedAt: string;
+};
+
+export function buildCapsule(prompt: DailyPrompt, all: DailySubmission[]): DailyCapsule {
+  const nums = all.map((s) => Number(s.answer)).filter((n) => Number.isFinite(n));
+  return {
+    date: prompt.date,
+    question: prompt.question,
+    type: prompt.type,
+    ...(prompt.options ? { options: prompt.options } : {}),
+    ...(prompt.unit ? { unit: prompt.unit } : {}),
+    ...(prompt.fact ? { fact: prompt.fact } : {}),
+    total: all.length,
+    distribution: bucketed(prompt, all),
+    ...(prompt.type === "number" && nums.length ? { median: median(nums) } : {}),
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+async function persistCapsule(prompt: DailyPrompt): Promise<void> {
+  const redis = getRedis();
+  if (!redis) return;
+  const all = Object.values(await readAll(prompt.date));
+  if (!all.length) return;
+  const capsule = buildCapsule(prompt, all);
+  await Promise.all([
+    redis.set(capsuleKey(prompt.date), JSON.stringify(capsule)), // no TTL, ever
+    redis.sadd(CAPSULE_INDEX_KEY, prompt.date),
+  ]);
+}
+
+export async function getCapsule(date: string): Promise<DailyCapsule | null> {
+  const redis = getRedis();
+  if (!redis) return null;
+  const raw = await redis.get(capsuleKey(date));
+  if (!raw) return null;
+  try {
+    return typeof raw === "string" ? JSON.parse(raw) : (raw as DailyCapsule);
+  } catch {
+    return null;
+  }
+}
+
+export async function listCapsuleDates(): Promise<string[]> {
+  const redis = getRedis();
+  if (!redis) return [];
+  const dates = await redis.smembers(CAPSULE_INDEX_KEY);
+  return Array.isArray(dates) ? dates.map((d) => String(d)).sort() : [];
+}
+
 export type SubmitResult =
   | { ok: true; results: DailyResults; pointsAwarded: number; streak: number }
   | { ok: false; error: string };
@@ -309,6 +436,11 @@ export async function submitDaily(input: {
   // peeking at a friend's reveal).
   const won = await redis.hsetnx(subsKey(date), address, JSON.stringify(submission));
   if (!won) return { ok: false, error: "You have already done today's favour" };
+
+  // Survival history + time capsule, both best-effort: the submission already
+  // won, and no metric or archive write is allowed to take that back.
+  await recordHistory(address, date).catch((e) => console.error("[Daily] history write failed:", e));
+  await persistCapsule(prompt).catch((e) => console.error("[Daily] capsule write failed:", e));
 
   const streak = await bumpStreak(address, date);
   const results = await getResults(date, address);
