@@ -39,7 +39,8 @@ export async function trackEvent(
   // High-frequency events keep their counters but stay OUT of the capped log:
   // ~6k feed_loaded entries were churning per-user funnel history out of the
   // 5000-entry window within days.
-  const HIGH_FREQUENCY = event === "feed_loaded" || event === "page_view";
+  const HIGH_FREQUENCY =
+    event === "feed_loaded" || event === "page_view" || event === "daily_reveal_viewed";
   await Promise.all([
     ...(HIGH_FREQUENCY ? [] : [redis.lpush("events:log", entry), redis.ltrim("events:log", 0, 4999)]),
     redis.hincrby("events:counts", event, 1),

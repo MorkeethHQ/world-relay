@@ -9,6 +9,7 @@ import {
   utcDate,
 } from "@/lib/daily";
 import { getAuthedAddress, addressMatches } from "@/lib/session";
+import { trackEvent } from "@/lib/track";
 
 // THE TOP FAVOUR — the daily gate.
 //
@@ -35,6 +36,11 @@ export async function GET(req: NextRequest) {
     getResults(date, address),
     getStreak(address),
   ]);
+
+  // Reveal views are the loop's second funnel beat. High-frequency (fires per
+  // app-open once submitted), so track.ts keeps it out of the capped log —
+  // counters only.
+  if (results) trackEvent("daily_reveal_viewed", { date }).catch(() => {});
 
   // The fun fact is the reveal's payoff, so it only ships to someone who has
   // already contributed. Anyone else gets the prompt with it stripped.
@@ -89,6 +95,15 @@ export async function POST(req: NextRequest) {
     const status = result.error === "You have already done today's favour" ? 409 : 400;
     return NextResponse.json({ error: result.error }, { status });
   }
+
+  // At most once per human per day by construction (the hsetnx above), so the
+  // funnel can trust this count.
+  trackEvent("daily_submitted", {
+    date: utcDate(Date.now()),
+    streak: result.streak,
+    points: result.pointsAwarded,
+    guessWasClose: result.results?.guessWasClose ?? false,
+  }).catch(() => {});
 
   // They have now contributed, so the fact is theirs — return the FULL prompt
   // so the reveal can pay it out without a second round trip.
