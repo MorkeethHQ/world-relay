@@ -171,8 +171,16 @@ async function main() {
   console.log(report);
 
   if (!stdoutOnly) {
-    fs.mkdirSync(path.dirname(REPORT_PATH), { recursive: true });
-    fs.writeFileSync(REPORT_PATH, report);
+    try {
+      fs.mkdirSync(path.dirname(REPORT_PATH), { recursive: true });
+      fs.writeFileSync(REPORT_PATH, report);
+      console.log(`Report written to ${REPORT_PATH}`);
+    } catch (e) {
+      // iCloud placeholder files intermittently throw EIO/"Unknown system error -11"
+      // on write. Don't let a transient sync glitch crash the run before the state
+      // snapshot below is saved — carry on without today's dashboard update.
+      console.error("vault report write failed, continuing without it:", e);
+    }
     const snapshot: Snapshot = {
       at: stamp,
       escrowUsdc,
@@ -182,7 +190,6 @@ async function main() {
       completedIds: completedAll.map((t) => t.id),
     };
     fs.writeFileSync(STATE_PATH, JSON.stringify(snapshot, null, 2));
-    console.log(`Report written to ${REPORT_PATH}`);
   }
 }
 
