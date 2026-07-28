@@ -21,9 +21,9 @@
     <circle cx="-2" cy="-77" r="3" fill="#4ade80" opacity="0.6"/>
   </g>
 
-  <!-- RELAY text -->
-  <text x="256" y="370" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="52" font-weight="900" letter-spacing="4" fill="#1A1A1A">RELAY</text>
+  <!-- FAVOUR text -->
+  <text x="256" y="370" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="48" font-weight="900" letter-spacing="4" fill="#1A1A1A">FAVOUR</text>
 
-  <!-- FAVOURS subtitle -->
-  <text x="256" y="405" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="18" font-weight="500" letter-spacing="10" fill="#999999">FAVOURS</text>
+  <!-- Subtitle -->
+  <text x="256" y="405" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="18" font-weight="500" letter-spacing="6" fill="#999999">NO CUSTODY</text>
 </svg>

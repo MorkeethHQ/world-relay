@@ -18,11 +18,11 @@
   <!-- Status: claimed -->
   <rect x="80" y="356" width="140" height="40" rx="20" fill="#FEF3C7" stroke="#FDE68A" stroke-width="1"/>
   <text x="150" y="383" text-anchor="middle" font-family="system-ui, sans-serif" font-size="20" font-weight="600" fill="#D97706">Claimed</text>
-  <rect x="236" y="356" width="130" height="40" rx="20" fill="#F0FDF4" stroke="#BBF7D0" stroke-width="1"/>
-  <text x="301" y="383" text-anchor="middle" font-family="system-ui, sans-serif" font-size="20" font-weight="600" fill="#16a34a">$5 USDC</text>
-  <!-- Escrow lock -->
-  <rect x="382" y="356" width="220" height="40" rx="20" fill="#F9FAFB" stroke="#E5E7EB" stroke-width="1"/>
-  <text x="492" y="383" text-anchor="middle" font-family="system-ui, sans-serif" font-size="18" fill="#6b7280">USDC in escrow</text>
+  <rect x="236" y="356" width="120" height="40" rx="20" fill="#F5F3FF" stroke="#DDD6FE" stroke-width="1"/>
+  <text x="296" y="383" text-anchor="middle" font-family="system-ui, sans-serif" font-size="20" font-weight="600" fill="#7c3aed">5 pts</text>
+  <!-- Points reward (no escrow) -->
+  <rect x="372" y="356" width="200" height="40" rx="20" fill="#F9FAFB" stroke="#E5E7EB" stroke-width="1"/>
+  <text x="472" y="383" text-anchor="middle" font-family="system-ui, sans-serif" font-size="18" fill="#6b7280">Points reward</text>
 
   <!-- World ID verification badge -->
   <rect x="40" y="496" width="1000" height="120" rx="28" fill="white" stroke="#E5E5E5" stroke-width="2"/>
@@ -70,5 +70,5 @@
 
   <!-- Bottom label -->
   <text x="540" y="1800" text-anchor="middle" font-family="system-ui, sans-serif" font-size="32" font-weight="700" fill="#1a1a1a">AI verifies your proof automatically</text>
-  <text x="540" y="1844" text-anchor="middle" font-family="system-ui, sans-serif" font-size="24" fill="#9ca3af">USDC released from escrow on pass</text>
+  <text x="540" y="1844" text-anchor="middle" font-family="system-ui, sans-serif" font-size="24" fill="#9ca3af">Points on pass · campaign USDC to wallet</text>
 </svg>
