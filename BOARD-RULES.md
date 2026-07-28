@@ -32,6 +32,22 @@ recur silently.
 - **Curation.** Identical descriptions collapse past `DUPLICATE_DESC_CAP` (2); the
   board caps at `BOARD_CAP` (30). The user's own posts/claims are never hidden by
   any cap.
+- **R6 — Supply floor (added Jul 29, 2026).** The visible open board never sits
+  below `BOARD_MIN_OPEN` (8). The replenish engine
+  (`src/lib/board-replenish.ts`, cron `/api/cron/replenish-board`, guard test
+  `board-replenish.test.ts`) restores supply in two steps: recycle expired,
+  seeded, never-claimed POINTS favours (7-day per-description cooldown), then
+  generate fresh points favours (model call with a deterministic fallback pool).
+  Caps: `REPLENISH_MAX_PER_RUN` (6), `REPLENISH_MAX_PER_DAY` (12). **Points
+  only, by construction**: the engine has no code path that can set
+  `onChainId`, `escrowTxHash`, or `rewardType: "usdc"` — money favours stay
+  human-funded and escrow-bound. Context: on Jul 28 the board held 2 open of
+  121 tasks with 26% expired unfilled, because expire-tasks removed supply
+  daily and nothing ever added it.
+- **R7 — Jury-first empty board (added Jul 29, 2026).** If the available board
+  is ever empty anyway, the empty state leads with the REAL OR NOT judge CTA —
+  the one surface that cannot run out of supply — instead of a dead end. Same
+  redirect the seed-cap wall uses (`seed-caps.ts`, cd963d0).
 
 ## Where each rule is enforced
 

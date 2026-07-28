@@ -5,6 +5,10 @@
       "schedule": "0 6 * * *"
     },
     {
+      "path": "/api/cron/replenish-board",
+      "schedule": "30 6,18 * * *"
+    },
+    {
       "path": "/api/cron/reconcile-settlements",
       "schedule": "0 * * * *"
     },

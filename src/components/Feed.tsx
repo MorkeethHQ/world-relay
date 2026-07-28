@@ -1052,11 +1052,23 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
           <>
             <div className="flex flex-col items-center justify-center py-20 gap-2 animate-[fadeSlideIn_0.4s_ease-out]">
               <p className="text-[28px] font-bold text-gray-200 tracking-tight">
-                {tab === "available" ? "No tasks yet" : tab === "mine" ? "Nothing yet" : "No history"}
+                {tab === "available" ? "Board's refilling" : tab === "mine" ? "Nothing yet" : "No history"}
               </p>
               <p className="text-[14px] text-gray-400">
-                {tab === "available" ? "Check back soon or post one" : "Complete a task to see it here"}
+                {tab === "available" ? "New favours land soon. Judging never runs out." : "Complete a task to see it here"}
               </p>
+              {/* Jury-first empty board: an empty board must hand the user the one
+                  surface that cannot run out of supply (REAL OR NOT recycles
+                  already-submitted proofs), same redirect the seed-cap wall uses.
+                  A dead end here churns the exact users the board needs back. */}
+              {tab === "available" && (
+                <Button
+                  className="mt-3"
+                  onClick={() => { hapticTap(); setView("jury"); }}
+                >
+                  Judge proofs — earn points now
+                </Button>
+              )}
             </div>
             {tab === "available" && <FeedPolls userId={userId} limit={POLL_CARDS_MAX} />}
           </>
