@@ -57,15 +57,16 @@ export default function TermsPage() {
         <section className="flex flex-col gap-2">
           <h2 className="text-[17px] font-semibold text-gray-900">Rewards and payments</h2>
           <p className="text-[15px] leading-relaxed">
-            Rewards depend on genuine, verified work. USDC bounties are held in
-            escrow and released when a submission passes verification. FAVOUR may
-            flag ambiguous submissions for manual review before any payout.
+            Rewards depend on genuine, verified work. Favours are posted for
+            points, and FAVOUR may flag ambiguous submissions for manual review
+            before any reward is granted.
           </p>
           <p className="text-[15px] leading-relaxed">
-            A total fee of 5% is deducted from each bounty on payout: 3% to
-            FAVOUR and 2% to the community pool. The rates are set in the escrow
-            contract on World Chain and apply to the poster&rsquo;s bounty, so a
-            $10 favour pays out $9.50 to the person who completed it.
+            FAVOUR does not hold your money. We take no custody of user funds and
+            charge no fee on rewards. Where a campaign pays USDC, it is sent
+            directly to your World wallet from FAVOUR&rsquo;s own funds once you
+            complete the campaign &mdash; nothing of yours is ever deposited,
+            locked, or held on your behalf.
           </p>
         </section>
 

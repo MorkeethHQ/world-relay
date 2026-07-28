@@ -429,8 +429,9 @@ export function Onboarding({
             <section className="flex flex-col gap-1.5">
               <h3 className="text-[15px] font-semibold text-gray-900">Rewards and enforcement</h3>
               <p className="text-[14px] leading-relaxed">
-                USDC bounties are held in escrow and released when a submission
-                passes verification. Ambiguous submissions may be flagged for
+                FAVOUR takes no custody of your funds. Favours are posted for
+                points; campaign USDC is sent straight to your wallet when you
+                complete the campaign. Ambiguous submissions may be flagged for
                 manual review. Accounts that break these rules may be limited or
                 removed.
               </p>

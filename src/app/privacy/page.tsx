@@ -117,12 +117,15 @@ export default function PrivacyPage() {
         <section className="flex flex-col gap-2">
           <h2 className="text-[17px] font-semibold text-gray-900">On-chain activity is permanent</h2>
           <p className="text-[15px] leading-relaxed">
-            USDC bounties are funded, held in escrow, and paid out in public
-            transactions on World Chain. Those transactions are part of a public
-            blockchain: they are visible to anyone, they are linked to your
-            wallet address, and neither FAVOUR nor anyone else can edit or
-            delete them. This is true of all on-chain activity, not just ours,
-            but you should know it before you fund or earn.
+            FAVOUR takes no custody of your funds. Where a campaign pays USDC,
+            that payout is a public transaction on World Chain sent straight to
+            your wallet. Those transactions are part of a public blockchain: they
+            are visible to anyone, they are linked to your wallet address, and
+            neither FAVOUR nor anyone else can edit or delete them. This is true
+            of all on-chain activity, not just ours, but you should know it
+            before you earn. Earlier versions of FAVOUR held bounties in an
+            escrow contract; those historical transactions remain on-chain and
+            public, and no new ones are created.
           </p>
         </section>
 

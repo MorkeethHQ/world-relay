@@ -144,3 +144,48 @@ describe("what retirement must NOT have broken", () => {
     expect(promises.map((p) => `tasks/route.ts:${p.n}`), "user-facing copy offers retired custody").toEqual([]);
   });
 });
+
+describe("no surface still claims FAVOUR holds money", () => {
+  // The World reviewer reads /terms and /privacy. Before this guard they both
+  // still said bounties were "held in escrow", and /terms pointed at the escrow
+  // contract by name — the exact thing the listing was rejected over.
+  const SURFACES = [
+    ["src", "app", "terms", "page.tsx"],
+    ["src", "app", "privacy", "page.tsx"],
+    ["src", "components", "Onboarding.tsx"],
+  ];
+
+  it("never says funds are held in escrow", () => {
+    const offenders: string[] = [];
+    for (const parts of SURFACES) {
+      const src = strip(read(...parts));
+      // Collapse JSX line wrapping before matching — the claim spans lines.
+      const flat = src.replace(/\s+/g, " ");
+      if (/held in\s+escrow|funded, held in escrow|bounties are held/i.test(flat)) {
+        offenders.push(parts.join("/"));
+      }
+    }
+    expect(offenders, "user-facing copy still claims custody").toEqual([]);
+  });
+
+  it("never quotes a fee taken from a bounty", () => {
+    // There is no fee any more: nothing passes through a contract we control.
+    const offenders: string[] = [];
+    for (const parts of SURFACES) {
+      const flat = strip(read(...parts)).replace(/\s+/g, " ");
+      if (/fee of \d|\d% to FAVOUR|deducted from each bounty/i.test(flat)) {
+        offenders.push(parts.join("/"));
+      }
+    }
+    expect(offenders, "user-facing copy still quotes an escrow fee").toEqual([]);
+  });
+
+  it("states plainly that FAVOUR takes no custody", () => {
+    for (const parts of [SURFACES[0], SURFACES[1]]) {
+      const flat = strip(read(...parts)).replace(/\s+/g, " ");
+      expect(flat, `${parts.join("/")} must state the no-custody position`).toMatch(
+        /takes no custody|does not hold your money/i
+      );
+    }
+  });
+});
