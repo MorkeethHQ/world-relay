@@ -2,6 +2,7 @@ import type { Task, TaskStatus, TaskCategory, TaskType, RewardType, AiFollowUp, 
 import { getRedis } from "./redis";
 import { getAgent } from "./agents";
 import { recordFundingReward } from "./proof-of-favour";
+import { CUSTODY_RETIRED } from "./custody";
 export type { Task, TaskStatus, TaskCategory };
 
 const TASK_PREFIX = "task:";
@@ -141,7 +142,10 @@ export async function createTask(input: {
     escrowTxHash: input.escrowTxHash ?? null,
     claimCode: input.claimCode ?? null,
     taskType: input.taskType || "standard",
-    rewardType: input.rewardType || "usdc",
+    // Custody retired: an omitted rewardType used to default to "usdc", which
+    // minted unfunded money favours promising a funding flow that no longer
+    // exists. Points is the only honest default now.
+    rewardType: input.rewardType || (CUSTODY_RETIRED ? "points" : "usdc"),
     donOnChainId: input.donOnChainId ?? null,
     donStakeTxHash: null,
     claimantVerification: null,

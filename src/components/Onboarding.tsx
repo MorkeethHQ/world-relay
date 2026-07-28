@@ -220,7 +220,7 @@ export function Onboarding({
               <span className="w-1 h-1 rounded-full bg-gray-200" />
               <span className="text-[11px] text-gray-300 uppercase tracking-widest">Polls</span>
               <span className="w-1 h-1 rounded-full bg-gray-200" />
-              <span className="text-[11px] text-gray-300 uppercase tracking-widest">USDC</span>
+              <span className="text-[11px] text-gray-300 uppercase tracking-widest">Points</span>
             </div>
           </div>
         )}

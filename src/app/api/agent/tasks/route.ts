@@ -10,6 +10,7 @@ import { checkAgentAuth } from "@/lib/api-keys";
 import { toApiTask } from "@/lib/task-serializer";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { sanitizeInput } from "@/lib/sanitize";
+import { CUSTODY_RETIRED } from "@/lib/custody";
 
 function getAgentWalletKey(agentId: string): string | null {
   const envKey = `AGENT_WALLET_${agentId.toUpperCase().replace(/-/g, "_")}`;
@@ -107,6 +108,25 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  // Custody retired, checked FIRST — before auth, rate limit and body parsing.
+  // All three funding methods are ENTER paths into the escrow: (A) binds a
+  // caller-supplied on-chain deposit, (B) `fund: true` calls
+  // createEscrowTaskWithKey, which approves and deposits real USDC from a
+  // server-held key, and (C) posts an unfunded money favour advertising a
+  // "humans fund it via World App" flow whose UI no longer exists.
+  // Refused before any escrow read or write, and before auth so the answer does
+  // not depend on who is asking. Points tasks (no funding fields) post normally.
+  // See src/lib/custody.ts.
+  if (CUSTODY_RETIRED) {
+    const peek = await req.clone().json().catch(() => ({}));
+    if (peek?.fund || peek?.escrow_tx_hash || peek?.on_chain_id != null) {
+      return NextResponse.json({
+        error: "Custody retired",
+        detail: "FAVOUR no longer escrows bounties. Post a points favour: omit fund, escrow_tx_hash and on_chain_id.",
+      }, { status: 410 });
+    }
+  }
+
   const auth = await checkAgentAuth(req);
   if (!auth.authenticated) {
     return NextResponse.json({ error: "Unauthorized", hint: "Pass your API key as: Authorization: Bearer <key>" }, { status: 401 });
@@ -131,6 +151,7 @@ export async function POST(req: NextRequest) {
   // B) "fund": true — use agent's registered wallet (env var)
   // C) Neither — task posted unfunded, humans can fund via World App
   const { fund, escrow_tx_hash, on_chain_id } = body;
+
 
   if (!description || !location || !bounty_usdc) {
     return NextResponse.json({

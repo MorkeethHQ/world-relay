@@ -4,6 +4,7 @@ import { getAgent } from "@/lib/agents";
 import { getRedis } from "@/lib/redis";
 import { isEscrowTaskFunded } from "@/lib/escrow";
 import { toApiTask } from "@/lib/task-serializer";
+import { CUSTODY_RETIRED } from "@/lib/custody";
 
 /** Return full task detail, omitting only internal keys like claimCode. */
 function detailTask(task: Record<string, unknown>) {
@@ -32,6 +33,17 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     return NextResponse.json({ error: "Invalid body" }, { status: 400 });
   }
 
+  // Custody retired: binding an escrow deposit to a task is an ENTER path, and
+  // this PATCH is the one that survived the POST gate. Checked before the task
+  // lookup — the answer must not depend on whether the row happens to exist.
+  // Historical rows keep their existing markers; this blocks NEW bindings only.
+  if (CUSTODY_RETIRED && (body.onChainId != null || body.escrowTxHash != null)) {
+    return NextResponse.json({
+      error: "Custody retired",
+      detail: "FAVOUR no longer escrows bounties, so a task cannot be bound to an escrow deposit.",
+    }, { status: 410 });
+  }
+
   const task = await getTask(id);
   if (!task) {
     return NextResponse.json({ error: "Task not found" }, { status: 404 });
@@ -45,6 +57,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (!isAdmin && !isPoster) {
     return NextResponse.json({ error: "Unauthorized: only the task poster or admin can modify this task" }, { status: 403 });
   }
+
 
   if (typeof body.onChainId === "number" && typeof body.escrowTxHash === "string") {
     // The POST funding invariants must also hold on this PATCH funding path, or a

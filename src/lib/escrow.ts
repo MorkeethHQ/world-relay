@@ -2,6 +2,7 @@ import { createWalletClient, createPublicClient, http, parseUnits, formatUnits }
 import { privateKeyToAccount } from "viem/accounts";
 import { worldchain } from "viem/chains";
 import { getRedis } from "./redis";
+import { custodyClosed } from "./custody";
 
 const RPC_URL = "https://worldchain-mainnet.g.alchemy.com/public";
 
@@ -643,6 +644,11 @@ export async function createEscrowTaskWithKey(
   bountyUsdc: number,
   deadlineHours: number
 ): Promise<{ onChainId: number; txHash: string } | null> {
+  // Custody retired. This is the deepest ENTER path — it approves and deposits
+  // real USDC into the escrow from a server-held key, bypassing every UI and
+  // API gate above it. Closed here so no caller can reach the contract, whatever
+  // route reaches this function. See src/lib/custody.ts.
+  if (custodyClosed()) return null;
   const formattedKey = privateKey.startsWith("0x") ? privateKey : `0x${privateKey}`;
   const account = privateKeyToAccount(formattedKey as `0x${string}`);
   const client = createWalletClient({ account, chain: worldchain, transport: http(RPC_URL) });
