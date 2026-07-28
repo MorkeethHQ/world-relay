@@ -704,7 +704,7 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
   }
 
   if (view === "proof" && selectedTask) {
-    return <SubmitProof task={selectedTask} userId={userId} onDone={() => { setView("board"); fetchTasks(); }} onCancel={() => setView("board")} onCreateTask={() => { setPostCampaignId(null); setView("post"); }} />;
+    return <SubmitProof task={selectedTask} userId={userId} onDone={() => { setView("board"); fetchTasks(); }} onCancel={() => setView("board")} onCreateTask={() => { setPostCampaignId(null); setView("post"); }} onJudge={() => setView("jury")} />;
   }
 
   if (view === "detail" && selectedTask) {
@@ -1998,18 +1998,22 @@ function SubmitProof({
   onDone,
   onCancel,
   onCreateTask,
+  onJudge,
 }: {
   task: Task;
   userId: string | null;
   onDone: () => void;
   onCancel: () => void;
   onCreateTask?: () => void;
+  // Where a user goes when they have run out of work. See the churn-moment
+  // comment in src/lib/seed-caps.ts.
+  onJudge?: () => void;
 }) {
   const MAX_PHOTOS = 3;
   const [proofNote, setProofNote] = useState("");
   const [images, setImages] = useState<{ base64: string; preview: string; isVideo: boolean }[]>([]);
   const [submitting, setSubmitting] = useState(false);
-  const [result, setResult] = useState<{ verdict: string; reasoning: string; locationVerified?: boolean; distanceKm?: number; escrowReleaseTxHash?: string | null } | null>(null);
+  const [result, setResult] = useState<{ verdict: string; reasoning: string; locationVerified?: boolean; distanceKm?: number; escrowReleaseTxHash?: string | null; nextAction?: string | null } | null>(null);
   const [proofCoords, setProofCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [preCheck, setPreCheck] = useState<{ assessment: string; likely: "pass" | "marginal" | "retake" } | null>(null);
   const [preChecking, setPreChecking] = useState(false);
@@ -2144,7 +2148,11 @@ function SubmitProof({
           (typeof err.message === "string" && err.message) ||
           (typeof err.error === "string" && err.error) ||
           "We couldn't process your submission just now. Your proof wasn't judged. Please try again.";
-        setResult({ verdict: "error", reasoning: serverMsg });
+        setResult({
+          verdict: "error",
+          reasoning: serverMsg,
+          nextAction: typeof err.nextAction === "string" ? err.nextAction : null,
+        });
         setSubmitting(false);
         hapticError();
         return;
@@ -2549,7 +2557,18 @@ function SubmitProof({
                 <p className="text-xs text-yellow-600">Under review. You'll be notified of the result.</p>
               </div>
             )}
-            {result.verdict === "error" && (
+            {/* A daily cap is not retryable — "Try Again" would fail identically
+                until midnight. When the server names a next action, show that
+                door instead. */}
+            {result.verdict === "error" && result.nextAction === "jury" && onJudge && (
+              <button
+                onClick={() => { hapticTap(); onJudge(); }}
+                className="mt-3 w-full py-2.5 rounded-xl bg-gray-900 text-white text-sm font-semibold active:scale-[0.98] transition-all"
+              >
+                Judge proofs instead
+              </button>
+            )}
+            {result.verdict === "error" && result.nextAction !== "jury" && (
               <button
                 onClick={() => { setResult(null); hasAutoChecked.current = false; }}
                 className="mt-3 w-full py-2.5 rounded-xl border border-gray-200 bg-white text-sm text-gray-700 font-medium active:scale-[0.98] transition-all"

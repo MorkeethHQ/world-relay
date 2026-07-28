@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { checkSeedCap, recordSeededEarn, isSeededTask, SEEDED_FUNDED_DAILY_CAP, SEEDED_POINTS_DAILY_CAP } from "@/lib/seed-caps";
+import { checkSeedCap, recordSeededEarn, isSeededTask, SEEDED_FUNDED_DAILY_CAP,
+  SEEDED_POINTS_DAILY_CAP } from "@/lib/seed-caps";
 import { isTemplateCopy, MIN_DESCRIPTION_LENGTH, POST_TEMPLATES } from "@/lib/post-templates";
 import type { Task } from "@/lib/types";
 
@@ -131,3 +132,17 @@ describe("template copy rejection", () => {
     expect("Walk my dog for 20 minutes".length).toBeGreaterThanOrEqual(MIN_DESCRIPTION_LENGTH);
   });
 });
+
+  // The churn moment must hand the user a door, not just a wall. A daily cap is
+  // not retryable — without a next action the most engaged user in the app gets
+  // a "Try Again" that fails identically until midnight. Judging is the only
+  // surface that cannot run out of supply, which is why it is the destination.
+  it("offers judging as the next action when the cap is hit", async () => {
+    const task = makeTask({});
+    for (let i = 0; i < SEEDED_POINTS_DAILY_CAP; i++) await recordSeededEarn(task, WALLET);
+    const res = await checkSeedCap(task, WALLET);
+    expect(res.allowed).toBe(false);
+    expect(res.nextAction, "a capped user needs somewhere to go").toBe("jury");
+    expect(res.message).toMatch(/judge/i);
+    expect(res.message, "still tell them when it resets").toMatch(/tomorrow/i);
+  });
