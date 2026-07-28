@@ -5,6 +5,8 @@ import {
   encodeCreateTask,
   encodeClaimTask,
   encodeReleasePayment,
+  encodeUniswapSwap,
+  SWAP_ENABLED,
 } from "@/lib/contracts";
 import { CUSTODY_RETIRED, custodyClosed } from "@/lib/custody";
 
@@ -187,5 +189,21 @@ describe("no surface still claims FAVOUR holds money", () => {
         /takes no custody|does not hold your money/i
       );
     }
+  });
+});
+
+describe("no reachable action builds a transaction that cannot succeed", () => {
+  it("the swap is disabled — its router is not a router on World Chain", () => {
+    // 0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45 is Uniswap's ETHEREUM MAINNET
+    // SwapRouter02. On World Chain (480) that address holds 2,109 bytes with no
+    // exactInputSingle selector, and it was never in Contract Entrypoints, so
+    // World rejected the call as invalid_contract before it reached the chain.
+    expect(SWAP_ENABLED).toBe(false);
+    expect(encodeUniswapSwap(5, "WLD", "0x1101158041fd96f21cbcbb0e752a9a2303e6d70e")).toBeNull();
+  });
+
+  it("does not render a swap button a user could tap", () => {
+    const feed = read("src", "components", "Feed.tsx");
+    expect(feed).toMatch(/\{SWAP_ENABLED && currentTask\.status === "completed"/);
   });
 });

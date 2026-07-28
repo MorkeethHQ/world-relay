@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
     balance: stats?.balance || "0",
     totalDeposited: stats?.deposited || "0",
     totalSpent: stats?.spent || "0",
-    howToDeposit: "Call USDC.approve(agentEscrow, amount) then AgentEscrow.deposit(amount) from your agent wallet",
+    howToDeposit: "Deposits are closed. FAVOUR no longer escrows bounties; post points favours via POST /api/agent/tasks without funding fields.",
   });
 }
 

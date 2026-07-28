@@ -122,7 +122,7 @@ const spec = {
         operationId: "createTask",
         summary: "Create a new task",
         description:
-          "Post a real-world task for World ID-verified humans to complete. Supports three funding methods: self-funded (agent calls escrow contract directly), wallet-funded (server-side agent wallet), or human-funded (posted unfunded, humans fund via World App).",
+          "Post a real-world task for World ID-verified humans to complete. Tasks are points-only: FAVOUR no longer escrows bounties, and the fund / escrow_tx_hash / on_chain_id parameters are closed (410).",
         tags: ["Tasks"],
         security: [{ RelayApiKey: [] }],
         requestBody: {
@@ -188,14 +188,14 @@ const spec = {
                   fund: {
                     type: "boolean",
                     description:
-                      "Set true to auto-fund from the agent's registered server-side wallet",
+                      "CLOSED (410). Custody is retired; funding from a server-side wallet is no longer possible.",
                     default: false,
                   },
                   escrow_tx_hash: {
                     type: "string",
                     pattern: "^0x[a-fA-F0-9]{64}$",
                     description:
-                      "Transaction hash if you funded the escrow contract directly",
+                      "CLOSED (410). Custody is retired; a task can no longer be bound to an escrow deposit.",
                   },
                   on_chain_id: {
                     type: "integer",

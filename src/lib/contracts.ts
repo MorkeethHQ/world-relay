@@ -12,6 +12,31 @@ export const WETH_ADDRESS = "0x4200000000000000000000000000000000000006" as cons
 export const WLD_ADDRESS = "0x2cFc85d8E48F8EAB294be644d9E25C3030863003" as const;
 export const SWAP_ROUTER_ADDRESS = "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45" as const;
 
+/**
+ * The swap is DISABLED because it never worked on World Chain.
+ *
+ * SWAP_ROUTER_ADDRESS above is Uniswap's SwapRouter02 address on ETHEREUM
+ * MAINNET, used here against World Chain (480). Probed 2026-07-28 on chain 480,
+ * that address holds a different contract entirely:
+ *
+ *   - 2,109 bytes of code (SwapRouter02 is ~20KB)
+ *   - no `exactInputSingle` selector (04e45aaf) in its bytecode
+ *   - no `multicall` selector (ac9650d8)
+ *   - `WETH9()` returns 0x
+ *   - verified on the explorer under the name "Recover"
+ *
+ * So `encodeUniswapSwap` builds a call to a function that does not exist, and
+ * every claimant who tapped "Swap your USDC earnings" got a failed transaction.
+ * It was also never added to Contract Entrypoints in the Developer Portal, so
+ * World blocked it with `invalid_contract` before it even reached the chain —
+ * broken twice over, which is why nobody reported it.
+ *
+ * Re-enabling is not flipping this flag. It needs Uniswap's real World Chain
+ * router address, confirmed against a live quote, and the address added to
+ * Contract Entrypoints (plus USDC back in Permit2 Tokens).
+ */
+export const SWAP_ENABLED = false;
+
 export type SwapToken = "USDC" | "WETH" | "WLD";
 
 const TOKEN_ADDRESSES: Record<SwapToken, `0x${string}`> = {
@@ -213,6 +238,7 @@ export function encodeUniswapSwap(
   toToken: SwapToken,
   recipientAddress: `0x${string}`
 ) {
+  if (!SWAP_ENABLED) return null;
   if (toToken === "USDC") return null;
 
   const amountIn = parseUnits(amountUsdc.toString(), 6);

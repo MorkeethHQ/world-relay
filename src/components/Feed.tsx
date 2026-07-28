@@ -30,6 +30,7 @@ function isMiniKit(): boolean {
 import { VerificationBadge, RequiredTierBadge } from "@/components/VerificationBadge";
 import { encodeCreateTask, encodeClaimTask, encodeReleasePayment, encodeUniswapSwap, readTaskCount, readUsdcBalance, RELAY_ESCROW_ADDRESS, DOUBLE_OR_NOTHING_ADDRESS, encodeCreateDoubleOrNothing, encodeStakeAndClaimWithApproval, readDonTaskCount, type SwapToken } from "@/lib/contracts";
 import { CUSTODY_RETIRED } from "@/lib/custody";
+import { SWAP_ENABLED } from "@/lib/contracts";
 import { hapticSuccess, hapticError, hapticTap, hapticHeavy, hapticMedium, hapticSelection, shareTask } from "@/lib/minikit-helpers";
 import { TASK_TEMPLATES } from "@/lib/agents";
 import { POST_TEMPLATES, MIN_DESCRIPTION_LENGTH } from "@/lib/post-templates";
@@ -2985,8 +2986,12 @@ function TaskDetail({
 
         {/* Payment auto-releases via server - no manual release needed */}
 
-        {/* Uniswap swap — claimant can convert received USDC */}
-        {currentTask.status === "completed" && isClaimant && isMiniKit() && (
+        {/* Uniswap swap — DISABLED. The router address is Ethereum mainnet's,
+            which on World Chain is a 2,109-byte contract with no
+            exactInputSingle; it was also never allowlisted in the Developer
+            Portal, so World blocked it as invalid_contract. Every tap produced
+            a failed transaction. See SWAP_ENABLED in src/lib/contracts.ts. */}
+        {SWAP_ENABLED && currentTask.status === "completed" && isClaimant && isMiniKit() && (
           <div className="bg-white border border-gray-200 rounded-2xl p-4">
             <div className="flex items-center gap-2 mb-3">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f472b6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -3177,7 +3182,7 @@ function TaskDetail({
         {isPoster && (currentTask.status === "open" || currentTask.status === "claimed") && (
           <button
             onClick={async () => {
-              if (!confirm("Cancel this favour? If funded, your USDC will be refunded.")) return;
+              if (!confirm("Cancel this favour? This cannot be undone.")) return;
               const res = await fetch(`/api/tasks/${currentTask.id}/cancel`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },

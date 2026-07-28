@@ -1,6 +1,7 @@
 import { createWalletClient, createPublicClient, http, encodeFunctionData, parseUnits, formatUnits } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { worldchain } from "viem/chains";
+import { custodyClosed } from "./custody";
 
 const RPC_URL = "https://worldchain-mainnet.g.alchemy.com/public";
 
@@ -181,6 +182,7 @@ export async function createAgentTask(
   if (!relayer) return null;
 
   try {
+  if (custodyClosed()) return null;
     const pub = getPublicClient();
     const bountyWei = parseUnits(bountyUsdc.toString(), 6);
     const deadline = BigInt(Math.floor(Date.now() / 1000) + deadlineHours * 3600);
@@ -243,6 +245,7 @@ export async function releaseAgentTask(onChainId: number): Promise<string | null
 // ─── Encode for Frontend (MiniKit) ─────────────────────────────────
 
 export function encodeAgentDeposit(amountUsdc: number) {
+  if (custodyClosed()) return null;
   if (!isAgentEscrowEnabled()) return null;
   const amount = parseUnits(amountUsdc.toString(), 6);
 
@@ -268,6 +271,7 @@ export function encodeAgentDeposit(amountUsdc: number) {
 }
 
 export function encodeAgentWithdraw(amountUsdc: number) {
+  if (custodyClosed()) return null;
   if (!isAgentEscrowEnabled()) return null;
   const amount = parseUnits(amountUsdc.toString(), 6);
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createTask } from "@/lib/store";
+import { CUSTODY_RETIRED } from "@/lib/custody";
 
 const ADMIN_SECRET = process.env.ADMIN_SECRET;
 
@@ -46,7 +47,10 @@ export async function POST(req: NextRequest) {
       // Points tasks carry a points VALUE in bountyUsdc (0-10, never funded); USDC
       // tasks must be escrow-funded. Points and money never cross (Inv 1/3).
       const validPoints = pointsOnly && t.bountyUsdc >= 0 && t.bountyUsdc <= 10;
-      const validUsdc = !pointsOnly && t.bountyUsdc > 0 && funded;
+      // Custody retired: a seeded task may no longer carry escrow funding. This
+      // was the last bulk ENTER path — every historical funded task on the board
+      // arrived through it.
+      const validUsdc = !CUSTODY_RETIRED && !pointsOnly && t.bountyUsdc > 0 && funded;
       if (
         typeof t.description !== "string" || !t.description.trim() ||
         typeof t.location !== "string" || !t.location.trim() ||
