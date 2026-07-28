@@ -5,6 +5,7 @@ import { postTaskCreated } from "@/lib/xmtp";
 import { broadcastEvent } from "@/lib/sse";
 import { getRedis } from "@/lib/redis";
 import { checkAgentAuth } from "@/lib/api-keys";
+import { CUSTODY_RETIRED } from "@/lib/custody";
 
 // GET /api/agent/fund — check agent's deposited balance
 export async function GET(req: NextRequest) {
@@ -39,6 +40,17 @@ export async function GET(req: NextRequest) {
 
 // POST /api/agent/fund — create a task funded from agent's deposited balance
 export async function POST(req: NextRequest) {
+  // Custody is retired — this is the API-side way money used to enter the
+  // escrow, and it is closed before auth so the answer is the same for every
+  // caller. 410 rather than 404: the endpoint existed and is deliberately gone.
+  // See src/lib/custody.ts.
+  if (CUSTODY_RETIRED) {
+    return NextResponse.json({
+      error: "Custody retired",
+      detail: "FAVOUR no longer holds funds in escrow. Points favours are unaffected.",
+    }, { status: 410 });
+  }
+
   const auth = await checkAgentAuth(req);
   if (!auth.authenticated) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

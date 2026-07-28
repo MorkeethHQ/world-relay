@@ -29,6 +29,7 @@ function isMiniKit(): boolean {
 }
 import { VerificationBadge, RequiredTierBadge } from "@/components/VerificationBadge";
 import { encodeCreateTask, encodeClaimTask, encodeReleasePayment, encodeUniswapSwap, readTaskCount, readUsdcBalance, RELAY_ESCROW_ADDRESS, DOUBLE_OR_NOTHING_ADDRESS, encodeCreateDoubleOrNothing, encodeStakeAndClaimWithApproval, readDonTaskCount, type SwapToken } from "@/lib/contracts";
+import { CUSTODY_RETIRED } from "@/lib/custody";
 import { hapticSuccess, hapticError, hapticTap, hapticHeavy, hapticMedium, hapticSelection, shareTask } from "@/lib/minikit-helpers";
 import { TASK_TEMPLATES } from "@/lib/agents";
 import { POST_TEMPLATES, MIN_DESCRIPTION_LENGTH } from "@/lib/post-templates";
@@ -1525,6 +1526,7 @@ function PostTask({
   const [locationMode, setLocationMode] = useState<"online" | "inperson">("online");
   const [location, setLocation] = useState("Online");
   const [bounty, setBounty] = useState("");
+  // Points only: custody is retired, so the wizard has no USDC branch to enter.
   const [rewardType, setRewardType] = useState<"usdc" | "points">("points");
   const [category, setCategory] = useState<"photo" | "delivery" | "check-in" | "custom" | "feedback" | "review" | "social" | "errand">("review");
   const [submitting, setSubmitting] = useState(false);
@@ -1786,29 +1788,36 @@ function PostTask({
         {/* STEP 2 - Reward + fund */}
         {step === 2 && (
           <div className="flex-1 px-6 py-6 flex flex-col gap-8">
-            <div>
-              <Typography variant="label" level={2} className="text-gray-400 mb-2">Reward type</Typography>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => { hapticSelection(); setRewardType("points"); }}
-                  className={`flex-1 rounded-xl border py-4 text-center transition-all min-h-[52px] active:scale-[0.98] ${
-                    rewardType === "points" ? "border-gray-900 bg-white" : "border-gray-200 bg-white hover:border-gray-300"
-                  }`}
-                >
-                  <Typography variant="body" level={3} className={rewardType === "points" ? "text-gray-900 font-semibold" : "text-gray-500"}>Points</Typography>
-                  <Typography variant="body" level={4} className="text-gray-400 mt-0.5">Free to post</Typography>
-                </button>
-                <button
-                  onClick={() => { hapticSelection(); setRewardType("usdc"); }}
-                  className={`flex-1 rounded-xl border py-4 text-center transition-all min-h-[52px] active:scale-[0.98] ${
-                    rewardType === "usdc" ? "border-gray-900 bg-white" : "border-gray-200 bg-white hover:border-gray-300"
-                  }`}
-                >
-                  <Typography variant="body" level={3} className={rewardType === "usdc" ? "text-gray-900 font-semibold" : "text-gray-500"}>USDC</Typography>
-                  <Typography variant="body" level={4} className="text-gray-400 mt-0.5">On-chain escrow</Typography>
-                </button>
+            {/* The reward-type picker is gone: custody is retired, so Points is
+                the only way to post. See src/lib/custody.ts for why (measured
+                zero USDC post attempts, and the World "verify all contracts"
+                rejection). Real money still reaches people — the campaign
+                unlock pays USDC directly, it just never sits in an escrow. */}
+            {!CUSTODY_RETIRED && (
+              <div>
+                <Typography variant="label" level={2} className="text-gray-400 mb-2">Reward type</Typography>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => { hapticSelection(); setRewardType("points"); }}
+                    className={`flex-1 rounded-xl border py-4 text-center transition-all min-h-[52px] active:scale-[0.98] ${
+                      rewardType === "points" ? "border-gray-900 bg-white" : "border-gray-200 bg-white hover:border-gray-300"
+                    }`}
+                  >
+                    <Typography variant="body" level={3} className={rewardType === "points" ? "text-gray-900 font-semibold" : "text-gray-500"}>Points</Typography>
+                    <Typography variant="body" level={4} className="text-gray-400 mt-0.5">Free to post</Typography>
+                  </button>
+                  <button
+                    onClick={() => { hapticSelection(); setRewardType("usdc"); }}
+                    className={`flex-1 rounded-xl border py-4 text-center transition-all min-h-[52px] active:scale-[0.98] ${
+                      rewardType === "usdc" ? "border-gray-900 bg-white" : "border-gray-200 bg-white hover:border-gray-300"
+                    }`}
+                  >
+                    <Typography variant="body" level={3} className={rewardType === "usdc" ? "text-gray-900 font-semibold" : "text-gray-500"}>USDC</Typography>
+                    <Typography variant="body" level={4} className="text-gray-400 mt-0.5">On-chain escrow</Typography>
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
 
             <div>
               <Typography variant="label" level={2} className="text-gray-400 mb-2">{rewardType === "points" ? "Points amount" : "Reward"}</Typography>
@@ -2799,8 +2808,11 @@ function TaskDetail({
           </div>
         )}
 
-        {/* Fund with USDC — anyone can fund an unfunded agent task, poster can fund their own */}
-        {currentTask.status === "open" && (isPoster || currentTask.agent) && !currentTask.escrowTxHash && isMiniKit() && RELAY_ESCROW_ADDRESS && (
+        {/* Fund with USDC — retired. This was the last way for a user to put
+            money INTO a first-party contract; custody is closed, so it never
+            renders. encodeCreateTask also returns null now, so even if this
+            gate were removed the transaction could not be built. */}
+        {!CUSTODY_RETIRED && currentTask.status === "open" && (isPoster || currentTask.agent) && !currentTask.escrowTxHash && isMiniKit() && RELAY_ESCROW_ADDRESS && (
           <button
             disabled={funding}
             onClick={async () => {

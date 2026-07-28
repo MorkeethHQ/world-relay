@@ -1,5 +1,6 @@
 import { encodeFunctionData, parseUnits, createPublicClient, http } from "viem";
 import { worldchain } from "viem/chains";
+import { custodyClosed } from "./custody";
 
 export const WORLD_CHAIN_ID = 480;
 
@@ -103,6 +104,7 @@ const PERMIT2_ABI = [
 ] as const;
 
 export function encodeCreateTask(description: string, bountyUsdc: number, deadlineHours: number) {
+  if (custodyClosed()) return null;
   if (!RELAY_ESCROW_ADDRESS) return null;
 
   const bountyWei = parseUnits(bountyUsdc.toString(), 6);
@@ -137,6 +139,7 @@ export function encodeCreateTask(description: string, bountyUsdc: number, deadli
 }
 
 export function encodeClaimTask(taskId: number) {
+  if (custodyClosed()) return null;
   if (!RELAY_ESCROW_ADDRESS) return null;
 
   const data = encodeFunctionData({
@@ -152,6 +155,7 @@ export function encodeClaimTask(taskId: number) {
 }
 
 export function encodeReleasePayment(taskId: number) {
+  if (custodyClosed()) return null;
   if (!RELAY_ESCROW_ADDRESS) return null;
 
   const data = encodeFunctionData({
@@ -324,6 +328,7 @@ const DON_ABI = [
 ] as const;
 
 export function encodeCreateDoubleOrNothing(description: string, bountyUsdc: number, deadlineHours: number) {
+  if (custodyClosed()) return null;
   if (!DOUBLE_OR_NOTHING_ADDRESS) return null;
 
   const bountyWei = parseUnits(bountyUsdc.toString(), 6);
@@ -352,6 +357,7 @@ export function encodeCreateDoubleOrNothing(description: string, bountyUsdc: num
 }
 
 export function encodeStakeAndClaim(taskId: number) {
+  if (custodyClosed()) return null;
   if (!DOUBLE_OR_NOTHING_ADDRESS) return null;
 
   // Runner needs to approve USDC spend for matching stake
@@ -369,6 +375,7 @@ export function encodeStakeAndClaim(taskId: number) {
 }
 
 export function encodeStakeAndClaimWithApproval(taskId: number, bountyUsdc: number) {
+  if (custodyClosed()) return null;
   if (!DOUBLE_OR_NOTHING_ADDRESS) return null;
 
   const stakeWei = parseUnits(bountyUsdc.toString(), 6);

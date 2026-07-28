@@ -13,6 +13,7 @@ import { isEscrowTaskFunded } from "@/lib/escrow";
 import { isTemplateCopy, MIN_DESCRIPTION_LENGTH } from "@/lib/post-templates";
 import { toApiTasks, isPublicTask } from "@/lib/task-serializer";
 import { orderBoardForApi } from "@/lib/board-rank";
+import { CUSTODY_RETIRED } from "@/lib/custody";
 import {
   resolvePostingPrivilege,
   auditPostingPrivilege,
@@ -116,17 +117,29 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // Custody retired: a money favour cannot be posted at all. Rejected, not
+  // silently converted to points — a $5 request quietly stored as 5 points
+  // would both misrepresent what the poster asked for and route around the
+  // 1-10 points cap below, which is the only thing bounding points inflation.
+  if (CUSTODY_RETIRED && rewardType !== "points") {
+    return NextResponse.json({
+      error: "FAVOUR no longer holds funds in escrow. Post a points favour instead.",
+    }, { status: 400 });
+  }
+
   if (rewardType === "points" && !isAdmin) {
     // Points value is capped low (1-10) — points are engagement, not money.
     if (bountyNum < 1 || bountyNum > 10) {
-      return NextResponse.json({ error: "Points tasks must be between 1 and 10 points. To offer more, fund the task with USDC." }, { status: 400 });
+      return NextResponse.json({ error: "Points favours must be between 1 and 10 points." }, { status: 400 });
     }
-    // One free points task per poster per 24h; fund with USDC to post more.
+    // One free points task per poster per 24h. The old copy here told users to
+    // "fund the task with USDC" to lift the cap — with custody retired that is
+    // an offer the app can no longer honour, so it does not get made.
     const recentPoints = (await listTasks()).filter(
       (t) => t.poster === poster && t.rewardType === "points" && Date.now() - new Date(t.createdAt).getTime() < 86_400_000
     );
     if (recentPoints.length >= 1) {
-      return NextResponse.json({ error: "You can post 1 free points task per day. Fund a task with USDC to post more." }, { status: 429 });
+      return NextResponse.json({ error: "You can post one favour a day. Come back tomorrow." }, { status: 429 });
     }
   }
 
@@ -149,9 +162,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "maxCompletions must be between 1 and 1000" }, { status: 400 });
   }
 
-  const isUsdc = rewardType !== "points";
-  let verifiedOnChainId: number | null = onChainId != null ? Number(onChainId) : null;
-  let verifiedEscrowTxHash: string | null = escrowTxHash || null;
+  // Custody retired: no new task may be recorded against the escrow. The
+  // encoders already refuse to build the funding transaction, so an onChainId
+  // arriving here can only be a stale client or a hand-rolled request — either
+  // way it is dropped rather than stored, and the task lands as points. This is
+  // the server half of the rule; the UI half is the removed reward picker.
+  // See src/lib/custody.ts.
+  const isUsdc = !CUSTODY_RETIRED && rewardType !== "points";
+  let verifiedOnChainId: number | null =
+    CUSTODY_RETIRED ? null : onChainId != null ? Number(onChainId) : null;
+  let verifiedEscrowTxHash: string | null = CUSTODY_RETIRED ? null : escrowTxHash || null;
+  if (CUSTODY_RETIRED && (onChainId != null || escrowTxHash)) {
+    console.error("[Tasks] escrow reference received after custody retirement; dropped");
+  }
   if (isUsdc && verifiedOnChainId !== null) {
     const funded = await isEscrowTaskFunded(verifiedOnChainId, bountyNum).catch(() => false);
     if (!funded) {
