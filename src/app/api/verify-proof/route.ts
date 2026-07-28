@@ -18,6 +18,12 @@ import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { sanitizeInput } from "@/lib/sanitize";
 import { trackEvent } from "@/lib/track";
 import { checkSeedCap, recordSeededEarn } from "@/lib/seed-caps";
+import {
+  isSupplyTask,
+  supplyTemplateId,
+  hasCompletedSupplyTemplate,
+  markSupplyTemplateDone,
+} from "@/lib/board-supply";
 import { tierGateError, getUserVerificationLevel } from "@/lib/verification-tier";
 import { recordCampaignCompletion } from "@/lib/campaign-unlock";
 import { getCampaign } from "@/lib/campaigns";
@@ -178,6 +184,17 @@ export async function POST(req: NextRequest) {
   // the consensus spend below.
   const submitterLevel = submitter ? await getUserVerificationLevel(submitter) : null;
   const claimantLevel = (task.claimantVerification || submitterLevel) as "orb" | "device" | "wallet" | null;
+
+  // Board-supply anti-repeat for ANY submit path (open direct-submit OR claimed).
+  if (submitter && isSupplyTask(task)) {
+    const tmpl = supplyTemplateId(task);
+    if (tmpl && (await hasCompletedSupplyTemplate(submitter, tmpl))) {
+      return NextResponse.json({
+        error: "Already completed",
+        message: "You've already done this favour. Pick a different one on the board.",
+      }, { status: 403 });
+    }
+  }
 
   // Set claimant on first submission (replaces the claim step)
   if (task.status === "open" && submitter) {
@@ -418,6 +435,17 @@ export async function POST(req: NextRequest) {
       // Referral activation: the invitee's first clean completion pays the
       // referrer (points only, once, capped — see src/lib/referral.ts).
       recordReferralActivation(task.claimant).catch(console.error);
+      // Board-supply anti-repeat: record template completion (await — do not
+      // leave a race before the next submit). Task is already completed above;
+      // a mark failure is logged and the next check fail-closes if Redis is down.
+      if (isSupplyTask(task)) {
+        const tmpl = supplyTemplateId(task);
+        if (tmpl) {
+          await markSupplyTemplateDone(task.claimant, tmpl).catch((err) =>
+            console.error("[supply] markSupplyTemplateDone failed:", err),
+          );
+        }
+      }
       // Count this earn against the claimant's daily seeded-task cap.
       recordSeededEarn(task, task.claimant).catch(console.error);
       // Award attempt and completion points only on a passing verdict.

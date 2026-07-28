@@ -37,6 +37,7 @@ import { POST_TEMPLATES, MIN_DESCRIPTION_LENGTH } from "@/lib/post-templates";
 import { useWorldUsers, displayName } from "@/hooks/useWorldUser";
 import { getCampaigns, type Campaign } from "@/lib/campaigns";
 import DailyFavour from "@/components/DailyFavour";
+import { filterCompletedSupplyTasks } from "@/lib/board-supply";
 import { CampaignPage, FeaturedCampaignBanner } from "@/components/CampaignPage";
 import { PollsFeed, FeedPolls } from "@/components/Polls";
 import {
@@ -342,7 +343,22 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
     try {
       const res = await fetch("/api/tasks");
       const data = await res.json();
-      const incoming: Task[] = data.tasks;
+      let incoming: Task[] = data.tasks;
+
+      // Hide board-supply templates this wallet already completed (anti-repeat).
+      if (userId && !userId.startsWith("dev_")) {
+        try {
+          const doneRes = await fetch(`/api/supply/done?address=${encodeURIComponent(userId)}`);
+          if (doneRes.ok) {
+            const done = await doneRes.json();
+            if (Array.isArray(done.doneTemplateIds)) {
+              incoming = filterCompletedSupplyTasks(incoming, done.doneTemplateIds);
+            }
+          }
+        } catch {
+          /* non-fatal — board still loads */
+        }
+      }
 
       // Detect genuinely new task IDs
       if (knownTaskIds.current.size > 0) {
@@ -402,7 +418,7 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
       setFetchError(true);
       setLoading(false);
     }
-  }, []);
+  }, [userId]);
 
   // Debounced fetchTasks: at most once every 2s even if multiple SSE events fire
   const fetchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);

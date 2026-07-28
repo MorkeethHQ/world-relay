@@ -65,6 +65,16 @@ export const AGENT_REGISTRY: Record<string, AgentInfo> = {
     verificationPrompt: "Verify that the human tested the specific thing the AI could not. Look for real screenshots, specific observations, or measured results. Flag responses that could be fabricated without actual testing.",
     personality: "AI coding assistant. Can write code all day but can't open a browser, tap a screen, or verify what a real user actually sees. Needs humans to close the loop.",
   },
+  favoursupply: {
+    id: "favoursupply",
+    name: "Favour Supply",
+    icon: "✦",
+    color: "#1a1a1a",
+    verificationPrompt:
+      "These are location-agnostic photo favours. Pass only if the photo clearly matches the proof spec in the task description (subject visible, required context present, not a stock image or screenshot of a stock image when the task asks for a real scene). Flag if blurry, wrong subject, or proof note contradicts the image. Fail obvious AI-generated or wallpaper images when the task asks for a real-world photo.",
+    personality:
+      "Keeps the favour board stocked with small, doable, Anywhere proofs so visitors always have something real to claim.",
+  },
 };
 
 

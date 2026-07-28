@@ -10,6 +10,11 @@ import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { trackEvent } from "@/lib/track";
 import { checkSeedCap } from "@/lib/seed-caps";
 import { getUserVerificationLevel, tierGateError } from "@/lib/verification-tier";
+import {
+  isSupplyTask,
+  supplyTemplateId,
+  hasCompletedSupplyTemplate,
+} from "@/lib/board-supply";
 
 export async function POST(
   req: NextRequest,
@@ -74,6 +79,17 @@ export async function POST(
   const seedCap = await checkSeedCap(task, claimant);
   if (!seedCap.allowed) {
     return NextResponse.json({ error: "Daily limit reached", message: seedCap.message }, { status: 403 });
+  }
+
+  // Board-supply templates: same human never earns the same template twice.
+  if (isSupplyTask(task)) {
+    const tmpl = supplyTemplateId(task);
+    if (tmpl && (await hasCompletedSupplyTemplate(claimant, tmpl))) {
+      return NextResponse.json({
+        error: "Already completed",
+        message: "You've already done this favour. Pick a different one on the board.",
+      }, { status: 403 });
+    }
   }
 
   const updated = await claimTask(
