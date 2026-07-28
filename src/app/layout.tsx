@@ -40,11 +40,19 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="h-full antialiased">
-      <body className="min-h-full flex flex-col bg-gray-50 text-gray-900 overflow-x-hidden">
+      {/* No `overflow-x-hidden` here on purpose. On <body> it propagates to the
+          viewport instead of clipping in place, so it never actually contained
+          anything — it only hid the symptom on desktop while iOS still widened
+          its layout viewport. The containment is on <main> below; without the
+          decoy, a real overflow now shows up as a scrollbar in development. */}
+      <body className="min-h-full flex flex-col bg-gray-50 text-gray-900">
         <ErrorBoundary>
           <MiniKitProvider>
             <PageTracker />
-            <main className="flex-1 pb-20">{children}</main>
+            {/* `viewport-clip`: contains horizontal overflow here, in place, so
+                it can never widen the iOS layout viewport and drag the fixed
+                BottomNav off the screen. See the comment in globals.css. */}
+            <main className="viewport-clip flex-1 pb-20">{children}</main>
             <BottomNav />
             <Toaster />
           </MiniKitProvider>
