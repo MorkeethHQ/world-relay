@@ -4,6 +4,7 @@ import { getAgent } from "@/lib/agents";
 import { getRedis } from "@/lib/redis";
 import { isEscrowTaskFunded } from "@/lib/escrow";
 import { toApiTask } from "@/lib/task-serializer";
+import { CUSTODY_RETIRED } from "@/lib/custody";
 
 /** Return full task detail, omitting only internal keys like claimCode. */
 function detailTask(task: Record<string, unknown>) {
@@ -47,6 +48,15 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 
   if (typeof body.onChainId === "number" && typeof body.escrowTxHash === "string") {
+    // Custody retired: binding an escrow id to a task is how NEW custody re-enters
+    // the settle rail after the post wizard was closed. Closed even for admin —
+    // historical leave/refund stays on releaseEscrow/refundEscrow, not a new bind.
+    if (CUSTODY_RETIRED) {
+      return NextResponse.json({
+        error: "Custody retired",
+        detail: "FAVOUR no longer binds tasks to escrow. New funds cannot enter.",
+      }, { status: 410 });
+    }
     // The POST funding invariants must also hold on this PATCH funding path, or a
     // poster funds around them: (a) one escrow deposit funds exactly one payout,
     // so a funded task must be single-completion (a reopening funded task pays

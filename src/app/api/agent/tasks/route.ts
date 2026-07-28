@@ -1,20 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createTask, listTasks, getTask } from "@/lib/store";
+import { createTask, listTasks } from "@/lib/store";
 import { generateLocationBriefing } from "@/lib/ai-chat";
 import { addMessage } from "@/lib/messages";
 import { postTaskCreated } from "@/lib/xmtp";
 import { broadcastEvent } from "@/lib/sse";
-import { createEscrowTaskWithKey, isEscrowTaskFunded } from "@/lib/escrow";
-import { getRedis } from "@/lib/redis";
 import { checkAgentAuth } from "@/lib/api-keys";
 import { toApiTask } from "@/lib/task-serializer";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { sanitizeInput } from "@/lib/sanitize";
-
-function getAgentWalletKey(agentId: string): string | null {
-  const envKey = `AGENT_WALLET_${agentId.toUpperCase().replace(/-/g, "_")}`;
-  return process.env[envKey] || null;
-}
+import { CUSTODY_RETIRED } from "@/lib/custody";
 
 function isInAppRequest(req: NextRequest): boolean {
   const host = req.headers.get("host") || "";
@@ -112,6 +106,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized", hint: "Pass your API key as: Authorization: Bearer <key>" }, { status: 401 });
   }
 
+  // Custody retired: any escrow funding / binding request is gone. Checked after
+  // auth (API key required) but before rate-limit / createTask. createEscrowTaskWithKey
+  // is also gated; this route must not advertise fund_url / escrow_contract or
+  // store a USDC task waiting for human funding that the UI can no longer honour.
+  const body = await req.json();
+  const { fund, escrow_tx_hash, on_chain_id } = body;
+  if (CUSTODY_RETIRED && (fund || escrow_tx_hash || on_chain_id != null)) {
+    return NextResponse.json({
+      error: "Custody retired",
+      detail: "FAVOUR no longer holds funds in escrow. Post a points favour (omit fund / escrow_tx_hash / on_chain_id) or use campaign unlock for USDC.",
+    }, { status: 410 });
+  }
+
   // Rate limit: 30 tasks per hour per IP
   const ip = getClientIp(req);
   const { ok } = await rateLimit(`agent-create:${ip}`, 30, 3_600_000);
@@ -119,29 +126,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Rate limit exceeded. Max 30 tasks per hour." }, { status: 429 });
   }
 
-  const body = await req.json();
   const { agent_id, lat, lng, bounty_usdc, deadline_hours, callback_url, recurring_hours, recurring_count } = body;
 
   // Sanitize text inputs
   const description = sanitizeInput(body.description || "", 500);
   const location = sanitizeInput(body.location || "", 200);
 
-  // Funding method (pick one or none):
-  // A) "escrow_tx_hash" + "on_chain_id" — agent funded it themselves on-chain
-  // B) "fund": true — use agent's registered wallet (env var)
-  // C) Neither — task posted unfunded, humans can fund via World App
-  const { fund, escrow_tx_hash, on_chain_id } = body;
-
-  if (!description || !location || !bounty_usdc) {
+  if (!description || !location || bounty_usdc == null) {
     return NextResponse.json({
       error: "Missing required fields",
       required: ["description", "location", "bounty_usdc"],
-      optional: ["agent_id", "lat", "lng", "deadline_hours", "callback_url", "fund", "escrow_tx_hash", "on_chain_id"],
-      funding_methods: {
-        self_funded: "Pass escrow_tx_hash + on_chain_id after calling RelayEscrow.createTask() yourself",
-        registered_wallet: "Pass fund=true (requires AGENT_WALLET_<ID> env var on server)",
-        human_funded: "Pass nothing — task shows 'needs funding' and any human can fund it via World App",
-      },
+      optional: ["agent_id", "lat", "lng", "deadline_hours", "callback_url"],
+      note: CUSTODY_RETIRED
+        ? "Points only. bounty_usdc is a points value (1–10). Escrow funding is retired."
+        : undefined,
     }, { status: 400 });
   }
 
@@ -156,63 +154,15 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  const points = Number(bounty_usdc);
+  if (!Number.isFinite(points) || points < 1 || points > 10) {
+    return NextResponse.json({
+      error: "Points favours must be between 1 and 10 points.",
+    }, { status: 400 });
+  }
+
   const agentId = agent_id || null;
   const poster = agentId ? `agent_${agentId}` : `agent_${crypto.randomUUID().slice(0, 8)}`;
-
-  // Determine funding
-  let onChainId: number | null = null;
-  let escrowTxHash: string | null = null;
-  let fundingMethod: "self" | "wallet" | "human" = "human";
-
-  // Path A: Agent claims it funded on-chain — VERIFY on-chain (Inv 3); never
-  // trust the caller's on_chain_id. Without this an agent could reference ANY
-  // funded escrow (incl. a victim's) and settle against the live amount (H1).
-  if (escrow_tx_hash && on_chain_id != null) {
-    const candidateId = Number(on_chain_id);
-    const funded = await isEscrowTaskFunded(candidateId, Number(bounty_usdc)).catch(() => false);
-    if (!funded) {
-      return NextResponse.json({
-        error: "escrow not verified on-chain for the given on_chain_id + bounty",
-        hint: "Fund the escrow on World Chain (chainId 480) first, or omit on_chain_id for human funding",
-      }, { status: 400 });
-    }
-    onChainId = candidateId;
-    escrowTxHash = escrow_tx_hash;
-    fundingMethod = "self";
-  }
-  // Path B: Fund from registered agent wallet
-  else if (fund) {
-    const walletKey = getAgentWalletKey(agentId || "default");
-    if (!walletKey) {
-      return NextResponse.json({
-        error: `No wallet registered for agent "${agentId}"`,
-        hint: `Set AGENT_WALLET_${(agentId || "DEFAULT").toUpperCase().replace(/-/g, "_")} on the server, OR fund the task yourself and pass escrow_tx_hash`,
-        alternatives: {
-          self_fund: `Call RelayEscrow.createTask("${description.slice(0, 50)}...", ${Number(bounty_usdc) * 1e6}, deadline) at ${process.env.NEXT_PUBLIC_ESCROW_ADDRESS || "0x274C38eA9944f57D24A59fbEf558bba2264f9351"}`,
-          human_fund: "Remove fund=true and a human will fund it from the World App",
-        },
-      }, { status: 400 });
-    }
-
-    const escrowResult = await createEscrowTaskWithKey(
-      walletKey,
-      description,
-      Number(bounty_usdc),
-      Number(deadline_hours) || 24,
-    );
-
-    if (!escrowResult) {
-      return NextResponse.json({
-        error: "Agent wallet funding failed — likely insufficient USDC",
-        hint: "Send USDC to the agent wallet on World Chain (chainId 480)",
-      }, { status: 400 });
-    }
-
-    onChainId = escrowResult.onChainId;
-    escrowTxHash = escrowResult.txHash;
-    fundingMethod = "wallet";
-  }
-  // Path C: No funding — human will fund later
 
   const task = await createTask({
     poster,
@@ -220,21 +170,15 @@ export async function POST(req: NextRequest) {
     location,
     lat: lat ? Number(lat) : null,
     lng: lng ? Number(lng) : null,
-    bountyUsdc: Number(bounty_usdc),
+    bountyUsdc: points,
     deadlineHours: Number(deadline_hours) || 24,
     agentId,
     recurring: recurring_hours ? { intervalHours: Number(recurring_hours), totalRuns: Number(recurring_count) || 7 } : null,
     callbackUrl: callback_url || null,
-    onChainId,
-    escrowTxHash,
+    onChainId: null,
+    escrowTxHash: null,
+    rewardType: "points",
   });
-
-  if (escrowTxHash) {
-    const redis = getRedis();
-    if (redis) {
-      await redis.set(`task:${task.id}`, JSON.stringify(task));
-    }
-  }
 
   // Post task creation to XMTP thread
   postTaskCreated(task).catch(console.error);
@@ -261,24 +205,17 @@ export async function POST(req: NextRequest) {
       description: task.description,
       location: task.location,
       bountyUsdc: task.bountyUsdc,
+      rewardType: "points",
       deadline: task.deadline,
       status: task.status,
-      onChainId: task.onChainId,
-      escrowTxHash: task.escrowTxHash,
+      onChainId: null,
+      escrowTxHash: null,
     },
     funding: {
-      method: fundingMethod,
-      funded: !!escrowTxHash,
-      escrowTxHash,
-      onChainId,
-      ...(fundingMethod === "human" ? {
-        message: "Task posted — waiting for a human to fund it via World App",
-        fund_url: `https://world-relay.vercel.app/task/${task.id}`,
-      } : {
-        message: `Task funded with $${bounty_usdc} USDC on-chain`,
-      }),
+      method: "points",
+      funded: false,
+      message: "Points favour posted. Escrow funding is retired — campaign USDC is paid by direct transfer, not via this API.",
     },
-    escrow_contract: process.env.NEXT_PUBLIC_ESCROW_ADDRESS || "0x274C38eA9944f57D24A59fbEf558bba2264f9351",
     ...(callback_url ? { callback_url_registered: true } : {}),
   }, { status: 201 });
 }

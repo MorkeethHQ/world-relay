@@ -2985,8 +2985,10 @@ function TaskDetail({
 
         {/* Payment auto-releases via server - no manual release needed */}
 
-        {/* Uniswap swap — claimant can convert received USDC */}
-        {currentTask.status === "completed" && isClaimant && isMiniKit() && (
+        {/* Swap Earnings retired: World Chain router 0x68b3…Fc45 has no
+            exactInputSingle selector (2109-byte contract). encodeUniswapSwap
+            returns null; do not offer a button that builds a dead transaction. */}
+        {false && currentTask.status === "completed" && isClaimant && isMiniKit() && (
           <div className="bg-white border border-gray-200 rounded-2xl p-4">
             <div className="flex items-center gap-2 mb-3">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f472b6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -3177,7 +3179,7 @@ function TaskDetail({
         {isPoster && (currentTask.status === "open" || currentTask.status === "claimed") && (
           <button
             onClick={async () => {
-              if (!confirm("Cancel this favour? If funded, your USDC will be refunded.")) return;
+              if (!confirm("Cancel this favour?")) return;
               const res = await fetch(`/api/tasks/${currentTask.id}/cancel`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },

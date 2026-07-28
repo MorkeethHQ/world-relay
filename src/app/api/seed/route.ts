@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createTask } from "@/lib/store";
+import { CUSTODY_RETIRED } from "@/lib/custody";
 
 const ADMIN_SECRET = process.env.ADMIN_SECRET;
 
@@ -7,6 +8,8 @@ const ADMIN_SECRET = process.env.ADMIN_SECRET;
 // escrowTxHash ("funded") that passed truthiness funding guards with no on-chain
 // backing (Inv 3). Funded seeding now goes ONLY through the batch path below
 // (body.tasks → isEscrowTaskFunded verification). Points onboarding seeds are safe.
+// With CUSTODY_RETIRED, the funded batch path is closed — ops scripts that still
+// deposit on-chain must not bind those deposits into the app.
 const ONBOARDING_TASKS = [
   { description: "Try RELAY Favours and tell us what you think! What's confusing? What's cool? What would you change?", location: "Anywhere", category: "feedback" as const, bountyUsdc: 0.50, deadlineHours: 336, agentId: "relay", maxCompletions: 50 },
   { description: "What favour would you ask someone nearby to do for you right now? Describe the task and how much you'd pay.", location: "Anywhere", category: "feedback" as const, bountyUsdc: 0.50, deadlineHours: 336, agentId: "relay", maxCompletions: 50 },
@@ -42,11 +45,17 @@ export async function POST(req: NextRequest) {
       // truthy placeholder like "funded" — otherwise the task passes every
       // truthiness-based funding guard in the app with no on-chain backing.
       const funded = t.onChainId != null && typeof t.escrowTxHash === "string" && /^0x[0-9a-fA-F]{64}$/.test(t.escrowTxHash);
+      if (CUSTODY_RETIRED && funded) {
+        return NextResponse.json({
+          error: "Custody retired",
+          detail: `Funded seed at index ${i} rejected. Points-only seeds are still allowed.`,
+        }, { status: 410 });
+      }
       const pointsOnly = t.rewardType === "points";
       // Points tasks carry a points VALUE in bountyUsdc (0-10, never funded); USDC
       // tasks must be escrow-funded. Points and money never cross (Inv 1/3).
       const validPoints = pointsOnly && t.bountyUsdc >= 0 && t.bountyUsdc <= 10;
-      const validUsdc = !pointsOnly && t.bountyUsdc > 0 && funded;
+      const validUsdc = !CUSTODY_RETIRED && !pointsOnly && t.bountyUsdc > 0 && funded;
       if (
         typeof t.description !== "string" || !t.description.trim() ||
         typeof t.location !== "string" || !t.location.trim() ||

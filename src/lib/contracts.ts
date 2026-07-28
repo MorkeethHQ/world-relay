@@ -213,39 +213,13 @@ export function encodeUniswapSwap(
   toToken: SwapToken,
   recipientAddress: `0x${string}`
 ) {
-  if (toToken === "USDC") return null;
-
-  const amountIn = parseUnits(amountUsdc.toString(), 6);
-
-  const approveData = encodeFunctionData({
-    abi: ERC20_APPROVE_ABI,
-    functionName: "approve",
-    args: [SWAP_ROUTER_ADDRESS, amountIn],
-  });
-
-  const swapData = encodeFunctionData({
-    abi: SWAP_ROUTER_ABI,
-    functionName: "exactInputSingle",
-    args: [
-      {
-        tokenIn: USDC_ADDRESS,
-        tokenOut: TOKEN_ADDRESSES[toToken],
-        fee: 3000, // 0.3% pool
-        recipient: recipientAddress,
-        amountIn,
-        amountOutMinimum: BigInt(0), // accept any amount for demo
-        sqrtPriceLimitX96: BigInt(0),
-      },
-    ],
-  });
-
-  return {
-    chainId: WORLD_CHAIN_ID,
-    transactions: [
-      { to: USDC_ADDRESS, data: approveData },
-      { to: SWAP_ROUTER_ADDRESS, data: swapData },
-    ],
-  };
+  // World Chain address 0x68b3…Fc45 is a 2109-byte contract with no
+  // exactInputSingle selector — every swap reverts. Do not build the tx.
+  // (Also independent of custody retirement: this is a dead external target.)
+  void amountUsdc;
+  void toToken;
+  void recipientAddress;
+  return null;
 }
 
 const RPC_URL = "https://worldchain-mainnet.g.alchemy.com/public";

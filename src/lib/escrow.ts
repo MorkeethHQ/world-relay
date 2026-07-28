@@ -2,6 +2,7 @@ import { createWalletClient, createPublicClient, http, parseUnits, formatUnits }
 import { privateKeyToAccount } from "viem/accounts";
 import { worldchain } from "viem/chains";
 import { getRedis } from "./redis";
+import { custodyClosed } from "./custody";
 
 const RPC_URL = "https://worldchain-mainnet.g.alchemy.com/public";
 
@@ -567,6 +568,9 @@ export async function createEscrowTask(
   bountyUsdc: number,
   deadlineHours: number
 ): Promise<{ onChainId: number; txHash: string } | null> {
+  // Custody retired: no new funds may enter the escrow. Leave/refund paths stay.
+  // See src/lib/custody.ts.
+  if (custodyClosed()) return null;
   const wallet = getWalletClient();
   if (!wallet) return null;
 
@@ -643,6 +647,10 @@ export async function createEscrowTaskWithKey(
   bountyUsdc: number,
   deadlineHours: number
 ): Promise<{ onChainId: number; txHash: string } | null> {
+  // Custody retired: this was the agent API enter path that survived the first
+  // three-layer close (POST /api/agent/tasks fund:true). Closed at the function
+  // so every caller is covered, not just the route that remembered to check.
+  if (custodyClosed()) return null;
   const formattedKey = privateKey.startsWith("0x") ? privateKey : `0x${privateKey}`;
   const account = privateKeyToAccount(formattedKey as `0x${string}`);
   const client = createWalletClient({ account, chain: worldchain, transport: http(RPC_URL) });

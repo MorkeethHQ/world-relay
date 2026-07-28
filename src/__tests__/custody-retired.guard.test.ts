@@ -5,6 +5,7 @@ import {
   encodeCreateTask,
   encodeClaimTask,
   encodeReleasePayment,
+  encodeUniswapSwap,
 } from "@/lib/contracts";
 import { CUSTODY_RETIRED, custodyClosed } from "@/lib/custody";
 
@@ -117,6 +118,71 @@ describe("layer 3 — the API refuses to record new custody", () => {
     // on who is asking.
     expect(post.indexOf("CUSTODY_RETIRED")).toBeLessThan(post.indexOf("checkAgentAuth"));
   });
+
+  it("closes GET /api/agent/fund so it cannot advertise deposits", () => {
+    const src = strip(read("src", "app", "api", "agent", "fund", "route.ts"));
+    const get = src.slice(src.indexOf("export async function GET"), src.indexOf("export async function POST"));
+    expect(get).toMatch(/CUSTODY_RETIRED/);
+    expect(get).toMatch(/status: 410/);
+    // 410 must fire before any howToDeposit instruction is reachable.
+    expect(get.indexOf("CUSTODY_RETIRED")).toBeLessThan(get.indexOf("howToDeposit"));
+    expect(get.indexOf("status: 410")).toBeLessThan(get.indexOf("howToDeposit"));
+  });
+
+  it("rejects escrow funding on POST /api/agent/tasks with 410", () => {
+    // The first retirement closed /api/agent/fund but left /api/agent/tasks able
+    // to call createEscrowTaskWithKey. This must stay closed.
+    const src = strip(read("src", "app", "api", "agent", "tasks", "route.ts"));
+    const post = src.slice(src.indexOf("export async function POST"));
+    expect(post).toMatch(/CUSTODY_RETIRED && \(fund \|\| escrow_tx_hash \|\| on_chain_id/);
+    expect(post).toMatch(/status: 410/);
+    expect(post).not.toMatch(/createEscrowTaskWithKey/);
+    expect(post).toMatch(/rewardType: "points"/);
+  });
+
+  it("rejects PATCH escrow binds with 410", () => {
+    const src = strip(read("src", "app", "api", "tasks", "[id]", "route.ts"));
+    const patch = src.slice(src.indexOf("export async function PATCH"));
+    expect(patch).toMatch(/CUSTODY_RETIRED/);
+    expect(patch).toMatch(/status: 410/);
+    expect(patch.indexOf("CUSTODY_RETIRED")).toBeLessThan(patch.indexOf("setOnChainId"));
+  });
+
+  it("rejects funded seed batches with 410", () => {
+    const src = strip(read("src", "app", "api", "seed", "route.ts"));
+    expect(src).toMatch(/CUSTODY_RETIRED && funded/);
+    expect(src).toMatch(/status: 410/);
+  });
+});
+
+describe("layer 4 — write helpers cannot enter the escrow", () => {
+  it("gates createEscrowTaskWithKey and createEscrowTask", () => {
+    const src = strip(read("src", "lib", "escrow.ts"));
+    for (const name of ["createEscrowTaskWithKey", "createEscrowTask"]) {
+      const fn = src.slice(src.indexOf(`export async function ${name}`));
+      const body = fn.slice(0, fn.indexOf("export async function", 1) === -1 ? 800 : fn.indexOf("export async function", 1));
+      expect(body, name).toMatch(/custodyClosed\(\)/);
+    }
+  });
+
+  it("gates agent-escrow enter encoders and createAgentTask", () => {
+    const src = strip(read("src", "lib", "agent-escrow.ts"));
+    for (const name of ["createAgentTask", "encodeAgentDeposit", "encodeAgentWithdraw"]) {
+      expect(src, name).toMatch(new RegExp(`function ${name}[\\s\\S]{0,200}custodyClosed\\(\\)`));
+    }
+  });
+
+  it("cannot encode a Uniswap swap (dead World Chain router)", () => {
+    expect(
+      encodeUniswapSwap(5, "WETH", "0x1101158041fd96f21cbcbb0e752a9a2303e6d70e")
+    ).toBeNull();
+  });
+
+  it("does not render Swap Earnings to users", () => {
+    const feed = read("src", "components", "Feed.tsx");
+    // The block may remain in source for history, but must not be reachable.
+    expect(feed).toMatch(/Swap Earnings retired|\{false && currentTask\.status === "completed"/);
+  });
 });
 
 describe("what retirement must NOT have broken", () => {
@@ -180,12 +246,8 @@ describe("no surface still claims FAVOUR holds money", () => {
     expect(offenders, "user-facing copy still quotes an escrow fee").toEqual([]);
   });
 
-  it("states plainly that FAVOUR takes no custody", () => {
-    for (const parts of [SURFACES[0], SURFACES[1]]) {
-      const flat = strip(read(...parts)).replace(/\s+/g, " ");
-      expect(flat, `${parts.join("/")} must state the no-custody position`).toMatch(
-        /takes no custody|does not hold your money/i
-      );
-    }
+  it("does not promise a USDC refund on cancel for every favour", () => {
+    const feed = read("src", "components", "Feed.tsx");
+    expect(feed).not.toMatch(/If funded, your USDC will be refunded/);
   });
 });

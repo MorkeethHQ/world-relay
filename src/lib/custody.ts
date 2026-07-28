@@ -37,6 +37,18 @@
  *   and there is nothing of ours for World to verify. Points, predictions,
  *   polls and jury are untouched: predictions stake POINTS, not USDC.
  *
+ * Closed at independent layers, each with a guard test (see
+ * `src/__tests__/custody-retired.guard.test.ts`):
+ *   1. encoders in contracts.ts return null (custodyClosed)
+ *   2. UI post picker + fund button gated
+ *   3. POST /api/tasks rejects money favours; /api/agent/fund → 410
+ *   4. POST /api/agent/tasks funding/bind → 410; PATCH escrow bind → 410;
+ *      seed funded batch → 410; createEscrowTaskWithKey / createAgentTask /
+ *      encodeAgentDeposit|Withdraw gated; encodeUniswapSwap always null
+ *
+ * Leave paths (releaseEscrow / refundEscrow / reconcile / expire) stay so
+ * historical Open/Claimed rows can still settle. NEW enter is closed.
+ *
  * The remaining escrow code is deliberately left in place, read-only, so the
  * historical record (37 on-chain tasks, $27.50 paid out) stays legible and the
  * reconcile/expire crons keep working. What is closed is the way IN.

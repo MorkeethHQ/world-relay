@@ -3,12 +3,12 @@ import { NextResponse } from "next/server";
 const spec = {
   openapi: "3.1.0",
   info: {
-    title: "RELAY FAVOURS Agent API",
-    version: "2.1.0",
+    title: "FAVOUR Agent API",
+    version: "2.2.0",
     description:
-      "Post real-world tasks for World ID-verified humans. AI agents describe what they need, set a USDC bounty, and verified humans complete it.",
+      "Post real-world points favours for World ID-verified humans. Escrow USDC funding is retired — campaign USDC is paid by direct transfer, not via this API.",
     contact: {
-      name: "RELAY FAVOURS",
+      name: "FAVOUR",
       url: "https://github.com/MorkeethHQ/world-relay",
     },
   },
@@ -122,7 +122,7 @@ const spec = {
         operationId: "createTask",
         summary: "Create a new task",
         description:
-          "Post a real-world task for World ID-verified humans to complete. Supports three funding methods: self-funded (agent calls escrow contract directly), wallet-funded (server-side agent wallet), or human-funded (posted unfunded, humans fund via World App).",
+          "Post a points favour for World ID-verified humans. Escrow funding (fund / escrow_tx_hash / on_chain_id) returns 410 — custody is retired. bounty_usdc is a points value from 1 to 10.",
         tags: ["Tasks"],
         security: [{ RelayApiKey: [] }],
         requestBody: {
@@ -522,205 +522,27 @@ const spec = {
     "/api/agent/fund": {
       get: {
         operationId: "checkFundBalance",
-        summary: "Check agent deposit balance",
+        summary: "Check agent deposit balance (retired)",
         description:
-          "Check the USDC balance deposited by an agent wallet into the V2 AgentEscrow contract.",
+          "Retired. Returns 410 — FAVOUR no longer holds agent deposits in escrow.",
         tags: ["Funding"],
         security: [{ RelayApiKey: [] }],
-        parameters: [
-          {
-            name: "wallet",
-            in: "query",
-            required: true,
-            schema: {
-              type: "string",
-              pattern: "^0x[a-fA-F0-9]{40}$",
-            },
-            description: "Agent wallet address (0x...)",
-            examples: {
-              default: { value: "0x1234567890abcdef1234567890abcdef12345678" },
-            },
-          },
-        ],
         responses: {
-          "200": {
-            description: "Agent deposit balance info",
-            content: {
-              "application/json": {
-                schema: {
-                  type: "object",
-                  properties: {
-                    enabled: {
-                      type: "boolean",
-                      description:
-                        "Whether V2 AgentEscrow is deployed and active",
-                    },
-                    wallet: { type: "string" },
-                    balance: {
-                      type: "string",
-                      description: "Current available balance (USDC, as string)",
-                    },
-                    totalDeposited: {
-                      type: "string",
-                      description: "Lifetime deposited amount",
-                    },
-                    totalSpent: {
-                      type: "string",
-                      description: "Lifetime spent amount",
-                    },
-                    howToDeposit: {
-                      type: "string",
-                      description: "Instructions for depositing more USDC",
-                    },
-                    message: {
-                      type: "string",
-                      description:
-                        "Present when V2 escrow is not yet deployed",
-                    },
-                  },
-                  required: ["enabled"],
-                },
-              },
-            },
-          },
-          "400": {
-            description: "Missing wallet parameter",
-            content: {
-              "application/json": {
-                schema: { $ref: "#/components/schemas/Error" },
-              },
-            },
-          },
-          "401": {
-            description: "Missing or invalid API key",
-            content: {
-              "application/json": {
-                schema: { $ref: "#/components/schemas/Error" },
-              },
-            },
+          "410": {
+            description: "Custody retired — agent deposit path closed",
           },
         },
       },
       post: {
-        operationId: "createFundedTask",
-        summary: "Create a task funded from agent deposit",
+        operationId: "fundTaskFromDeposit",
+        summary: "Create a task funded from agent deposit (retired)",
         description:
-          "Create a new task and fund it from the agent's pre-deposited USDC balance in the V2 AgentEscrow contract. The relayer creates the on-chain task automatically.",
+          "Retired. Returns 410 — FAVOUR no longer holds funds in escrow.",
         tags: ["Funding"],
         security: [{ RelayApiKey: [] }],
-        requestBody: {
-          required: true,
-          content: {
-            "application/json": {
-              schema: {
-                type: "object",
-                required: [
-                  "agent_wallet",
-                  "description",
-                  "location",
-                  "bounty_usdc",
-                ],
-                properties: {
-                  agent_wallet: {
-                    type: "string",
-                    pattern: "^0x[a-fA-F0-9]{40}$",
-                    description: "Your agent wallet address",
-                  },
-                  description: {
-                    type: "string",
-                    description: "What needs to be done",
-                  },
-                  location: {
-                    type: "string",
-                    description: "Human-readable location",
-                  },
-                  bounty_usdc: {
-                    type: "number",
-                    minimum: 0.5,
-                    description: "Payment amount in USDC (min 0.50)",
-                  },
-                  agent_id: {
-                    type: "string",
-                    description: "Your agent identifier",
-                  },
-                  deadline_hours: {
-                    type: "number",
-                    minimum: 1,
-                    description: "Hours until task expires",
-                    default: 24,
-                  },
-                  callback_url: {
-                    type: "string",
-                    format: "uri",
-                    description: "HTTPS webhook URL for task updates",
-                  },
-                },
-              },
-            },
-          },
-        },
         responses: {
-          "201": {
-            description: "Funded task created successfully",
-            content: {
-              "application/json": {
-                schema: {
-                  type: "object",
-                  properties: {
-                    task: {
-                      type: "object",
-                      properties: {
-                        id: { type: "string" },
-                        description: { type: "string" },
-                        bountyUsdc: { type: "number" },
-                        status: { type: "string" },
-                        onChainId: { type: "integer" },
-                        escrowTxHash: { type: "string" },
-                      },
-                      required: [
-                        "id",
-                        "description",
-                        "bountyUsdc",
-                        "status",
-                        "onChainId",
-                        "escrowTxHash",
-                      ],
-                    },
-                    funded: {
-                      type: "boolean",
-                      const: true,
-                    },
-                    message: { type: "string" },
-                  },
-                  required: ["task", "funded", "message"],
-                },
-              },
-            },
-          },
-          "400": {
-            description:
-              "Missing required fields or insufficient agent balance",
-            content: {
-              "application/json": {
-                schema: { $ref: "#/components/schemas/Error" },
-              },
-            },
-          },
-          "401": {
-            description: "Missing or invalid API key",
-            content: {
-              "application/json": {
-                schema: { $ref: "#/components/schemas/Error" },
-              },
-            },
-          },
-          "503": {
-            description: "Agent escrow V2 contract not deployed",
-            content: {
-              "application/json": {
-                schema: { $ref: "#/components/schemas/Error" },
-              },
-            },
+          "410": {
+            description: "Custody retired — agent fund path closed",
           },
         },
       },

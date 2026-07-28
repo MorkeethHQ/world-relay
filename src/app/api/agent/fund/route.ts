@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAgentBalance, createAgentTask, isAgentEscrowEnabled, encodeAgentDeposit } from "@/lib/agent-escrow";
+import { getAgentBalance, createAgentTask, isAgentEscrowEnabled } from "@/lib/agent-escrow";
 import { createTask } from "@/lib/store";
 import { postTaskCreated } from "@/lib/xmtp";
 import { broadcastEvent } from "@/lib/sse";
@@ -9,6 +9,15 @@ import { CUSTODY_RETIRED } from "@/lib/custody";
 
 // GET /api/agent/fund — check agent's deposited balance
 export async function GET(req: NextRequest) {
+  // Custody retired: do not advertise deposit instructions against the proxy.
+  if (CUSTODY_RETIRED) {
+    return NextResponse.json({
+      enabled: false,
+      custody_retired: true,
+      message: "FAVOUR no longer holds funds in escrow. Agent deposit / fund is retired.",
+    }, { status: 410 });
+  }
+
   const auth = await checkAgentAuth(req);
   if (!auth.authenticated) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
