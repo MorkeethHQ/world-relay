@@ -187,7 +187,13 @@ export async function POST(req: NextRequest) {
     if (!seedCap.allowed) {
       // The churn moment: a motivated user told to stop. Now measurable.
       trackEvent("cap_hit", { submitter: submitter || "" }).catch(() => {});
-      return NextResponse.json({ error: "Daily limit reached", message: seedCap.message }, { status: 403 });
+      return NextResponse.json({
+        error: "Daily limit reached",
+        message: seedCap.message,
+        // The client turns this into a real button. Without it the most engaged
+        // user in the app hits a wall with nowhere to go.
+        nextAction: seedCap.nextAction ?? null,
+      }, { status: 403 });
     }
     // Verification-tier gate for funded tasks. /claim enforces this, but direct
     // submission bypassed it — a wallet-level user could earn a $20 orb-only
