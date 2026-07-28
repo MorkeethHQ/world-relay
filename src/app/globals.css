@@ -26,12 +26,52 @@ html, body {
   -webkit-overflow-scrolling: touch;
 }
 
+/*
+ * iOS: why the bottom nav ran off the screen (World review rejection, Jul 2026).
+ *
+ * A SINGLE horizontally-overflowing element widens the LAYOUT viewport, and every
+ * `position: fixed` element is laid out against the layout viewport — not the
+ * visible one. So one over-wide element anywhere on the page stretches the fixed
+ * BottomNav to match, and its right-hand icons (Ranks, Profile) end up past the
+ * edge of the screen. `overflow-x: hidden` on <body> alone does NOT prevent this;
+ * measured on the live app, injecting one 600px element took window.innerWidth
+ * from 320 to 600 and the nav's width with it.
+ *
+ * The clip has to live on <main>, NOT on <html> or <body>:
+ *   - on <body>, `overflow-x: hidden` (what we had) PROPAGATES to the viewport
+ *     rather than clipping in place, which is exactly why it never worked here;
+ *   - on <html> it does contain the overflow, but it stops that propagation and
+ *     makes the root a scroll container — measured, that detaches the `sticky
+ *     top-0` headers on /history and /polls and they scroll away with the page;
+ *   - on <main> it clips in place. `clip` (unlike `hidden`) never creates a
+ *     scroll container, so the sticky headers inside it still resolve against
+ *     the viewport and keep working.
+ *
+ * `break-word` is the second layer: favour descriptions are user-written and some
+ * are a bare 42-character wallet address, which is unbreakable text wider than a
+ * 320px screen — it wraps now instead of overflowing.
+ */
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+.viewport-clip {
+  overflow-x: clip;
+  max-width: 100%;
+}
+
 body {
   background: #FAFAFA;
   color: #191C20;
   font-family: var(--font-sans, "TWK Lausanne", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
   -webkit-font-smoothing: antialiased;
   min-height: 100dvh;
+  overflow-wrap: break-word;
+}
+
+/* Media can never be the over-wide element either. */
+img, svg, video, canvas, iframe {
+  max-width: 100%;
 }
 
 input, textarea {

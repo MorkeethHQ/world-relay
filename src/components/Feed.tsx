@@ -2192,7 +2192,7 @@ function SubmitProof({
                   </span>
                   <span className="text-xs font-medium text-gray-900">{rewardLabel(task)}</span>
                 </div>
-                <p className="text-sm font-medium leading-snug text-gray-900">{task.description}</p>
+                <p className="text-sm font-medium leading-snug break-words text-gray-900">{task.description}</p>
                 <div className="flex items-center gap-2 mt-2">
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9BA3AE" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />

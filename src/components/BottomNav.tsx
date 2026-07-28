@@ -80,22 +80,30 @@ export function BottomNav() {
       aria-label="Main navigation"
     >
       {/* Custom compact items — the kit's TabItem renders far too large on
-          mobile with 5 tabs (Oscar Jul 5 night review). */}
-      <div className="flex items-center justify-around pt-1.5 pb-1">
+          mobile with 5 tabs (Oscar Jul 5 night review).
+
+          The items DIVIDE the row (`flex-1 min-w-0`) rather than each claiming a
+          fixed `min-w-[56px]`. Five fixed 56px items sum to 280px, which fits a
+          320px screen with no margin for a wider label — and on iOS labels do get
+          wider (font fallback inside the World App webview, larger accessibility
+          text). Dividing the row means the icons cannot exceed the screen no
+          matter how wide the labels want to be. Second half of the World review
+          fix; the first half is the `overflow-x: clip` rule in globals.css. */}
+      <div className="flex items-center pt-1.5 pb-1 w-full max-w-full">
         {ROUTES.map((route) => {
           const active = route.value === activeValue;
           return (
             <button
               key={route.value}
               onClick={() => router.push(route.value)}
-              className={`flex flex-col items-center justify-center gap-0.5 min-w-[56px] min-h-[44px] transition-colors ${
+              className={`flex-1 min-w-0 flex flex-col items-center justify-center gap-0.5 min-h-[44px] px-0.5 transition-colors ${
                 active ? "text-gray-900" : "text-gray-400"
               }`}
               aria-label={route.label}
               aria-current={active ? "page" : undefined}
             >
-              <span className="[&>svg]:w-[21px] [&>svg]:h-[21px]">{route.icon}</span>
-              <span className={`text-[9.5px] leading-none ${active ? "font-semibold" : "font-medium"}`}>{route.label}</span>
+              <span className="shrink-0 [&>svg]:w-[21px] [&>svg]:h-[21px]">{route.icon}</span>
+              <span className={`w-full truncate text-center text-[9.5px] leading-none ${active ? "font-semibold" : "font-medium"}`}>{route.label}</span>
             </button>
           );
         })}
