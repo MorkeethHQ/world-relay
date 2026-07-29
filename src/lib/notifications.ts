@@ -94,6 +94,39 @@ export async function notifyFlagged(posterAddress: string, taskDescription: stri
   );
 }
 
+// World's send-notification endpoint accepts at most 1000 addresses per call.
+const MAX_ADDRESSES_PER_CALL = 1000;
+
+// "A new question is live" — the comeback hook of the daily loop. Batched;
+// returns how many addresses were in successfully-sent batches. Callers gate
+// this behind DAILY_NOTIFY_ENFORCE (see lib/daily-notify.ts) — the transport
+// itself stays dumb.
+export async function notifyNewDaily(addresses: string[], question: string): Promise<number> {
+  let sent = 0;
+  for (let i = 0; i < addresses.length; i += MAX_ADDRESSES_PER_CALL) {
+    const chunk = addresses.slice(i, i + MAX_ADDRESSES_PER_CALL);
+    const ok = await sendNotification(
+      chunk,
+      "Today's favour is live",
+      `The world is answering: "${question.slice(0, 120)}" — 30 seconds, then see the reveal.`,
+      "/"
+    );
+    if (ok) sent += chunk.length;
+  }
+  return sent;
+}
+
+// Per-address because the message carries the streak number — the loss frame
+// ("ends at midnight") is the whole reason this notification earns its slot.
+export async function notifyStreakAtRisk(address: string, streak: number): Promise<boolean> {
+  return sendNotification(
+    [address],
+    "Your streak ends at midnight",
+    `${streak} day${streak === 1 ? "" : "s"} straight. Today's favour takes 30 seconds — keep it alive.`,
+    "/"
+  );
+}
+
 export async function notifyClaimReminder(
   claimantAddress: string,
   taskDescription: string,

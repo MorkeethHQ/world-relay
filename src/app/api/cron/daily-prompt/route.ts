@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ensurePromptFor } from "@/lib/daily-generator";
 import { utcDate } from "@/lib/daily";
+import { runDailyNotifyPass } from "@/lib/daily-notify";
 
 // Writes TOMORROW's top favour, and backfills today's if it is somehow missing.
 //
@@ -21,5 +22,14 @@ export async function GET(req: NextRequest) {
     tomorrow: await ensurePromptFor(tomorrow),
   };
 
-  return NextResponse.json({ ok: true, ...results });
+  // Comeback notifications ride the same cron. Dark until DAILY_NOTIFY_ENFORCE
+  // is flipped; deduped per pass per day, so the two cron entries (morning +
+  // 22:00 UTC) can never double-send. A notify failure never fails the cron —
+  // the prompts above are the part the gate depends on.
+  const notify = await runDailyNotifyPass(Date.now()).catch((e) => {
+    console.error("[Cron] daily notify pass failed:", e);
+    return { error: String(e) };
+  });
+
+  return NextResponse.json({ ok: true, ...results, notify });
 }
