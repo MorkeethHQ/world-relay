@@ -80,6 +80,18 @@ async function main() {
   if (!res.ok) throw new Error(`GET /api/tasks failed: ${res.status}`);
   const { tasks } = (await res.json()) as { tasks: ApiTask[] };
 
+  // Retention (day-over-day cohorts, computed server-side by /api/stats/retention).
+  // Tolerant of absence: an older deploy without the route must not kill the pulse.
+  type RetentionDay = { date: string; dau: number; reach: number; d1Rate: number | null; d7Rate: number | null; events: Record<string, number> };
+  type RetentionReport = { days: RetentionDay[]; summary: { medianD1Rate: number | null; latestD1Rate: number | null; d1Trend: number | null } };
+  let retention: RetentionReport | null = null;
+  try {
+    const r = await fetch(`${APP_URL}/api/stats/retention`);
+    if (r.ok) retention = (await r.json()) as RetentionReport;
+  } catch {
+    /* route not deployed yet — section renders as unavailable */
+  }
+
   let prev: Snapshot | null = null;
   try {
     prev = JSON.parse(fs.readFileSync(STATE_PATH, "utf8"));
@@ -122,6 +134,13 @@ async function main() {
   const dupeDescs = [...descCounts.values()].filter((n) => n > 2).length;
 
   const alerts: string[] = [];
+  // Retention alerts: the leak is a measured number now, so alert on the number.
+  if (retention?.summary.latestD1Rate !== null && retention?.summary.latestD1Rate !== undefined && retention.summary.latestD1Rate < 0.2) {
+    alerts.push(`D1 return rate ${(retention.summary.latestD1Rate * 100).toFixed(0)}% — fewer than 1 in 5 of yesterday's users came back`);
+  }
+  if (retention?.summary.d1Trend !== null && retention?.summary.d1Trend !== undefined && retention.summary.d1Trend < -0.05) {
+    alerts.push(`D1 retention trending down (${(retention.summary.d1Trend * 100).toFixed(1)}pp over last 3 days vs prior 3)`);
+  }
   if (fundingUsdc < 2) alerts.push(`Funding wallet low: ${fmt(fundingUsdc)} USDC — no more seeding until topped up`);
   if (relayerUsdc < 1) alerts.push(`Relayer wallet low: ${fmt(relayerUsdc)} USDC`);
   if (stuckSettlements.length > 0) alerts.push(`${stuckSettlements.length} settlement(s) pending release — check reconcile cron`);
@@ -152,6 +171,20 @@ async function main() {
     `- Funding wallet 0x244e…786b: ${fmt(fundingUsdc)}${delta(fundingUsdc, prev?.fundingUsdc)}`,
     `- Open funded tasks: ${openFunded.length} (${fmt(openFunded.reduce((s, t) => s + t.bountyUsdc, 0))} committed)`,
     `- Settlements pending: ${stuckSettlements.length}`,
+    "",
+    "## Retention (day-over-day cohorts)",
+    ...(retention
+      ? [
+          `- Median D1 return rate (14d): ${retention.summary.medianD1Rate !== null ? (retention.summary.medianD1Rate * 100).toFixed(0) + "%" : "n/a"}`,
+          `- Latest D1: ${retention.summary.latestD1Rate !== null ? (retention.summary.latestD1Rate * 100).toFixed(0) + "%" : "n/a"} · trend: ${retention.summary.d1Trend !== null ? (retention.summary.d1Trend >= 0 ? "+" : "") + (retention.summary.d1Trend * 100).toFixed(1) + "pp" : "n/a"}`,
+          "",
+          "| date | DAU | reach | D1 | D7 | verdicts | proofs | created | cap hits |",
+          "|------|-----|-------|----|----|----------|--------|---------|----------|",
+          ...retention.days.slice(-7).map((d) =>
+            `| ${d.date} | ${d.dau} | ${d.reach} | ${d.d1Rate !== null ? (d.d1Rate * 100).toFixed(0) + "%" : "—"} | ${d.d7Rate !== null ? (d.d7Rate * 100).toFixed(0) + "%" : "—"} | ${d.events.jury_verdict ?? 0} | ${d.events.proof_submitted ?? 0} | ${d.events.task_created ?? 0} | ${d.events.cap_hit ?? 0} |`,
+          ),
+        ]
+      : ["- unavailable (retention route not deployed yet — ships with the board-replenish branch)"]),
     "",
     "## Created (last 24h)",
     `- User-posted: ${userPosted.length}`,
