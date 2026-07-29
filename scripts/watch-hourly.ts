@@ -83,11 +83,22 @@ async function main() {
   // Ticker: header + last 48 delta lines (newest first), only appended when something happened.
   const header = `---\ndate: ${ts.slice(0, 10)}\ntags: [favour, live]\nsource: watch-hourly\n---\n\n# FAVOUR live\n\nLast check ${ts} — board OK, ${openCount} open, ${completedCount} completed. Totals: ${counts.jury_verdict} jury verdicts, ${counts.poll_vote} poll votes, ${counts.prediction_stake} stakes, ${counts.unlock_paid} unlocks.\n`;
   let history: string[] = [];
-  if (existsSync(TICKER)) {
-    const old = readFileSync(TICKER, "utf8");
-    history = old.split("\n").filter((l) => /^\d{4}-\d{2}-\d{2}T/.test(l)).slice(0, 48);
+  try {
+    if (existsSync(TICKER)) {
+      const old = readFileSync(TICKER, "utf8");
+      history = old.split("\n").filter((l) => /^\d{4}-\d{2}-\d{2}T/.test(l)).slice(0, 48);
+    }
+  } catch (e) {
+    // iCloud placeholder files intermittently throw EIO/"Unknown system error -11"
+    // on read even when existsSync sees them. Don't let a transient sync glitch
+    // crash the watcher and skip the ticker update — carry on with no history.
+    console.error("ticker history read failed, continuing without it:", e);
   }
-  writeFileSync(TICKER, header + "\n" + [...lines, ...history].slice(0, 48).join("\n") + "\n");
+  try {
+    writeFileSync(TICKER, header + "\n" + [...lines, ...history].slice(0, 48).join("\n") + "\n");
+  } catch (e) {
+    console.error("ticker write failed:", e);
+  }
 }
 
 main().catch((e) => { console.error(e); process.exit(1); });
