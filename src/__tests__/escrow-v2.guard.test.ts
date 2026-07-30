@@ -22,10 +22,15 @@ import {
   buildReleaseTransaction,
   buildRefundTransaction,
   refundExpiredEscrowV2,
+  PERMIT2_ADDRESS,
 } from "@/lib/escrow-v2";
 import { USDC_ADDRESS, WORLD_CHAIN_ID } from "@/lib/contracts";
 
-const DEPLOYED = "0x4a86A95E91AD92e47C7c08edBb01dcB2219bC47C";
+// FavourEscrowV2_1 — Permit2 fund path (INCIDENT 2026-07-31). Predecessor
+// 0x4a86A95E91AD92e47C7c08edBb01dcB2219bC47C was drained (self-test only) and
+// carries no pinned tasks; it remains resolvable via the pinned-address path.
+const DEPLOYED = "0x61041dfC405D6CeA57653B8E8BCBDA209214682f";
+const PREVIOUS = "0x4a86A95E91AD92e47C7c08edBb01dcB2219bC47C";
 const RECIPIENT = "0x244eEE7101fEE95D5040452d235dEa5A5bAA786b" as const;
 
 describe("escrow-v2 dark-by-default gate", () => {
@@ -59,8 +64,11 @@ describe("escrow-v2 dark-by-default gate", () => {
     expect(payload).not.toBeNull();
     expect(payload!.chainId).toBe(WORLD_CHAIN_ID);
     expect(payload!.transactions).toHaveLength(2);
-    // [0] approve on the token, [1] fund on the escrow — BOTH must be portal-whitelisted.
-    expect(payload!.transactions[0].to).toBe(USDC_ADDRESS);
+    // Canonical World App pattern: [0] permit2.approve(USDC, escrow, amount, 0),
+    // [1] escrow.fundWithPermit2 — the batch touches Permit2 + escrow directly
+    // (both need Contract Entrypoints) and USDC via Permit2 (Permit2 Tokens).
+    expect(payload!.transactions[0].to).toBe(PERMIT2_ADDRESS);
+    expect(payload!.transactions[0].data.toLowerCase()).toContain(USDC_ADDRESS.slice(2).toLowerCase());
     expect(payload!.transactions[1].to).toBe(escrowV2Address());
     // The fund calldata embeds the deterministic taskId hash — recipient binding
     // happens inside the contract from these exact args.
@@ -93,7 +101,7 @@ describe("escrow-v2 is replaceable by config (never cornered)", () => {
   it("release/refund builders accept a pinned address override (funded tasks keep resolving after a flip)", () => {
     vi.stubEnv("ESCROW_V2_ENABLED", "1");
     vi.stubEnv("ESCROW_V2_CONTRACT", "0x1111111111111111111111111111111111111111");
-    const pinned = DEPLOYED as `0x${string}`;
+    const pinned = PREVIOUS as `0x${string}`;
     expect(buildReleaseTransaction("t1", pinned)!.transactions[0].to).toBe(pinned);
     expect(buildRefundTransaction("t1", pinned)!.transactions[0].to).toBe(pinned);
   });
@@ -114,7 +122,7 @@ describe("escrow-v2 is replaceable by config (never cornered)", () => {
   });
 
   it("version constant is stamped for task pinning", () => {
-    expect(ESCROW_V2_VERSION).toBe(2);
+    expect(ESCROW_V2_VERSION).toBe(3);
   });
 });
 
@@ -137,14 +145,14 @@ describe("escrow-v2 binding invariants", () => {
     }
   });
 
-  it("fund is the ONLY state-changing function that takes an address", () => {
+  it("the fund entry points are the ONLY state-changing functions that take an address", () => {
     const writers = ESCROW_V2_ABI.filter(
       (f) => f.stateMutability === "nonpayable"
     );
     const withAddress = writers.filter((f) =>
       f.inputs.some((i) => i.type === "address")
     );
-    expect(withAddress.map((f) => f.name)).toEqual(["fund"]);
+    expect(withAddress.map((f) => f.name)).toEqual(["fund", "fundWithPermit2"]);
   });
 
   it("usd->units is exact 6-decimal money math", () => {

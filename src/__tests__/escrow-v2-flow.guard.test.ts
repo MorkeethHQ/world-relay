@@ -377,7 +377,7 @@ describe("class 6/7 — app state only ever follows verified chain state", () =>
     const t = tasks.get("task-1")!;
     expect(t.escrowTxHash).toBe(TX);
     expect(t.escrowV2Address).toBe(CONTRACT);
-    expect(t.escrowV2Version).toBe(2);
+    expect(t.escrowV2Version).toBe(3);
     // Idempotent second report
     const res2 = await escrowPOST(escrowReq({ action: "verify-funded", taskId: "task-1", txHash: TX }));
     expect((await res2.json()).already).toBe(true);

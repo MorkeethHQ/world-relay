@@ -13,7 +13,7 @@ import { describe, it, expect } from "vitest";
 import { readdirSync, readFileSync, statSync } from "fs";
 import { join, relative } from "path";
 
-const V2_ADDRESS = "0x4a86A95E91AD92e47C7c08edBb01dcB2219bC47C";
+const V2_ADDRESS = "0x61041dfC405D6CeA57653B8E8BCBDA209214682f";
 const SRC = join(process.cwd(), "src");
 
 // The config module itself, and the guard tests that pin the deployed value.

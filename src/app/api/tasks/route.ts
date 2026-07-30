@@ -11,6 +11,7 @@ import { trackEvent } from "@/lib/track";
 import { getCampaign } from "@/lib/campaigns";
 import { isEscrowTaskFunded } from "@/lib/escrow";
 import { isTemplateCopy, MIN_DESCRIPTION_LENGTH } from "@/lib/post-templates";
+import { gibberishReason } from "@/lib/post-quality";
 import { toApiTasks, isPublicTask } from "@/lib/task-serializer";
 import { orderBoardForApi } from "@/lib/board-rank";
 import { CUSTODY_RETIRED } from "@/lib/custody";
@@ -115,6 +116,13 @@ export async function POST(req: NextRequest) {
     }
     if (isTemplateCopy(description)) {
       return NextResponse.json({ error: "Describe your favour in your own words — template text can't be posted as-is." }, { status: 400 });
+    }
+    // Gibberish gate (2026-07-31: "Hhfthhcucucyx" reached the public board
+    // with a $1 label). Deterministic, no LLM in the hot path — the deeper
+    // REAL-OR-NOT judge remains a roadmap item.
+    const gibberish = gibberishReason(description);
+    if (gibberish) {
+      return NextResponse.json({ error: gibberish }, { status: 400 });
     }
   }
 

@@ -2037,7 +2037,12 @@ function PostTask({
               fullWidth
               size="lg"
             >
-              {submitting ? "Posting..." : rewardType === "points" ? `Post - ${bounty || "0"} pts` : isInWorld ? `Post & Fund $${bounty || "0"} USDC` : "Post Favour"}
+              {/* INCIDENT 2026-07-31: this label read "Post & Fund" for usdc-v2
+                  while the v2 flow deliberately moves NO money at post time
+                  (funding happens at claimant-accept). The poster believed he
+                  had funded; the chain showed nothing. The label must promise
+                  exactly what the tap does. */}
+              {submitting ? "Posting..." : rewardType === "points" ? `Post - ${bounty || "0"} pts` : rewardType === "usdc-v2" ? `Post - fund $${bounty || "0"} on accept` : isInWorld ? `Post & Fund $${bounty || "0"} USDC` : "Post Favour"}
             </Button>
           </LiveFeedback>
         )}
@@ -2740,6 +2745,11 @@ function TaskDetail({
   const [swapping, setSwapping] = useState(false);
   const [reEvaluating, setReEvaluating] = useState(false);
   const [disputing, setDisputing] = useState(false);
+  // Cancel flow: two-tap confirm (native confirm() is suppressed in the World
+  // App webview) + explicit error surfacing.
+  const [cancelArmed, setCancelArmed] = useState(false);
+  const [cancelBusy, setCancelBusy] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
   const [txSuccess, setTxSuccess] = useState<string | null>(null);
   const [funding, setFunding] = useState(false);
   const isClaimant = currentTask.claimant === userId;
@@ -3257,25 +3267,47 @@ function TaskDetail({
           </div>
         )}
 
-        {/* Cancel task - poster can cancel open/claimed tasks */}
+        {/* Cancel task - poster can cancel open/claimed tasks.
+            No window.confirm here: World App's webview suppresses native
+            dialogs, which made this button a silent no-op (Oscar, 2026-07-31).
+            Two-tap confirm instead, and failures are surfaced, never swallowed. */}
         {isPoster && (currentTask.status === "open" || currentTask.status === "claimed") && (
-          <button
-            onClick={async () => {
-              if (!confirm("Cancel this favour? This cannot be undone.")) return;
-              const res = await fetch(`/api/tasks/${currentTask.id}/cancel`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ poster: userId }),
-              });
-              if (res.ok) {
-                const data = await res.json();
-                if (data.task) setCurrentTask(data.task);
-              }
-            }}
-            className="w-full min-h-[44px] border border-red-200 text-red-600 px-4 py-3 rounded-2xl text-sm font-medium active:scale-[0.98] transition-all hover:bg-red-50"
-          >
-            Cancel favour
-          </button>
+          <div className="flex flex-col gap-2">
+            <button
+              onClick={async () => {
+                if (!cancelArmed) { setCancelArmed(true); setCancelError(null); return; }
+                setCancelBusy(true);
+                setCancelError(null);
+                try {
+                  const res = await fetch(`/api/tasks/${currentTask.id}/cancel`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ poster: userId }),
+                  });
+                  const data = await res.json().catch(() => ({}));
+                  if (res.ok && data.task) {
+                    setCurrentTask(data.task);
+                    setCancelArmed(false);
+                  } else {
+                    setCancelError(data.error || "Could not cancel this favour. Please try again.");
+                  }
+                } catch {
+                  setCancelError("Network error — the favour was not cancelled. Please try again.");
+                } finally {
+                  setCancelBusy(false);
+                }
+              }}
+              disabled={cancelBusy}
+              className={`w-full min-h-[44px] border px-4 py-3 rounded-2xl text-sm font-medium active:scale-[0.98] transition-all disabled:opacity-50 ${
+                cancelArmed ? "border-red-600 bg-red-600 text-white" : "border-red-200 text-red-600 hover:bg-red-50"
+              }`}
+            >
+              {cancelBusy ? "Cancelling..." : cancelArmed ? "Tap again to confirm — this cannot be undone" : "Cancel favour"}
+            </button>
+            {cancelError && (
+              <p className="text-xs text-red-600 text-center">{cancelError}</p>
+            )}
+          </div>
         )}
 
       </div>

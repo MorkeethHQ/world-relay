@@ -988,12 +988,53 @@ type EscrowV2ChainState = {
   } | null;
 };
 
+/**
+ * Pull whatever identifier MiniKit returned. v2 resolves with
+ * { executedWith, data: { userOpHash, ... } } as soon as the user operation is
+ * SUBMITTED — a userOpHash is NOT a transaction hash and NOT proof of mining
+ * (docs.world.org/mini-apps/commands/send-transaction, "Confirming the User
+ * Operation"). It is only ever used as (a) a fallback the server still
+ * re-verifies against the chain's own logs and (b) a handle to poll the
+ * userop status endpoint for early failure detection.
+ */
 function extractV2TxHash(result: unknown): string | null {
   if (typeof result !== "object" || result === null) return null;
   const r = result as Record<string, unknown>;
   if ("transactionHash" in r && r.transactionHash) return String(r.transactionHash);
   if ("userOpHash" in r && r.userOpHash) return String(r.userOpHash);
+  const data = (r as { data?: unknown }).data;
+  if (typeof data === "object" && data !== null) {
+    const d = data as Record<string, unknown>;
+    if (d.transactionHash) return String(d.transactionHash);
+    if (d.userOpHash) return String(d.userOpHash);
+  }
+  const fp = (r as { finalPayload?: unknown }).finalPayload;
+  if (typeof fp === "object" && fp !== null) {
+    const f = fp as Record<string, unknown>;
+    if (f.transaction_id) return String(f.transaction_id);
+  }
   return null;
+}
+
+/**
+ * Best-effort check of the World App user-operation status. The success
+ * animation in World App only proves SUBMISSION — the op can still fail
+ * afterwards (`transaction_failed` class). Returns "failed" | "success" |
+ * "unknown"; any network/CORS hiccup is "unknown" and never blocks the
+ * chain-truth polling loop, which remains the sole authority for FUNDED.
+ */
+async function checkUserOpStatus(userOpHash: string): Promise<"failed" | "success" | "unknown"> {
+  if (!/^0x[0-9a-fA-F]{64}$/.test(userOpHash)) return "unknown";
+  try {
+    const res = await fetch(`https://developer.world.org/api/v2/minikit/userop/${userOpHash}`);
+    if (!res.ok) return "unknown";
+    const d = await res.json().catch(() => null);
+    if (d && typeof d.status === "string") {
+      if (d.status === "failed" || d.status === "reverted") return "failed";
+      if (d.status === "success") return "success";
+    }
+  } catch { /* opaque network failure — chain polling decides */ }
+  return "unknown";
 }
 
 function EscrowV2Panel({ task, onAction }: { task: Task; onAction: () => void }) {
@@ -1061,9 +1102,11 @@ function EscrowV2Panel({ task, onAction }: { task: Task; onAction: () => void })
         hapticError();
         return;
       }
-      setNote({ type: "info", text: "Transaction sent — waiting for on-chain confirmation..." });
-      // Poll the verify action: the server reads the chain itself and only
-      // flips state when the escrow record + event log agree.
+      // NEVER mirror World App's optimism: its success animation only means the
+      // user operation was SUBMITTED (INCIDENT 2026-07-31). From here on, the
+      // only thing that may flip state to FUNDED is the server corroborating
+      // the chain's own escrow record + event log.
+      setNote({ type: "info", text: "Signed — not confirmed yet. Waiting for the chain..." });
       for (let i = 0; i < 12; i++) {
         await new Promise((res) => setTimeout(res, 3000));
         const ver = await fetch("/api/escrow-v2", {
@@ -1079,8 +1122,19 @@ function EscrowV2Panel({ task, onAction }: { task: Task; onAction: () => void })
           onAction();
           return;
         }
+        // Early failure surfacing: if World App reports the submitted user op
+        // as failed, say so plainly instead of letting the user wait out the
+        // loop believing the success animation.
+        if (i === 3 && txHash) {
+          const opStatus = await checkUserOpStatus(txHash);
+          if (opStatus === "failed") {
+            hapticError();
+            setNote({ type: "error", text: "World App reports the transaction failed after signing — nothing moved on-chain and nothing was charged. Please try again." });
+            return;
+          }
+        }
       }
-      setNote({ type: "error", text: "Still waiting for the chain — pull to refresh in a minute. Nothing is lost: the escrow state on-chain is the truth." });
+      setNote({ type: "error", text: "Not confirmed on-chain yet. Nothing shows as funded until the chain says so — pull to refresh in a minute. If this repeats, the transaction likely failed silently in World App; try again." });
     } catch (err) {
       hapticError();
       setNote({ type: "error", text: err instanceof Error ? err.message : "Transaction failed." });

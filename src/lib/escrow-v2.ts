@@ -19,10 +19,14 @@
  *     against their pinned address; new fundings go to the new one. Zero
  *     migration, zero stranded funds, no upgradeability anywhere.
  *
- * Contract (current default): 0x4a86A95E91AD92e47C7c08edBb01dcB2219bC47C
+ * Contract (current default): 0x61041dfC405D6CeA57653B8E8BCBDA209214682f
+ *   (FavourEscrowV2_1 — INCIDENT 2026-07-31 successor of
+ *   0x4a86A95E91AD92e47C7c08edBb01dcB2219bC47C, which had no Permit2 fund
+ *   path; the retired address was never funded by anyone but the deploy
+ *   self-test, verified drained by event-log probe.)
  *   - Immutable: no proxy, no owner, no admin, no pause, no fee. The deployer
  *     key has zero power over it. Source is verified on the explorer:
- *     https://worldchain-mainnet.explorer.alchemy.com/address/0x4a86A95E91AD92e47C7c08edBb01dcB2219bC47C?tab=contract
+ *     https://worldchain-mainnet.explorer.alchemy.com/address/0x61041dfC405D6CeA57653B8E8BCBDA209214682f?tab=contract
  *   - Task-bound: funds bind to (taskId, recipient, amount) at fund time.
  *     release/refund take ONLY the task id — no caller-supplied destination
  *     exists anywhere in the ABI (this kills the redirect/question-swap class).
@@ -51,15 +55,27 @@ import { USDC_ADDRESS, WORLD_CHAIN_ID } from "./contracts";
 
 const RPC_URL = "https://worldchain-mainnet.g.alchemy.com/public";
 
-/** Rail version stamped onto every funded task record. */
-export const ESCROW_V2_VERSION = 2;
+/** Rail version stamped onto every funded task record. 3 = FavourEscrowV2_1
+ *  (Permit2 AllowanceTransfer fund path added after INCIDENT 2026-07-31). */
+export const ESCROW_V2_VERSION = 3;
 
 /**
  * The deployed, source-verified default. The ONLY place this literal may
  * exist outside its own guard test. Everything else calls escrowV2Address().
  */
 const DEFAULT_ESCROW_V2_ADDRESS =
-  "0x4a86A95E91AD92e47C7c08edBb01dcB2219bC47C" as const;
+  "0x61041dfC405D6CeA57653B8E8BCBDA209214682f" as const;
+
+/**
+ * Canonical Permit2 (same address on every chain; bytecode presence on World
+ * Chain verified by eth_getCode probe, 2026-07-31). World App auto-approves
+ * ERC-20s to Permit2 at the token level; mini apps move tokens by batching a
+ * permit2.approve(token, spender, amount, 0) with the contract call that pulls
+ * via permit2.transferFrom (docs.world.org/mini-apps/commands/send-transaction,
+ * "Permit2 Allowance Transfers (Recommended)").
+ */
+export const PERMIT2_ADDRESS =
+  "0x000000000022D473030F116dDEE9F6B43aC78BA3" as const;
 
 /**
  * CONFIG SOURCE for the contract address. ESCROW_V2_CONTRACT in env overrides
@@ -114,6 +130,18 @@ export const ESCROW_V2_ABI = [
     outputs: [],
   },
   {
+    name: "fundWithPermit2",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "taskId", type: "bytes32" },
+      { name: "recipient", type: "address" },
+      { name: "amount", type: "uint96" },
+      { name: "deadline", type: "uint64" },
+    ],
+    outputs: [],
+  },
+  {
     name: "release",
     type: "function",
     stateMutability: "nonpayable",
@@ -148,16 +176,20 @@ export const ESCROW_V2_ABI = [
   },
 ] as const;
 
-const ERC20_APPROVE_ABI = [
+/** Permit2 AllowanceTransfer.approve — the exact ABI from the docs example
+ *  ("You must use this method of Allowance Transfers"). */
+const PERMIT2_APPROVE_ABI = [
   {
     name: "approve",
     type: "function",
     stateMutability: "nonpayable",
     inputs: [
+      { name: "token", type: "address" },
       { name: "spender", type: "address" },
-      { name: "amount", type: "uint256" },
+      { name: "amount", type: "uint160" },
+      { name: "expiration", type: "uint48" },
     ],
-    outputs: [{ name: "", type: "bool" }],
+    outputs: [],
   },
 ] as const;
 
@@ -313,18 +345,25 @@ export type MiniKitTxPayload = {
 };
 
 /**
- * MiniKit transaction batch for the poster's wallet to fund a task:
- * [0] USDC.approve(escrow, amount) — exact amount, no standing allowance
- * [1] escrow.fund(taskIdHash, recipient, amount, deadline)
+ * MiniKit transaction batch for the poster's wallet to fund a task — the
+ * canonical World App Permit2 Allowance Transfer pattern
+ * (docs.world.org/mini-apps/commands/send-transaction):
+ * [0] permit2.approve(USDC, escrow, amount, 0) — expiration 0 means the
+ *     allowance lives only inside this batch ("the approval will be consumed
+ *     in the same transaction"); nothing durable is left behind.
+ * [1] escrow.fundWithPermit2(taskIdHash, recipient, amount, deadline), which
+ *     pulls via permit2.transferFrom(msg.sender, escrow, amount, USDC).
  * The POSTER is the funder and signs this from their own wallet — the server
  * never takes custody and holds no key that can move these funds anywhere
  * except the addresses bound here.
  *
- * Dev Portal note: BOTH target addresses below (the escrow AND World Chain
- * USDC, because approve() is a direct call to the token contract) must be
- * listed under Contract Entrypoints or World App blocks the transaction with
- * `invalid_contract` (docs.world.org/mini-apps/commands/send-transaction; the
- * swap outage documented in contracts.ts hit exactly this).
+ * Dev Portal requirements (Permissions page), or World App blocks the batch
+ * with `invalid_contract`:
+ *   - Contract Entrypoints: the escrow address AND Permit2
+ *     (0x000000000022D473030F116dDEE9F6B43aC78BA3) — both are direct call
+ *     targets of this batch.
+ *   - Permit2 Tokens: World Chain USDC — "every ERC-20 token your app
+ *     transfers via Permit2".
  */
 export function buildFundTransactions(
   appTaskId: string,
@@ -338,18 +377,18 @@ export function buildFundTransactions(
     chainId: WORLD_CHAIN_ID,
     transactions: [
       {
-        to: USDC_ADDRESS,
+        to: PERMIT2_ADDRESS,
         data: encodeFunctionData({
-          abi: ERC20_APPROVE_ABI,
+          abi: PERMIT2_APPROVE_ABI,
           functionName: "approve",
-          args: [escrow, amountUsdc6],
+          args: [USDC_ADDRESS, escrow, amountUsdc6, 0],
         }),
       },
       {
         to: escrow,
         data: encodeFunctionData({
           abi: ESCROW_V2_ABI,
-          functionName: "fund",
+          functionName: "fundWithPermit2",
           args: [escrowV2TaskId(appTaskId), recipient, amountUsdc6, deadlineUnix],
         }),
       },
@@ -408,7 +447,19 @@ export function buildRefundTransaction(
  * Returns the REAL transaction hash or null. This is the primary source for
  * the hashes stored on task records; a client hash is only a fallback that
  * still has to survive verifyEscrowV2Receipt.
+ *
+ * INCIDENT 2026-07-31 hardening: the public World Chain RPC rejects
+ * eth_getLogs ranges over 100 blocks, so the original fromBlock:0 sweep
+ * ALWAYS threw (silently, into the catch) — the primary source was dead on
+ * arrival and verification would have leaned forever on a client hash the
+ * client doesn't have (MiniKit returns a userOpHash, not a tx hash). Probe:
+ * a full-range request returns `-32600 "up to a 100 block range"`. The walk
+ * below scans backwards in RPC-sized chunks; verify actions run within the
+ * signing session, so the event is always near the head.
  */
+const LOG_SCAN_CHUNK = BigInt(100); // public RPC hard cap per eth_getLogs request
+const LOG_SCAN_CHUNKS = 30; // ~3000 blocks ≈ 100 minutes of World Chain
+
 export async function findEscrowV2EventTx(
   appTaskId: string,
   eventTopic0: `0x${string}`,
@@ -416,18 +467,25 @@ export async function findEscrowV2EventTx(
 ): Promise<string | null> {
   if (!escrowV2Enabled()) return null;
   try {
-    const logs = await publicClient().getLogs({
-      address: contractAddress ?? escrowV2Address(),
-      fromBlock: BigInt(0),
-      toBlock: "latest",
-    });
+    const client = publicClient();
+    const head = await client.getBlockNumber();
     const taskIdHash = escrowV2TaskId(appTaskId).toLowerCase();
-    const hit = logs.find(
-      (log) =>
-        log.topics[0]?.toLowerCase() === eventTopic0.toLowerCase() &&
-        log.topics[1]?.toLowerCase() === taskIdHash
-    );
-    return hit?.transactionHash ?? null;
+    const address = contractAddress ?? escrowV2Address();
+    for (let i = 0; i < LOG_SCAN_CHUNKS; i++) {
+      const toBlock = head - LOG_SCAN_CHUNK * BigInt(i);
+      if (toBlock < BigInt(0)) break;
+      const fromBlock =
+        toBlock >= LOG_SCAN_CHUNK - BigInt(1) ? toBlock - (LOG_SCAN_CHUNK - BigInt(1)) : BigInt(0);
+      const logs = await client.getLogs({ address, fromBlock, toBlock });
+      const hit = logs.find(
+        (log) =>
+          log.topics[0]?.toLowerCase() === eventTopic0.toLowerCase() &&
+          log.topics[1]?.toLowerCase() === taskIdHash
+      );
+      if (hit?.transactionHash) return hit.transactionHash;
+      if (fromBlock === BigInt(0)) break;
+    }
+    return null;
   } catch {
     return null;
   }
