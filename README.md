@@ -1,16 +1,16 @@
-# RELAY FAVOURS
+# FAVOUR
 
-**When AI hits a wall, RELAY FAVOURS finds a verified human.**
+**Real-world favours for World ID verified humans. Points first. No custody.**
 
-AI can do everything except be somewhere. RELAY FAVOURS connects AI agents to World ID-verified humans for physical-world tasks — photo a storefront, check a queue, verify a listing. Payment is instant on World Chain.
+Post a small favour or claim one nearby. Submit photo proof; AI verifies it. Earn points. Where a campaign unlocks cash, FAVOUR sends USDC straight to your wallet — nothing of yours is deposited or held.
 
 ---
 
 ## How It Works
 
-1. **AI agents post tasks** — "Photo this storefront", "Check the queue length", "Verify this listing" — via REST API or web UI. Payment is held on-chain until the task is verified.
-2. **Verified humans complete them** — World ID holders claim tasks nearby, submit photo proof, and get verified automatically.
-3. **Payment releases instantly** — On pass, funds release to the runner's wallet on World Chain. The entire lifecycle runs inside an encrypted XMTP thread.
+1. **Post or browse** — Favours are points-first. Describe a real-world check (storefront, delivery, location) via the app or agent API.
+2. **Claim with World ID** — Orb / device / wallet tiers gate access. Submit photo proof from the place.
+3. **AI verifies** — Proof is checked against the task. Points credit on pass. Campaign USDC (when unlocked) is paid direct to the runner's wallet — FAVOUR never escrows user funds.
 
 ---
 
@@ -19,10 +19,11 @@ AI can do everything except be somewhere. RELAY FAVOURS connects AI agents to Wo
 | | |
 |---|---|
 | **Live App** | [world-relay.vercel.app](https://world-relay.vercel.app) |
-| **Escrow Contract** | [0x274C38eA9944f57D24A59fbEf558bba2264f9351](https://worldscan.org/address/0x274C38eA9944f57D24A59fbEf558bba2264f9351) on World Chain (V2) |
-| **Double-or-Nothing Contract** | [0xadA2127035c6443420531f4F1Edbf73364B3d436](https://worldscan.org/address/0xadA2127035c6443420531f4F1Edbf73364B3d436) on World Chain |
 | **XMTP Bot** | DM `0x1101158041fd96f21cbcbb0e752a9a2303e6d70e` from any XMTP client |
-| **Agent API** | `POST https://world-relay.vercel.app/api/agent/tasks` |
+| **Agent API** | `POST https://world-relay.vercel.app/api/agent/tasks` (points favours; escrow funding returns 410) |
+| **Store package** | [`STORE-SUBMISSION.md`](./STORE-SUBMISSION.md) |
+
+> **Custody retired.** User USDC escrow deposit/fund paths are closed (`CUSTODY_RETIRED`). Do not treat the historical escrow proxy or Double-or-Nothing contract as live product features. Campaign cash is a FAVOUR-funded direct transfer after the clean unlock gate — see `SECURITY-INVARIANTS.md` and `src/lib/custody.ts`.
 
 ---
 
@@ -30,27 +31,24 @@ AI can do everything except be somewhere. RELAY FAVOURS connects AI agents to Wo
 
 ### World ID — Proof of Human as a Core Primitive
 - `walletAuth` for sign-in, 3 verification tiers (Orb / Device / Wallet)
-- Tier-gated task access: wallet users up to $10, device up to $50, orb unlimited
-- Reputation multipliers: orb-verified humans get 1.5x trust score boost
-- World ID prevents sybil attacks — one human, one account, real accountability
+- Tier-gated task access
+- Reputation multipliers for orb-verified humans
+- World ID prevents sybil attacks — one human, one account
 
-### World Chain — On-Chain Payment Infrastructure
-- **RelayEscrow.sol** — mainnet contract holding real USDC. Funds locked on task creation, auto-released on AI verification pass
-- **RelayDoubleOrNothing.sol** — high-stakes game mode. Runner matches the bounty. Verified = 2x payout. Failed = poster keeps both
-- Permit2 approval pattern for gas-efficient token operations
-- All transactions verifiable on [worldscan.org](https://worldscan.org)
+### World Chain — Campaign payouts (not user escrow)
+- Campaign unlock USDC is sent directly from the relayer to the runner's wallet after Orb-verified + clean proof
+- FAVOUR does not hold or escrow user deposits in the live product
+- Historical escrow leave-paths may still settle old on-chain rows only
 
 ### XMTP — Coordination Layer (Not Bolted On)
 - **Production network** — real encrypted messaging, not simulated
-- Every task lifecycle event posts to its XMTP thread: creation → briefing → claim → proof → verdict → payment
-- Standalone DM bot for task discovery, status queries, and natural-language interaction
+- Task lifecycle events post to XMTP threads: creation → briefing → claim → proof → verdict
+- Standalone DM bot for discovery, status, and natural-language interaction
 - Thread persistence via Redis across serverless invocations
-- Remove XMTP and there is no RELAY — it's how humans and agents coordinate
 
 ### MiniKit 2.0 — Native World App Experience
-- `walletAuth`, `sendTransaction` (escrow/DON create/claim/release), `sendHapticFeedback`, `share`, `requestPermission` (notifications)
-- World Mini Apps UI Kit: Button, Chip, LiveFeedback for native feel
-- Haptic feedback at 21 interaction points
+- `walletAuth`, `sendHapticFeedback`, `share`, `requestPermission` (notifications)
+- World Mini Apps UI Kit for native feel
 - Pull-to-refresh, SSE real-time updates
 
 ---
@@ -58,18 +56,15 @@ AI can do everything except be somewhere. RELAY FAVOURS connects AI agents to Wo
 ## Key Features
 
 ### AI Proof Verification
-Proofs are checked by a vision model (Claude) against the task spec, with per-model verdicts and confidence shown to the user rather than a black-box yes/no. When a second provider is configured (OpenRouter: GPT-4o + Gemini), verification runs as a multi-model panel and reports each model's verdict plus the aggregated result. With only the primary key set, Claude runs on its own. Ambiguous proofs are flagged for the poster to confirm.
-
-### Double-or-Nothing Game Mode
-High-conviction task type where the runner stakes matching USDC. Verified = runner gets 2x. Failed = poster keeps both. Creates a trust signal — runners are betting on themselves. On-chain settlement via dedicated smart contract.
+Proofs are checked by a vision model (Claude) against the task spec, with per-model verdicts and confidence shown to the user rather than a black-box yes/no. When a second provider is configured (OpenRouter: GPT-4o + Gemini), verification runs as a multi-model panel and reports each model's verdict plus the aggregated result. With only the primary key set, Claude runs on its own. Ambiguous proofs are flagged for the poster to confirm. AI-generated proof must never earn points or USDC.
 
 ### AI Assistance at Every Step
 - **Task creation**: "Enhance with AI" rewrites descriptions to be clearer and more verifiable
 - **Proof submission**: AI pre-check gives runners confidence before submitting ("Looks good" / "Consider retaking")
-- **Smart suggestions**: Location-aware task recommendations based on what agents need nearby
+- **Smart suggestions**: Location-aware task recommendations
 
 ### Agent Clients (API + MCP)
-Agents can post and fund tasks programmatically via a REST API and an MCP server, paying verified humans to complete real-world steps they can't. Task-specific verification prompts can be attached per agent. (Agent personas are experimental and not yet in production use.)
+Agents can post points favours programmatically via a REST API and an MCP server. Escrow/auto-fund endpoints return 410. Task-specific verification prompts can be attached per agent.
 
 ### Reputation & Trust
 Trust scores, verification multipliers, streak bonuses — all tied to World ID tier. Higher trust = access to higher-value tasks.
@@ -79,14 +74,14 @@ Trust scores, verification multipliers, streak bonuses — all tied to World ID 
 ## How to Test
 
 - **In World App** — Open the live URL. Verify with World ID, browse tasks, claim one, submit a photo.
-- **Desktop** — Click "Quick Start" on the homepage. Walk through the interactive demo, explore the dashboard, chat with the XMTP bot.
-- **Agent API** — POST a task programmatically and get the verified result via webhook callback.
+- **Desktop** — Click "Continue" / quick start on the homepage. Walk through onboarding, explore the board, post a points favour.
+- **Agent API** — POST a points favour programmatically (omit `fund` / escrow fields).
 
 ---
 
 ## Agent API
 
-Any AI agent can POST a task to RELAY and get a verified result back:
+Post a points favour (bounty_usdc is the points value, 1–10):
 
 ```bash
 curl -X POST https://world-relay.vercel.app/api/agent/tasks \
@@ -94,7 +89,7 @@ curl -X POST https://world-relay.vercel.app/api/agent/tasks \
   -d '{
     "description": "Is this restaurant actually open right now? Photo the entrance.",
     "location": "123 Main St, NYC",
-    "bounty_usdc": 0.50,
+    "bounty_usdc": 5,
     "callback_url": "https://your-agent.com/webhook"
   }'
 ```
@@ -103,7 +98,7 @@ curl -X POST https://world-relay.vercel.app/api/agent/tasks \
 
 ## Tech Stack
 
-Next.js 16, Upstash Redis, Solidity (Foundry), Viem, XMTP Node SDK, Anthropic SDK, OpenRouter API, Leaflet, Vercel.
+Next.js 16, Upstash Redis, Viem, XMTP Node SDK, Anthropic SDK, OpenRouter API, Leaflet, Vercel.
 
 ---
 
