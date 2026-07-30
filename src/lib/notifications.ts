@@ -63,7 +63,7 @@ export async function notifyProofSubmitted(posterAddress: string, taskDescriptio
 export async function notifyVerified(
   claimantAddress: string,
   bountyUsdc: number,
-  rewardType: "points" | "usdc" = "usdc"
+  rewardType: "points" | "usdc" | "usdc-v2" = "usdc"
 ): Promise<void> {
   const isPoints = rewardType === "points";
   await sendNotification(
@@ -131,7 +131,7 @@ export async function notifyClaimReminder(
   claimantAddress: string,
   taskDescription: string,
   bountyUsdc: number,
-  rewardType: "points" | "usdc" = "usdc"
+  rewardType: "points" | "usdc" | "usdc-v2" = "usdc"
 ): Promise<void> {
   const reward = rewardType === "points" ? `${Math.round(bountyUsdc)} points` : `$${bountyUsdc} USDC`;
   await sendNotification(

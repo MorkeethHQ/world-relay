@@ -9,6 +9,18 @@ export function isPointsReward(task: Pick<Task, "rewardType">): boolean {
   return task.rewardType === "points";
 }
 
+// FavourEscrowV2 rail (demand-gated: posted unfunded, funded at claimant-accept
+// from the poster's own wallet). NOTE the signal split for v2:
+//   - funded v2 => escrowTxHash holds the receipt-verified fund tx => isFunded
+//     and isRealMoney are true (display/gate signals work unchanged).
+//   - hasOnChainEscrow stays FALSE for v2 (onChainId is v1-only) ON PURPOSE:
+//     v2 dollars are booked exclusively by the verify-released path after the
+//     chain shows Released — never at AI proof-pass time, because release is
+//     a poster-signed transaction the AI verdict cannot trigger.
+export function isEscrowV2Task(task: Pick<Task, "rewardType">): boolean {
+  return task.rewardType === "usdc-v2";
+}
+
 // Funding reward (points) a funder earns when their USDC-funded task settles.
 // Pure + client-safe so the post form can preview it and the server can award
 // the exact same number — one source, no drift. The award itself lives

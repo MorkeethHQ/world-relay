@@ -43,6 +43,36 @@ export async function POST(
     }, { status: 403 });
   }
 
+  // Escrow-v2 tasks: accepting IS the money moment — the poster funds the
+  // escrow bound to THIS claimant's address right after this accept. So the
+  // claimant must be a real wallet address (it becomes the immutable on-chain
+  // recipient) and dev accounts can never be recipients.
+  if (task.rewardType === "usdc-v2") {
+    if (claimant.startsWith("dev_")) {
+      return NextResponse.json({
+        error: "Dev accounts cannot claim USDC favours",
+        message: "This favour pays real USDC. Verify with World ID to claim it.",
+      }, { status: 403 });
+    }
+    if (!/^0x[0-9a-fA-F]{40}$/.test(claimant)) {
+      return NextResponse.json({
+        error: "Wallet address required",
+        message: "USDC favours pay to your wallet — open FAVOUR in World App to claim.",
+      }, { status: 400 });
+    }
+    // Same dollar-tier gate funded tasks get: the bounty is real money the
+    // moment the poster funds, so gate at accept, not after.
+    const gate = await tierGateError(claimant, task.bountyUsdc);
+    if (gate) {
+      return NextResponse.json({
+        error: "Insufficient verification level",
+        required: gate.required,
+        current: gate.current,
+        message: `This task requires ${gate.required} verification. Your level: ${gate.current}.`,
+      }, { status: 403 });
+    }
+  }
+
   if (claimant.startsWith("dev_") && task.escrowTxHash) {
     return NextResponse.json({
       error: "Dev accounts cannot claim funded tasks",

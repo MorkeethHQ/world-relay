@@ -97,7 +97,7 @@ export interface ShareTaskOptions {
   bountyUsdc: number;
   // Reward kind so share copy never claims "$ USDC" for a points task. When
   // "points" (or unfunded), the amount renders as points, not dollars.
-  rewardType?: "points" | "usdc";
+  rewardType?: "points" | "usdc" | "usdc-v2";
   funded?: boolean;
   verdict?: string;
   taskId: string;

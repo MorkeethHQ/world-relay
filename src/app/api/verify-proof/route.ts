@@ -153,6 +153,15 @@ export async function POST(req: NextRequest) {
   if (submitter && task.poster === submitter) {
     return NextResponse.json({ error: "Can't submit proof for your own task" }, { status: 403 });
   }
+  // Escrow-v2 sequencing: work happens AFTER the money is locked. An unfunded
+  // v2 task accepts no proof — otherwise a claimant can be lured into doing
+  // real work against a bounty the poster never escrowed. Fail closed here,
+  // not in the UI.
+  if (task.rewardType === "usdc-v2" && !task.escrowTxHash) {
+    return NextResponse.json({
+      error: "This favour isn't funded yet. The poster must lock the USDC escrow before you start.",
+    }, { status: 400 });
+  }
   // Two signals, NOT one. They answer different questions and their safe defaults
   // point in OPPOSITE directions, so a single "unified funded signal" is wrong for
   // one of its two callers no matter which way it leans.
@@ -428,14 +437,24 @@ export async function POST(req: NextRequest) {
       // leaderboard. Existing rows need a backfill; this only fixes writes from now.
       // taskIsRealMoney, NOT taskIsFunded: only a verified on-chain escrow may be
       // booked as dollars. See the two-signal note at the top of this route.
-      recordCompletion(task.claimant, task.bountyUsdc, result.confidence, claimantLevel || undefined, taskIsRealMoney).catch(console.error);
-      const claimantRep2 = await getReputation(task.claimant);
-      // Honest pricing: a points task pays exactly its advertised bounty.
-      recordFavourCompleted(
-        task.claimant,
-        claimantRep2.currentStreak,
-        completionPointsFor(task.rewardType, task.bountyUsdc)
-      ).catch(console.error);
+      //
+      // ESCROW-V2 EXCEPTION: a v2 task books NOTHING here. Its bounty is
+      // dollars (so crediting it as points would inflate totalPointsEarned by
+      // the dollar amount), and the dollars only exist for the claimant once
+      // the poster's release tx lands — both recordCompletion (usdc=true) and
+      // recordFavourCompleted fire in /api/escrow-v2 verify-released, after
+      // the chain shows Released. AI pass here = "proof verified, awaiting
+      // poster release", tracked via markSettlementPending below.
+      if (task.rewardType !== "usdc-v2") {
+        recordCompletion(task.claimant, task.bountyUsdc, result.confidence, claimantLevel || undefined, taskIsRealMoney).catch(console.error);
+        const claimantRep2 = await getReputation(task.claimant);
+        // Honest pricing: a points task pays exactly its advertised bounty.
+        recordFavourCompleted(
+          task.claimant,
+          claimantRep2.currentStreak,
+          completionPointsFor(task.rewardType, task.bountyUsdc)
+        ).catch(console.error);
+      }
     } else if (result.verdict === "fail") {
       recordFailure(task.claimant).catch(console.error);
       recordFavourFailed(task.claimant).catch(console.error);
@@ -467,6 +486,29 @@ export async function POST(req: NextRequest) {
           type: "payment_released",
           title: "Payment released!",
           body: `$${task.bountyUsdc} USDC sent to your wallet.`,
+          taskId,
+        }).catch(console.error);
+      }
+    } else if (task.rewardType === "usdc-v2") {
+      // Escrow-v2: there is no server-side release AT ALL — the contract's
+      // release() is funder-only (`NotFunder`), so a verified pass waits for
+      // the POSTER's own signed release tx. pendingRelease keeps the task from
+      // reading as paid; the poster gets a confirm-and-release prompt, the
+      // claimant an honest "verified, awaiting release" status.
+      await markSettlementPending(taskId).catch(console.error);
+      addNotification({
+        userId: task.poster,
+        type: "flagged",
+        title: "Proof verified — release the payment",
+        body: `The proof for "${task.description.slice(0, 40)}..." passed verification. Confirm completion to release the $${task.bountyUsdc} USDC escrow.`,
+        taskId,
+      }).catch(console.error);
+      if (task.claimant) {
+        addNotification({
+          userId: task.claimant,
+          type: "verified",
+          title: "Proof verified!",
+          body: `Your proof passed. The $${task.bountyUsdc} USDC releases when the poster confirms — auto-refund protection ends at the escrow deadline.`,
           taskId,
         }).catch(console.error);
       }

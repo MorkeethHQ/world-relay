@@ -5,7 +5,8 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import type { Task, VerificationResult, AiFollowUp } from "@/lib/types";
 import { VerificationBadge, RequiredTierBadge } from "@/components/VerificationBadge";
-import { hapticTap, hapticSuccess, shareTask } from "@/lib/minikit-helpers";
+import { hapticTap, hapticSuccess, hapticError, shareTask } from "@/lib/minikit-helpers";
+import { MiniKit } from "@worldcoin/minikit-js";
 import { rewardAmountLabel, isPointsReward, isRealMoney } from "@/lib/reward";
 import { useWorldUsers, displayName } from "@/hooks/useWorldUser";
 import { TopBar, Button, Typography, Spinner, Pill, Input, CircularIcon } from "@worldcoin/mini-apps-ui-kit-react";
@@ -967,6 +968,223 @@ const AGENT_PERSONALITIES: Record<string, string> = {
 };
 
 // ---------------------------------------------------------------------------
+// Escrow V2 panel (rewardType "usdc-v2") — the demand-gated USDC flow.
+//
+// Poster: fund at claimant-accept -> confirm & release -> (post-deadline) refund.
+// Claimant: honest status of the on-chain escrow.
+// Every state change goes through /api/escrow-v2, which verifies the chain
+// before touching the task record — this panel only signs and reports.
+// ---------------------------------------------------------------------------
+
+type EscrowV2ChainState = {
+  disclosure?: string;
+  record: {
+    funder: string;
+    recipient: string;
+    amount: string;
+    deadline: string;
+    status: number; // 0 None, 1 Funded, 2 Released, 3 Refunded
+    refundable: boolean;
+  } | null;
+};
+
+function extractV2TxHash(result: unknown): string | null {
+  if (typeof result !== "object" || result === null) return null;
+  const r = result as Record<string, unknown>;
+  if ("transactionHash" in r && r.transactionHash) return String(r.transactionHash);
+  if ("userOpHash" in r && r.userOpHash) return String(r.userOpHash);
+  return null;
+}
+
+function EscrowV2Panel({ task, onAction }: { task: Task; onAction: () => void }) {
+  const [userId, setUserId] = useState<string | null>(null);
+  const [chain, setChain] = useState<EscrowV2ChainState | null>(null);
+  const [railOpen, setRailOpen] = useState<boolean>(true);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [note, setNote] = useState<{ type: "success" | "error" | "info"; text: string } | null>(null);
+
+  useEffect(() => {
+    try { setUserId(localStorage.getItem("relay_user_id")); } catch { /* no storage */ }
+  }, []);
+
+  const loadChain = useCallback(() => {
+    fetch(`/api/escrow-v2?taskId=${task.id}`)
+      .then((r) => {
+        if (r.status === 404) { setRailOpen(false); return null; }
+        return r.json();
+      })
+      .then((d) => { if (d) setChain(d); })
+      .catch(() => {});
+  }, [task.id]);
+
+  useEffect(() => { loadChain(); }, [loadChain]);
+
+  if (!railOpen) return null;
+
+  const isPoster = !!userId && userId === task.poster;
+  const isClaimant = !!userId && userId === task.claimant;
+  const funded = !!task.escrowTxHash;
+  const released = !!task.settlementTx;
+  const refunded = !!task.escrowV2RefundTx;
+  const refundable = !!chain?.record?.refundable;
+  const disclosure = chain?.disclosure || "Released when you confirm completion. Auto-refundable to you after the deadline.";
+
+  // Sign a prepared payload, then loop the matching verify action until the
+  // server corroborates the chain (a few seconds of block time).
+  const signAndVerify = async (
+    prepareAction: string,
+    verifyAction: string,
+    doneKey: "funded" | "released" | "refunded"
+  ) => {
+    setBusy(prepareAction);
+    setNote(null);
+    try {
+      const prep = await fetch("/api/escrow-v2", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: prepareAction, taskId: task.id, poster: userId }),
+      });
+      const prepData = await prep.json();
+      if (!prep.ok || !prepData.payload) {
+        setNote({ type: "error", text: prepData.error || "Could not prepare the transaction." });
+        hapticError();
+        return;
+      }
+      if (!MiniKit.isInstalled()) {
+        setNote({ type: "error", text: "Open FAVOUR inside World App to sign this transaction." });
+        return;
+      }
+      const result = await MiniKit.sendTransaction(prepData.payload);
+      const txHash = extractV2TxHash(result);
+      if (!result) {
+        setNote({ type: "error", text: "Transaction was rejected. Nothing was charged." });
+        hapticError();
+        return;
+      }
+      setNote({ type: "info", text: "Transaction sent — waiting for on-chain confirmation..." });
+      // Poll the verify action: the server reads the chain itself and only
+      // flips state when the escrow record + event log agree.
+      for (let i = 0; i < 12; i++) {
+        await new Promise((res) => setTimeout(res, 3000));
+        const ver = await fetch("/api/escrow-v2", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: verifyAction, taskId: task.id, txHash }),
+        });
+        const verData = await ver.json().catch(() => ({}));
+        if (ver.ok && verData[doneKey]) {
+          hapticSuccess();
+          setNote({ type: "success", text: doneKey === "funded" ? "Escrow funded and verified on-chain." : doneKey === "released" ? "Payment released on-chain." : "Refund confirmed on-chain." });
+          loadChain();
+          onAction();
+          return;
+        }
+      }
+      setNote({ type: "error", text: "Still waiting for the chain — pull to refresh in a minute. Nothing is lost: the escrow state on-chain is the truth." });
+    } catch (err) {
+      hapticError();
+      setNote({ type: "error", text: err instanceof Error ? err.message : "Transaction failed." });
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const chip = (text: string, tone: "green" | "amber" | "gray") => (
+    <span className={`text-[10px] font-bold uppercase tracking-wide rounded px-1.5 py-0.5 ${
+      tone === "green" ? "text-success-700 bg-success-100" : tone === "amber" ? "text-warning-700 bg-warning-100" : "text-gray-500 bg-gray-100"
+    }`}>{text}</span>
+  );
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-2xl p-4 flex flex-col gap-3">
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-semibold text-gray-900">USDC escrow</p>
+        {released ? chip("Paid", "green")
+          : refunded ? chip("Refunded", "gray")
+          : funded ? chip("Funded on-chain", "green")
+          : task.status === "claimed" ? chip("Awaiting funding", "amber")
+          : chip("Funds on accept", "amber")}
+      </div>
+
+      {/* POSTER: fund step — appears the moment a claimant accepts. */}
+      {isPoster && task.status === "claimed" && !funded && (
+        <>
+          <p className="text-xs text-gray-500">
+            Someone accepted your favour. Lock ${task.bountyUsdc} USDC in the verified escrow so they can start — {disclosure.charAt(0).toLowerCase() + disclosure.slice(1)}
+          </p>
+          <Button
+            variant="primary"
+            size="lg"
+            className="w-full min-h-[48px]"
+            onClick={() => signAndVerify("prepare-fund", "verify-funded", "funded")}
+            disabled={busy !== null}
+          >
+            {busy === "prepare-fund" ? "Confirm in World App..." : `Fund $${task.bountyUsdc} USDC`}
+          </Button>
+        </>
+      )}
+
+      {/* POSTER: confirm & release. */}
+      {isPoster && funded && !released && !refunded && (
+        <>
+          <p className="text-xs text-gray-500">
+            {task.pendingRelease
+              ? "The proof passed verification. Confirm completion to pay the runner — the contract can only ever pay the wallet bound at funding."
+              : "When the favour is done, confirm to release the payment. The contract can only ever pay the wallet bound at funding."}
+          </p>
+          <Button
+            variant="primary"
+            size="lg"
+            className="w-full min-h-[48px]"
+            onClick={() => signAndVerify("prepare-release", "verify-released", "released")}
+            disabled={busy !== null}
+          >
+            {busy === "prepare-release" ? "Confirm in World App..." : `Confirm & release $${task.bountyUsdc}`}
+          </Button>
+          {refundable && (
+            <Button
+              variant="tertiary"
+              size="lg"
+              className="w-full min-h-[44px]"
+              onClick={() => signAndVerify("prepare-refund", "verify-refunded", "refunded")}
+              disabled={busy !== null}
+            >
+              {busy === "prepare-refund" ? "Confirm in World App..." : "Deadline passed — reclaim your USDC"}
+            </Button>
+          )}
+        </>
+      )}
+
+      {/* CLAIMANT: honest status. */}
+      {isClaimant && !released && !refunded && (
+        <p className="text-xs text-gray-500">
+          {funded
+            ? `$${task.bountyUsdc} USDC is locked on-chain for you. It releases when the poster confirms completion.`
+            : "The poster hasn't funded the escrow yet. Wait for the \"funded\" notification before doing the work — proof can't be submitted until the money is locked."}
+        </p>
+      )}
+
+      {task.escrowTxHash && (
+        <a
+          href={`${WORLDSCAN_TX}/${task.escrowTxHash}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-xs text-gray-400 underline underline-offset-2"
+        >
+          View escrow transaction
+        </a>
+      )}
+
+      {note && (
+        <p className={`text-xs ${note.type === "success" ? "text-success-700" : note.type === "error" ? "text-red-500" : "text-gray-500"}`}>
+          {note.text}
+        </p>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Dispute Actions
 // ---------------------------------------------------------------------------
 
@@ -1725,6 +1943,11 @@ export default function TaskDetailPage() {
 
         {/* ===== AI FOLLOW-UP ===== */}
         {task.aiFollowUp && <FollowUpCard followUp={task.aiFollowUp} />}
+
+        {/* ===== ESCROW V2 (usdc-v2 tasks: fund / release / refund) ===== */}
+        {task.rewardType === "usdc-v2" && !["cancelled", "failed"].includes(task.status) && (
+          <EscrowV2Panel task={task} onAction={fetchData} />
+        )}
 
         {/* ===== DISPUTE ACTIONS (flagged tasks - always visible, actionable) ===== */}
         {task.verificationResult?.verdict === "flag" && task.status !== "completed" && task.status !== "failed" && (

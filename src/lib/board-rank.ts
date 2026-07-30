@@ -43,6 +43,12 @@ export function isBoardVisible(t: Task, userId: string | null, now: number): boo
     // A points task must actually reward something: a 0-value points task shows a
     // "0 pts" badge and reads as broken/empty inventory, so keep it off the board.
     if (t.rewardType === "points") return t.bountyUsdc > 0;
+    // R3 amendment (escrow-v2, demand-gated custody): an OPEN v2 task is
+    // legitimately unfunded — the poster funds at claimant-accept, so it must
+    // be visible for a claimant to exist at all. The badge renders the honest
+    // state ("funds on accept"); once funded, isRealMoney promotes it to the
+    // FUNDED tier. Legacy "usdc" keeps the strict funded-only rule.
+    if (t.rewardType === "usdc-v2") return t.bountyUsdc > 0;
     return isRealMoney(t);
   }
   return t.status === "claimed" && !!userId && t.claimant === userId;

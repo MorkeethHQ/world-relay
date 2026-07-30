@@ -4,7 +4,10 @@ export type TaskCategory = "photo" | "delivery" | "check-in" | "custom" | "feedb
 
 export type TaskType = "standard" | "double-or-nothing";
 
-export type RewardType = "usdc" | "points";
+// "usdc" is the LEGACY rail (retired proxy escrow, custody closed — see
+// src/lib/custody.ts). "usdc-v2" is the FavourEscrowV2 rail: demand-gated,
+// poster-funded at claimant-accept, dark unless ESCROW_V2_ENABLED=1.
+export type RewardType = "usdc" | "points" | "usdc-v2";
 
 export type ModelVerdict = {
   name: string;
@@ -82,6 +85,16 @@ export type Task = {
   // settlementTx is the confirmed forward tx hash once the payout lands.
   pendingRelease: boolean;
   settlementTx?: string | null;
+  // FavourEscrowV2 rail (rewardType "usdc-v2") — set ONLY by the server after
+  // an on-chain verification, never from client input:
+  // escrowV2Address/Version PIN the contract this task was funded on, so the
+  // task keeps resolving against it even after ESCROW_V2_CONTRACT moves to a
+  // newer deployment (versioned replaceability — see src/lib/escrow-v2.ts).
+  // The fund tx lives in escrowTxHash, the release tx in settlementTx, and a
+  // refund tx here. All three are receipt-verified before storage.
+  escrowV2Address?: string | null;
+  escrowV2Version?: number | null;
+  escrowV2RefundTx?: string | null;
   maxCompletions: number;
   completionCount: number;
   createdAt: string;
