@@ -73,6 +73,15 @@ function normalizeTask(task: Task): Task {
   if ((task as any).maxCompletions === undefined) {
     (task as any).maxCompletions = 1;
   }
+  if ((task as any).escrowV2Address === undefined) {
+    (task as any).escrowV2Address = null;
+  }
+  if ((task as any).escrowV2Version === undefined) {
+    (task as any).escrowV2Version = null;
+  }
+  if ((task as any).escrowV2RefundTx === undefined) {
+    (task as any).escrowV2RefundTx = null;
+  }
   if ((task as any).completionCount === undefined) {
     (task as any).completionCount = 0;
   }
@@ -389,6 +398,58 @@ export async function markSettled(id: string, forwardTx: string): Promise<Task |
   // Funder earns points on the CONFIRMED settlement (money actually moved to the
   // runner) — the farm-proof point to reward funding. Idempotent; never on refund.
   await recordFundingReward(task).catch(() => {});
+  return task;
+}
+
+// ---------------------------------------------------------------------------
+// FavourEscrowV2 transitions. Every one of these is called ONLY after the
+// server verified the corresponding on-chain state / receipt (see
+// /api/escrow-v2) — the client's word is never sufficient. Each pins or
+// respects the contract address the task was funded on.
+// ---------------------------------------------------------------------------
+
+export async function markEscrowV2Funded(
+  id: string,
+  info: { contractAddress: string; version: number; fundTxHash: string }
+): Promise<Task | null> {
+  const task = await getTask(id);
+  if (!task || task.rewardType !== "usdc-v2") return null;
+  // Idempotent: a second verified fund report for the same task changes nothing.
+  if (task.escrowTxHash && task.escrowV2Address) return task;
+  task.escrowTxHash = info.fundTxHash;
+  task.escrowV2Address = info.contractAddress;
+  task.escrowV2Version = info.version;
+  await persistTask(task);
+  return task;
+}
+
+export async function markEscrowV2Settled(
+  id: string,
+  releaseTxHash: string
+): Promise<Task | null> {
+  const task = await getTask(id);
+  if (!task || task.rewardType !== "usdc-v2" || !task.escrowV2Address) return null;
+  task.status = "completed";
+  task.pendingRelease = false;
+  task.settlementTx = releaseTxHash;
+  task.completionCount = Math.max(task.completionCount || 0, 1);
+  await persistTask(task);
+  // Funder earns points on the CONFIRMED settlement — same rule as v1.
+  await recordFundingReward(task).catch(() => {});
+  return task;
+}
+
+export async function markEscrowV2Refunded(
+  id: string,
+  refundTxHash: string
+): Promise<Task | null> {
+  const task = await getTask(id);
+  if (!task || task.rewardType !== "usdc-v2" || !task.escrowV2Address) return null;
+  task.escrowV2RefundTx = refundTxHash;
+  task.pendingRelease = false;
+  // Money went home; the favour did not happen. Terminal, never "completed".
+  if (task.status !== "completed") task.status = "expired";
+  await persistTask(task);
   return task;
 }
 

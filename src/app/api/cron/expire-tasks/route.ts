@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { listTasks } from "@/lib/store";
+import { listTasks, markEscrowV2Refunded } from "@/lib/store";
 import { getRedis } from "@/lib/redis";
 import { broadcastEvent } from "@/lib/sse";
 import { notifyClaimReminder } from "@/lib/notifications";
 import { refundEscrow } from "@/lib/escrow";
+import { refundExpiredEscrowV2, ESCROW_V2_CONFIRM_GRACE_S } from "@/lib/escrow-v2";
 import { addNotification } from "@/lib/notifications-store";
 import { postToThread } from "@/lib/xmtp";
 
@@ -25,7 +26,44 @@ export async function GET(req: NextRequest) {
 
   const redis = getRedis();
 
+  const sweptV2: string[] = [];
+
   for (const task of tasks) {
+    // Escrow-v2 abandoned-escrow safety net. The poster's own refund button is
+    // the primary exit (surfaced in the task panel the moment the escrow
+    // deadline passes); this sweep only fires 14 days AFTER that, so a poster
+    // who wants to pay late-but-good work keeps release available for two full
+    // weeks past the confirm-grace window. refund() is anyone-callable on the
+    // contract and ALWAYS pays the bound funder, so the relayer key gains no
+    // power here. Dark-gated: refundExpiredEscrowV2 is null while
+    // ESCROW_V2_ENABLED is absent.
+    if (
+      task.rewardType === "usdc-v2" &&
+      task.escrowTxHash &&
+      !task.settlementTx &&
+      !task.escrowV2RefundTx &&
+      now > new Date(task.deadline).getTime() + ESCROW_V2_CONFIRM_GRACE_S * 1000 + FOURTEEN_DAYS
+    ) {
+      const swept = await refundExpiredEscrowV2(
+        task.id,
+        (task.escrowV2Address ?? undefined) as `0x${string}` | undefined
+      ).catch((err) => {
+        console.error(`[Cron] escrow-v2 refund sweep failed for task ${task.id}:`, err);
+        return null;
+      });
+      if (swept) {
+        await markEscrowV2Refunded(task.id, swept.txHash).catch(console.error);
+        sweptV2.push(task.id);
+        addNotification({
+          userId: task.poster,
+          type: "task_expired",
+          title: "Escrow refunded",
+          body: `"${task.description.slice(0, 40)}..." was never settled. $${task.bountyUsdc} USDC returned to your wallet.`,
+          taskId: task.id,
+        }).catch(console.error);
+      }
+    }
+
     // Claim reminders for claimed tasks without proof
     if (task.status === "claimed" && task.claimant) {
       const claimedAge = now - new Date(task.createdAt).getTime();
@@ -142,6 +180,7 @@ export async function GET(req: NextRequest) {
     archivedTaskIds: archived,
     staleNotified: staleNotified.length,
     reminded: reminded.length,
+    escrowV2Swept: sweptV2,
     checkedAt: new Date().toISOString(),
   });
 }

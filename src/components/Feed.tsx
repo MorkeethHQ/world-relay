@@ -1412,7 +1412,9 @@ function TaskCard({
               <span className="text-[10px] font-bold uppercase tracking-wide text-gray-900 bg-gray-100 rounded px-1.5 py-0.5 shrink-0">New</span>
             )}
             {isUnfundedMoney ? (
-              <span className="text-[10px] font-bold uppercase tracking-wide text-warning-700 bg-warning-100 rounded px-1.5 py-0.5 shrink-0">Not funded</span>
+              // Escrow-v2 is demand-gated: unfunded-while-open is the design
+              // (poster funds when someone accepts), not a broken promise.
+              <span className="text-[10px] font-bold uppercase tracking-wide text-warning-700 bg-warning-100 rounded px-1.5 py-0.5 shrink-0">{task.rewardType === "usdc-v2" ? "Funds on accept" : "Not funded"}</span>
             ) : endingSoon ? (
               <span className="text-[10px] font-bold uppercase tracking-wide text-warning-700 bg-warning-100 rounded px-1.5 py-0.5 shrink-0">Ending soon</span>
             ) : isStale ? (
@@ -1539,8 +1541,19 @@ function PostTask({
   const [locationMode, setLocationMode] = useState<"online" | "inperson">("online");
   const [location, setLocation] = useState("Online");
   const [bounty, setBounty] = useState("");
-  // Points only: custody is retired, so the wizard has no USDC branch to enter.
-  const [rewardType, setRewardType] = useState<"usdc" | "points">("points");
+  // Points by default. The legacy "usdc" branch is dead (custody retired); the
+  // "usdc-v2" branch appears ONLY when the server says the FavourEscrowV2 rail
+  // is open (GET /api/escrow-v2 404s while ESCROW_V2_ENABLED is absent). A v2
+  // post moves NO money — the poster funds from their own wallet when a
+  // claimant accepts (demand-gated custody).
+  const [rewardType, setRewardType] = useState<"usdc" | "points" | "usdc-v2">("points");
+  const [v2Rail, setV2Rail] = useState<{ maxUsd: number | null; disclosure: string } | null>(null);
+  useEffect(() => {
+    fetch("/api/escrow-v2")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (d?.enabled) setV2Rail({ maxUsd: d.maxUsd ?? null, disclosure: d.disclosure || "" }); })
+      .catch(() => {});
+  }, []);
   const [category, setCategory] = useState<"photo" | "delivery" | "check-in" | "custom" | "feedback" | "review" | "social" | "errand">("review");
   const [submitting, setSubmitting] = useState(false);
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
@@ -1683,7 +1696,9 @@ function PostTask({
   };
 
   const isInWorld = isMiniKit();
-  const isValid = description && location && bounty && parseFloat(bounty) >= (rewardType === "points" ? 1 : 0.5);
+  const isValid = description && location && bounty && parseFloat(bounty) >= (rewardType === "points" ? 1 : 0.5)
+    // Server enforces the same cap; mirroring it here just saves a round trip.
+    && !(rewardType === "usdc-v2" && v2Rail?.maxUsd != null && parseFloat(bounty) > v2Rail.maxUsd);
   const canDescribe = description.trim().length >= MIN_DESCRIPTION_LENGTH && !!location.trim();
 
   // Reward-shaped object so RewardBadge / reward.ts stay the single source of truth
@@ -1801,11 +1816,35 @@ function PostTask({
         {/* STEP 2 - Reward + fund */}
         {step === 2 && (
           <div className="flex-1 px-6 py-6 flex flex-col gap-8">
-            {/* The reward-type picker is gone: custody is retired, so Points is
-                the only way to post. See src/lib/custody.ts for why (measured
-                zero USDC post attempts, and the World "verify all contracts"
-                rejection). Real money still reaches people — the campaign
-                unlock pays USDC directly, it just never sits in an escrow. */}
+            {/* Escrow-v2 reward picker: appears only when the server says the
+                FavourEscrowV2 rail is open. Choosing USDC here moves NO money —
+                the poster funds their own wallet -> verified escrow when a
+                claimant accepts. The legacy custody picker below stays dead. */}
+            {CUSTODY_RETIRED && v2Rail && (
+              <div>
+                <Typography variant="label" level={2} className="text-gray-400 mb-2">Reward type</Typography>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => { hapticSelection(); setRewardType("points"); setBounty(""); }}
+                    className={`flex-1 rounded-xl border py-4 text-center transition-all min-h-[52px] active:scale-[0.98] ${
+                      rewardType === "points" ? "border-gray-900 bg-white" : "border-gray-200 bg-white hover:border-gray-300"
+                    }`}
+                  >
+                    <Typography variant="body" level={3} className={rewardType === "points" ? "text-gray-900 font-semibold" : "text-gray-500"}>Points</Typography>
+                    <Typography variant="body" level={4} className="text-gray-400 mt-0.5">Free to post</Typography>
+                  </button>
+                  <button
+                    onClick={() => { hapticSelection(); setRewardType("usdc-v2"); setBounty(""); }}
+                    className={`flex-1 rounded-xl border py-4 text-center transition-all min-h-[52px] active:scale-[0.98] ${
+                      rewardType === "usdc-v2" ? "border-gray-900 bg-white" : "border-gray-200 bg-white hover:border-gray-300"
+                    }`}
+                  >
+                    <Typography variant="body" level={3} className={rewardType === "usdc-v2" ? "text-gray-900 font-semibold" : "text-gray-500"}>USDC</Typography>
+                    <Typography variant="body" level={4} className="text-gray-400 mt-0.5">Fund when accepted</Typography>
+                  </button>
+                </div>
+              </div>
+            )}
             {!CUSTODY_RETIRED && (
               <div>
                 <Typography variant="label" level={2} className="text-gray-400 mb-2">Reward type</Typography>
@@ -1907,6 +1946,13 @@ function PostTask({
                         No USDC needed. The runner earns points when AI verifies their proof. Great for low-stakes tasks and feedback.
                       </Typography>
                     </>
+                  ) : rewardType === "usdc-v2" ? (
+                    <>
+                      <Typography variant="body" level={3} className="text-gray-700 font-medium">Nothing is charged now</Typography>
+                      <Typography variant="body" level={4} className="text-gray-400 mt-0.5">
+                        When someone accepts, you fund the verified escrow from your wallet. {v2Rail?.disclosure || "Released when you confirm completion. Auto-refundable to you after the deadline."}
+                      </Typography>
+                    </>
                   ) : isInWorld ? (
                     <>
                       <Typography variant="body" level={3} className="text-gray-700 font-medium">Your USDC goes to escrow</Typography>
@@ -1939,7 +1985,9 @@ function PostTask({
             <div className="flex flex-col items-center gap-1">
               <Typography variant="heading" level={3} className="text-gray-900">Your favour is live</Typography>
               <Typography variant="body" level={3} className="text-gray-400 max-w-[260px]">
-                {rewardType !== "points" && !escrowSuccess
+                {rewardType === "usdc-v2"
+                  ? "Runners can accept it now. You'll be asked to fund the escrow when someone does — nothing is charged until then."
+                  : rewardType !== "points" && !escrowSuccess
                   ? "Posted unfunded. Open it in World App to deposit USDC and activate it."
                   : "Runners can pick it up now. You'll be notified when someone completes it."}
               </Typography>

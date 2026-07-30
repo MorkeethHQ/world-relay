@@ -22,6 +22,16 @@ recur silently.
   escrow-funded on-chain (`isRealMoney`). No category exceptions (the old
   `feedback` bypass let unfunded USDC question-tasks onto the board). Claimed tasks
   show only to their claimant.
+  **Escrow-v2 amendment (Jul 31, 2026):** an open `usdc-v2` task is visible while
+  UNFUNDED — that is the demand-gated design working, not a broken promise: the
+  poster funds the verified FavourEscrowV2 contract from their own wallet at
+  claimant-accept, and the badge shows the honest "funds on accept" state until
+  the server verifies the escrow on-chain. Funded v2 tasks rank in the FUNDED
+  tier like any real-money task; unfunded ones rank with points. The whole rail
+  is dark unless `ESCROW_V2_ENABLED=1`; launch caps are env-configurable and
+  UNLIMITED by default (`ESCROW_V2_MAX_USD`, `ESCROW_V2_MAX_CONCURRENT` — 0 or
+  absent = no cap; server-enforced in `/api/tasks` and `/api/escrow-v2`, config
+  source `src/lib/escrow-v2.ts`).
 - **R4/R5 — Tier order.** my claims > funded USDC > featured campaign (the current
   points-journey funnel) > other points > feedback > stale (>7 days unclaimed,
   SINGLE-completion tasks only — evergreen multi-completion tasks reopen after

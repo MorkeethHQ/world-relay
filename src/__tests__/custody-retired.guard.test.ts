@@ -88,7 +88,12 @@ describe("layer 2 — the UI offers no way in", () => {
   });
 
   it("defaults the post wizard to points", () => {
-    expect(feed).toMatch(/useState<"usdc" \| "points">\("points"\)/);
+    // "usdc-v2" in the union is NOT custody: that rail funds a verified,
+    // ownerless contract from the poster's own wallet at claimant-accept, and
+    // it is dark unless ESCROW_V2_ENABLED=1 (see escrow-v2.guard.test.ts).
+    // What this guard pins is that POINTS stays the default and the legacy
+    // custody escrow never becomes reachable again.
+    expect(feed).toMatch(/useState<"usdc" \| "points" \| "usdc-v2">\("points"\)/);
   });
 });
 

@@ -14,6 +14,7 @@ import { isTemplateCopy, MIN_DESCRIPTION_LENGTH } from "@/lib/post-templates";
 import { toApiTasks, isPublicTask } from "@/lib/task-serializer";
 import { orderBoardForApi } from "@/lib/board-rank";
 import { CUSTODY_RETIRED } from "@/lib/custody";
+import { escrowV2Enabled, escrowV2MaxUsd } from "@/lib/escrow-v2";
 import {
   resolvePostingPrivilege,
   auditPostingPrivilege,
@@ -117,11 +118,39 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Custody retired: a money favour cannot be posted at all. Rejected, not
-  // silently converted to points — a $5 request quietly stored as 5 points
-  // would both misrepresent what the poster asked for and route around the
-  // 1-10 points cap below, which is the only thing bounding points inflation.
-  if (CUSTODY_RETIRED && rewardType !== "points") {
+  // Money favours, two rails, one rule each:
+  //  - Legacy "usdc" (retired proxy escrow): NEVER accepted. Custody stays closed.
+  //  - "usdc-v2" (FavourEscrowV2): accepted ONLY while ESCROW_V2_ENABLED=1, and
+  //    NO money moves at posting — the poster funds from their own wallet at
+  //    claimant-accept (demand-gated custody, escrow-v2-design.md). Rejected,
+  //    not silently converted to points — a $5 request quietly stored as 5
+  //    points would both misrepresent what the poster asked for and route
+  //    around the 1-10 points cap below.
+  const isV2Post = rewardType === "usdc-v2";
+  if (isV2Post) {
+    if (!escrowV2Enabled()) {
+      return NextResponse.json({
+        error: "USDC favours are not available right now. Post a points favour instead.",
+      }, { status: 400 });
+    }
+    // Poster must be a wallet address: they will be the on-chain funder.
+    if (!/^0x[0-9a-fA-F]{40}$/.test(poster)) {
+      return NextResponse.json({
+        error: "USDC favours require a wallet-verified poster.",
+      }, { status: 400 });
+    }
+    const maxUsd = escrowV2MaxUsd();
+    if (bountyNum > maxUsd) {
+      return NextResponse.json({
+        error: `USDC favours are capped at $${maxUsd} right now.`,
+      }, { status: 400 });
+    }
+    if ((maxCompletions ? Number(maxCompletions) : 1) > 1) {
+      return NextResponse.json({
+        error: "USDC favours are single-completion — one escrow funds one payout.",
+      }, { status: 400 });
+    }
+  } else if (CUSTODY_RETIRED && rewardType !== "points") {
     return NextResponse.json({
       error: "FAVOUR no longer holds funds in escrow. Post a points favour instead.",
     }, { status: 400 });
@@ -198,10 +227,13 @@ export async function POST(req: NextRequest) {
     bountyUsdc: Number(bountyUsdc),
     deadlineHours: Number(deadlineHours) || 24,
     agentId: resolvedAgentId,
-    onChainId: verifiedOnChainId,
-    escrowTxHash: verifiedEscrowTxHash,
+    // A v2 task NEVER stores client-supplied escrow markers: it is born
+    // unfunded by design and only /api/escrow-v2 verify-funded (an on-chain
+    // read + receipt check) may set them later.
+    onChainId: isV2Post ? null : verifiedOnChainId,
+    escrowTxHash: isV2Post ? null : verifiedEscrowTxHash,
     taskType: taskType || "standard",
-    rewardType: rewardType === "points" ? "points" : "usdc",
+    rewardType: rewardType === "points" ? "points" : isV2Post ? "usdc-v2" : "usdc",
     donOnChainId: donOnChainId != null ? Number(donOnChainId) : null,
     maxCompletions: requestedCompletions,
     campaignId: validCampaignId,
