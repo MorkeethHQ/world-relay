@@ -33,7 +33,8 @@ type OnChainTask = {
 };
 
 type EscrowStats = {
-  escrowAddress: string;
+  legacy: boolean;
+  currentEscrow: string;
   taskCount: number;
   escrowBalance: string;
   totalDeposited: string;

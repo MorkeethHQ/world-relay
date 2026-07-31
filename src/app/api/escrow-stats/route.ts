@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
 import { createPublicClient, http, formatUnits } from "viem";
 import { worldchain } from "viem/chains";
+import { escrowV2Address } from "@/lib/escrow-v2";
 
 const RPC_URL = "https://worldchain-mainnet.g.alchemy.com/public";
-const ESCROW_ADDRESS = (process.env.NEXT_PUBLIC_ESCROW_ADDRESS?.trim() || "0x274C38eA9944f57D24A59fbEf558bba2264f9351") as `0x${string}`;
+// Retired v1 rail — kept ONLY for internal/historical accounting below. The
+// address is never included in the public response (the endpoint is labeled
+// legacy and points at the current config-sourced contract instead).
+const LEGACY_ESCROW_ADDRESS = (process.env.NEXT_PUBLIC_ESCROW_ADDRESS?.trim() || "0x274C38eA9944f57D24A59fbEf558bba2264f9351") as `0x${string}`;
 const USDC_ADDRESS = "0x79A02482A880bCE3F13e09Da970dC34db4CD24d1" as `0x${string}`;
 
 const STATUS_LABELS = ["open", "claimed", "completed", "failed", "expired"] as const;
@@ -42,8 +46,8 @@ export async function GET() {
     const pub = createPublicClient({ chain: worldchain, transport: http(RPC_URL) });
 
     const [taskCount, escrowBalance] = await Promise.all([
-      pub.readContract({ address: ESCROW_ADDRESS, abi: ESCROW_ABI, functionName: "taskCount" }),
-      pub.readContract({ address: USDC_ADDRESS, abi: ERC20_ABI, functionName: "balanceOf", args: [ESCROW_ADDRESS] }),
+      pub.readContract({ address: LEGACY_ESCROW_ADDRESS, abi: ESCROW_ABI, functionName: "taskCount" }),
+      pub.readContract({ address: USDC_ADDRESS, abi: ERC20_ABI, functionName: "balanceOf", args: [LEGACY_ESCROW_ADDRESS] }),
     ]);
 
     let totalDeposited = BigInt(0);
@@ -52,7 +56,7 @@ export async function GET() {
     const tasks: { id: number; bounty: string; status: string; description: string; claimant: string }[] = [];
 
     for (let i = 0; i < Number(taskCount); i++) {
-      const task = await pub.readContract({ address: ESCROW_ADDRESS, abi: ESCROW_ABI, functionName: "getTask", args: [BigInt(i)] });
+      const task = await pub.readContract({ address: LEGACY_ESCROW_ADDRESS, abi: ESCROW_ABI, functionName: "getTask", args: [BigInt(i)] });
       const bounty = task.bounty;
       const status = STATUS_LABELS[task.status] || "unknown";
       totalDeposited = totalDeposited + bounty;
@@ -69,7 +73,11 @@ export async function GET() {
     }
 
     const data = {
-      escrowAddress: ESCROW_ADDRESS,
+      // Historical stats from the RETIRED v1 rail; the retired address itself
+      // is deliberately not served. Current escrow = the v2.1 config contract.
+      legacy: true,
+      note: "Stats cover the retired v1 escrow only. Current escrow contract (FavourEscrowV2_1) is currentEscrow.",
+      currentEscrow: escrowV2Address(),
       taskCount: Number(taskCount),
       escrowBalance: formatUnits(escrowBalance, 6),
       totalDeposited: formatUnits(totalDeposited, 6),

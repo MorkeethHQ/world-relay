@@ -22,7 +22,7 @@ How it works:
 4. AI verifies the proof against the task requirements
 5. Earn points — and campaign USDC when you unlock, paid direct to your wallet
 
-FAVOUR does not hold user funds and does not run a user escrow. Built on World Chain with World ID, MiniKit, and XMTP encrypted messaging.
+FAVOUR is non-custodial: it never holds user funds. Cash favours use an optional poster-funded escrow contract signed from the poster's own wallet. Built on World Chain with World ID, MiniKit, and XMTP encrypted messaging.
 
 ## Category
 Earn
@@ -41,14 +41,20 @@ https://world-relay.vercel.app
 ## Integration Details
 - World ID: Orb + Device + Wallet verification for claiming (tier-gated access)
 - MiniKit: walletAuth and native World App UX (haptics, share, permissions)
-- World Chain: campaign USDC payouts sent directly to the runner's wallet (no user-fund escrow contract)
+- World Chain: campaign USDC payouts sent directly to the runner's wallet; optional poster-funded escrow (FavourEscrowV2_1) for cash favours
 - XMTP: Encrypted task threads and AI chat bot
 
 ## Custody / contracts (for reviewers)
 
-**FAVOUR does not take custody of user funds.** There is no user-deposit escrow in the live product. A previously advertised escrow path is retired (`CUSTODY_RETIRED`); the app will not encode or accept new escrow deposits. Historical on-chain rows may still settle leave-paths for old tasks only.
+**FAVOUR is non-custodial.** The app never holds user funds and no server key can move them. Points favours and campaign payouts move no user money at all; campaign cash is a FAVOUR-funded direct ERC-20 transfer after the clean unlock gate (Orb-verified + passed verification, no AI/stock/screenshot, no flags).
 
-Do not list or require verification of a user-escrow contract for this listing. Campaign cash is a FAVOUR-funded direct ERC-20 transfer after the clean unlock gate (Orb-verified + passed verification, no AI/stock/screenshot, no flags).
+**Optional poster-funded escrow for cash favours: `FavourEscrowV2_1` at `0x61041dfC405D6CeA57653B8E8BCBDA209214682f`** — source VERIFIED on World Chain Blockscout, immutable (no proxy, no owner, no pause, no fee). The recipient is bound at fund time; the funder signs from their own wallet; funds release only to that bound recipient, or refund to the funder after the deadline. The legacy v1 escrow path is retired (`CUSTODY_RETIRED`, endpoints return 410) and the app encodes no new deposits to it.
+
+**Portal declarations (all three):**
+- Contract Entrypoints: escrow `0x61041dfC405D6CeA57653B8E8BCBDA209214682f` + Permit2 `0x000000000022D473030F116dDEE9F6B43aC78BA3`
+- Permit2 Tokens: USDC `0x79A02482A880bCE3F13e09Da970dC34db4CD24d1`
+
+**Reviewer notes (how to test):** FAVOUR is non-custodial by default — posting a favour moves no money. To see the cash flow you need a second account: the Fund button appears for the poster only after a claimant accepts the favour. Once funded, the escrow can only release to the claimant the poster approves, or refund to the poster after the deadline; no other destination exists in the contract ABI. Campaign USDC requires Orb verification plus a passing photo proof, so it cannot be instant-tested from a fresh account.
 
 ---
 

@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
+import { escrowV2Address } from "@/lib/escrow-v2";
 
 export async function GET() {
   return NextResponse.json({
     status: "ok",
-    service: "relay",
+    service: "favour",
     version: "1.0.0",
     chain: "world-chain",
-    escrow: "0x274C38eA9944f57D24A59fbEf558bba2264f9351",
+    // Current rail only — config-sourced (src/lib/escrow-v2.ts), never hardcoded.
+    escrow: escrowV2Address(),
     xmtp: "production",
     timestamp: new Date().toISOString(),
   });

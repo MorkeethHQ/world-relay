@@ -8,6 +8,7 @@ import { VerificationBadge, RequiredTierBadge } from "@/components/VerificationB
 import { hapticTap, hapticSuccess, hapticError, shareTask } from "@/lib/minikit-helpers";
 import { MiniKit } from "@worldcoin/minikit-js";
 import { rewardAmountLabel, isPointsReward, isRealMoney } from "@/lib/reward";
+import { escrowV2Address } from "@/lib/escrow-v2";
 import { useWorldUsers, displayName } from "@/hooks/useWorldUser";
 import { TopBar, Button, Typography, Spinner, Pill, Input, CircularIcon } from "@worldcoin/mini-apps-ui-kit-react";
 
@@ -23,7 +24,9 @@ type Message = {
   timestamp: string;
 };
 
-const ESCROW_ADDRESS = "0x274C38eA9944f57D24A59fbEf558bba2264f9351";
+// Retired v1 rail — shown only on legacy tasks, clearly labeled. Current
+// (v2.1) tasks link the config-sourced contract they were funded on.
+const LEGACY_ESCROW_ADDRESS = "0x274C38eA9944f57D24A59fbEf558bba2264f9351";
 const WORLDSCAN_TX = "https://worldscan.org/tx";
 const WORLDSCAN_ADDR = "https://worldscan.org/address";
 
@@ -2059,12 +2062,20 @@ export default function TaskDetailPage() {
                 />
               )}
 
-              <OnChainLink
-                label="Payment Contract"
-                value={`${ESCROW_ADDRESS.slice(0, 10)}...${ESCROW_ADDRESS.slice(-8)}`}
-                href={`${WORLDSCAN_ADDR}/${ESCROW_ADDRESS}`}
-                mono
-              />
+              {(() => {
+                const isV2 = task.rewardType === "usdc-v2";
+                const contractAddress = isV2
+                  ? task.escrowV2Address || escrowV2Address()
+                  : LEGACY_ESCROW_ADDRESS;
+                return (
+                  <OnChainLink
+                    label={isV2 ? "Payment Contract" : "Payment Contract (legacy contract, retired)"}
+                    value={`${contractAddress.slice(0, 10)}...${contractAddress.slice(-8)}`}
+                    href={`${WORLDSCAN_ADDR}/${contractAddress}`}
+                    mono
+                  />
+                );
+              })()}
 
               {task.attestationTxHash && (
                 <OnChainLink

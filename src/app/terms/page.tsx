@@ -65,8 +65,13 @@ export default function TermsPage() {
             FAVOUR does not hold your money. We take no custody of user funds and
             charge no fee on rewards. Where a campaign pays USDC, it is sent
             directly to your World wallet from FAVOUR&rsquo;s own funds once you
-            complete the campaign &mdash; nothing of yours is ever deposited,
-            locked, or held on your behalf.
+            complete the campaign &mdash; for points and campaign rewards,
+            nothing of yours is ever deposited, locked, or held on your behalf.
+          </p>
+          <p className="text-[15px] leading-relaxed">
+            If you post a cash favour, you fund a verified, immutable escrow
+            contract from your own wallet; it releases only to the runner you
+            approve, or refunds to you after the deadline.
           </p>
         </section>
 

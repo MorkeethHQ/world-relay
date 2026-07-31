@@ -28,7 +28,7 @@ export default function PrivacyPage() {
       <h1 className="text-[28px] font-bold tracking-tight text-gray-900 mt-6">
         Privacy Policy
       </h1>
-      <p className="text-[13px] text-gray-400 mt-1">Version 1.0 &middot; Last updated 19 July 2026</p>
+      <p className="text-[13px] text-gray-400 mt-1">Version 1.1 &middot; Last updated 31 July 2026</p>
 
       <div className="mt-8 flex flex-col gap-7 text-gray-700">
         <section className="flex flex-col gap-2">
@@ -125,7 +125,10 @@ export default function PrivacyPage() {
             of all on-chain activity, not just ours, but you should know it
             before you earn. Earlier versions of FAVOUR held bounties in an
             escrow contract; those historical transactions remain on-chain and
-            public, and no new ones are created.
+            public. If you post a cash favour, you fund the current escrow
+            contract (FavourEscrowV2_1) from your own wallet; its funding,
+            release, and refund transactions are public and permanent in the
+            same way.
           </p>
         </section>
 
