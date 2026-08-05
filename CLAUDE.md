@@ -4,7 +4,12 @@ Live in the World App Store. Silver (2nd/500) at World Build. **Real money moves
 through this now and people rely on it. Do not break it.**
 
 ## Context
-- Next.js app, World ID integration, XMTP messaging, on-chain USDC escrow (World Chain 480)
+- Next.js app, World ID integration, XMTP messaging. **Custody is retired**
+  (`src/lib/custody.ts` — `CUSTODY_RETIRED = true`, decided 2026-07-28): no new
+  funds can enter the first-party escrow. The escrow-v2 reopen attempt was rolled
+  back after INCIDENT 2026-07-31 (see `d5d648c`). Real money still moves via a
+  plain ERC-20 `transfer` from the relayer wallet for campaign unlocks — not
+  custody, not a first-party contract.
 - Rebrand in progress: RELAY → FAVOUR (copy/name only — see "Brand" below)
 
 ## Source of truth (avoid context drift)
@@ -33,7 +38,9 @@ broad reviews missed live money bugs because broad reads skim; the guard test
   before commit — not just tsc.
 - **No fake/simulated data, ever** — even for demos.
 - **Points and USDC are never conflated.** `reward.ts` is the single source; points
-  are `pts`, money is `$ USDC` and only real when escrow-funded on-chain.
+  are `pts`, money is `$ USDC` and only real when paid out via the relayer's
+  ERC-20 transfer (`campaign-unlock.ts`) — custody/escrow-funding is retired,
+  see `src/lib/custody.ts`.
 - **AI-generated proof may appear as content but must NEVER earn** points or USDC,
   nor count toward completions / leaderboard / campaign unlock.
 - **Campaign cash unlocks only through the clean gate:** Orb-verified + passed
