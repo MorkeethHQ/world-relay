@@ -6,6 +6,7 @@ import {
   Typography,
   LiveFeedback,
 } from "@worldcoin/mini-apps-ui-kit-react";
+import { WorldAppHandoff } from "@/components/WorldAppHandoff";
 
 /*
  * Onboarding
@@ -347,9 +348,14 @@ export function Onboarding({
               </p>
             )}
             {!isInWorldApp && !authError && (
-              <p className="text-[12px] text-gray-300 text-center mt-3">
-                Full features available in World App
-              </p>
+              <>
+                <div className="flex items-center gap-3 my-4" aria-hidden="true">
+                  <span className="h-px flex-1 bg-gray-200" />
+                  <span className="text-[11px] text-gray-400">or use the full app</span>
+                  <span className="h-px flex-1 bg-gray-200" />
+                </div>
+                <WorldAppHandoff />
+              </>
             )}
           </div>
         ) : step === 4 ? (

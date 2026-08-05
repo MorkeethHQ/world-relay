@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { MiniKit } from "@worldcoin/minikit-js";
 import { Feed } from "@/components/Feed";
 import { Onboarding } from "@/components/Onboarding";
+import { WorldAppHandoff } from "@/components/WorldAppHandoff";
 import { displayName } from "@/hooks/useWorldUser";
 import {
   Button,
@@ -234,9 +235,7 @@ export default function Home() {
             </p>
           )}
           {!isInWorldApp && (
-            <p className="text-[12px] text-gray-300 text-center">
-              Full features available in World App
-            </p>
+            <WorldAppHandoff className="pt-1" />
           )}
         </div>
       </div>
