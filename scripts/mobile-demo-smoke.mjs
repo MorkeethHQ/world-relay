@@ -3,7 +3,9 @@ import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { chromium } from "playwright";
 
-const baseUrl = process.env.DEMO_BASE_URL ?? "http://127.0.0.1:3000";
+// `localhost` matters for `next dev`: Chromium's mobile context can fail the
+// HMR WebSocket handshake on 127.0.0.1, leaving the client shell unhydrated.
+const baseUrl = process.env.DEMO_BASE_URL ?? "http://localhost:3000";
 const artifactDir = process.env.DEMO_ARTIFACT_DIR ?? "/tmp/favour-demo";
 const viewports = [
   { name: "narrow", width: 320, height: 700 },
@@ -36,7 +38,7 @@ try {
     try {
       await page.goto(baseUrl, { waitUntil: "domcontentloaded", timeout: 30_000 });
       await page.getByRole("button", { name: "Get started" }).click();
-      await page.getByRole("button", { name: "Next" }).click();
+      await page.getByRole("button", { name: "Next", exact: true }).click();
       await page.getByRole("button", { name: "I agree" }).click();
 
       const handoff = page.getByRole("link", { name: "Open in World App" });

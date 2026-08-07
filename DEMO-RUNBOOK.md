@@ -15,8 +15,9 @@ and 430px.
 # Once per machine
 npx playwright install chromium
 
-# Terminal 1
-NEXT_PUBLIC_WORLD_APP_ID=app_your_registered_id npm run dev
+# Terminal 1 — build the same production mode used by Vercel
+NEXT_PUBLIC_WORLD_APP_ID=app_your_registered_id npm run build
+npm start
 
 # Terminal 2
 npm run demo:smoke
@@ -76,8 +77,8 @@ Run immediately before the presentation:
 npx tsc --noEmit
 npm test
 npm run build
-npm run demo:smoke
 ```
 
-The demo is a go only if the automated gate passes and the physical World App
-preflight succeeds.
+Then run `npm start` and `npm run demo:smoke` in separate terminals, or point
+`DEMO_BASE_URL` at the deployed preview. The demo is a go only if the automated
+gate passes and the physical World App preflight succeeds.
