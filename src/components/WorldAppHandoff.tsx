@@ -24,7 +24,7 @@ export function WorldAppHandoff({ className = "" }: WorldAppHandoffProps) {
         Open in World App
       </a>
 
-      <div className="hidden sm:flex flex-col items-center gap-2" aria-label="Scan to open FAVOUR in World App">
+      <div className="desktop-handoff-qr flex-col items-center gap-2" aria-label="Scan to open FAVOUR in World App">
         <div className="rounded-2xl border border-gray-200 bg-white p-3">
           <QRCodeSVG
             value={href}
