@@ -1,4 +1,5 @@
 const WORLD_MINI_APP_URL = "https://world.org/mini-app";
+const WORLD_APP_ID_PATTERN = /^app_[0-9a-f]{32}$/i;
 
 /**
  * Universal link for handing a browser visitor into the registered FAVOUR
@@ -9,7 +10,7 @@ export function worldAppUrl(
   path = "/",
   appId = process.env.NEXT_PUBLIC_WORLD_APP_ID,
 ): string | null {
-  if (!appId?.startsWith("app_")) return null;
+  if (!appId || !WORLD_APP_ID_PATTERN.test(appId)) return null;
 
   const params = new URLSearchParams({
     app_id: appId,

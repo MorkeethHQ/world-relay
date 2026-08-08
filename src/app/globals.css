@@ -24,10 +24,12 @@
 /*
  * Browser-to-phone QR: keep this responsive display rule unlayered. The World
  * UI kit ships an unlayered `.hidden`, which otherwise outranks Tailwind's
- * layered `sm:flex` and leaves the desktop QR permanently hidden.
+ * layered `sm:flex` and leaves the desktop QR permanently hidden. Requiring
+ * desktop-like height as well as width keeps the QR out of short landscape
+ * phone/tablet viewports, where the direct link remains available.
  */
 .desktop-handoff-qr { display: none; }
-@media (min-width: 640px) {
+@media (min-width: 640px) and (min-height: 640px) {
   .desktop-handoff-qr { display: flex; }
 }
 

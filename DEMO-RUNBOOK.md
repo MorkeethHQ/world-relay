@@ -9,28 +9,56 @@ Money, identity, rewards, and board behavior remain governed by
 
 The smoke gate exercises the desktop QR handoff plus onboarding, preview
 sign-in, all five navigation routes, horizontal containment, and 44px
-navigation targets at 320px, 390px, and 430px.
+navigation targets at 320px, 390px, 430px, and a 740×360 landscape viewport.
+It rejects missing, placeholder, or mismatched World App IDs.
 
 ```bash
 # Once per machine
 npx playwright install chromium
 
-# Terminal 1 — build the same production mode used by Vercel
-NEXT_PUBLIC_WORLD_APP_ID=app_your_registered_id npm run build
+# Terminal 1 — load the existing frozen ID without printing it, then build
+set -a
+source .env.local
+set +a
+export DEMO_WORLD_APP_ID="$NEXT_PUBLIC_WORLD_APP_ID"
+npm run build
 npm start
 
-# Terminal 2
+# Terminal 2 — load and verify the same exact registered ID
+set -a
+source .env.local
+set +a
+export DEMO_WORLD_APP_ID="$NEXT_PUBLIC_WORLD_APP_ID"
 npm run demo:smoke
 ```
 
-Screenshots are written to `/tmp/favour-demo`. To test another deployment:
+`DEMO_WORLD_APP_ID` is required in the shell that runs the smoke command. Never
+substitute a sample ID: the gate compares the generated universal link with
+this exact value. Screenshots and `summary.json` are written to
+`/tmp/favour-demo`. To test another deployment, set `DEMO_WORLD_APP_ID` to that
+deployment's exact registered app ID, then run:
 
 ```bash
-DEMO_BASE_URL=https://your-preview.example npm run demo:smoke
+DEMO_BASE_URL=https://your-preview.example \
+  npm run demo:smoke
 ```
 
 Do not point the smoke gate at production unless creating a disposable preview
 account is intentional; onboarding calls the real identity endpoint.
+
+## Cross-agent evidence
+
+After the gate runs, review `/tmp/favour-demo/summary.json` first. It records:
+
+- exact browser checks and viewport matrix
+- pass/fail status and duration per check
+- screenshot filename for every result
+- a fingerprint of the expected app ID (never the ID itself)
+- an explicit reminder that physical World App testing is still outstanding
+
+Claude and Cursor should compare that report with the screenshots before
+discussing code changes. A browser pass is not permission to claim that
+MiniKit, camera, identity, or settlement passed on a phone.
 
 ## Physical World App preflight
 
@@ -65,7 +93,9 @@ inside World App and must be checked on a real phone.
 - Say `pts` for points and `$ USDC` only for real money.
 - Never describe a submitted transaction as paid. Show payment only after
   settlement is confirmed on-chain.
-- Do not enable escrow or session enforcement during the presentation.
+- Do not change escrow, session enforcement, or any rollout flag as part of a
+  presentation. The demo uses the deployment's normal security configuration;
+  identity-enforcement rollout is a separate reviewed production change.
 - If a live dependency fails, show the surfaced error and recovery path. Do not
   replace the result with a fabricated success screen.
 

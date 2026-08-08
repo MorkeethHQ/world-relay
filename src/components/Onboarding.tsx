@@ -174,7 +174,7 @@ export function Onboarding({
       : "You are set up in preview mode. Discover favours to complete and polls to vote on.";
 
   return (
-    <div className="fixed inset-0 z-[60] bg-white flex flex-col max-w-lg mx-auto w-full">
+    <div className="fixed inset-0 z-[60] bg-white flex flex-col max-w-lg mx-auto w-full overflow-y-auto">
       {/* Back navigation. Available between the intro steps, not on the terminal
           success screen, and not while a sign-in is in flight. */}
       {step > 0 && step < 4 && (
@@ -328,7 +328,7 @@ export function Onboarding({
       </div>
 
       {/* Action. One primary action per screen. */}
-      <div className="px-7 pb-10 pt-4">
+      <div className="shrink-0 px-7 pb-10 pt-4">
         {step === 3 ? (
           <div aria-live="polite">
             <LiveFeedback state={isVerifying ? "pending" : undefined}>
