@@ -26,6 +26,14 @@ const browser = await chromium.launch();
 let failures = 0;
 
 try {
+  try {
+    await assertDesktopHandoff(browser);
+    console.log("PASS desktop QR handoff");
+  } catch (error) {
+    failures += 1;
+    console.error("FAIL desktop QR handoff:", error);
+  }
+
   for (const viewport of viewports) {
     const context = await browser.newContext({
       viewport: { width: viewport.width, height: viewport.height },
@@ -78,10 +86,46 @@ try {
 }
 
 if (failures > 0) {
-  throw new Error(`${failures} mobile demo viewport${failures === 1 ? "" : "s"} failed`);
+  throw new Error(`${failures} demo check${failures === 1 ? "" : "s"} failed`);
 }
 
-console.log(`Mobile demo gate passed. Screenshots: ${artifactDir}`);
+console.log(`Demo gate passed. Screenshots: ${artifactDir}`);
+
+async function assertDesktopHandoff(browserInstance) {
+  const context = await browserInstance.newContext({
+    viewport: { width: 1024, height: 800 },
+    deviceScaleFactor: 1,
+  });
+  const page = await context.newPage();
+
+  try {
+    await page.goto(baseUrl, { waitUntil: "domcontentloaded", timeout: 30_000 });
+    await page.getByRole("button", { name: "Get started" }).click();
+    await page.getByRole("button", { name: "Next", exact: true }).click();
+    await page.getByRole("button", { name: "I agree" }).click();
+
+    const handoff = page.getByRole("link", { name: "Open in World App" });
+    await handoff.waitFor();
+    assert.match(
+      (await handoff.getAttribute("href")) ?? "",
+      /^https:\/\/world\.org\/mini-app\?/,
+    );
+    await page.getByLabel("Scan to open FAVOUR in World App").waitFor();
+    await page.getByText("Scan with your phone").waitFor();
+    await page.screenshot({
+      path: join(artifactDir, "desktop-qr-handoff.png"),
+      fullPage: true,
+    });
+  } catch (error) {
+    await page.screenshot({
+      path: join(artifactDir, "desktop-qr-handoff-failure.png"),
+      fullPage: true,
+    }).catch(() => {});
+    throw error;
+  } finally {
+    await context.close();
+  }
+}
 
 async function assertMobileShell(page, expectedWidth) {
   const measurements = await page.evaluate(() => {

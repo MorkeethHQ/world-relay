@@ -7,9 +7,9 @@ Money, identity, rewards, and board behavior remain governed by
 
 ## Automated browser preflight
 
-The smoke gate exercises onboarding, preview sign-in, all five navigation
-routes, horizontal containment, and 44px navigation targets at 320px, 390px,
-and 430px.
+The smoke gate exercises the desktop QR handoff plus onboarding, preview
+sign-in, all five navigation routes, horizontal containment, and 44px
+navigation targets at 320px, 390px, and 430px.
 
 ```bash
 # Once per machine
