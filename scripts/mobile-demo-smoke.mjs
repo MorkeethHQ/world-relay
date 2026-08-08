@@ -112,6 +112,7 @@ async function assertDesktopHandoff(browserInstance) {
     );
     await page.getByLabel("Scan to open FAVOUR in World App").waitFor();
     await page.getByText("Scan with your phone").waitFor();
+    await page.waitForTimeout(500);
     await page.screenshot({
       path: join(artifactDir, "desktop-qr-handoff.png"),
       fullPage: true,
