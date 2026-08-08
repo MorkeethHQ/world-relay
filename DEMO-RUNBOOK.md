@@ -21,7 +21,6 @@ set -a
 source .env.local
 set +a
 export DEMO_WORLD_APP_ID="$NEXT_PUBLIC_WORLD_APP_ID"
-export DEMO_REVISION="$(git rev-parse HEAD)"
 npm run build
 npm start
 
@@ -30,19 +29,19 @@ set -a
 source .env.local
 set +a
 export DEMO_WORLD_APP_ID="$NEXT_PUBLIC_WORLD_APP_ID"
-export DEMO_REVISION="$(git rev-parse HEAD)"
 npm run demo:smoke
 ```
 
 `DEMO_WORLD_APP_ID` is required in the shell that runs the smoke command. Never
 substitute a sample ID: the gate compares it with an independently committed
 fingerprint of FAVOUR's registered ID, then compares the generated universal
-link with the exact value. `DEMO_REVISION` is also required so evidence cannot
-be detached from the reviewed commit. Screenshots and `summary.json` are
-written to `/tmp/favour-demo`.
+link with the exact value. The gate reads the running app's commit from
+`/api/health`; Next embeds that revision automatically at build time, so an
+operator cannot type a different SHA into the report. Screenshots and
+`summary.json` are written to `/tmp/favour-demo`.
 
 To test another deployment, set `DEMO_WORLD_APP_ID` to FAVOUR's exact
-registered app ID and `DEMO_REVISION` to the exact deployed commit, then run:
+registered app ID, then run:
 
 ```bash
 DEMO_BASE_URL=https://your-preview.example \

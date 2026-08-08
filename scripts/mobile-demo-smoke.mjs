@@ -9,7 +9,6 @@ import { chromium } from "playwright";
 const baseUrl = process.env.DEMO_BASE_URL ?? "http://localhost:3000";
 const artifactDir = process.env.DEMO_ARTIFACT_DIR ?? "/tmp/favour-demo";
 const expectedAppId = process.env.DEMO_WORLD_APP_ID;
-const expectedRevision = process.env.DEMO_REVISION;
 const REGISTERED_APP_ID_SHA256 =
   "798366edf03e1213c4f673981e2107d6bdc0bfce7af7e5bddb62cef88111174c";
 if (!expectedAppId || !/^app_[0-9a-f]{32}$/i.test(expectedAppId)) {
@@ -21,9 +20,7 @@ const appIdHash = createHash("sha256").update(expectedAppId).digest("hex");
 if (appIdHash !== REGISTERED_APP_ID_SHA256) {
   throw new Error("DEMO_WORLD_APP_ID does not match FAVOUR's registered app");
 }
-if (!expectedRevision || !/^[0-9a-f]{7,40}$/i.test(expectedRevision)) {
-  throw new Error("DEMO_REVISION must identify the exact tested commit");
-}
+const testedRevision = await runningRevision(baseUrl);
 const viewports = [
   { name: "narrow", width: 320, height: 700 },
   { name: "iphone", width: 390, height: 844 },
@@ -118,10 +115,6 @@ try {
       console.log(`PASS ${viewport.width}x${viewport.height}`);
     } catch (error) {
       failures += 1;
-      await page.screenshot({
-        path: join(artifactDir, `${viewport.name}-${viewport.width}-failure.png`),
-        fullPage: true,
-      }).catch(() => {});
       checks.push({
         name: `mobile-shell-${viewport.name}`,
         viewport: `${viewport.width}x${viewport.height}`,
@@ -143,7 +136,7 @@ const summary = {
   status: failures === 0 ? "passed" : "failed",
   scope: "browser-only; physical World App preflight remains required",
   baseUrl: sanitizedBaseUrl(baseUrl),
-  revision: expectedRevision,
+  revision: testedRevision,
   appIdFingerprint: appIdHash.slice(0, 12),
   startedAt: startedAt.toISOString(),
   finishedAt: new Date().toISOString(),
@@ -183,12 +176,6 @@ async function assertDesktopHandoff(browserInstance) {
       path: join(artifactDir, "desktop-qr-handoff.png"),
       fullPage: true,
     });
-  } catch (error) {
-    await page.screenshot({
-      path: join(artifactDir, "desktop-qr-handoff-failure.png"),
-      fullPage: true,
-    }).catch(() => {});
-    throw error;
   } finally {
     await context.close();
   }
@@ -205,6 +192,21 @@ function assertWorldAppHref(href) {
 
 function errorMessage(error) {
   return error instanceof Error ? error.message : String(error);
+}
+
+async function runningRevision(value) {
+  const base = new URL(value);
+  const healthUrl = new URL("/api/health", base);
+  healthUrl.search = base.search;
+  const response = await fetch(healthUrl);
+  assert.ok(response.ok, `health check failed with HTTP ${response.status}`);
+  const health = await response.json();
+  assert.match(
+    health.revision ?? "",
+    /^[0-9a-f]{40}$/i,
+    "running app does not expose a build-bound commit revision",
+  );
+  return health.revision;
 }
 
 function sanitizedBaseUrl(value) {
