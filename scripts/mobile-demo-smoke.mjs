@@ -9,10 +9,20 @@ import { chromium } from "playwright";
 const baseUrl = process.env.DEMO_BASE_URL ?? "http://localhost:3000";
 const artifactDir = process.env.DEMO_ARTIFACT_DIR ?? "/tmp/favour-demo";
 const expectedAppId = process.env.DEMO_WORLD_APP_ID;
+const expectedRevision = process.env.DEMO_REVISION;
+const REGISTERED_APP_ID_SHA256 =
+  "798366edf03e1213c4f673981e2107d6bdc0bfce7af7e5bddb62cef88111174c";
 if (!expectedAppId || !/^app_[0-9a-f]{32}$/i.test(expectedAppId)) {
   throw new Error(
     "DEMO_WORLD_APP_ID must be the exact registered World App ID (app_ + 32 hex characters)",
   );
+}
+const appIdHash = createHash("sha256").update(expectedAppId).digest("hex");
+if (appIdHash !== REGISTERED_APP_ID_SHA256) {
+  throw new Error("DEMO_WORLD_APP_ID does not match FAVOUR's registered app");
+}
+if (!expectedRevision || !/^[0-9a-f]{7,40}$/i.test(expectedRevision)) {
+  throw new Error("DEMO_REVISION must identify the exact tested commit");
 }
 const viewports = [
   { name: "narrow", width: 320, height: 700 },
@@ -55,7 +65,6 @@ try {
       status: "failed",
       durationMs: Date.now() - desktopStartedAt,
       error: errorMessage(error),
-      screenshot: "desktop-qr-handoff-failure.png",
     });
     console.error("FAIL desktop QR handoff:", error);
   }
@@ -119,7 +128,6 @@ try {
         status: "failed",
         durationMs: Date.now() - checkStartedAt,
         error: errorMessage(error),
-        screenshot: `${viewport.name}-${viewport.width}-failure.png`,
       });
       console.error(`FAIL ${viewport.width}x${viewport.height}:`, error);
     } finally {
@@ -134,9 +142,9 @@ const summary = {
   schemaVersion: 1,
   status: failures === 0 ? "passed" : "failed",
   scope: "browser-only; physical World App preflight remains required",
-  baseUrl,
-  revision: process.env.GIT_COMMIT_SHA ?? process.env.VERCEL_GIT_COMMIT_SHA ?? null,
-  appIdFingerprint: createHash("sha256").update(expectedAppId).digest("hex").slice(0, 12),
+  baseUrl: sanitizedBaseUrl(baseUrl),
+  revision: expectedRevision,
+  appIdFingerprint: appIdHash.slice(0, 12),
   startedAt: startedAt.toISOString(),
   finishedAt: new Date().toISOString(),
   checks,
@@ -197,6 +205,11 @@ function assertWorldAppHref(href) {
 
 function errorMessage(error) {
   return error instanceof Error ? error.message : String(error);
+}
+
+function sanitizedBaseUrl(value) {
+  const url = new URL(value);
+  return `${url.origin}${url.pathname}`;
 }
 
 async function assertMobileShell(page, expectedWidth) {

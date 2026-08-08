@@ -21,6 +21,7 @@ set -a
 source .env.local
 set +a
 export DEMO_WORLD_APP_ID="$NEXT_PUBLIC_WORLD_APP_ID"
+export DEMO_REVISION="$(git rev-parse HEAD)"
 npm run build
 npm start
 
@@ -29,14 +30,19 @@ set -a
 source .env.local
 set +a
 export DEMO_WORLD_APP_ID="$NEXT_PUBLIC_WORLD_APP_ID"
+export DEMO_REVISION="$(git rev-parse HEAD)"
 npm run demo:smoke
 ```
 
 `DEMO_WORLD_APP_ID` is required in the shell that runs the smoke command. Never
-substitute a sample ID: the gate compares the generated universal link with
-this exact value. Screenshots and `summary.json` are written to
-`/tmp/favour-demo`. To test another deployment, set `DEMO_WORLD_APP_ID` to that
-deployment's exact registered app ID, then run:
+substitute a sample ID: the gate compares it with an independently committed
+fingerprint of FAVOUR's registered ID, then compares the generated universal
+link with the exact value. `DEMO_REVISION` is also required so evidence cannot
+be detached from the reviewed commit. Screenshots and `summary.json` are
+written to `/tmp/favour-demo`.
+
+To test another deployment, set `DEMO_WORLD_APP_ID` to FAVOUR's exact
+registered app ID and `DEMO_REVISION` to the exact deployed commit, then run:
 
 ```bash
 DEMO_BASE_URL=https://your-preview.example \
@@ -52,8 +58,9 @@ After the gate runs, review `/tmp/favour-demo/summary.json` first. It records:
 
 - exact browser checks and viewport matrix
 - pass/fail status and duration per check
-- screenshot filename for every result
+- screenshot filename for every successfully captured result
 - a fingerprint of the expected app ID (never the ID itself)
+- the required tested commit revision
 - an explicit reminder that physical World App testing is still outstanding
 
 Claude and Cursor should compare that report with the screenshots before
