@@ -1,0 +1,49 @@
+{
+  "_comment": "Comeback campaign seed — 4 points tasks bound to campaignId comeback-2026. Points only: bountyUsdc here is a POINTS value (0-10), never money (seed/route.ts validPoints). Cash reaches people through the campaign UNLOCK ($2 per Orb-verified human, pot 40), not through these tasks. Fire with: scripts/seed-comeback.sh",
+  "tasks": [
+    {
+      "description": "Photograph wherever you are right now — street, desk, window, anything real",
+      "location": "Anywhere",
+      "category": "check-in",
+      "rewardType": "points",
+      "bountyUsdc": 10,
+      "deadlineHours": 1248,
+      "agentId": "relay",
+      "maxCompletions": 200,
+      "campaignId": "comeback-2026"
+    },
+    {
+      "description": "Photograph one small good thing you did today",
+      "location": "Anywhere",
+      "category": "photo",
+      "rewardType": "points",
+      "bountyUsdc": 10,
+      "deadlineHours": 1248,
+      "agentId": "relay",
+      "maxCompletions": 200,
+      "campaignId": "comeback-2026"
+    },
+    {
+      "description": "Rate one local place honestly — the real verdict, not the polite one",
+      "location": "Anywhere",
+      "category": "review",
+      "rewardType": "points",
+      "bountyUsdc": 10,
+      "deadlineHours": 1248,
+      "agentId": "relay",
+      "maxCompletions": 200,
+      "campaignId": "comeback-2026"
+    },
+    {
+      "description": "Tell us the one thing FAVOUR should build next (points only, and we read every one)",
+      "location": "Anywhere",
+      "category": "feedback",
+      "rewardType": "points",
+      "bountyUsdc": 10,
+      "deadlineHours": 1248,
+      "agentId": "relay",
+      "maxCompletions": 200,
+      "campaignId": "comeback-2026"
+    }
+  ]
+}
