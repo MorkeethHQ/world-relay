@@ -9,6 +9,7 @@ const CLIENT_EVENTS = new Set([
   "fund_wall_hit",
   "usdc_post_attempt",
   "world_app_handoff_clicked",
+  "world_app_deep_link_opened",
   "task_share_opened",
   "invite_share_opened",
 ]);
