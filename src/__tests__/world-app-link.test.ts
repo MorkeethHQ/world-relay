@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { worldAppUrl } from "@/lib/world-app-link";
 
 describe("World App browser handoff", () => {
@@ -21,5 +23,17 @@ describe("World App browser handoff", () => {
     expect(worldAppUrl("/", "not-an-app-id")).toBeNull();
     expect(worldAppUrl("/", "app_your_registered_id")).toBeNull();
     expect(worldAppUrl("/", "app_1234567890abcdef")).toBeNull();
+  });
+});
+
+describe("outbound distribution uses the World App handoff", () => {
+  it("routes both task and referral shares through worldAppUrl", () => {
+    const helpers = readFileSync(
+      join(process.cwd(), "src", "lib", "minikit-helpers.ts"),
+      "utf8",
+    );
+
+    expect(helpers).toContain('import { worldAppUrl } from "./world-app-link"');
+    expect(helpers.match(/worldAppUrl\(path\)/g)).toHaveLength(2);
   });
 });
