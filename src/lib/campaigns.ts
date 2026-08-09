@@ -36,6 +36,46 @@ export type Campaign = {
 
 export const CAMPAIGNS: Campaign[] = [
   {
+    // Oscar 2026-08-08: the comeback. The board went quiet because the pot was
+    // empty ($2.06 on-chain), not because the rails broke — campaign-unlock.ts
+    // has never been custody-gated. Refunded to $42.06 (tx 0x10e044e5…fba19e),
+    // $40 of it committed here. Task 4 is the point of the campaign: it buys a
+    // roadmap from the people who actually use this. It pays POINTS, not cash —
+    // verification is a 3-model check that a PHOTO matches the task, and a text
+    // feature request has no photo to check. Paying cash for unverifiable text
+    // is how you fund spam (Oscar's ruling, option A).
+    id: "comeback-2026",
+    name: "Welcome Back",
+    brand: "FAVOUR",
+    tagline: "The board is live again. Four small favours, real USDC.",
+    description:
+      "FAVOUR went quiet for a while. It's back, and the pot is funded. Four small favours — nothing that takes more than five minutes, nothing you need to leave your day for. Every clean, AI-verified proof earns points. ONE clean photo favour as an Orb-verified human unlocks $2 USDC straight to your wallet. The pot covers 20 humans and when it's gone it's gone. Tell us what to build next while you're here — that one's points, and we actually read them.",
+    heroGradient: "from-slate-950 via-teal-900 to-emerald-800",
+    accentColor: "#0d9488",
+    icon: "\u{1F44B}",
+    totalBudget: 40,
+    rewardPerTask: 10,
+    rewardKind: "points",
+    taskCount: 4,
+    categories: ["check-in", "feedback", "photo", "review"],
+    taskDescriptions: [
+      "Photograph wherever you are right now — street, desk, window, anything real",
+      "Photograph one small good thing you did today",
+      "Rate one local place honestly — the real verdict, not the polite one",
+      "Tell us the one thing FAVOUR should build next (points only, and we read every one)",
+    ],
+    location: "Worldwide",
+    endsAt: "2026-09-30T23:59:59Z",
+    featured: true,
+    unlock: {
+      pot: 40,
+      unlockThreshold: 1,
+      unlockAmount: 2,
+      requiresOrb: true,
+      maxCountedPerUser: 1,
+    },
+  },
+  {
     id: "legendary-favours",
     name: "Legendary Favours",
     brand: "FAVOUR",
