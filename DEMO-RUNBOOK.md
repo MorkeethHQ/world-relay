@@ -7,10 +7,10 @@ Money, identity, rewards, and board behavior remain governed by
 
 ## Automated browser preflight
 
-The smoke gate exercises the desktop QR handoff plus onboarding, preview
-sign-in, all five navigation routes, horizontal containment, and 44px
-navigation targets at 320px, 390px, 430px, and a 740×360 landscape viewport.
-It rejects missing, placeholder, or mismatched World App IDs.
+The smoke gate exercises the desktop QR handoff, onboarding, all five
+navigation routes, horizontal containment, and 44px navigation targets at
+320px, 390px, 430px, and a 740×360 landscape viewport. It rejects missing,
+placeholder, or mismatched World App IDs.
 
 ```bash
 # Once per machine
@@ -48,8 +48,9 @@ DEMO_BASE_URL=https://your-preview.example \
   npm run demo:smoke
 ```
 
-Do not point the smoke gate at production unless creating a disposable preview
-account is intentional; onboarding calls the real identity endpoint.
+The gate never signs in or creates a preview identity. It blocks application
+API mutations and intercepts telemetry, so a remote run cannot create users,
+tasks, rewards, or analytics events.
 
 ## Cross-agent evidence
 

@@ -19,6 +19,13 @@ export function WorldAppHandoff({ className = "" }: WorldAppHandoffProps) {
     <div className={`flex flex-col items-center gap-3 ${className}`}>
       <a
         href={href}
+        onClick={() => {
+          fetch("/api/track", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ event: "world_app_handoff_clicked" }),
+          }).catch(() => {});
+        }}
         className="min-h-[44px] inline-flex items-center justify-center rounded-xl border border-gray-200 bg-white px-5 text-[14px] font-semibold text-gray-900 active:scale-[0.98]"
       >
         Open in World App

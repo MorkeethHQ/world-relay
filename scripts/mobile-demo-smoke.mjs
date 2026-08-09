@@ -74,6 +74,7 @@ try {
       isMobile: true,
       hasTouch: true,
     });
+    const unexpectedWrites = await guardApiWrites(context);
     const page = await context.newPage();
 
     try {
@@ -91,15 +92,19 @@ try {
         "QR must stay hidden on phone-sized and short landscape viewports",
       );
 
-      await page.getByRole("button", { name: "Continue" }).click();
-      await page.getByRole("button", { name: "Discover favours" }).click();
+      // Exercise the shell without creating a preview identity. Remote smoke
+      // runs must remain read-only and must not pollute production analytics.
+      await page.goto(appUrl("/polls"), { waitUntil: "domcontentloaded", timeout: 30_000 });
       await page.getByRole("navigation", { name: "Main navigation" }).waitFor();
 
       for (const route of routes) {
-        await page.getByRole("button", { name: route.label }).click();
+        if (new URL(page.url()).pathname !== route.path) {
+          await page.getByRole("button", { name: route.label }).click();
+        }
         await page.waitForURL((url) => url.pathname === route.path, { timeout: 15_000 });
         await assertMobileShell(page, viewport.width);
       }
+      assert.deepEqual(unexpectedWrites, [], "smoke gate attempted to mutate an application API");
 
       await page.screenshot({
         path: join(artifactDir, `${viewport.name}-${viewport.width}.png`),
@@ -158,6 +163,7 @@ async function assertDesktopHandoff(browserInstance) {
     viewport: { width: 1024, height: 800 },
     deviceScaleFactor: 1,
   });
+  const unexpectedWrites = await guardApiWrites(context);
   const page = await context.newPage();
 
   try {
@@ -176,6 +182,7 @@ async function assertDesktopHandoff(browserInstance) {
       path: join(artifactDir, "desktop-qr-handoff.png"),
       fullPage: true,
     });
+    assert.deepEqual(unexpectedWrites, [], "desktop handoff check attempted an API mutation");
   } finally {
     await context.close();
   }
@@ -212,6 +219,38 @@ async function runningRevision(value) {
 function sanitizedBaseUrl(value) {
   const url = new URL(value);
   return `${url.origin}${url.pathname}`;
+}
+
+function appUrl(path) {
+  const base = new URL(baseUrl);
+  const url = new URL(path, base);
+  url.search = base.search;
+  return url.toString();
+}
+
+async function guardApiWrites(context) {
+  const unexpectedWrites = [];
+  await context.route("**/api/**", async (route) => {
+    const request = route.request();
+    const method = request.method();
+    const pathname = new URL(request.url()).pathname;
+
+    if (method === "POST" && pathname === "/api/track") {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ ok: true }),
+      });
+      return;
+    }
+    if (!["GET", "HEAD", "OPTIONS"].includes(method)) {
+      unexpectedWrites.push(`${method} ${pathname}`);
+      await route.abort("blockedbyclient");
+      return;
+    }
+    await route.continue();
+  });
+  return unexpectedWrites;
 }
 
 async function assertMobileShell(page, expectedWidth) {
