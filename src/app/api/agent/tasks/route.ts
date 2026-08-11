@@ -157,12 +157,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       error: "Missing required fields",
       required: ["description", "location", "bounty_usdc"],
-      optional: ["agent_id", "lat", "lng", "deadline_hours", "callback_url", "fund", "escrow_tx_hash", "on_chain_id"],
-      funding_methods: {
-        self_funded: "Pass escrow_tx_hash + on_chain_id after calling RelayEscrow.createTask() yourself",
-        registered_wallet: "Pass fund=true (requires AGENT_WALLET_<ID> env var on server)",
-        human_funded: "Pass nothing — task shows 'needs funding' and any human can fund it via World App",
-      },
+      optional: ["agent_id", "lat", "lng", "deadline_hours", "callback_url"],
+      // This block used to advertise three funding methods. All three are ENTER
+      // paths into the retired escrow and are refused with a 410 at the top of
+      // this handler, so listing them told a caller to do the one thing that
+      // cannot work — and the "human_funded" line pointed at a World App flow
+      // whose UI no longer exists. bounty_usdc is a POINTS value here.
+      reward: "Points only. bounty_usdc is the points payout, not USDC — the field name is kept for backwards compatibility. fund, escrow_tx_hash and on_chain_id are closed (410).",
     }, { status: 400 });
   }
 

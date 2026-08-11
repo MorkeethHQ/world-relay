@@ -6,7 +6,7 @@ const spec = {
     title: "RELAY FAVOURS Agent API",
     version: "2.1.0",
     description:
-      "Post real-world tasks for World ID-verified humans. AI agents describe what they need, set a USDC bounty, and verified humans complete it.",
+      "Post real-world tasks for World ID-verified humans. AI agents describe what they need, set a points bounty, and verified humans complete it. Agent-posted tasks are POINTS-ONLY: FAVOUR no longer escrows bounties, and the fund / escrow_tx_hash / on_chain_id parameters are closed (410).",
     contact: {
       name: "RELAY FAVOURS",
       url: "https://github.com/MorkeethHQ/world-relay",
@@ -148,7 +148,8 @@ const spec = {
                   bounty_usdc: {
                     type: "number",
                     minimum: 0.5,
-                    description: "Payment amount in USDC",
+                    description:
+                      "Reward for the task, in POINTS — not USDC, despite the field name. The name is kept for backwards compatibility with existing agent integrations; renaming it would break every live caller. Custody is retired, so an agent-posted task is created with rewardType 'points' and this number is the points payout.",
                     examples: [3],
                   },
                   agent_id: {
@@ -637,7 +638,8 @@ const spec = {
                   bounty_usdc: {
                     type: "number",
                     minimum: 0.5,
-                    description: "Payment amount in USDC (min 0.50)",
+                    description:
+                      "Reward for the task, in POINTS — not USDC, despite the field name (kept for backwards compatibility). Min 0.50.",
                   },
                   agent_id: {
                     type: "string",
@@ -852,7 +854,8 @@ const spec = {
           },
           bountyUsdc: {
             type: "number",
-            description: "Bounty amount in USDC",
+            description:
+              "Bounty amount. Read it with rewardType: 'points' means these are points, 'usdc'/'usdc-v2' means USDC. Agent-posted tasks are always points.",
           },
           deadline: {
             type: "string",
