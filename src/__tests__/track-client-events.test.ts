@@ -50,6 +50,11 @@ describe("the funding funnel is recorded", () => {
     expect(tracked.map((t) => t.event)).toEqual(["fund_wall_hit"]);
   });
 
+  it("a CID-bound funnel event is accepted without becoming a page view", async () => {
+    await POST(post({ event: "onboarding_started", cid: "8c1c6e9d-21c0-4c5b-88a9-7d8c6f3b0e1a", page: "/" }));
+    expect(tracked).toHaveLength(0);
+  });
+
   it("page_view still works — the pre-existing path is untouched", async () => {
     await POST(post({ page: "/leaderboard" }));
     expect(tracked).toEqual([{ event: "page_view", data: { page: "/leaderboard" } }]);

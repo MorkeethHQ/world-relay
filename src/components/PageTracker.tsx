@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
+import { funnelClientId } from "@/lib/client-funnel";
 
 export function PageTracker() {
   const pathname = usePathname();
@@ -14,11 +15,7 @@ export function PageTracker() {
     // included (this is what closes the gap to World's real user count).
     let cid = "";
     try {
-      cid = localStorage.getItem("favour_cid") || "";
-      if (!cid) {
-        cid = crypto.randomUUID();
-        localStorage.setItem("favour_cid", cid);
-      }
+      cid = funnelClientId() || "";
     } catch { /* private mode / no storage: skip reach, still track page */ }
     fetch("/api/track", {
       method: "POST",

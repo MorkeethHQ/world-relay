@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { hapticTap, hapticSuccess, hapticError } from "@/lib/minikit-helpers";
+import { trackFunnel } from "@/lib/client-funnel";
 
 // THE TOP FAVOUR — the daily gate.
 //
@@ -86,6 +87,7 @@ export default function DailyFavour({
   useEffect(() => {
     load();
   }, [load]);
+  useEffect(() => { trackFunnel("daily_entered"); }, []);
 
   if (!state) {
     return <div className="h-32 rounded-2xl bg-gray-100 animate-pulse" />;

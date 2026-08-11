@@ -48,6 +48,7 @@ import {
   POLL_CARDS_MAX,
 } from "@/lib/board-rank";
 import { JuryMode } from "@/components/JuryMode";
+import { trackFunnel } from "@/lib/client-funnel";
 
 // Fire-and-forget telemetry. The event name must be in CLIENT_EVENTS in
 // /api/track, which is an allowlist because that route is public.
@@ -335,6 +336,11 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
   const feedTopRef = useRef<HTMLDivElement>(null);
   const userLocation = useUserLocation();
 
+  useEffect(() => {
+    if (view === "jury") trackFunnel("jury_entered");
+    if (view === "detail") trackFunnel("task_detail_viewed");
+  }, [view]);
+
   const allAddresses = useMemo(() => [...new Set(tasks.flatMap(t => [t.poster, t.claimant].filter(Boolean) as string[]))], [tasks]);
   useWorldUsers(allAddresses);
 
@@ -562,6 +568,13 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
     });
   }, [tasks, tab, userLocation, userId]);
 
+  // Keep labels honest: status=open may include rows past their deadline, while
+  // isBoardVisible is the predicate that decides which cards a user can see.
+  const visibleOpenCount = useMemo(
+    () => tasks.filter((t) => isBoardVisible(t, userId, Date.now())).length,
+    [tasks, userId],
+  );
+
   // Freshness for returning users: remember when this device last saw the board,
   // then flag open favours posted since then so a returning user immediately sees
   // the app moved while they were away (the main "it's alive" signal). The
@@ -621,6 +634,7 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
           if (txPayload) {
             const txResult = await MiniKit.sendTransaction(txPayload);
             if (!txResult) {
+              trackFunnel("claim_failed");
               setClaimTxError({ message: `Staking $${task.bountyUsdc} USDC failed. Please try again.`, taskId: task.id, retry: () => {} });
               hapticError();
               return;
@@ -631,6 +645,7 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
           if (txPayload) {
             const txResult = await MiniKit.sendTransaction(txPayload);
             if (!txResult) {
+              trackFunnel("claim_failed");
               setClaimTxError({ message: "On-chain claim failed. Please try again.", taskId: task.id, retry: () => {} });
               hapticError();
               return;
@@ -639,6 +654,7 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
         }
       } catch (err) {
         if (isMiniKit()) {
+          trackFunnel("claim_failed");
           setClaimTxError({ message: err instanceof Error ? err.message : "Transaction failed. Please try again.", taskId: task.id, retry: () => {} });
           hapticError();
           return;
@@ -651,6 +667,7 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
         body: JSON.stringify({ claimant: userId, claimCode }),
       });
       if (!res.ok) {
+        trackFunnel("claim_failed");
         const err = await res.json().catch(() => ({}));
         if (err.requiresCode) {
           setClaimTxError({ message: "Wrong access code. Try again.", taskId: task.id, retry: () => {} });
@@ -666,10 +683,12 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
         return;
       }
       hapticSuccess();
+      trackFunnel("claim_succeeded");
       const claimed = await res.json();
       setClaimSuccessTask(claimed.task || task);
       fetchTasks();
     } catch (err) {
+      trackFunnel("claim_failed");
       setClaimTxError({ message: err instanceof Error ? err.message : "Claim failed. Try again.", taskId: task.id, retry: () => {} });
     }
   }, [userId, fetchTasks]);
@@ -792,7 +811,7 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
           </p>
           <div className="flex items-center gap-4 mt-2">
             <div className="flex items-baseline gap-1.5">
-              <span className="text-[15px] font-bold text-gray-900">{tasks.filter(t => t.status === "open").length}</span>
+              <span className="text-[15px] font-bold text-gray-900">{visibleOpenCount}</span>
               <span className="text-[12px] text-gray-400">open now</span>
             </div>
             <div className="w-1 h-1 rounded-full bg-gray-200" />
@@ -961,7 +980,7 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
         {tab === "available" && !loading && (
           <div className="flex items-baseline justify-between pt-1 pb-3">
             <h2 className="text-[13px] font-bold text-gray-900 tracking-tight">Favours</h2>
-            <span className="text-[11px] text-gray-400">{tasks.filter(t => t.status === "open").length} open</span>
+            <span className="text-[11px] text-gray-400">{visibleOpenCount} open</span>
           </div>
         )}
         {/* Profile summary for "Mine" tab */}
@@ -2224,6 +2243,7 @@ function SubmitProof({
       }
 
       const data = await res.json();
+      trackFunnel("proof_submitted");
       const v = data.verification || {};
       setResult({
         verdict: String(v.verdict || "fail"),

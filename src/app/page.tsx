@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { MiniKit } from "@worldcoin/minikit-js";
 import { Feed } from "@/components/Feed";
 import { Onboarding } from "@/components/Onboarding";
+import { trackFunnel } from "@/lib/client-funnel";
 import { displayName } from "@/hooks/useWorldUser";
 import {
   Button,
@@ -101,6 +102,7 @@ export default function Home() {
           const addr = result.data.address;
 
           setUserId(addr);
+          trackFunnel("wallet_auth_succeeded");
           setVerificationLevel("wallet");
           localStorage.setItem("relay_user_id", addr);
           localStorage.setItem("relay_verification_level", "wallet");
@@ -134,11 +136,13 @@ export default function Home() {
         // No address returned means the sign-in did not complete (declined or
         // dismissed). Do not fall through to a dev identity inside World App.
         setAuthError("Sign-in wasn't completed. Please try again.");
+        trackFunnel("wallet_auth_failed");
         setIsVerifying(false);
         return;
       } catch (err) {
         console.error("MiniKit auth failed:", err);
         setAuthError("Sign-in failed. Please try again.");
+        trackFunnel("wallet_auth_failed");
         setIsVerifying(false);
         return;
       }
@@ -171,6 +175,7 @@ export default function Home() {
   if (!miniKitChecked) return null;
 
   const completeOnboarding = () => {
+    trackFunnel("onboarding_completed");
     localStorage.setItem("relay_onboarded", "true");
     setOnboarded(true);
   };

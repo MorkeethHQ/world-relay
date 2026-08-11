@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { trackEvent, trackReach } from "@/lib/track";
+import { trackFunnelEvent, FUNNEL_EVENTS } from "@/lib/funnel";
 
 // This route is PUBLIC and unauthenticated, and trackEvent writes the event name
 // straight into a redis hash field (`events:counts`). So the name is an allowlist,
 // never caller-supplied text: otherwise anyone could mint unbounded fields, bury the
 // real funnel, and churn the capped events:log. Add a name here deliberately.
 const CLIENT_EVENTS = new Set(["fund_wall_hit", "usdc_post_attempt"]);
+const FUNNEL_EVENT_SET = new Set(FUNNEL_EVENTS);
 
 // Numbers only, finite, clamped. Keeps a hostile caller from writing an essay into
 // the log entry or poisoning the funnel.
@@ -23,6 +25,13 @@ function safeNumber(v: unknown): number | undefined {
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
   const { page, cid, event } = body ?? {};
+
+  // Funnel events are CID-only: the API accepts no wallet, task, route, reason,
+  // or user-entered payload alongside them.
+  if (typeof event === "string" && FUNNEL_EVENT_SET.has(event as typeof FUNNEL_EVENTS[number])) {
+    if (typeof cid === "string") trackFunnelEvent(cid, event as typeof FUNNEL_EVENTS[number]).catch(() => {});
+    return NextResponse.json({ ok: true });
+  }
 
   // Named client events (the funding funnel). Checked before the page_view path so
   // a tracked event never also counts as a page view.

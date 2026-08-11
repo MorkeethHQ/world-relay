@@ -6,6 +6,7 @@ import {
   Typography,
   LiveFeedback,
 } from "@worldcoin/mini-apps-ui-kit-react";
+import { trackFunnel } from "@/lib/client-funnel";
 
 /*
  * Onboarding
@@ -139,6 +140,7 @@ export function Onboarding({
 }: OnboardingProps) {
   const [step, setStep] = useState(0);
   const [showTerms, setShowTerms] = useState(false);
+  useEffect(() => { trackFunnel("onboarding_started"); }, []);
 
   // When the existing MiniKit sign-in succeeds, the parent flips authed=true.
   // Advance from the sign-in screen to the final "you're in" screen.
