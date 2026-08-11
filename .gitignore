@@ -45,6 +45,11 @@ next-env.d.ts
 *.db3
 *.db3.*
 
+# sqlite write-ahead scratch beside the tracked data/helicon.db — regenerated
+# on every open, never content
+*.db-shm
+*.db-wal
+
 # foundry build artifacts
 contracts/out/
 contracts/cache/
