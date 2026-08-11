@@ -58,12 +58,35 @@ recur silently.
   is ever empty anyway, the empty state leads with the REAL OR NOT judge CTA —
   the one surface that cannot run out of supply — instead of a dead end. Same
   redirect the seed-cap wall uses (`seed-caps.ts`, cd963d0).
+- **R8 — Public-surface filter (added Aug 11, 2026).** `isPublicTask`
+  (`src/lib/task-serializer.ts`) DROPS development-era artifacts —
+  `dev_` / `demo_` / `e2e_` posters or claimants, and `ATTACKER` audit wallets —
+  from `GET /api/tasks` and `GET /api/history`. It is the one place the read
+  path removes a task rather than reordering it, so it belongs to this rule set;
+  guard test `board-visibility.guard.test.ts`.
+  **The agent namespaces are NOT development artifacts and must never be added
+  to it.** There are two of them and they mean different things:
+  `agent_<id>` (UNDERSCORE) is minted by `/api/agent/tasks` for every task from
+  the authenticated public Agent API — the integration the README and
+  `openapi.json` advertise. `agent:<id>` (COLON) is the platform seeder
+  (`seed/route.ts`, `board-replenish.ts`) and is what `seed-caps.ts`
+  `isSeededTask` keys on for the daily official-favour cap.
+  Context: `agent_` was in the filter until Aug 11, 2026, so **every task ever
+  posted through the public Agent API was invisible to every human** — POST
+  returned 201 with an id, `/api/tasks/{id}` served it, the agent's own
+  `GET /api/agent/tasks` listed it (no filter there), and the board dropped it.
+  Found by `scripts/smoke-loop.mjs` firing against production; the board looked
+  healthy throughout because the seeded tasks filling it use the colon prefix.
+  Moving the mint from `agent_` to `agent:` is not the fix and is a separate
+  breaking change: it would silently turn third-party tasks into official seeded
+  ones and start consuming claimants' daily cap.
 
 ## Where each rule is enforced
 
-- **Server (`GET /api/tasks` via `orderBoardForApi`):** R5 tier order + R1 feedback
-  demotion, anonymously (no user identity/location server-side), reorder only —
-  the API never drops a task. Agents and integrations get the same composition.
+- **Server (`GET /api/tasks`):** R8 public-surface filter (the only server-side
+  DROP), then `orderBoardForApi` for R5 tier order + R1 feedback demotion,
+  anonymously (no user identity/location server-side) — reorder only, the
+  ranking never drops a task. Agents and integrations get the same composition.
 - **Client (Feed via `rankBoard`/`curateBoard`):** re-ranks with user context (own
   claims, proximity) and applies display caps: `BOARD_CAP`, duplicate collapse,
   R2 poll placement. Display caps stay client-side because only the client knows

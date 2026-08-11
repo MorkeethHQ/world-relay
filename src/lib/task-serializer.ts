@@ -32,7 +32,20 @@ export function toApiTasks(tasks: Task[]): Task[] {
 // Development-era artifacts (dev_/demo_/e2e_ identities, security-audit
 // wallets) stay in the store as history but never reach public surfaces —
 // they were crowding the History wall and the jury deck with junk proofs.
-const TEST_IDENTITY = /^(dev_|demo_|e2e_|agent_)|ATTACKER/;
+//
+// `agent_` WAS in this list and must never go back (BOARD-RULES.md R8, live
+// smoke 2026-08-11). It is not a development prefix: `/api/agent/tasks`
+// MINTS `agent_${agentId}` for every task posted through the authenticated
+// public Agent API (agent/tasks/route.ts), the integration the README and
+// openapi.json advertise. Filtering it here meant a third-party agent got a
+// 201 with a task id and their favour reached no human — the POST succeeded,
+// the board silently dropped it, and the agent's own GET (which does not
+// apply this filter) still showed it, so nothing looked wrong from either end.
+// The platform seeder is a different namespace, `agent:<id>` with a COLON
+// (seed/route.ts, board-replenish.ts) — that is the prefix that carries the
+// seeded-task meaning (seed-caps.ts), and it was never filtered, which is why
+// the board looked healthy while the API path was dead.
+const TEST_IDENTITY = /^(dev_|demo_|e2e_)|ATTACKER/;
 export function isPublicTask(t: Task): boolean {
   return !TEST_IDENTITY.test(t.poster || "") && !TEST_IDENTITY.test(t.claimant || "");
 }
