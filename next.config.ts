@@ -1,7 +1,22 @@
 import type { NextConfig } from "next";
+import { execFileSync } from "node:child_process";
+
+function buildRevision(): string {
+  if (process.env.VERCEL_GIT_COMMIT_SHA) return process.env.VERCEL_GIT_COMMIT_SHA;
+  try {
+    return execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+  } catch {
+    return "unknown";
+  }
+}
 
 const nextConfig: NextConfig = {
   serverExternalPackages: ["@xmtp/node-sdk", "@xmtp/node-bindings"],
+  // Bind test evidence to the code that Next actually compiled. Vercel supplies
+  // its commit SHA; local production builds derive it from the checkout.
+  env: {
+    NEXT_PUBLIC_BUILD_REVISION: buildRevision(),
+  },
   // Never CDN-cache the HTML documents. The app is a client-rendered SPA whose
   // shell was getting pinned to an old bundle at the edge (x-vercel-cache HIT),
   // so fresh deploys weren't reaching the World App webview. Static assets under

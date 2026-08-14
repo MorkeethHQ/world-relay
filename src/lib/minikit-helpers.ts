@@ -6,6 +6,7 @@
  */
 
 import { MiniKit } from "@worldcoin/minikit-js";
+import { worldAppUrl } from "./world-app-link";
 
 // ---------------------------------------------------------------------------
 // Guard: is MiniKit available in this context?
@@ -13,6 +14,20 @@ import { MiniKit } from "@worldcoin/minikit-js";
 
 function isMiniKitReady(): boolean {
   return typeof window !== "undefined" && MiniKit.isInstalled();
+}
+
+function trackDistributionEvent(event: "task_share_opened" | "invite_share_opened"): void {
+  if (typeof window === "undefined") return;
+  fetch("/api/track", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ event }),
+  }).catch(() => {});
+}
+
+function shared(event: "task_share_opened" | "invite_share_opened"): true {
+  trackDistributionEvent(event);
+  return true;
 }
 
 // ---------------------------------------------------------------------------
@@ -128,27 +143,28 @@ export async function shareTask(opts: ShareTaskOptions): Promise<boolean> {
     ? `I earned ${reward} because an AI agent needed a human: "${desc}"`
     : `This AI agent is offering ${reward} for a human to help: "${desc}"`;
 
-  const url = typeof window !== "undefined"
-    ? `${window.location.origin}/task/${taskId}`
-    : "";
+  const path = `/task/${encodeURIComponent(taskId)}`;
+  const url = worldAppUrl(path) ?? (
+    typeof window !== "undefined" ? `${window.location.origin}${path}` : ""
+  );
 
   try {
     if (isMiniKitReady()) {
       await MiniKit.share({ title, text, url });
       await hapticSuccess();
-      return true;
+      return shared("task_share_opened");
     }
 
     // Web Share API fallback
     if (typeof navigator !== "undefined" && navigator.share) {
       await navigator.share({ title, text, url });
-      return true;
+      return shared("task_share_opened");
     }
 
     // Clipboard fallback
     if (typeof navigator !== "undefined" && navigator.clipboard) {
       await navigator.clipboard.writeText(`${text}\n${url}`);
-      return true;
+      return shared("task_share_opened");
     }
   } catch {
     // User cancelled or API not available
@@ -163,23 +179,24 @@ export async function shareTask(opts: ShareTaskOptions): Promise<boolean> {
 export async function shareInvite(userId: string): Promise<boolean> {
   const title = "FAVOUR — earn for real-world favours";
   const text = "Join me on FAVOUR: verified humans do small real-world favours and earn. We both get points when you complete your first one.";
-  const url = typeof window !== "undefined"
-    ? `${window.location.origin}/?ref=${encodeURIComponent(userId)}`
-    : "";
+  const path = `/?ref=${encodeURIComponent(userId)}`;
+  const url = worldAppUrl(path) ?? (
+    typeof window !== "undefined" ? `${window.location.origin}${path}` : ""
+  );
 
   try {
     if (isMiniKitReady()) {
       await MiniKit.share({ title, text, url });
       await hapticSuccess();
-      return true;
+      return shared("invite_share_opened");
     }
     if (typeof navigator !== "undefined" && navigator.share) {
       await navigator.share({ title, text, url });
-      return true;
+      return shared("invite_share_opened");
     }
     if (typeof navigator !== "undefined" && navigator.clipboard) {
       await navigator.clipboard.writeText(`${text}\n${url}`);
-      return true;
+      return shared("invite_share_opened");
     }
   } catch {
     // User cancelled or API not available

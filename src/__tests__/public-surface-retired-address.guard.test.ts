@@ -49,6 +49,7 @@ describe("/api/health", () => {
     const res = await GET();
     const body = await res.json();
     expect(body.service).toBe("favour");
+    expect(body).toHaveProperty("revision");
     expect(body.escrow).toBe(escrowV2Address());
     expect(JSON.stringify(body)).not.toMatch(RETIRED);
   });

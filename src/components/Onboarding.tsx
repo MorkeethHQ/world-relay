@@ -6,6 +6,7 @@ import {
   Typography,
   LiveFeedback,
 } from "@worldcoin/mini-apps-ui-kit-react";
+import { WorldAppHandoff } from "@/components/WorldAppHandoff";
 
 /*
  * Onboarding
@@ -173,7 +174,7 @@ export function Onboarding({
       : "You are set up in preview mode. Discover favours to complete and polls to vote on.";
 
   return (
-    <div className="fixed inset-0 z-[60] bg-white flex flex-col max-w-lg mx-auto w-full">
+    <div className="fixed inset-0 z-[60] bg-white flex flex-col max-w-lg mx-auto w-full overflow-y-auto">
       {/* Back navigation. Available between the intro steps, not on the terminal
           success screen, and not while a sign-in is in flight. */}
       {step > 0 && step < 4 && (
@@ -327,7 +328,7 @@ export function Onboarding({
       </div>
 
       {/* Action. One primary action per screen. */}
-      <div className="px-7 pb-10 pt-4">
+      <div className="shrink-0 px-7 pb-10 pt-4">
         {step === 3 ? (
           <div aria-live="polite">
             <LiveFeedback state={isVerifying ? "pending" : undefined}>
@@ -347,9 +348,14 @@ export function Onboarding({
               </p>
             )}
             {!isInWorldApp && !authError && (
-              <p className="text-[12px] text-gray-300 text-center mt-3">
-                Full features available in World App
-              </p>
+              <>
+                <div className="flex items-center gap-3 my-4" aria-hidden="true">
+                  <span className="h-px flex-1 bg-gray-200" />
+                  <span className="text-[11px] text-gray-400">or use the full app</span>
+                  <span className="h-px flex-1 bg-gray-200" />
+                </div>
+                <WorldAppHandoff />
+              </>
             )}
           </div>
         ) : step === 4 ? (

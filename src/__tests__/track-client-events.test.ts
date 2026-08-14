@@ -56,6 +56,26 @@ describe("the funding funnel is recorded", () => {
   });
 });
 
+describe("the distribution funnel is recorded", () => {
+  it("records only the named handoff and share events", async () => {
+    for (const event of [
+      "world_app_handoff_clicked",
+      "world_app_deep_link_opened",
+      "task_share_opened",
+      "invite_share_opened",
+    ]) {
+      await POST(post({ event }));
+    }
+
+    expect(tracked).toEqual([
+      { event: "world_app_handoff_clicked", data: {} },
+      { event: "world_app_deep_link_opened", data: {} },
+      { event: "task_share_opened", data: {} },
+      { event: "invite_share_opened", data: {} },
+    ]);
+  });
+});
+
 describe("the allowlist holds against a hostile caller", () => {
   it("an arbitrary event name is NOT written", async () => {
     await POST(post({ event: "unlock_paid", data: { needed: 1 } }));
