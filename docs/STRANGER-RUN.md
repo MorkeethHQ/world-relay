@@ -75,7 +75,7 @@ Read counters: `curl -sS https://world-relay.vercel.app/api/stats/loop | jq`
 
 ## Counter — local run, 2026-09-02 23:55 CEST
 
-`npm run build` (exit 0) → `next start -p 3999` → `curl -sS http://localhost:3999/api/stats/loop`. The local server reads the same Upstash Redis as production (`.env.local`), so the numbers are the live counters; the counter CODE is not deployed yet (0 pushed, 0 deployed as of this run), so `arrive: 7` comes from local dev sessions on this machine, not strangers.
+`npm run build` (exit 0) → `next start -p 3999` → `curl -sS http://localhost:3999/api/stats/loop`. The local server reads the same Upstash Redis as production (`.env.local`), so the numbers are the live counters; the counter CODE is not on the live site: branch `night/2026-09-02` has no upstream and is 10 commits ahead of `origin/main` (`git log origin/main..HEAD`), and no `world-relay` dev server was listening on this machine at 23:58 (`lsof` — :3000 is taste-machine). So `arrive: 7` cannot be strangers via the live URL; who fired it is UNATTRIBUTED (a lane's earlier local run is the likely source, unverified).
 
 ```json
 {
