@@ -688,6 +688,29 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
     });
   }, [tasks, tab, userLocation, userId]);
 
+  const starterFavour = useMemo(() => {
+    if (!showFirstRunCoach || tab !== "available") return null;
+    return pickStarterFavour(tasks, userId);
+  }, [showFirstRunCoach, tab, tasks, userId]);
+
+  const boardTasks = useMemo(() => {
+    if (!starterFavour) return filtered;
+    return filtered.filter((t) => t.id !== starterFavour.id);
+  }, [filtered, starterFavour]);
+
+  const openProof = useCallback((task: Task) => {
+    hapticTap();
+    trackClientEvent("loop_start_intent");
+    setSelectedTask(task);
+    setView("proof");
+  }, []);
+
+  const startFavour = useCallback((task: Task) => {
+    try { localStorage.setItem("relay_first_run_coach_dismissed", "true"); } catch {}
+    setShowFirstRunCoach(false);
+    openProof(task);
+  }, [openProof]);
+
   // Freshness for returning users: remember when this device last saw the board,
   // then flag open favours posted since then so a returning user immediately sees
   // the app moved while they were away (the main "it's alive" signal). The
@@ -882,19 +905,27 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
         className="flex-1 flex flex-col"
       >
 
-      {/* THE TOP FAVOUR — the daily gate, above the board.
-          It lives HERE, inside the "available" tab, and not above <Feed> in
-          page.tsx: Feed is a view ROUTER (board / post / proof / detail /
-          campaign / jury), so mounting it one level up pinned it to every screen
-          in the app, including the post wizard and the proof flow. */}
-      {tab === "available" && !loading && (
+      {/* Daily poll — after favours for first-time users so it doesn't hijack the loop */}
+      {tab === "available" && !loading && !showFirstRunCoach && (
         <div className="px-6 pt-4">
           <DailyFavour userId={userId} onReauth={onReauth} />
         </div>
       )}
 
-      {tab === "available" && !loading && showFirstRunCoach && (
-        <FirstRunCoach onDismiss={dismissFirstRunCoach} />
+      {tab === "available" && !loading && showFirstRunCoach && starterFavour && (
+        <StarterFavourBanner
+          task={starterFavour}
+          onStart={() => startFavour(starterFavour)}
+          onDismiss={dismissFirstRunCoach}
+        />
+      )}
+
+      {tab === "available" && !loading && showFirstRunCoach && !starterFavour && (
+        <div className="mx-6 mt-4 rounded-2xl border border-gray-200 bg-white px-4 py-4">
+          <p className="text-[13px] font-semibold text-gray-900">Pick any favour below</p>
+          <p className="text-[13px] text-gray-500 mt-1">Tap <span className="font-medium text-gray-700">Do it</span>, follow the steps, submit proof.</p>
+          <button type="button" onClick={dismissFirstRunCoach} className="mt-3 text-[12px] font-medium text-gray-400 hover:text-gray-700">Got it</button>
+        </div>
       )}
 
       {/* REAL OR NOT — hidden on first visit so strangers see favours first */}
@@ -923,8 +954,9 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
       {tab === "available" && !loading && (
         <div className="px-6 pt-6 pb-2 animate-[fadeSlideIn_0.4s_ease-out]">
           <p className="text-[19px] font-bold text-gray-900 tracking-tight leading-snug">
-            Do a favour. Prove it. Get rewarded.
+            {showFirstRunCoach ? "Or browse more favours" : "Do a favour. Prove it. Get rewarded."}
           </p>
+          {!showFirstRunCoach && (
           <div className="flex items-center gap-4 mt-2">
             <div className="flex items-baseline gap-1.5">
               <span className="text-[15px] font-bold text-gray-900">{tasks.filter(t => t.status === "open").length}</span>
@@ -941,6 +973,7 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
               <span className="text-[12px] text-gray-400">paid out</span>
             </div>
           </div>
+          )}
         </div>
       )}
 
@@ -1224,7 +1257,7 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
           </div>
         ) : (
           <div className="flex flex-col gap-2.5">
-            {filtered.map((task, i) => (
+            {(tab === "available" ? boardTasks : filtered).map((task, i) => (
               <Fragment key={task.id}>
                 {/* R2 (BOARD-RULES.md): polls never lead the board — they render
                     after the first POLL_INSERT_AFTER task cards. */}
@@ -1246,16 +1279,18 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
                       setView("detail");
                     }}
                     onClaim={() => {}}
-                    onSubmitProof={() => {
-                      setSelectedTask(task);
-                      setView("proof");
-                    }}
+                    onSubmitProof={() => openProof(task)}
                   />
                 </div>
               </Fragment>
             ))}
-            {tab === "available" && filtered.length <= POLL_INSERT_AFTER && (
+            {tab === "available" && boardTasks.length <= POLL_INSERT_AFTER && (
               <FeedPolls userId={userId} limit={POLL_CARDS_MAX} />
+            )}
+            {tab === "available" && showFirstRunCoach && (
+              <div className="px-6 pt-2 pb-4">
+                <DailyFavour userId={userId} onReauth={onReauth} />
+              </div>
             )}
           </div>
         )}
@@ -1566,7 +1601,7 @@ function TaskCard({
           onClick={(e) => { e.stopPropagation(); onSubmitProof(); }}
           className="w-full bg-gray-900 text-white text-[13px] font-semibold py-3 rounded-xl active:scale-[0.98] transition-transform min-h-[44px]"
         >
-          Do it
+          Start favour
         </button>
       )}
 

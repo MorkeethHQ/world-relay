@@ -45,6 +45,11 @@ describe("the funding funnel is recorded", () => {
     expect(tracked[0].data.needed).toBe(5);
   });
 
+  it("loop_start_intent is stored — tap before proof", async () => {
+    await POST(post({ event: "loop_start_intent" }));
+    expect(tracked[0].event).toBe("loop_start_intent");
+  });
+
   it("loop_arrive is stored — the funnel entry", async () => {
     await POST(post({ event: "loop_arrive" }));
     expect(tracked[0].event).toBe("loop_arrive");

@@ -12,8 +12,8 @@ https://world-relay.vercel.app
 
 1. Open the link in a browser (no account needed — tap **Continue without wallet** through onboarding).
 2. Dismiss the short "3 steps" coach if it appears.
-3. Pick **any open favour** on the board (e.g. a shelf check-in or opinion task).
-4. Tap **Do it**, follow the instructions, submit a photo or written proof.
+3. Pick **any open favour** on the board — or tap **Start this favour** on the highlighted easy one.
+4. Tap **Start favour**, follow the instructions, submit a photo or written proof.
 5. Wait for the pass/fail result on screen.
 6. Reply with: which favour they picked, whether it passed, and anything confusing.
 
@@ -37,7 +37,8 @@ Example:
 ```
 
 - **arrive** — distinct devices that reached the board (`loop_arrive`)
-- **start** — favours started via claim or proof submission (`loop_start`)
+- **intent** — tapped Start on a favour (`loop_start_intent`) — if arrive ≫ intent, the CTA isn't working
+- **start** — favours started via proof submission (`loop_start`)
 - **complete** — favours verified and marked done (`loop_complete`)
 
 A stranger completion = **`complete` goes up by 1** after their session (check `today.complete` if they do it same day).

@@ -232,18 +232,17 @@ export function Onboarding({
           <div className="flex flex-col gap-6">
             <div className="flex flex-col gap-2">
               <Typography variant="heading" level={2} className="text-gray-900">
-                What you can do here
+                How it works
               </Typography>
               <Typography variant="body" level={3} className="text-gray-500">
-                FAVOUR connects people who need small favours with people ready to help.
+                Someone posts a small task. You do it, send proof, earn points when it passes.
               </Typography>
             </div>
             <div className="flex flex-col gap-3">
               {[
-                { icon: <IconHandshake />, title: "Do favours", body: "Complete quick tasks people post nearby." },
-                { icon: <IconPoll />, title: "Vote on polls", body: "Share your opinion and shape decisions." },
-                { icon: <IconCoin />, title: "Earn points and USDC", body: "Get rewarded once your work passes verification." },
-                { icon: <IconHumans />, title: "Sign in with World", body: "Everyone signs in with their World wallet to take part." },
+                { icon: <IconHandshake />, title: "Pick a favour", body: "Choose something quick from the board — opinions and check-ins are easiest." },
+                { icon: <IconPoll />, title: "Do it & send proof", body: "Follow the steps, write an answer or snap a photo, and submit." },
+                { icon: <IconCoin />, title: "Earn points", body: "AI checks your proof. Pass = points land in your account." },
               ].map((row, i) => (
                 <div
                   key={row.title}

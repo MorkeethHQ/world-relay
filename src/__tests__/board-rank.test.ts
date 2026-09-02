@@ -15,6 +15,7 @@ import {
   rankBoard,
   curateBoard,
   orderBoardForApi,
+  pickStarterFavour,
 } from "@/lib/board-rank";
 import { getFeaturedCampaign } from "@/lib/campaigns";
 
@@ -215,5 +216,18 @@ describe("R2: poll placement is wired into the Feed", () => {
 
   it("the old feedback-category visibility bypass never comes back", () => {
     expect(feedSrc).not.toMatch(/category\s*!==\s*["']feedback["']/);
+  });
+});
+
+describe("pickStarterFavour", () => {
+  it("prefers online feedback points tasks over photo errands", () => {
+    const photo = task({ category: "photo", location: "London", rewardType: "points", bountyUsdc: 15 });
+    const feedback = task({ category: "feedback", location: "Online", description: "Rate this app honestly", rewardType: "points", bountyUsdc: 1 });
+    expect(pickStarterFavour([photo, feedback], "user1", NOW)?.id).toBe(feedback.id);
+  });
+
+  it("skips the user's own posts", () => {
+    const mine = task({ poster: "user1", category: "feedback", location: "Online", rewardType: "points" });
+    expect(pickStarterFavour([mine], "user1", NOW)).toBeNull();
   });
 });
