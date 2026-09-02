@@ -32,7 +32,13 @@ export function toApiTasks(tasks: Task[]): Task[] {
 // Development-era artifacts (dev_/demo_/e2e_ identities, security-audit
 // wallets) stay in the store as history but never reach public surfaces —
 // they were crowding the History wall and the jury deck with junk proofs.
-const TEST_IDENTITY = /^(dev_|demo_|e2e_|agent_)|ATTACKER/;
+//
+// `agent_` is NOT a test identity: it is the poster prefix POST /api/agent/tasks
+// (the API-key door, the MCP server, the Python SDK) stamps on every bot-posted
+// favour. It rode into this regex in 5215ca8 unjustified, which made every
+// agent-door favour invisible to the humans meant to close it (2026-09-03:
+// 0 of 182 live tasks carried the prefix, so nothing resurfaces).
+const TEST_IDENTITY = /^(dev_|demo_|e2e_)|ATTACKER/;
 export function isPublicTask(t: Task): boolean {
   return !TEST_IDENTITY.test(t.poster || "") && !TEST_IDENTITY.test(t.claimant || "");
 }
