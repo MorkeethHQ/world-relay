@@ -240,7 +240,13 @@ export async function POST(req: NextRequest) {
     claimantLevel === "orb" || claimantLevel === "device" || claimantLevel === "wallet" ? claimantLevel : null
   );
   trackEvent("proof_submitted", { taskId, submitter: submitter || "", hasImages: proofImageUrls.length > 0, bounty: task.bountyUsdc }).catch(() => {});
-  trackEvent("loop_start", { taskId, submitter: submitter || "" }).catch(() => {});
+  // loop_start counts a favour STARTED, once. /claim already fired it for a
+  // task that arrives here as `claimed` (and a failed-proof retry arrives as
+  // `claimed` too), so only the direct-submission path — task still `open` at
+  // load, :139 — counts here. Without this gate claim→proof counted 2 starts.
+  if (task.status === "open") {
+    trackEvent("loop_start", { taskId, submitter: submitter || "" }).catch(() => {});
+  }
   await postProofSubmitted(taskId, proofNote);
 
   broadcastEvent("task:proof", {
