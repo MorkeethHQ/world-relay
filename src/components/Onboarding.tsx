@@ -170,7 +170,7 @@ export function Onboarding({
       ? "Your device is verified. Discover favours to complete and polls to vote on."
       : verificationLevel === "wallet"
       ? "You are signed in with your World wallet. Discover favours to complete and polls to vote on."
-      : "You are set up in preview mode. Discover favours to complete and polls to vote on.";
+      : "You are set up in preview mode. Pick an open favour below, tap Do it, and submit proof to earn points.";
 
   return (
     <div className="fixed inset-0 z-[60] bg-white flex flex-col max-w-lg mx-auto w-full">
@@ -213,7 +213,10 @@ export function Onboarding({
               FAVOUR
             </h1>
             <Typography variant="body" level={2} className="text-gray-500 max-w-[260px]">
-              Real tasks. Real people. Verified on-chain.
+              Pick a small task, do it, send proof, earn points.
+            </Typography>
+            <Typography variant="body" level={4} className="text-gray-400 max-w-[280px] mt-1">
+              A favour is a quick real-world ask — like photographing a shelf or sharing an honest opinion.
             </Typography>
             <div className="flex items-center gap-3 mt-1">
               <span className="text-[11px] text-gray-300 uppercase tracking-widest">Favours</span>
@@ -302,8 +305,8 @@ export function Onboarding({
               </Typography>
               <Typography variant="body" level={3} className="text-gray-500 max-w-[300px]">
                 {isInWorldApp
-                  ? "Sign in with your World wallet to start using FAVOUR. This links your account so you can post favours, earn rewards, and get paid."
-                  : "Continue to set up a preview account. Sign in with your World wallet inside World App for the full experience."}
+                  ? "Sign in with your World wallet to start using FAVOUR. This links your account so you can complete favours and earn rewards."
+                  : "Try FAVOUR in your browser — no wallet needed. You can complete points favours and post your own. World App unlocks USDC payouts."}
               </Typography>
             </div>
           </div>
@@ -338,7 +341,7 @@ export function Onboarding({
                 variant="primary"
                 size="lg"
               >
-                {isInWorldApp ? "Sign in with World wallet" : "Continue"}
+                {isInWorldApp ? "Sign in with World wallet" : "Continue without wallet"}
               </Button>
             </LiveFeedback>
             {authError && (
@@ -347,14 +350,14 @@ export function Onboarding({
               </p>
             )}
             {!isInWorldApp && !authError && (
-              <p className="text-[12px] text-gray-300 text-center mt-3">
-                Full features available in World App
+              <p className="text-[12px] text-gray-400 text-center mt-3">
+                Preview mode — points favours work; USDC needs World App
               </p>
             )}
           </div>
         ) : step === 4 ? (
           <Button onClick={onComplete} fullWidth variant="primary" size="lg">
-            Discover favours
+            See open favours
           </Button>
         ) : (
           <Button
