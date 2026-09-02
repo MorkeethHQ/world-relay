@@ -22,9 +22,12 @@ lives under `contracts/` when changing FavourEscrowV2.
 - App boots with zero secrets: Redis → in-memory, AI verify → demo mode, XMTP/Blob off.
   Fine for UI smoke; data does not survive restarts.
 - Desktop sign-in: "Continue" → throwaway `dev_...` identity (`src/app/page.tsx`).
-- GOTCHA: `dev_` / `demo_` / `e2e_` / `agent_` posters are filtered from the public board
-  by `isPublicTask()` in `src/lib/task-serializer.ts`. A 201 from `POST /api/tasks` as
-  `dev_` will not show on the board — that is by design.
+- GOTCHA: `dev_` / `demo_` / `e2e_` posters are filtered from the public board by
+  `isPublicTask()` in `src/lib/task-serializer.ts`. A 201 from `POST /api/tasks` as
+  `dev_` will not show on the board — that is by design. `agent_` (the poster prefix of
+  `POST /api/agent/tasks`) is public since 2026-09-03; see `docs/AGENT-DOOR.md`.
+- GOTCHA: "Redis → in-memory" above is NOT true for tasks: without `KV_REST_API_URL`
+  the store persists nothing (`persistTask` no-ops), so a `201` is followed by `404`s.
 
 ### Board supply (do not confuse with DailyFavour)
 - DailyFavour (`/api/daily`) is a quiz gate, not board inventory.

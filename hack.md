@@ -20,7 +20,7 @@ links: RELAY-SUMMARY.md · ARCHITECTURE.md · DESIGN-SYSTEM.md · BOARD-RULES.md
 
 ### Two doors (pick with one word)
 - **HUMAN** — the door `LAUNCH-NOTE.md` sells: a person opens `https://world-relay.vercel.app` → Continue without wallet → Do it → photo/note proof → points. Measured by `GET /api/stats/loop` (arrive → intent → start → complete). Ready today; nothing to build before sending the URL.
-- **AGENT** — the door the NORTH STAR sells: a bot posts a favour with a USDC deposit and a verified human closes it. What exists today: `POST /api/tasks` (poster auth, escrow-v2), the `mcp-server/` package (`relay-favours-mcp`, needs `RELAY_API_KEY`) and `sdks/python`. No 10-line bot-author doc, no `POST /favour` — build plan item 3.
+- **AGENT** — the door the NORTH STAR sells: a bot posts a favour with a USDC deposit and a verified human closes it. What exists today: `POST /api/tasks` (poster auth, escrow-v2), the `mcp-server/` package (`relay-favours-mcp`, needs `RELAY_API_KEY`) and `sdks/python`. Bot-author path: `docs/AGENT-DOOR.md` (one curl, run locally 2026-09-03; the number is POINTS, the USDC rail is dark; keys are minted by the operator only). Until 2026-09-03 every `agent_` poster was hidden from the board (`isPublicTask`), so the door was dark at the board too — fixed on this branch, not deployed.
 - Same app, same board, same counter; the doors differ in WHO arrives first and WHICH sentence is sent. The launch note is written for HUMAN.
 - Say **human** → send the LAUNCH-NOTE sentence as is. Say **agent** → build plan item 3 comes first (≈3h) and the note is rewritten for a bot author.
 - Cost of not picking: the counter stays at zero for both.
