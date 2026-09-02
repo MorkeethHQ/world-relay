@@ -45,7 +45,9 @@ next-env.d.ts
 *.db3
 *.db3.*
 
-# sqlite WAL sidecar files (helicon.db itself is tracked; these are ephemeral)
+# local sqlite databases — never commit runtime data
+data/*.db
+*.db
 *.db-shm
 *.db-wal
 
