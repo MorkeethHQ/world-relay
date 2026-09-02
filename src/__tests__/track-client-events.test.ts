@@ -45,6 +45,11 @@ describe("the funding funnel is recorded", () => {
     expect(tracked[0].data.needed).toBe(5);
   });
 
+  it("loop_arrive is stored — the funnel entry", async () => {
+    await POST(post({ event: "loop_arrive" }));
+    expect(tracked[0].event).toBe("loop_arrive");
+  });
+
   it("a tracked event is NOT also counted as a page view", async () => {
     await POST(post({ event: "fund_wall_hit", data: { needed: 1, balance: 0 }, page: "/" }));
     expect(tracked.map((t) => t.event)).toEqual(["fund_wall_hit"]);
