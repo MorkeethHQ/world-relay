@@ -240,6 +240,7 @@ export async function POST(req: NextRequest) {
     claimantLevel === "orb" || claimantLevel === "device" || claimantLevel === "wallet" ? claimantLevel : null
   );
   trackEvent("proof_submitted", { taskId, submitter: submitter || "", hasImages: proofImageUrls.length > 0, bounty: task.bountyUsdc }).catch(() => {});
+  trackEvent("loop_start", { taskId, submitter: submitter || "" }).catch(() => {});
   await postProofSubmitted(taskId, proofNote);
 
   broadcastEvent("task:proof", {
@@ -349,6 +350,9 @@ export async function POST(req: NextRequest) {
   } else {
     await completeTask(taskId, result);
     trackEvent("verification_result", { taskId, verdict: result.verdict, confidence: result.confidence, bounty: task.bountyUsdc }).catch(() => {});
+    if (result.verdict === "pass" && task.claimant) {
+      trackEvent("loop_complete", { taskId, submitter: task.claimant }).catch(() => {});
+    }
     await postVerificationResult(taskId, result.verdict, result.reasoning, task.bountyUsdc, result.confidence, task.rewardType);
 
     if (result.verdict === "pass" && task.claimant) {

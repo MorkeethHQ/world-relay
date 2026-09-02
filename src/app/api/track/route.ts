@@ -5,7 +5,7 @@ import { trackEvent, trackReach } from "@/lib/track";
 // straight into a redis hash field (`events:counts`). So the name is an allowlist,
 // never caller-supplied text: otherwise anyone could mint unbounded fields, bury the
 // real funnel, and churn the capped events:log. Add a name here deliberately.
-const CLIENT_EVENTS = new Set(["fund_wall_hit", "usdc_post_attempt"]);
+const CLIENT_EVENTS = new Set(["fund_wall_hit", "usdc_post_attempt", "loop_arrive", "loop_start_intent"]);
 
 // Numbers only, finite, clamped. Keeps a hostile caller from writing an essay into
 // the log entry or poisoning the funnel.
