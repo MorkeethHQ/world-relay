@@ -21,6 +21,11 @@ const nextConfig: NextConfig = {
   // shell was getting pinned to an old bundle at the edge (x-vercel-cache HIT),
   // so fresh deploys weren't reaching the World App webview. Static assets under
   // /_next/static/ remain immutable-cached (untouched here).
+  // /leaderboard ("Ranks") was removed 2026-09-03. Old deep links and the
+  // agent discovery doc pointed at it; send them to the profile, not a 404.
+  async redirects() {
+    return [{ source: "/leaderboard", destination: "/dashboard", permanent: true }];
+  },
   async headers() {
     return [
       {
@@ -28,7 +33,7 @@ const nextConfig: NextConfig = {
         headers: [{ key: "Cache-Control", value: "no-store, must-revalidate" }],
       },
       {
-        source: "/(dashboard|leaderboard|agent)",
+        source: "/(dashboard|agent)",
         headers: [{ key: "Cache-Control", value: "no-store, must-revalidate" }],
       },
       {

@@ -50,7 +50,7 @@ function streakBonusFor(streak: number): number {
 
 // Only real wallet addresses (verified humans who can receive USDC) may earn
 // points or appear on the leaderboard. Blocks anonymous/dev_/e2e_/demo_
-// identities from ever polluting stats or the public Ranks again.
+// identities from ever polluting stats or any public board again.
 const isRealWallet = (a: string): boolean => /^0x[0-9a-fA-F]{40}$/.test(a);
 
 // --- Seasons ---
@@ -95,16 +95,14 @@ export type ProofOfFavour = {
   currentStreak: number;
   longestStreak: number;
   lastActivityDate: string; // ISO date string (date only, for streak tracking)
-  streakFreezes?: number; // owned freezes (max STREAK_FREEZE_MAX_HELD); absorb one missed day each
+  streakFreezes?: number; // LEGACY (purchase removed 2026-09-03): held freezes still absorb one missed day
   pointsHistory: Array<{ action: string; points: number; timestamp: string }>; // last 20 entries
 };
 
-// --- Streak freeze: the first points SINK ---
-// Buy insurance for your streak with points. One freeze absorbs exactly one
-// missed day (a 2-day gap); longer gaps still reset. Duolingo's best-documented
-// retention mechanic, points-denominated so it costs us nothing.
-export const STREAK_FREEZE_COST = 30;
-export const STREAK_FREEZE_MAX_HELD = 2;
+// Streak freeze REMOVED 2026-09-03 (Oscar: streaks are fake gamification;
+// 22 freezes bought all-time). No purchase path remains. The optional
+// `streakFreezes` field stays on the profile type only because stored rows carry
+// it; see the grandfather note in the streak update below.
 
 // Generic points spend (sinks: prediction stakes, future boosts). Fails
 // closed on insufficient balance; records a negative history line.
@@ -134,33 +132,6 @@ export async function spendPoints(
     // flat — the two boards would disagree. Mirror the award path's weekly track.
     trackWeeklyPoints(address, -amount).catch(console.error);
     return { ok: true, totalPoints: profile.totalPoints };
-  });
-}
-
-export async function buyStreakFreeze(address: string): Promise<{ ok: boolean; error?: string; profile?: ProofOfFavour }> {
-  if (!isRealWallet(address)) return { ok: false, error: "A wallet account is required" };
-  return withWalletLock(address, async () => {
-    const profile = await getProofOfFavour(address);
-    if ((profile.streakFreezes || 0) >= STREAK_FREEZE_MAX_HELD) {
-      return { ok: false, error: `You already hold ${STREAK_FREEZE_MAX_HELD} freezes` };
-    }
-    if (profile.totalPoints < STREAK_FREEZE_COST) {
-      return { ok: false, error: `A freeze costs ${STREAK_FREEZE_COST} pts — you have ${Math.round(profile.totalPoints)}` };
-    }
-    profile.totalPoints -= STREAK_FREEZE_COST;
-    profile.streakFreezes = (profile.streakFreezes || 0) + 1;
-    profile.level = getLevel(profile.totalPoints);
-    profile.pointsHistory.push({
-      action: "streak_freeze_bought",
-      points: -STREAK_FREEZE_COST,
-      timestamp: new Date().toISOString(),
-    });
-    if (profile.pointsHistory.length > MAX_HISTORY) {
-      profile.pointsHistory = profile.pointsHistory.slice(-MAX_HISTORY);
-    }
-    await saveProfile(profile);
-    trackWeeklyPoints(profile.address, -STREAK_FREEZE_COST).catch(console.error);
-    return { ok: true, profile };
   });
 }
 
@@ -253,9 +224,9 @@ function updateStreak(profile: ProofOfFavour): void {
     // Consecutive day
     profile.currentStreak += 1;
   } else if ((profile.streakFreezes || 0) > 0 && diffDays === 2) {
-    // A single missed day is absorbed by a streak freeze (the first points
-    // sink — see buyStreakFreeze). Longer gaps still reset: freezes protect
-    // a habit, they don't fake one.
+    // GRANDFATHERED. Buying freezes was removed 2026-09-03, but 22 were paid
+    // for with points and some are still held; a held freeze keeps absorbing
+    // one missed day until it is used up. Nothing can mint a new one.
     profile.streakFreezes = (profile.streakFreezes || 0) - 1;
     profile.currentStreak += 1;
     profile.pointsHistory.push({
@@ -356,27 +327,6 @@ async function withWalletLock<T>(address: string, fn: () => Promise<T>): Promise
     } catch (e) {
       console.error("[PoF] lock release failed:", e);
     }
-  }
-}
-
-export async function getWeeklyLeaderboard(limit = 10): Promise<Array<{ address: string; weeklyPoints: number }>> {
-  const redis = getRedis();
-  if (!redis) return [];
-  try {
-    const key = weekKey();
-    // Over-fetch, then filter non-wallets at read time so legacy dev_/e2e_/
-    // anonymous entries left in the zset never surface on the public board.
-    const results = await redis.zrange(key, 0, limit * 4 - 1, { rev: true, withScores: true });
-    const entries: Array<{ address: string; weeklyPoints: number }> = [];
-    for (let i = 0; i < results.length; i += 2) {
-      const address = String(results[i]);
-      if (!isRealWallet(address)) continue;
-      entries.push({ address, weeklyPoints: Number(results[i + 1]) });
-    }
-    return entries.slice(0, limit);
-  } catch (err) {
-    console.error("[PoF] Weekly leaderboard failed:", err);
-    return [];
   }
 }
 
@@ -623,36 +573,3 @@ export async function recordDailyActivity(address: string): Promise<ProofOfFavou
   });
 }
 
-export async function getTopRunners(limit = 10): Promise<ProofOfFavour[]> {
-  const redis = getRedis();
-  if (!redis) return [];
-
-  try {
-    const addresses = await redis.smembers(POF_INDEX_KEY);
-    if (!addresses || addresses.length === 0) return [];
-
-    const pipeline = redis.pipeline();
-    for (const addr of addresses) {
-      pipeline.get(`${POF_PREFIX}${addr}`);
-    }
-    const results = await pipeline.exec();
-
-    const profiles: ProofOfFavour[] = [];
-    for (const raw of results) {
-      if (!raw) continue;
-      const profile: ProofOfFavour =
-        typeof raw === "string" ? JSON.parse(raw) : (raw as ProofOfFavour);
-      // Read-time guard: drop any legacy dev_/e2e_/anonymous rows still in the
-      // index so they never rank on the public board.
-      if (!isRealWallet(profile.address)) continue;
-      profiles.push(profile);
-    }
-
-    return profiles
-      .sort((a, b) => b.totalPoints - a.totalPoints)
-      .slice(0, limit);
-  } catch (err) {
-    console.error("[PoF] Failed to fetch leaderboard:", err);
-    return [];
-  }
-}

@@ -65,7 +65,7 @@ export default async function AgentProfilePage({ params }: { params: Promise<{ i
       <TopBar
         title="Agent Profile"
         startAdornment={
-          <Link href="/leaderboard">
+          <Link href="/">
             <Button variant="tertiary" size="sm">
               <svg
                 width="20"

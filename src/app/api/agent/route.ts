@@ -183,7 +183,6 @@ export async function GET() {
 
     platform: {
       app: "https://world-relay.vercel.app",
-      leaderboard: "https://world-relay.vercel.app/leaderboard",
       openapi_spec: "https://world-relay.vercel.app/api/agent/openapi.json",
       docs: "https://github.com/MorkeethHQ/world-relay/blob/main/AGENT.md",
       escrow_contract: null,

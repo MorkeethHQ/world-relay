@@ -529,60 +529,6 @@ function CompactCard({
 // Full card (profile view)
 // ---------------------------------------------------------------------------
 
-// Streak freeze purchase: one freeze absorbs one missed day; 30 pts each,
-// hold max 2. Self-contained (own state) so any card variant can mount it.
-function StreakFreezeRow({ profile }: { profile: ProofOfFavour }) {
-  const [busy, setBusy] = useState(false);
-  const [msg, setMsg] = useState<string | null>(null);
-  const [override, setOverride] = useState<{ freezes: number; points: number } | null>(null);
-  const freezes = override ? override.freezes : ((profile as { streakFreezes?: number }).streakFreezes || 0);
-
-  const buy = async () => {
-    if (busy) return;
-    setBusy(true);
-    setMsg(null);
-    try {
-      const res = await fetch("/api/proof-of-favour/freeze", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ address: profile.address }),
-      });
-      const d = await res.json().catch(() => ({} as Record<string, unknown>));
-      if (!res.ok) setMsg(typeof d.error === "string" ? d.error : "Couldn't buy a freeze");
-      else setOverride({ freezes: Number(d.streakFreezes || 0), points: Number(d.totalPoints || 0) });
-    } catch {
-      setMsg("Network hiccup, try again");
-    }
-    setBusy(false);
-  };
-
-  return (
-    <div>
-      <div className="flex items-center justify-between gap-2.5 rounded-xl bg-white/60 border border-gray-200 px-3 py-2.5">
-        <div className="min-w-0">
-          <p className="text-[12px] font-semibold text-gray-900 truncate">
-            Streak freeze{freezes > 0 ? ` · ${freezes} held` : ""}
-          </p>
-          <p className="text-[10px] text-gray-400 mt-0.5 truncate">Covers one missed day</p>
-        </div>
-        <button
-          onClick={buy}
-          disabled={busy}
-          // Pill shape + padding forced inline: the Worldcoin UI-kit ships an
-          // unlayered preflight (see globals.css) that beats Tailwind's layered
-          // rounded-full / px / py utilities, rendering this as a dark square with
-          // text hugging the edges (Oscar live-test Jul 8). Inline styles win the
-          // cascade regardless of layer, so this is the surgical, app-safe fix.
-          style={{ borderRadius: 9999, padding: "7px 14px" }}
-          className="shrink-0 whitespace-nowrap bg-gray-900 text-white text-[11px] font-semibold active:scale-95 transition-transform disabled:opacity-50"
-        >
-          {busy ? "..." : "Buy · 30"}
-        </button>
-      </div>
-      {msg && <p className="text-[11px] text-red-600 mt-1.5">{msg}</p>}
-    </div>
-  );
-}
 
 function FullCard({
   profile,
@@ -711,9 +657,6 @@ function FullCard({
           surfaceClassName={`${config.badgeBg} border ${config.badgeBorder}`}
         />
       </div>
-
-      {/* Streak freeze — the first points sink (self-contained row). */}
-      <StreakFreezeRow profile={profile} />
 
       {/* Recent points history */}
       {recentHistory.length > 0 && (

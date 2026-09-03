@@ -61,8 +61,8 @@ describe("the funding funnel is recorded", () => {
   });
 
   it("page_view still works — the pre-existing path is untouched", async () => {
-    await POST(post({ page: "/leaderboard" }));
-    expect(tracked).toEqual([{ event: "page_view", data: { page: "/leaderboard" } }]);
+    await POST(post({ page: "/dashboard" }));
+    expect(tracked).toEqual([{ event: "page_view", data: { page: "/dashboard" } }]);
   });
 });
 

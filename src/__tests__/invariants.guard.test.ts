@@ -79,14 +79,14 @@ describe("invariant guards", () => {
   });
 
   it("Inv 4: points-spending routes enforce session ownership (anti-grief)", () => {
-    // stake/freeze/jury all debit or award points off a body-supplied address.
+    // stake/jury/appeal all debit or award points off a body-supplied address.
     // Without the ownershipError gate anyone could spend or farm points as
     // another wallet. The gate is dormant until SESSION_ENFORCE=true but must be
     // present so flipping the flag closes the hole everywhere at once.
     for (const route of [
       join("predictions", "[id]", "stake"),
-      join("proof-of-favour", "freeze"),
       join("jury"),
+      join("jury", "appeal"),
     ]) {
       const f = files.find((p) => p.endsWith(join(route, "route.ts")));
       expect(f, `${route}/route.ts not found`).toBeTruthy();
@@ -113,7 +113,7 @@ describe("invariant guards", () => {
     expect(pof, "proof-of-favour.ts not found").toBeTruthy();
     const src = read(pof!);
     const mutators = [
-      "spendPoints", "buyStreakFreeze", "awardPoints", "recordFavourClaimed",
+      "spendPoints", "awardPoints", "recordFavourClaimed",
       "recordFavourAttempted", "recordFavourCompleted", "recordFavourFailed",
       "recordFavourPosted", "recordDailyActivity",
     ];
