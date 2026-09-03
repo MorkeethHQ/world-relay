@@ -61,7 +61,7 @@ export async function GET() {
         funding: {
           method: "human",
           funded: false,
-          message: "Task posted — waiting for a human to fund it via World App",
+          message: "Posted as a 5-point favour. USDC deposits are closed (custody retired); no money moves.",
         },
       },
     },

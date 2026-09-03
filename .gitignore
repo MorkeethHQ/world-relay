@@ -45,6 +45,18 @@ next-env.d.ts
 *.db3
 *.db3.*
 
+# local sqlite databases — never commit runtime data
+data/*.db
+*.db
+*.db-shm
+*.db-wal
+
+# ad-hoc git worktrees created by agent tooling
+/.worktrees/
+
+# hand-made script backups (name your rollback with git, not a .bak file)
+*.bak-*
+
 # foundry build artifacts
 contracts/out/
 contracts/cache/

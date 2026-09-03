@@ -185,3 +185,39 @@ export function orderBoardForApi(tasks: Task[], now: number): Task[] {
   const ranked = rankBoard(open, { userId: null, userLocation: null, now });
   return demoteFeedbackOverflow(ranked, () => false).concat(rest);
 }
+
+const PHOTO_CATEGORIES = new Set(["photo", "delivery", "errand", "check-in"]);
+
+function isRemoteLocation(loc?: string | null): boolean {
+  if (!loc) return true;
+  const l = loc.trim().toLowerCase();
+  return l === "online" || l === "remote" || l === "anywhere" || l === "worldwide" || l.startsWith("any ");
+}
+
+// Best open favour for a first-time user: online, text-friendly, points-only.
+export function pickStarterFavour(tasks: Task[], userId: string | null, now = Date.now()): Task | null {
+  const candidates = tasks.filter(
+    (t) =>
+      isBoardVisible(t, userId, now) &&
+      t.status === "open" &&
+      t.poster !== userId &&
+      t.rewardType === "points" &&
+      t.bountyUsdc > 0,
+  );
+  if (candidates.length === 0) return null;
+
+  const score = (t: Task): number => {
+    let s = 0;
+    if (t.category === "feedback") s += 50;
+    else if (t.category === "social") s += 40;
+    else if (t.category === "review") s += 20;
+    if (isRemoteLocation(t.location)) s += 30;
+    if (!PHOTO_CATEGORIES.has(t.category)) s += 25;
+    const desc = t.description.toLowerCase();
+    if (desc.includes("rate") || desc.includes("tell us") || desc.includes("honest")) s += 15;
+    if (t.bountyUsdc >= 1 && t.bountyUsdc <= 25) s += 10;
+    return s;
+  };
+
+  return [...candidates].sort((a, b) => score(b) - score(a))[0];
+}

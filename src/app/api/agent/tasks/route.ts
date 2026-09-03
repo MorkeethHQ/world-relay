@@ -157,12 +157,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       error: "Missing required fields",
       required: ["description", "location", "bounty_usdc"],
-      optional: ["agent_id", "lat", "lng", "deadline_hours", "callback_url", "fund", "escrow_tx_hash", "on_chain_id"],
-      funding_methods: {
-        self_funded: "Pass escrow_tx_hash + on_chain_id after calling RelayEscrow.createTask() yourself",
-        registered_wallet: "Pass fund=true (requires AGENT_WALLET_<ID> env var on server)",
-        human_funded: "Pass nothing — task shows 'needs funding' and any human can fund it via World App",
-      },
+      optional: ["agent_id", "lat", "lng", "deadline_hours", "callback_url"],
+      reward: "bounty_usdc posts as POINTS today (custody retired) — USDC deposits are closed; fund, escrow_tx_hash and on_chain_id return 410",
     }, { status: 400 });
   }
 
@@ -283,6 +279,7 @@ export async function POST(req: NextRequest) {
       bountyUsdc: task.bountyUsdc,
       deadline: task.deadline,
       status: task.status,
+      rewardType: task.rewardType,
       onChainId: task.onChainId,
       escrowTxHash: task.escrowTxHash,
     },
@@ -291,9 +288,12 @@ export async function POST(req: NextRequest) {
       funded: !!escrowTxHash,
       escrowTxHash,
       onChainId,
+      // Custody retired: path C is the only path that still creates a task, and
+      // the number lands as POINTS (store.ts defaults rewardType). The old copy
+      // promised a "fund it via World App" flow whose UI no longer exists.
       ...(fundingMethod === "human" ? {
-        message: "Task posted — waiting for a human to fund it via World App",
-        fund_url: `https://world-relay.vercel.app/task/${task.id}`,
+        message: `Posted as a ${task.bountyUsdc}-point favour. USDC deposits are closed (custody retired); no money moves.`,
+        task_url: `https://world-relay.vercel.app/task/${task.id}`,
       } : {
         message: `Task funded with $${bounty_usdc} USDC on-chain`,
       }),

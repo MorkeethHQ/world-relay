@@ -44,6 +44,7 @@ import {
   rankBoard,
   curateBoard,
   haversineKm,
+  pickStarterFavour,
   POLL_INSERT_AFTER,
   POLL_CARDS_MAX,
 } from "@/lib/board-rank";
@@ -57,12 +58,109 @@ import { JuryMode } from "@/components/JuryMode";
 // (a failed query silently becomes "nothing found"). It is right here: analytics
 // must never break a user mid-post, and nothing reads the return value. Telemetry
 // that can throw is worse than no telemetry.
-function trackClientEvent(event: string, data: Record<string, number>): void {
+function trackClientEvent(event: string, data?: Record<string, number | string>): void {
   fetch("/api/track", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ event, data }),
+    body: JSON.stringify({ event, data: data ?? {} }),
   }).catch(() => {});
+}
+
+// Example favour shown when the board is empty — teaches the shape before
+// asking anyone to post or judge.
+const EXAMPLE_FAVOUR = {
+  description: "Share one honest opinion about a product you used this week. Write 2–3 sentences in the proof note.",
+  location: "Online",
+  reward: "5 pts",
+  steps: ["Tap a favour below (or post your own)", "Do what it asks", "Submit a photo or note as proof", "AI checks it — points land when it passes"],
+};
+
+function StarterFavourBanner({
+  task,
+  onStart,
+  onDismiss,
+}: {
+  task: Task;
+  onStart: () => void;
+  onDismiss: () => void;
+}) {
+  const needsPhoto = tierRequiresPhoto(task.category);
+  return (
+    <div className="mx-6 mt-4 rounded-2xl border-2 border-gray-900 bg-white overflow-hidden animate-[fadeSlideIn_0.4s_ease-out]">
+      <div className="px-4 pt-4 pb-3 border-b border-gray-100">
+        <span className="text-[10px] font-bold uppercase tracking-widest text-gray-900">Start here</span>
+        <p className="text-[13px] text-gray-500 mt-1 leading-relaxed">
+          {needsPhoto
+            ? "Do this task, snap a photo, submit — takes about 5 min."
+            : "Answer in your own words — no photo needed, about 2 min."}
+        </p>
+      </div>
+      <div className="px-4 py-3 flex items-start gap-3">
+        <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center text-gray-500 shrink-0">
+          <CategoryIcon category={task.category} size={18} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-[15px] font-medium leading-snug text-gray-900 line-clamp-3">{task.description}</p>
+          <p className="text-xs text-gray-400 mt-1.5">{task.location}</p>
+        </div>
+        <span className="text-sm font-bold text-gray-900 shrink-0">{rewardLabel(task)}</span>
+      </div>
+      <div className="px-4 pb-4 flex flex-col gap-2">
+        <Button fullWidth variant="primary" size="lg" onClick={onStart}>
+          Start this favour
+        </Button>
+        <button
+          type="button"
+          onClick={onDismiss}
+          className="text-[12px] font-medium text-gray-400 hover:text-gray-700 transition-colors py-1"
+        >
+          Browse all favours instead
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function EmptyBoardTeach({ onPost }: { onPost: () => void }) {
+  return (
+    <div className="flex flex-col gap-4 px-6 py-8 animate-[fadeSlideIn_0.4s_ease-out]">
+      <div>
+        <p className="text-[15px] font-semibold text-gray-900">This is a favour</p>
+        <p className="text-[13px] text-gray-500 mt-1 leading-relaxed">
+          Someone asks for a small real-world task. You do it, send proof, and earn points when it passes.
+        </p>
+      </div>
+      <div className="rounded-2xl p-4 flex flex-col gap-3 bg-white border border-gray-200">
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center text-gray-500 shrink-0">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+            </svg>
+          </div>
+          <div className="flex-1 min-w-0">
+            <span className="text-[10px] font-bold uppercase tracking-wide text-gray-400 bg-gray-100 rounded px-1.5 py-0.5">Example</span>
+            <p className="text-[15px] font-medium leading-snug text-gray-900 mt-2">{EXAMPLE_FAVOUR.description}</p>
+            <p className="text-xs text-gray-400 mt-1.5">{EXAMPLE_FAVOUR.location}</p>
+          </div>
+          <span className="text-sm font-bold text-gray-900 shrink-0">{EXAMPLE_FAVOUR.reward}</span>
+        </div>
+        <ol className="space-y-1.5 border-t border-gray-100 pt-3">
+          {EXAMPLE_FAVOUR.steps.map((step, i) => (
+            <li key={i} className="flex items-start gap-2 text-[12px] text-gray-500">
+              <span className="shrink-0 w-4 h-4 rounded-full bg-gray-100 flex items-center justify-center text-[9px] font-bold text-gray-500">{i + 1}</span>
+              {step}
+            </li>
+          ))}
+        </ol>
+      </div>
+      <Button fullWidth variant="primary" size="lg" onClick={onPost}>
+        Post a favour (about 1 min)
+      </Button>
+      <p className="text-[12px] text-gray-400 text-center leading-relaxed">
+        Points favours are free to post. Or check back soon — new favours land twice a day.
+      </p>
+    </div>
+  );
 }
 
 function extractTxHash(result: unknown): string | null {
@@ -321,6 +419,8 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
   const [pullDistance, setPullDistance] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showCreateNudge, setShowCreateNudge] = useState(false);
+  const [showFirstRunCoach, setShowFirstRunCoach] = useState(false);
+  const [postQuickTemplate, setPostQuickTemplate] = useState<number | null>(null);
   const prevCompletedCount = useRef(0);
   const touchStartY = useRef(0);
   const isPulling = useRef(false);
@@ -432,6 +532,32 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
       if (fetchDebounceRef.current) clearTimeout(fetchDebounceRef.current);
     };
   }, [fetchTasks, debouncedFetchTasks]);
+
+  // First-run coach: one screen that explains the favour loop before REAL OR NOT.
+  useEffect(() => {
+    if (view !== "board" || loading) return;
+    try {
+      if (localStorage.getItem("relay_first_run_coach_dismissed") === "true") return;
+      setShowFirstRunCoach(true);
+    } catch {}
+  }, [view, loading]);
+
+  // Loop funnel: arrive — once per device, when the board first renders.
+  useEffect(() => {
+    if (view !== "board" || loading) return;
+    try {
+      if (localStorage.getItem("favour_loop_arrived")) return;
+      localStorage.setItem("favour_loop_arrived", "true");
+      trackClientEvent("loop_arrive");
+    } catch {
+      trackClientEvent("loop_arrive");
+    }
+  }, [view, loading]);
+
+  const dismissFirstRunCoach = () => {
+    try { localStorage.setItem("relay_first_run_coach_dismissed", "true"); } catch {}
+    setShowFirstRunCoach(false);
+  };
 
   // SSE: real-time refresh trigger (only in board view)
   useEffect(() => {
@@ -562,6 +688,29 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
     });
   }, [tasks, tab, userLocation, userId]);
 
+  const starterFavour = useMemo(() => {
+    if (!showFirstRunCoach || tab !== "available") return null;
+    return pickStarterFavour(tasks, userId);
+  }, [showFirstRunCoach, tab, tasks, userId]);
+
+  const boardTasks = useMemo(() => {
+    if (!starterFavour) return filtered;
+    return filtered.filter((t) => t.id !== starterFavour.id);
+  }, [filtered, starterFavour]);
+
+  const openProof = useCallback((task: Task) => {
+    hapticTap();
+    trackClientEvent("loop_start_intent");
+    setSelectedTask(task);
+    setView("proof");
+  }, []);
+
+  const startFavour = useCallback((task: Task) => {
+    try { localStorage.setItem("relay_first_run_coach_dismissed", "true"); } catch {}
+    setShowFirstRunCoach(false);
+    openProof(task);
+  }, [openProof]);
+
   // Freshness for returning users: remember when this device last saw the board,
   // then flag open favours posted since then so a returning user immediately sees
   // the app moved while they were away (the main "it's alive" signal). The
@@ -681,6 +830,13 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
   // any normal post so standalone tasks stay unlinked.
   const [postCampaignId, setPostCampaignId] = useState<string | null>(null);
 
+  const openQuickPost = () => {
+    hapticTap();
+    setPostQuickTemplate(5); // Quick opinion — online, 1 pt, fastest path
+    setPostCampaignId(null);
+    setView("post");
+  };
+
   if (view === "campaign" && selectedCampaign) {
     return (
       <CampaignPage
@@ -700,7 +856,7 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
   }
 
   if (view === "post") {
-    return <PostTask userId={userId} campaignId={postCampaignId ?? undefined} onDone={() => { setPostCampaignId(null); setView("board"); fetchTasks(); }} onCancel={() => { setPostCampaignId(null); setView("board"); }} />;
+    return <PostTask userId={userId} campaignId={postCampaignId ?? undefined} quickStartTemplate={postQuickTemplate ?? undefined} onDone={() => { setPostCampaignId(null); setPostQuickTemplate(null); setView("board"); fetchTasks(); }} onCancel={() => { setPostCampaignId(null); setPostQuickTemplate(null); setView("board"); }} />;
   }
 
   if (view === "proof" && selectedTask) {
@@ -749,21 +905,31 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
         className="flex-1 flex flex-col"
       >
 
-      {/* THE TOP FAVOUR — the daily gate, above the board.
-          It lives HERE, inside the "available" tab, and not above <Feed> in
-          page.tsx: Feed is a view ROUTER (board / post / proof / detail /
-          campaign / jury), so mounting it one level up pinned it to every screen
-          in the app, including the post wizard and the proof flow. */}
-      {tab === "available" && !loading && (
+      {/* Daily poll — after favours for first-time users so it doesn't hijack the loop */}
+      {tab === "available" && !loading && !showFirstRunCoach && (
         <div className="px-6 pt-4">
           <DailyFavour userId={userId} onReauth={onReauth} />
         </div>
       )}
 
-      {/* REAL OR NOT — promoted to the top module (Oscar Jul 9: "make it the
-          top of the page"). Full-width hero, and no longer gated behind a live
-          campaign existing (previously it hid whenever campaigns were empty). */}
-      {tab === "available" && !loading && (
+      {tab === "available" && !loading && showFirstRunCoach && starterFavour && (
+        <StarterFavourBanner
+          task={starterFavour}
+          onStart={() => startFavour(starterFavour)}
+          onDismiss={dismissFirstRunCoach}
+        />
+      )}
+
+      {tab === "available" && !loading && showFirstRunCoach && !starterFavour && (
+        <div className="mx-6 mt-4 rounded-2xl border border-gray-200 bg-white px-4 py-4">
+          <p className="text-[13px] font-semibold text-gray-900">Pick any favour below</p>
+          <p className="text-[13px] text-gray-500 mt-1">Tap <span className="font-medium text-gray-700">Do it</span>, follow the steps, submit proof.</p>
+          <button type="button" onClick={dismissFirstRunCoach} className="mt-3 text-[12px] font-medium text-gray-400 hover:text-gray-700">Got it</button>
+        </div>
+      )}
+
+      {/* REAL OR NOT — hidden on first visit so strangers see favours first */}
+      {tab === "available" && !loading && !showFirstRunCoach && (
         <div className="px-6 pt-4 animate-[fadeSlideIn_0.4s_ease-out]">
           <button
             onClick={() => { hapticTap(); setView("jury"); }}
@@ -788,8 +954,9 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
       {tab === "available" && !loading && (
         <div className="px-6 pt-6 pb-2 animate-[fadeSlideIn_0.4s_ease-out]">
           <p className="text-[19px] font-bold text-gray-900 tracking-tight leading-snug">
-            Do a favour. Prove it. Get rewarded.
+            {showFirstRunCoach ? "Or browse more favours" : "Do a favour. Prove it. Get rewarded."}
           </p>
+          {!showFirstRunCoach && (
           <div className="flex items-center gap-4 mt-2">
             <div className="flex items-baseline gap-1.5">
               <span className="text-[15px] font-bold text-gray-900">{tasks.filter(t => t.status === "open").length}</span>
@@ -806,6 +973,7 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
               <span className="text-[12px] text-gray-400">paid out</span>
             </div>
           </div>
+          )}
         </div>
       )}
 
@@ -1050,27 +1218,14 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
           </div>
         ) : filtered.length === 0 ? (
           <>
-            <div className="flex flex-col items-center justify-center py-20 gap-2 animate-[fadeSlideIn_0.4s_ease-out]">
-              <p className="text-[28px] font-bold text-gray-200 tracking-tight">
-                {tab === "available" ? "Board's refilling" : tab === "mine" ? "Nothing yet" : "No history"}
-              </p>
-              <p className="text-[14px] text-gray-400">
-                {tab === "available" ? "New favours land soon. Judging never runs out." : "Complete a task to see it here"}
-              </p>
-              {/* Jury-first empty board: an empty board must hand the user the one
-                  surface that cannot run out of supply (REAL OR NOT recycles
-                  already-submitted proofs), same redirect the seed-cap wall uses.
-                  A dead end here churns the exact users the board needs back. */}
-              {tab === "available" && (
-                <Button
-                  className="mt-3"
-                  onClick={() => { hapticTap(); setView("jury"); }}
-                >
-                  Judge proofs — earn points now
-                </Button>
-              )}
-            </div>
-            {tab === "available" && <FeedPolls userId={userId} limit={POLL_CARDS_MAX} />}
+            {tab === "available" ? (
+              <EmptyBoardTeach onPost={openQuickPost} />
+            ) : (
+              <div className="flex flex-col items-center justify-center py-20 gap-2 animate-[fadeSlideIn_0.4s_ease-out]">
+                <p className="text-[28px] font-bold text-gray-200 tracking-tight">No history</p>
+                <p className="text-[14px] text-gray-400">Complete a favour to see it here</p>
+              </div>
+            )}
           </>
         ) : tab === "completed" ? (
           <div className="flex flex-col gap-2.5">
@@ -1102,7 +1257,7 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
           </div>
         ) : (
           <div className="flex flex-col gap-2.5">
-            {filtered.map((task, i) => (
+            {(tab === "available" ? boardTasks : filtered).map((task, i) => (
               <Fragment key={task.id}>
                 {/* R2 (BOARD-RULES.md): polls never lead the board — they render
                     after the first POLL_INSERT_AFTER task cards. */}
@@ -1124,16 +1279,18 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
                       setView("detail");
                     }}
                     onClaim={() => {}}
-                    onSubmitProof={() => {
-                      setSelectedTask(task);
-                      setView("proof");
-                    }}
+                    onSubmitProof={() => openProof(task)}
                   />
                 </div>
               </Fragment>
             ))}
-            {tab === "available" && filtered.length <= POLL_INSERT_AFTER && (
+            {tab === "available" && boardTasks.length <= POLL_INSERT_AFTER && (
               <FeedPolls userId={userId} limit={POLL_CARDS_MAX} />
+            )}
+            {tab === "available" && showFirstRunCoach && (
+              <div className="px-6 pt-2 pb-4">
+                <DailyFavour userId={userId} onReauth={onReauth} />
+              </div>
             )}
           </div>
         )}
@@ -1444,7 +1601,7 @@ function TaskCard({
           onClick={(e) => { e.stopPropagation(); onSubmitProof(); }}
           className="w-full bg-gray-900 text-white text-[13px] font-semibold py-3 rounded-xl active:scale-[0.98] transition-transform min-h-[44px]"
         >
-          Do it
+          Start favour
         </button>
       )}
 
@@ -1531,11 +1688,14 @@ function PostTask({
   onDone,
   onCancel,
   campaignId,
+  quickStartTemplate,
 }: {
   userId: string | null;
   onDone: () => void;
   onCancel: () => void;
   campaignId?: string;
+  /** Skip type-picker and land on Describe with this POST_TEMPLATES index pre-selected. */
+  quickStartTemplate?: number;
 }) {
   const [description, setDescription] = useState("");
   const [locationMode, setLocationMode] = useState<"online" | "inperson">("online");
@@ -1579,6 +1739,18 @@ function PostTask({
       { enableHighAccuracy: true, timeout: 10000 }
     );
   }, []);
+
+  useEffect(() => {
+    if (quickStartTemplate == null || quickStartTemplate < 0 || quickStartTemplate >= POST_TEMPLATES.length) return;
+    const t = POST_TEMPLATES[quickStartTemplate];
+    setSelectedTemplate(quickStartTemplate);
+    setBounty(t.bounty);
+    setCategory(t.category);
+    setLocationMode("online");
+    setLocation("Online");
+    setDir("fwd");
+    setStep(1);
+  }, [quickStartTemplate]);
 
   const handleTemplate = (idx: number) => {
     const t = POST_TEMPLATES[idx];

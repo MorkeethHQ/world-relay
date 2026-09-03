@@ -12,6 +12,8 @@ const CLIENT_EVENTS = new Set([
   "world_app_deep_link_opened",
   "task_share_opened",
   "invite_share_opened",
+  "loop_arrive",
+  "loop_start_intent",
 ]);
 
 // Numbers only, finite, clamped. Keeps a hostile caller from writing an essay into

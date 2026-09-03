@@ -116,6 +116,7 @@ export async function POST(
   }
 
   trackEvent("task_claimed", { taskId: id, claimant, bounty: updated.bountyUsdc, category: updated.category }).catch(() => {});
+  trackEvent("loop_start", { taskId: id, submitter: claimant }).catch(() => {});
   await postClaimNotification(updated, claimant);
   notifyTaskClaimed(updated.poster, updated.description).catch(console.error);
 
