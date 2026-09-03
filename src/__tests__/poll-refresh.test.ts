@@ -34,7 +34,9 @@ function poll(over: Partial<Poll> = {}): Poll {
   };
 }
 
-// The live state on 2026-09-03: 12 polls, every one of them ended.
+// The live state on 2026-09-03: 12 polls, 11 of them ended. This fixture is the
+// all-ended shape, which is where the tab was heading the moment the one
+// remaining user poll lapsed — it ended at 22:32 the same day.
 const ENDED_GRAVEYARD = Array.from({ length: 12 }, (_, i) =>
   poll({
     question: `Who wins the World Cup 2026? #${i}`,

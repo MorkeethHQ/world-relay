@@ -73,8 +73,9 @@ recur silently.
   the 72-hour user default; a question is not re-asked for
   `POLL_REASK_COOLDOWN_DAYS` (45). Context: nothing on the server had ever
   created a poll. Polls were user-generated only, and on Sep 3 the tab held 12
-  polls of which **zero** were still active — six about a World Cup that ended
-  Jul 19 — so the feed's poll rail (active-only) rendered nothing for weeks.
+  polls of which exactly **one** was still active — six of the dead ones about a
+  World Cup that ended Jul 19 — leaving the feed's poll rail (active-only) a
+  single card, and nothing at all once that last user poll lapsed hours later.
   R2 governed where polls rank; no rule governed whether any existed.
   The pool is evergreen **by test**: a fallback poll may not name a date,
   season, tournament or year, because that is exactly how the last batch died.

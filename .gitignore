@@ -74,3 +74,6 @@ pulse.log
 
 # ops scratch state, rewritten every watch run
 scripts/.watch-state.json
+
+# poll-ops delete snapshots (local recovery copies of removed spam polls)
+scripts/.poll-deleted-*.json

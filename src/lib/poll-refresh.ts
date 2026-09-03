@@ -7,10 +7,11 @@ import { createPoll, listPolls, type Poll } from "./polls-store";
 // Why this file exists: until 2026-09-03 nothing on the server ever created a
 // poll. Polls were user-generated only, `createPoll` defaults to a 72-hour
 // window, and `Polls.tsx` splits the list into ACTIVE and ENDED. So the live
-// polls tab held 12 polls of which ZERO were active — six of them about a World
-// Cup that finished on Jul 19 — and the feed's poll rail (which filters to
-// active) rendered nothing at all. The board rules govern which polls show; no
-// rule governed whether any existed.
+// polls tab held 12 polls of which exactly ONE was still active — six of the
+// dead ones about a World Cup that finished on Jul 19 — leaving the feed's poll
+// rail (which filters to active) a single card, and nothing at all the moment
+// that last user poll lapsed, which it did at 22:32 the same day. The board
+// rules govern which polls show; no rule governed whether any existed.
 //
 // Same safety posture as board-replenish and daily-generator: a deterministic
 // pool is the floor, a model call is an UPGRADE, and every failure path lands on
