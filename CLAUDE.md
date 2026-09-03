@@ -11,6 +11,11 @@ through this now and people rely on it. Do not break it.**
   plain ERC-20 `transfer` from the relayer wallet for campaign unlocks — not
   custody, not a first-party contract.
 - Rebrand in progress: RELAY → FAVOUR (copy/name only — see "Brand" below)
+- **`.env.local` drifts from Vercel.** On 2026-09-03 the local `ANTHROPIC_API_KEY`
+  returned 401 and `CRON_SECRET` was rejected by production while both worked
+  in Vercel. A local 401/Unauthorized is not evidence about production — check
+  a production side-effect (e.g. today's daily prompt is model-generated) before
+  calling a key dead.
 
 ## Source of truth (avoid context drift)
 When two docs disagree, the owner below wins. Do not treat a stale copy as truth.
@@ -19,6 +24,14 @@ When two docs disagree, the owner below wins. Do not treat a stale copy as truth
   settled priority.
 - **Live state** (counts, launch status): Obsidian dashboard.
 - Never restate a fact that another doc owns — link to it. Copies drift; pointers don't.
+
+## What the data says — read before writing any favour
+Measured 2026-09-03 from production: completions per task posted are feedback
+10.17, social 2.46, review 1.13, custom 0.92, check-in 0.40, **photo 0.32**. Text
+proofs pass AI verification 42/42; photo proofs are flagged 44% of the time. The
+most-completed favour ever paid zero points. **Ask for a view, not an errand.**
+Full read: `docs/NEW-TAKE-2026-09-03.md`. The generator and fallback pool
+(`src/lib/board-replenish.ts`) are pinned to this shape by guard test R11.
 
 ## Board visibility/ranking changes — read first
 What shows on the board and in what order is owned by `BOARD-RULES.md` +
@@ -36,13 +49,21 @@ broad reviews missed live money bugs because broad reads skim; the guard test
 - **Money path is sacred.** Never mark a task paid unless settlement is confirmed
   on-chain. Every money-path change is verified end-to-end with a real request
   before commit — not just tsc.
-- **No fake/simulated data, ever** — even for demos.
+- **No fabricated data, ever** — no invented completions, metrics, users, proofs
+  or demo content presented as real, and nothing seeded to make a number look
+  better than it is. This is about honesty of what's shown, not about testing:
+  **completing a favour yourself with a genuine answer IS real data** and is the
+  correct way to verify the loop end-to-end (clarified 2026-09-03 after a session
+  refused to test the live app on a too-literal reading of this line).
 - **Points and USDC are never conflated.** `reward.ts` is the single source; points
   are `pts`, money is `$ USDC` and only real when paid out via the relayer's
   ERC-20 transfer (`campaign-unlock.ts`) — custody/escrow-funding is retired,
   see `src/lib/custody.ts`.
 - **AI-generated proof may appear as content but must NEVER earn** points or USDC,
-  nor count toward completions / leaderboard / campaign unlock.
+  nor count toward completions / leaderboard / campaign unlock. An AI *flag* is
+  not a verdict of "AI-generated"; since 2026-09-03 a quorum of qualified human
+  judges may clear a flagged **points-only** proof (`src/lib/jury-appeal.ts`).
+  Money and campaign progress stay AI-pass-only — see SECURITY-INVARIANTS Inv 5.
 - **Campaign cash unlocks only through the clean gate:** Orb-verified + passed
   verification (no AI/stock/screenshot) + no flags.
 - Resolve usernames, not raw wallet addresses, in all UI. Keep UI consistent.
