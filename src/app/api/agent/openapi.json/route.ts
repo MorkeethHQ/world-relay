@@ -260,18 +260,14 @@ const spec = {
                           type: ["integer", "null"],
                         },
                         message: { type: "string" },
-                        fund_url: {
+                        task_url: {
                           type: "string",
                           format: "uri",
                           description:
-                            "URL for humans to fund the task (only for human-funded tasks)",
+                            "Public page of the posted favour (points; no money moves)",
                         },
                       },
                       required: ["method", "funded", "message"],
-                    },
-                    escrow_contract: {
-                      type: "string",
-                      description: "Escrow contract address on World Chain",
                     },
                     callback_url_registered: {
                       type: "boolean",
@@ -279,7 +275,7 @@ const spec = {
                         "Present and true if a callback_url was provided",
                     },
                   },
-                  required: ["task", "funding", "escrow_contract"],
+                  required: ["task", "funding"],
                 },
               },
             },

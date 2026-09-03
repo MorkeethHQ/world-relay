@@ -2,12 +2,13 @@ import { NextResponse } from "next/server";
 import { createPublicClient, http, formatUnits } from "viem";
 import { worldchain } from "viem/chains";
 import { escrowV2Address } from "@/lib/escrow-v2";
+import { ESCROW_ADDRESS as LEGACY_ESCROW_ADDRESS } from "@/lib/escrow";
 
 const RPC_URL = "https://worldchain-mainnet.g.alchemy.com/public";
-// Retired v1 rail — kept ONLY for internal/historical accounting below. The
-// address is never included in the public response (the endpoint is labeled
-// legacy and points at the current config-sourced contract instead).
-const LEGACY_ESCROW_ADDRESS = (process.env.NEXT_PUBLIC_ESCROW_ADDRESS?.trim() || "0x274C38eA9944f57D24A59fbEf558bba2264f9351") as `0x${string}`;
+// Retired v1 rail (LEGACY_ESCROW_ADDRESS, config-sourced from src/lib/escrow)
+// is read ONLY for internal/historical accounting below. The address is never
+// included in the public response (the endpoint is labeled legacy and points
+// at the current config-sourced contract instead).
 const USDC_ADDRESS = "0x79A02482A880bCE3F13e09Da970dC34db4CD24d1" as `0x${string}`;
 
 const STATUS_LABELS = ["open", "claimed", "completed", "failed", "expired"] as const;

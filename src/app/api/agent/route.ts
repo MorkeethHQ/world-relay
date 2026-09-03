@@ -186,7 +186,8 @@ export async function GET() {
       leaderboard: "https://world-relay.vercel.app/leaderboard",
       openapi_spec: "https://world-relay.vercel.app/api/agent/openapi.json",
       docs: "https://github.com/MorkeethHQ/world-relay/blob/main/AGENT.md",
-      escrow_contract: "0xbF2002356EC592460c3F71ad27D169402cA1DD98",
+      escrow_contract: null,
+      escrow_note: "Custody retired: no contract address is published. Bot-posted favours are points; no money moves.",
       chain: "World Chain (chainId 480)",
     },
   });
