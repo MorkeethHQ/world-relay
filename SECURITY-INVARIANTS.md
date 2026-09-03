@@ -41,9 +41,44 @@ mechanically blocks the easy-to-regress ones.
 4. **Identity is proven, not claimed.** A mutating action attributed to a wallet
    must be authorized by that wallet's session (`src/lib/session.ts`), not by a
    `body.poster/claimant/submitter/sender` field (all public). Gate: `SESSION_ENFORCE`.
-5. **AI proof never earns.** A `flag`/AI-suspected verdict must not award points,
-   USDC, completions, reputation, leaderboard, or campaign progress. No random
-   verdict (`verifyProofStub`) in production.
+5. **AI proof never earns — and a flag never earns MONEY, ever.** A
+   `flag`/AI-suspected verdict must not *automatically* award points, USDC,
+   completions, reputation, leaderboard, or campaign progress. No random verdict
+   (`verifyProofStub`) in production.
+
+   **Amended 2026-09-03 — the human backstop.** A flagged proof may be cleared
+   for POINTS ONLY by a quorum of qualified human judges
+   (`src/lib/jury-appeal.ts`, guard `jury-appeal.test.ts`). This narrows the
+   rule; it does not open the money path. `isAppealable` is the whole boundary
+   and refuses any task that is not `rewardType: "points"`, or that carries an
+   escrow tx, an `onChainId`, a Double-or-Nothing stake, an escrow-v2 address,
+   or a `campaignId`. So invariant 2 (funded USDC releases ONLY through AI
+   verification) and invariant 8 (campaign progress written ONLY by the
+   verify-proof pass path) are untouched: a flagged FUNDED proof still earns
+   nothing here and is resubmitted, disputed, or expires and refunds.
+
+   Quorum is `APPEAL_QUORUM` (3) distinct judges, clearing on
+   `APPEAL_CLEAR_MAJORITY` (2). A judge's vote counts only after
+   `JUDGE_MIN_GRADED` (10) graded Real-or-Not cards at `JUDGE_MIN_ACCURACY`
+   (60%) — the graded game, where the answer is known, is the qualification exam
+   for the deck where it is not. Resolution is reserved with `SET NX` BEFORE the
+   award so two judges landing the quorum vote concurrently cannot both pay.
+
+   *Why the rule moved:* measured in production 2026-09-03, text proofs passed
+   42/42 (100%) while photo proofs were flagged 22 of 50 (44%) — including
+   proofs the verifier's own reasoning called "a genuine phone capture" and
+   "real phone captures of flood conditions". The strict-by-design verifier was
+   punishing real people for using a camera, and REAL OR NOT (2,868 human
+   verdicts) was only ever shown proofs the AI had already passed. The one
+   mechanism that could clear a wrongly-flagged photo was walled off from the
+   only proofs that needed it.
+
+   *Trap found by the guard test on its first run:* the refusal gate was written
+   with `hasOnChainEscrow`, the strict CREDIT signal, which demands a real
+   `0x`+64hex hash — so a task carrying an `onChainId` with no hash yet read
+   "not escrowed" and slipped through. A refusal gate takes the LOOSEST signal
+   (`isFunded`); only crediting takes the strict one. `reward.ts` says exactly
+   this and it was still got wrong.
 6. **One escrow funds one payout.** Funded tasks are single-completion.
 7. **Verification tier gates funded tasks only** (not points), on every claim path
    (`/claim` and the `verify-proof` direct-submit path).
