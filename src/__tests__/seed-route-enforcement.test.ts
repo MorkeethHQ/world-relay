@@ -50,11 +50,18 @@ vi.mock("@/lib/ai-chat", () => ({ generateLocationBriefing: async () => null }))
 vi.mock("@/lib/messages", () => ({ addMessage: async () => {} }));
 vi.mock("@/lib/xmtp", () => ({ postTaskCreated: async () => {} }));
 vi.mock("@/lib/sse", () => ({ broadcastEvent: () => {} }));
-vi.mock("@/lib/proof-of-favour", () => ({ recordFavourPosted: async () => {} }));
+// Substitute the side EFFECT (a Redis write), never the rule: MAX_TASK_POINTS is
+// the seed route's points ceiling, so a hand-written stub value here would grade
+// a cap nobody ships. importOriginal keeps the real constant.
+vi.mock("@/lib/proof-of-favour", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/proof-of-favour")>()),
+  recordFavourPosted: async () => {},
+}));
 vi.mock("@/lib/track", () => ({ trackEvent: async () => {} }));
 
 import { POST as SEED } from "@/app/api/seed/route";
 import { POST as TASKS } from "@/app/api/tasks/route";
+import { MAX_TASK_POINTS } from "@/lib/proof-of-favour";
 
 function post(url: string, body: any, headers: Record<string, string> = {}) {
   return new Request(url, {
@@ -166,6 +173,40 @@ describe("flipping does not weaken /api/seed's own auth", () => {
 
     const res = await SEED(post("http://localhost/api/seed", { secret: SECRET, tasks: unfunded }));
 
+    expect(res.status).toBe(400);
+    expect(created).toHaveLength(0);
+  });
+});
+
+// The seed points ceiling. It was a hardcoded 10 until Sep 3, 2026 — a leftover
+// from the 1-10 season economy — while board-replenish filled the SAME board
+// with 10-20 point favours through createTask. So a fresh admin batch could only
+// be seeded at a value below the recycled favours it was meant to replace, and
+// the stalest card on the board was the best-paying one. These pin the ceiling
+// to the one economy-wide cap so it cannot drift back to a magic number.
+describe("seed points ceiling is the economy-wide cap, not a magic number", () => {
+  const pointsTask = (points: number) => ({
+    description: `A fresh points favour worth ${points}: photograph something specific near you`,
+    location: "Anywhere",
+    category: "photo",
+    bountyUsdc: points,
+    deadlineHours: 336,
+    rewardType: "points",
+  });
+
+  it("accepts a points favour above the old hardcoded 10 and up to MAX_TASK_POINTS", async () => {
+    const res = await SEED(
+      post("http://localhost/api/seed", { secret: SECRET, tasks: [pointsTask(MAX_TASK_POINTS)] })
+    );
+    expect(res.status).toBe(201);
+    expect(created).toHaveLength(1);
+    expect(created[0].bountyUsdc).toBe(MAX_TASK_POINTS);
+  });
+
+  it("still rejects a points favour above MAX_TASK_POINTS", async () => {
+    const res = await SEED(
+      post("http://localhost/api/seed", { secret: SECRET, tasks: [pointsTask(MAX_TASK_POINTS + 1)] })
+    );
     expect(res.status).toBe(400);
     expect(created).toHaveLength(0);
   });

@@ -37,6 +37,15 @@ export const BOARD_MIN_OPEN = 8;
 export const REPLENISH_MAX_PER_RUN = 6;
 export const REPLENISH_MAX_PER_DAY = 12;
 export const RECYCLE_COOLDOWN_DAYS = 7;
+// R8 — recycle can never take the whole run. Recycling is cheaper than
+// generating, so a recycle-first planner with an unbounded share picks recycle
+// every time: the board always has expired points favours, so generateCount was
+// structurally ~0 and the SAME ten fallback descriptions rotated on and off the
+// board from Jul 30 to Sep 3 (verified live: all 8 open favours on 2026-09-03
+// were FALLBACK_FAVOURS entries). At most half of each run may be recycled, so
+// fresh supply reaches the board on every single run, not just when the recycle
+// pool happens to run dry.
+export const RECYCLE_MAX_SHARE = 0.5;
 export const RECYCLE_WINDOW_DAYS = 30;
 
 const MODEL = process.env.BOARD_REPLENISH_MODEL || process.env.DAILY_PROMPT_MODEL || "claude-sonnet-5";
@@ -56,6 +65,14 @@ export type FavourSpec = {
 };
 
 const ALLOWED_CATEGORIES: ReadonlySet<TaskCategory> = new Set([
+  // "feedback" added 2026-09-03. It was excluded, and it is the single
+  // best-performing category on the board by a wide margin: measured all-time,
+  // completions per task posted were feedback 10.17, social 2.46, review 1.13,
+  // custom 0.92, check-in 0.40, photo 0.32. The engine that refills the board
+  // was structurally forbidden from making the thing people actually do.
+  // Its board SHARE stays governed by BOARD-RULES R1 (max 3 of the first 15),
+  // which is the rule that should cap it — not a silent absence from this set.
+  "feedback",
   "photo",
   "check-in",
   "custom",
@@ -106,18 +123,35 @@ export function validateFavourSpec(raw: unknown): FavourSpec | null {
 // test enforces it) — the fallback is the one path that cannot be allowed to
 // fail validation, because it runs precisely when everything else already has.
 export const FALLBACK_FAVOURS: FavourSpec[] = [
-  { description: "Photo the most interesting thing within 50 steps of where you are right now, and say why it caught your eye.", category: "photo", points: 15, deadlineHours: 168, maxCompletions: 50, agentId: "dropscout", location: "Anywhere" },
-  { description: "Do a small favour for someone near you today — no spending, just help — and tell us what you did.", category: "custom", points: 20, deadlineHours: 168, maxCompletions: 100, agentId: "openclaw", location: "Anywhere" },
-  { description: "Photo the view from the nearest window and tell us one thing about it a map could never know.", category: "photo", points: 15, deadlineHours: 168, maxCompletions: 50, agentId: "freshmap", location: "Anywhere" },
-  { description: "Show us what people are queuing for where you live — photo the line and guess the wait.", category: "photo", points: 15, deadlineHours: 168, maxCompletions: 50, agentId: "queuepulse", location: "Any city" },
-  { description: "Photo a hand-written sign near you and translate or explain it for the rest of the world.", category: "photo", points: 15, deadlineHours: 168, maxCompletions: 50, agentId: "openclaw", location: "Anywhere" },
-  { description: "Recommend one spot in your area that visitors always miss, with a photo and one line on why locals love it.", category: "review", points: 20, deadlineHours: 168, maxCompletions: 50, agentId: "freshmap", location: "Any city" },
-  { description: "Photo the oldest object you can find around you right now and guess its age.", category: "photo", points: 10, deadlineHours: 168, maxCompletions: 50, agentId: "dropscout", location: "Anywhere" },
-  { description: "Teach the world one useful phrase in your language — write it, say where it helps, photo where you are.", category: "social", points: 15, deadlineHours: 168, maxCompletions: 100, agentId: "hermes", location: "Anywhere" },
-  { description: "Check in from wherever you are: one photo, one line on what everyone around you is doing right now.", category: "check-in", points: 10, deadlineHours: 168, maxCompletions: 100, agentId: "queuepulse", location: "Anywhere" },
-  { description: "Photo the best street art, mural, or unexpected colour you can reach on foot in five minutes.", category: "photo", points: 15, deadlineHours: 168, maxCompletions: 50, agentId: "dropscout", location: "Any city" },
-  { description: "Show us breakfast where you live — photo what a normal morning actually looks like, no staging.", category: "photo", points: 15, deadlineHours: 168, maxCompletions: 100, agentId: "openclaw", location: "Anywhere" },
-  { description: "Photo a notice board, poster wall, or shop window near you — what is your neighbourhood talking about?", category: "photo", points: 10, deadlineHours: 168, maxCompletions: 50, agentId: "freshmap", location: "Any city" },
+  // Rewritten 2026-09-03 from production completion rates. The old pool was ten
+  // photo ERRANDS ("photograph a laundromat's posted hours") and drew 0.32
+  // completions per task; every one of the ten most-completed favours in the
+  // app's history was a text ask, and text proofs pass AI verification 42/42
+  // while photo proofs are flagged 44% of the time. The winning shape is not
+  // "fun vs boring", it is ASK FOR A VIEW, NOT AN ERRAND — say something from
+  // where you are sitting, in one sentence, that is worth reading afterwards.
+  // The best performer of all time ("What would you ask a verified human to do
+  // that you'd never ask a stranger") drew 42 completions at ZERO points, so
+  // the reward is not what moves people. The question is.
+  { description: "What would you ask a verified human nearby to do, that you would never ask a stranger? One honest sentence.", category: "feedback", points: 15, deadlineHours: 336, maxCompletions: 100, agentId: "openclaw", location: "Anywhere" },
+  { description: "What is the most useless thing you own, and why do you still have it?", category: "feedback", points: 12, deadlineHours: 336, maxCompletions: 100, agentId: "openclaw", location: "Anywhere" },
+  { description: "Tell us one thing about where you live that outsiders always get wrong.", category: "feedback", points: 15, deadlineHours: 336, maxCompletions: 100, agentId: "freshmap", location: "Anywhere" },
+  { description: "What is the last thing you did purely to help someone, with nothing in it for you?", category: "custom", points: 15, deadlineHours: 336, maxCompletions: 100, agentId: "openclaw", location: "Anywhere" },
+  { description: "Recommend one place near you that visitors always miss, and say in one line why locals go.", category: "review", points: 18, deadlineHours: 336, maxCompletions: 100, agentId: "freshmap", location: "Any city" },
+  { description: "What is something everyone where you live knows, that no website would ever tell you?", category: "feedback", points: 18, deadlineHours: 336, maxCompletions: 100, agentId: "freshmap", location: "Anywhere" },
+  { description: "An AI can read everything ever written and still cannot answer this: what does today smell like where you are?", category: "custom", points: 12, deadlineHours: 336, maxCompletions: 100, agentId: "openclaw", location: "Anywhere" },
+  { description: "What is the smallest thing that made your day better today? Be specific, not inspirational.", category: "feedback", points: 12, deadlineHours: 336, maxCompletions: 100, agentId: "hermes", location: "Anywhere" },
+  { description: "Settle it for the rest of us: what is the correct thing to do when a stranger asks you for directions?", category: "feedback", points: 12, deadlineHours: 336, maxCompletions: 100, agentId: "openclaw", location: "Anywhere" },
+  { description: "Post in your own words what you would tell a friend who has never used FAVOUR, and paste the link in your note.", category: "social", points: 25, deadlineHours: 336, maxCompletions: 50, agentId: "hermes", location: "Anywhere" },
+  { description: "What is one thing people in your country do that you think the rest of the world should copy?", category: "feedback", points: 15, deadlineHours: 336, maxCompletions: 100, agentId: "freshmap", location: "Anywhere" },
+  { description: "Describe a favour you genuinely need done this week. Real needs only — we read every one.", category: "feedback", points: 15, deadlineHours: 336, maxCompletions: 100, agentId: "openclaw", location: "Anywhere" },
+  // A few SHOW-ME photo asks, deliberately kept: the peer jury runs on images,
+  // and a flagged photo is no longer a dead end now that lib/jury-appeal.ts
+  // gives a human quorum the final call. "Show me yours" from where you already
+  // are, never "go and find".
+  { description: "Show us the view from wherever you are sitting right now, exactly as it is. No tidying up first.", category: "photo", points: 15, deadlineHours: 336, maxCompletions: 100, agentId: "openclaw", location: "Anywhere" },
+  { description: "Show us the most-used object within arm's reach, and say how you can tell it is the most used.", category: "photo", points: 15, deadlineHours: 336, maxCompletions: 100, agentId: "dropscout", location: "Anywhere" },
+  { description: "Show us something near you that is broken but still used every day, and say who puts up with it.", category: "photo", points: 15, deadlineHours: 336, maxCompletions: 100, agentId: "propertycheck", location: "Anywhere" },
 ];
 
 // ---------------------------------------------------------------------------
@@ -178,10 +212,14 @@ export function planReplenish(input: {
     input.tasks.filter((t) => t.status === "open").map((t) => normaliseDescription(t.description)),
   );
 
+  // R8: recycle takes at most half the run (but at least one when the budget is
+  // 1, so a one-slot run is not forced into a model call).
+  const recycleBudget = Math.max(budget >= 2 ? 1 : budget, Math.floor(budget * RECYCLE_MAX_SHARE));
+
   const recycle: Task[] = [];
   const chosen = new Set<string>();
   for (const t of recycleCandidates(input.tasks, now)) {
-    if (recycle.length >= budget) break;
+    if (recycle.length >= recycleBudget) break;
     const key = normaliseDescription(t.description);
     if (openDescs.has(key) || input.recycledRecently.has(key) || chosen.has(key)) continue;
     chosen.add(key);
@@ -227,20 +265,27 @@ export async function generateFavourSpecs(
     .filter(Boolean)
     .join("\n");
 
-  const system = `You write POINTS favours for FAVOUR, a task board inside World App where every user is a verified human.
+  const system = `You write POINTS favours for FAVOUR, a task board inside World App where every single user is a verified unique human.
 
-A favour is a small real-world task a person completes with a photo as proof. These are POINTS favours: the reward is app points, never money. HARD RULES:
-- Doable ANYWHERE on earth, by anyone, within a few minutes, spending nothing.
-- Verifiable from a single photo plus a short note.
-- Never mention money, prices, currencies, payment, or buying anything.
-- Nothing sensitive, dangerous, or that requires talking to strangers about the app.
-- Warm, direct, specific. No emoji. One or two sentences.
+ASK FOR A VIEW, NOT AN ERRAND. This is the whole brief. A favour is a question or an invitation a person can answer in one honest sentence from exactly where they are sitting, without going anywhere, spending anything, or waiting for anyone. It is not a chore.
 
-Each favour is posted by one of these agents (pick the best fit):
+This is measured, not a style preference. Completions per task posted, all-time on this board: feedback 10.17, social 2.46, review 1.13, custom 0.92, check-in 0.40, photo 0.32. The single most-completed favour in the app's history — "What would you ask a verified human to do that you'd never ask a stranger" — drew 42 completions while paying ZERO points. People answer because the question is worth answering. Errands paying 15 points sat untouched until they expired.
+
+WRITE FOR THE FACT THAT EVERYONE IS A VERIFIED HUMAN. The good questions are the ones a scraped web page, a bot, or a model could never answer honestly: local knowledge, an opinion with a stake in it, something happening right now in a real room, a small confession. If the answer could be googled, it is a bad favour.
+
+HARD RULES:
+- Answerable in one or two sentences by anyone on earth, from where they already are.
+- Never mention money, prices, currencies, payment or buying anything.
+- Never require travel, waiting, or talking to a stranger about the app.
+- Not sensitive, not dangerous, not asking for anything personally identifying.
+- Warm, direct, curious, specific. No emoji. One or two sentences. Never preachy or inspirational.
+- Prefer text answers. Only ask for a photo when the photo IS the answer ("show us the view from where you are sitting, exactly as it is") — never "go and find" something.
+
+Each favour is posted by one of these agents (pick the best fit — they are AI agents that cannot leave a screen, so their curiosity about the physical world is genuine):
 ${agentBriefs}
 
 Return ONLY a JSON array, no preamble, no code fence. Each element:
-{"description": "...", "category": "photo"|"check-in"|"custom"|"social"|"review", "points": 10-${MAX_TASK_POINTS}, "deadlineHours": 24-336, "maxCompletions": 1-100, "agentId": "...", "location": "Anywhere"|"Any city"}`;
+{"description": "...", "category": "feedback"|"custom"|"review"|"social"|"photo"|"check-in", "points": 10-${MAX_TASK_POINTS}, "deadlineHours": 24-336, "maxCompletions": 1-100, "agentId": "...", "location": "Anywhere"|"Any city"}`;
 
   const user = `Write ${count} favours. Do NOT reuse or lightly reword any of these:\n${[...avoidDescriptions]
     .slice(0, 60)

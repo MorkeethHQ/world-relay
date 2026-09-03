@@ -10,9 +10,23 @@
 
 const ESPN = "https://site.api.espn.com/apis/site/v2/sports/soccer";
 
-// Leagues to pull. World Cup is live now; add domestic leagues here later
-// (eng.1 EPL, esp.1 La Liga, uefa.champions, usa.1 MLS, ...).
-export const FOOTBALL_LEAGUES = ["fifa.world"];
+// Leagues to pull. The World Cup 2026 final was Jul 19; from Jul 20 the only
+// configured league ("fifa.world") returned ZERO events, so the hourly cron ran
+// for 46 days and created nothing — every prediction on the board was resolved
+// and the surface was dead. A tournament league is a SEASONAL source and must
+// never be the only one. These six are year-round domestic/continental
+// competitions with overlapping seasons, verified live against ESPN on
+// 2026-09-03 (fifa.world: 0 events; eng.1 2, esp.1 4, usa.1 3, ita.1 3, ger.1 2,
+// fra.1 3 for 2026-09-13). Add a tournament league back for its window; do not
+// remove the domestic ones when it ends.
+export const FOOTBALL_LEAGUES = [
+  "eng.1",           // Premier League
+  "esp.1",           // La Liga
+  "ita.1",           // Serie A
+  "ger.1",           // Bundesliga
+  "fra.1",           // Ligue 1
+  "uefa.champions",  // Champions League (empty out of window — that is fine)
+];
 
 export type Fixture = {
   id: string; // ESPN event id — stable, used as the prediction externalId

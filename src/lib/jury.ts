@@ -18,7 +18,7 @@ import { awardPoints } from "./proof-of-favour";
 export const JURY_POINT_PER_CORRECT = 1;
 export const JURY_DAILY_POINTS_CAP = 20; // paid correct verdicts per day; play unlimited
 export const JURY_DECK_SIZE = 10;
-const CARD_TTL_SECONDS = 2 * 3600;
+export const CARD_TTL_SECONDS = 2 * 3600;
 
 export type JuryCard = {
   cardId: string;
@@ -29,7 +29,18 @@ export type JuryCard = {
   location: string;
 };
 
-type CardAnswer = { judge: string | null; proofTaskId: string; descTaskId: string; isMatch: boolean };
+export type CardAnswer = {
+  judge: string | null;
+  proofTaskId: string;
+  descTaskId: string;
+  isMatch: boolean;
+  // APPEAL cards (lib/jury-appeal.ts) ride the same opaque-card namespace so the
+  // image route resolves them unchanged. They have NO knowable answer — the
+  // whole point is that the humans decide — so recordJuryVerdict must refuse
+  // them, or a card with no ground truth would be graded against isMatch and
+  // pay a point for a coin flip.
+  appeal?: boolean;
+};
 
 function hash(s: string): number {
   let h = 0;
@@ -105,6 +116,14 @@ export async function issueJuryDeck(
   return cards;
 }
 
+// Shared with lib/jury-appeal.ts so appeal cards live in the same opaque
+// namespace the image route already resolves.
+export async function persistCardAnswer(cardId: string, answer: CardAnswer): Promise<void> {
+  const redis = getRedis();
+  if (!redis) return;
+  await redis.set(`jury:card:${cardId}`, JSON.stringify(answer), { ex: CARD_TTL_SECONDS }).catch(() => {});
+}
+
 export async function getCardAnswer(cardId: string): Promise<CardAnswer | null> {
   const redis = getRedis();
   if (!redis) return null;
@@ -133,6 +152,7 @@ export async function recordJuryVerdict(
 
   const answer = await getCardAnswer(cardId);
   if (!answer) return { error: "Card expired or was never issued" };
+  if (answer.appeal) return { error: "Appeal cards are ruled through /api/jury/appeal" };
   if (answer.judge && answer.judge.toLowerCase() !== judge.toLowerCase()) return { error: "Not your card" };
 
   // One verdict per card, forever (also single-use: consume the answer).

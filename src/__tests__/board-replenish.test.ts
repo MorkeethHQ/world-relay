@@ -49,6 +49,7 @@ vi.mock("@/lib/redis", () => ({
 import {
   BOARD_MIN_OPEN,
   REPLENISH_MAX_PER_RUN,
+  RECYCLE_MAX_SHARE,
   REPLENISH_MAX_PER_DAY,
   FALLBACK_FAVOURS,
   validateFavourSpec,
@@ -243,7 +244,7 @@ describe("planReplenish — the decision", () => {
     expect(plan.generateCount).toBe(0);
   });
 
-  it("on the death-spiral board: recycles first, generates the remainder", () => {
+  it("on the death-spiral board: recycles up to half, generates the rest", () => {
     const tasks = [
       makeTask({}),
       makeTask({}),
@@ -252,8 +253,34 @@ describe("planReplenish — the decision", () => {
     const plan = planReplenish({ tasks, recycledRecently: new Set(), usedToday: 0, now: NOW });
     expect(plan.deficit).toBe(BOARD_MIN_OPEN - 2);
     expect(plan.budget).toBe(REPLENISH_MAX_PER_RUN);
-    expect(plan.recycle).toHaveLength(4);
-    expect(plan.generateCount).toBe(REPLENISH_MAX_PER_RUN - 4);
+    // R8: 4 candidates were available but recycle is capped at half the run, so
+    // the other half is fresh supply. Before the cap this was 4 recycled / 2
+    // generated, and with a real board's deep recycle pool it was 6 / 0 — the
+    // reason the live board showed the same ten descriptions for five weeks.
+    const cap = Math.floor(REPLENISH_MAX_PER_RUN * RECYCLE_MAX_SHARE);
+    expect(plan.recycle).toHaveLength(cap);
+    expect(plan.generateCount).toBe(REPLENISH_MAX_PER_RUN - cap);
+  });
+
+  it("R8: a deep recycle pool can never crowd out generation", () => {
+    // The live failure shape: nothing open, plenty expired. Every slot used to
+    // go to recycle; at least half must now be fresh.
+    const tasks = Array.from({ length: 30 }, () => expiredCandidate());
+    const plan = planReplenish({ tasks, recycledRecently: new Set(), usedToday: 0, now: NOW });
+    expect(plan.budget).toBe(REPLENISH_MAX_PER_RUN);
+    expect(plan.generateCount).toBeGreaterThanOrEqual(Math.floor(REPLENISH_MAX_PER_RUN / 2));
+    expect(plan.recycle.length + plan.generateCount).toBe(REPLENISH_MAX_PER_RUN);
+  });
+
+  it("R8: a one-slot run stays on recycle rather than forcing a model call", () => {
+    const tasks = [
+      ...Array.from({ length: BOARD_MIN_OPEN - 1 }, () => makeTask({})),
+      expiredCandidate(),
+    ];
+    const plan = planReplenish({ tasks, recycledRecently: new Set(), usedToday: 0, now: NOW });
+    expect(plan.budget).toBe(1);
+    expect(plan.recycle).toHaveLength(1);
+    expect(plan.generateCount).toBe(0);
   });
 
   it("respects the daily cap", () => {
@@ -383,5 +410,46 @@ describe("runReplenish — end to end against the mock store", () => {
     expect(r3.recycled).toEqual([]);
     expect(r3.generated).toEqual([]);
     expect(r3.reason).toBe("daily replenish cap reached");
+  });
+});
+
+// R11 — the pool asks for views, not errands.
+//
+// The board is refilled by this pool whenever the model is unavailable, which on
+// a quiet night is most of the time. It used to be ten photo errands, and photo
+// draws 0.32 completions per task against feedback's 10.17 — so the safety net
+// was quietly the reason the board never converted. These pin the shape so it
+// cannot drift back.
+describe("R11: FALLBACK_FAVOURS ask for a view, not an errand", () => {
+  it("every entry still passes the validator it will be checked against", () => {
+    for (const f of FALLBACK_FAVOURS) expect(validateFavourSpec(f), f.description).not.toBeNull();
+  });
+
+  it("is majority text-first — photo is a minority of the pool, never the default", () => {
+    const photo = FALLBACK_FAVOURS.filter((f) => f.category === "photo").length;
+    expect(photo).toBeLessThan(FALLBACK_FAVOURS.length / 2);
+  });
+
+  it("includes the best-performing category at all", () => {
+    // `feedback` was excluded from ALLOWED_CATEGORIES entirely, so the engine
+    // could never generate the thing people actually complete.
+    expect(FALLBACK_FAVOURS.some((f) => f.category === "feedback")).toBe(true);
+    expect(validateFavourSpec({ ...FALLBACK_FAVOURS[0], category: "feedback" })).not.toBeNull();
+  });
+
+  it("no entry sends anyone on an errand", () => {
+    // The exact verbs of the old pool. "Find a nearby laundromat", "Visit a
+    // cafe and time the queue", "Check in at your nearest grocery store".
+    const errand = /\b(visit|go to|walk to|travel|find a nearby|nearest|time how long|queue at)\b/i;
+    for (const f of FALLBACK_FAVOURS) expect(errand.test(f.description), f.description).toBe(false);
+  });
+
+  it("no entry mentions money — points favours must never imply payment", () => {
+    for (const f of FALLBACK_FAVOURS) expect(/\$|usdc|dollar|\bpay\b|price/i.test(f.description), f.description).toBe(false);
+  });
+
+  it("has no duplicate descriptions", () => {
+    const keys = FALLBACK_FAVOURS.map((f) => normaliseDescription(f.description));
+    expect(new Set(keys).size).toBe(keys.length);
   });
 });

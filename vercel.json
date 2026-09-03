@@ -23,6 +23,10 @@
     {
       "path": "/api/cron/daily-prompt",
       "schedule": "10 0 * * *"
+    },
+    {
+      "path": "/api/cron/poll-refresh",
+      "schedule": "15 7 * * *"
     }
   ]
 }

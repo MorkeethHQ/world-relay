@@ -103,6 +103,26 @@ export async function getPoll(id: string): Promise<Poll | null> {
   };
 }
 
+// Spam removal. There was no delete path at all, so the gibberish poll
+// "Fajaksks" (options "Hsjsisks" / "Bsjsksm", 8 votes) sat in the live list from
+// Jul 28 with no way to take it down short of a Redis session. Removes the meta
+// blob, the id from the list, and all three vote structures — a poll left in the
+// list with its meta deleted would be filtered out by getPoll's null, but the
+// tally keys would leak forever.
+export async function deletePoll(id: string): Promise<boolean> {
+  const redis = getRedis();
+  if (!redis) return false;
+  const existed = await redis.exists(`${POLL_PREFIX}${id}`);
+  await Promise.all([
+    redis.del(`${POLL_PREFIX}${id}`),
+    redis.srem(POLL_LIST_KEY, id),
+    redis.del(votesKey(id)),
+    redis.del(votersKey(id)),
+    redis.del(choicesKey(id)),
+  ]);
+  return existed === 1;
+}
+
 export async function listPolls(): Promise<Poll[]> {
   const redis = getRedis();
   if (!redis) return [];
