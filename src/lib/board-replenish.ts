@@ -37,6 +37,15 @@ export const BOARD_MIN_OPEN = 8;
 export const REPLENISH_MAX_PER_RUN = 6;
 export const REPLENISH_MAX_PER_DAY = 12;
 export const RECYCLE_COOLDOWN_DAYS = 7;
+// R8 — recycle can never take the whole run. Recycling is cheaper than
+// generating, so a recycle-first planner with an unbounded share picks recycle
+// every time: the board always has expired points favours, so generateCount was
+// structurally ~0 and the SAME ten fallback descriptions rotated on and off the
+// board from Jul 30 to Sep 3 (verified live: all 8 open favours on 2026-09-03
+// were FALLBACK_FAVOURS entries). At most half of each run may be recycled, so
+// fresh supply reaches the board on every single run, not just when the recycle
+// pool happens to run dry.
+export const RECYCLE_MAX_SHARE = 0.5;
 export const RECYCLE_WINDOW_DAYS = 30;
 
 const MODEL = process.env.BOARD_REPLENISH_MODEL || process.env.DAILY_PROMPT_MODEL || "claude-sonnet-5";
@@ -178,10 +187,14 @@ export function planReplenish(input: {
     input.tasks.filter((t) => t.status === "open").map((t) => normaliseDescription(t.description)),
   );
 
+  // R8: recycle takes at most half the run (but at least one when the budget is
+  // 1, so a one-slot run is not forced into a model call).
+  const recycleBudget = Math.max(budget >= 2 ? 1 : budget, Math.floor(budget * RECYCLE_MAX_SHARE));
+
   const recycle: Task[] = [];
   const chosen = new Set<string>();
   for (const t of recycleCandidates(input.tasks, now)) {
-    if (recycle.length >= budget) break;
+    if (recycle.length >= recycleBudget) break;
     const key = normaliseDescription(t.description);
     if (openDescs.has(key) || input.recycledRecently.has(key) || chosen.has(key)) continue;
     chosen.add(key);

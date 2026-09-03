@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createTask } from "@/lib/store";
 import { CUSTODY_RETIRED } from "@/lib/custody";
+import { MAX_TASK_POINTS } from "@/lib/proof-of-favour";
 
 const ADMIN_SECRET = process.env.ADMIN_SECRET;
 
@@ -44,9 +45,16 @@ export async function POST(req: NextRequest) {
       // truthiness-based funding guard in the app with no on-chain backing.
       const funded = t.onChainId != null && typeof t.escrowTxHash === "string" && /^0x[0-9a-fA-F]{64}$/.test(t.escrowTxHash);
       const pointsOnly = t.rewardType === "points";
-      // Points tasks carry a points VALUE in bountyUsdc (0-10, never funded); USDC
+      // Points tasks carry a points VALUE in bountyUsdc (never funded); USDC
       // tasks must be escrow-funded. Points and money never cross (Inv 1/3).
-      const validPoints = pointsOnly && t.bountyUsdc >= 0 && t.bountyUsdc <= 10;
+      // The ceiling is MAX_TASK_POINTS, the one economy-wide cap (clampPoints
+      // enforces it on every award). It was a hardcoded 10 until Sep 3, 2026,
+      // left over from the old 1-10 season economy — but board-replenish creates
+      // 10-20 point favours through createTask, so an admin seed was capped
+      // BELOW the engine that fills the same board. The visible consequence: a
+      // fresh 12-favour batch seeded at 8-10 points sat under the five-week-old
+      // recycled favours paying 15-20, so the staler favour was the better deal.
+      const validPoints = pointsOnly && t.bountyUsdc >= 0 && t.bountyUsdc <= MAX_TASK_POINTS;
       // Custody retired: a seeded task may no longer carry escrow funding. This
       // was the last bulk ENTER path — every historical funded task on the board
       // arrived through it.

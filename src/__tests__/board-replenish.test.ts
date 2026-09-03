@@ -49,6 +49,7 @@ vi.mock("@/lib/redis", () => ({
 import {
   BOARD_MIN_OPEN,
   REPLENISH_MAX_PER_RUN,
+  RECYCLE_MAX_SHARE,
   REPLENISH_MAX_PER_DAY,
   FALLBACK_FAVOURS,
   validateFavourSpec,
@@ -243,7 +244,7 @@ describe("planReplenish — the decision", () => {
     expect(plan.generateCount).toBe(0);
   });
 
-  it("on the death-spiral board: recycles first, generates the remainder", () => {
+  it("on the death-spiral board: recycles up to half, generates the rest", () => {
     const tasks = [
       makeTask({}),
       makeTask({}),
@@ -252,8 +253,34 @@ describe("planReplenish — the decision", () => {
     const plan = planReplenish({ tasks, recycledRecently: new Set(), usedToday: 0, now: NOW });
     expect(plan.deficit).toBe(BOARD_MIN_OPEN - 2);
     expect(plan.budget).toBe(REPLENISH_MAX_PER_RUN);
-    expect(plan.recycle).toHaveLength(4);
-    expect(plan.generateCount).toBe(REPLENISH_MAX_PER_RUN - 4);
+    // R8: 4 candidates were available but recycle is capped at half the run, so
+    // the other half is fresh supply. Before the cap this was 4 recycled / 2
+    // generated, and with a real board's deep recycle pool it was 6 / 0 — the
+    // reason the live board showed the same ten descriptions for five weeks.
+    const cap = Math.floor(REPLENISH_MAX_PER_RUN * RECYCLE_MAX_SHARE);
+    expect(plan.recycle).toHaveLength(cap);
+    expect(plan.generateCount).toBe(REPLENISH_MAX_PER_RUN - cap);
+  });
+
+  it("R8: a deep recycle pool can never crowd out generation", () => {
+    // The live failure shape: nothing open, plenty expired. Every slot used to
+    // go to recycle; at least half must now be fresh.
+    const tasks = Array.from({ length: 30 }, () => expiredCandidate());
+    const plan = planReplenish({ tasks, recycledRecently: new Set(), usedToday: 0, now: NOW });
+    expect(plan.budget).toBe(REPLENISH_MAX_PER_RUN);
+    expect(plan.generateCount).toBeGreaterThanOrEqual(Math.floor(REPLENISH_MAX_PER_RUN / 2));
+    expect(plan.recycle.length + plan.generateCount).toBe(REPLENISH_MAX_PER_RUN);
+  });
+
+  it("R8: a one-slot run stays on recycle rather than forcing a model call", () => {
+    const tasks = [
+      ...Array.from({ length: BOARD_MIN_OPEN - 1 }, () => makeTask({})),
+      expiredCandidate(),
+    ];
+    const plan = planReplenish({ tasks, recycledRecently: new Set(), usedToday: 0, now: NOW });
+    expect(plan.budget).toBe(1);
+    expect(plan.recycle).toHaveLength(1);
+    expect(plan.generateCount).toBe(0);
   });
 
   it("respects the daily cap", () => {

@@ -54,6 +54,43 @@ recur silently.
   human-funded and escrow-bound. Context: on Jul 28 the board held 2 open of
   121 tasks with 26% expired unfilled, because expire-tasks removed supply
   daily and nothing ever added it.
+- **R8 — Recycle can never take a whole replenish run (added Sep 3, 2026).**
+  At most `RECYCLE_MAX_SHARE` (0.5) of each run's budget may come from recycled
+  expired favours; the rest is fresh supply. Context: `planReplenish` filled its
+  budget from recycle candidates first and only generated the remainder. A live
+  board always has expired points favours, so the remainder was structurally
+  zero — on Sep 3 all 8 open favours were verbatim `FALLBACK_FAVOURS` entries
+  and the same ten descriptions had rotated on and off the board since Jul 30.
+  The floor (R6) was being met by a treadmill. Exception: a 1-slot run stays on
+  recycle rather than forcing a model call. Code `src/lib/board-replenish.ts`,
+  test `board-replenish.test.ts`.
+
+- **R9 — The poll list has a supply floor too (added Sep 3, 2026).**
+  The active poll list never sits below `POLL_MIN_ACTIVE` (4). Engine
+  `src/lib/poll-refresh.ts`, cron `/api/cron/poll-refresh` (07:15 daily), guard
+  test `poll-refresh.test.ts`. Caps: `POLL_MAX_PER_RUN` (3),
+  `POLL_MAX_PER_DAY` (6); editorial polls run `POLL_DURATION_HOURS` (168) not
+  the 72-hour user default; a question is not re-asked for
+  `POLL_REASK_COOLDOWN_DAYS` (45). Context: nothing on the server had ever
+  created a poll. Polls were user-generated only, and on Sep 3 the tab held 12
+  polls of which **zero** were still active — six about a World Cup that ended
+  Jul 19 — so the feed's poll rail (active-only) rendered nothing for weeks.
+  R2 governed where polls rank; no rule governed whether any existed.
+  The pool is evergreen **by test**: a fallback poll may not name a date,
+  season, tournament or year, because that is exactly how the last batch died.
+  Ended polls are honest history and are NOT deleted — the UI files them below
+  the active ones. Spam is removed by id through `/api/admin/polls`.
+
+- **R10 — A seasonal data source is never the only source (added Sep 3, 2026).**
+  Predictions are fed by `FOOTBALL_LEAGUES` in `src/lib/football.ts`. That list
+  was `["fifa.world"]` alone; from Jul 20 (the day after the final) ESPN
+  returned zero events, so the hourly `football-sync` cron created nothing for
+  46 days and every prediction on the board read "Resolved". It now pulls six
+  year-round domestic/continental leagues. Add a tournament league for its
+  window; never remove the year-round ones when it ends. Supply is capped in
+  the cron (`MAX_CREATE_PER_RUN` 4, `MAX_OPEN_PREDICTIONS` 12, soonest kickoff
+  first) so six leagues cannot bury the tab or split the points pools too thin.
+
 - **R7 — Jury-first empty board (added Jul 29, 2026).** If the available board
   is ever empty anyway, the empty state leads with the REAL OR NOT judge CTA —
   the one surface that cannot run out of supply — instead of a dead end. Same
