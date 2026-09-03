@@ -177,23 +177,51 @@ export function CampaignPage({
             </p>
           </div>
 
-          {/* Inline stats */}
-          <div className="flex items-center gap-5">
-            <div>
-              <p className="text-2xl font-bold text-white">{totalPointsLabel}{totalPaidUsdc > 0 ? ` + ${totalUsdcLabel}` : ""}</p>
-              <p className="text-[11px] text-white/40 mt-0.5">{totalPaidUsdc > 0 ? "pts + USDC" : "pts given"}</p>
+          {/* Inline stats. Before anyone has completed anything, three zeros
+              ("0 pts · 0 verified") tell a newcomer the campaign is dead —
+              Oscar, 2026-09-03, same wall-of-zeros pattern as the profile. So
+              an untouched campaign leads with what is TRUE and inviting: how
+              many favours, what one clean one unlocks, how long is left. The
+              counters appear once there is something to count. */}
+          {completedTasks.length === 0 ? (
+            <div className="flex items-center gap-5">
+              <div>
+                <p className="text-2xl font-bold text-white">{openTasks.length}</p>
+                <p className="text-[11px] text-white/40 mt-0.5">{openTasks.length === 1 ? "favour" : "favours"}</p>
+              </div>
+              {campaign.unlock && (
+                <>
+                  <div className="w-px h-8 bg-white/15" />
+                  <div>
+                    <p className="text-2xl font-bold text-white">${campaign.unlock.unlockAmount}</p>
+                    <p className="text-[11px] text-white/40 mt-0.5">for one clean one</p>
+                  </div>
+                </>
+              )}
+              <div className="w-px h-8 bg-white/15" />
+              <div>
+                <p className="text-2xl font-bold text-white">{timeLeft(campaign.endsAt).replace(" left", "")}</p>
+                <p className="text-[11px] text-white/40 mt-0.5">left</p>
+              </div>
             </div>
-            <div className="w-px h-8 bg-white/15" />
-            <div>
-              <p className="text-2xl font-bold text-white">{completedTasks.length}</p>
-              <p className="text-[11px] text-white/40 mt-0.5">verified</p>
+          ) : (
+            <div className="flex items-center gap-5">
+              <div>
+                <p className="text-2xl font-bold text-white">{totalPointsLabel}{totalPaidUsdc > 0 ? ` + ${totalUsdcLabel}` : ""}</p>
+                <p className="text-[11px] text-white/40 mt-0.5">{totalPaidUsdc > 0 ? "pts + USDC" : "pts given"}</p>
+              </div>
+              <div className="w-px h-8 bg-white/15" />
+              <div>
+                <p className="text-2xl font-bold text-white">{completedTasks.length}</p>
+                <p className="text-[11px] text-white/40 mt-0.5">verified</p>
+              </div>
+              <div className="w-px h-8 bg-white/15" />
+              <div>
+                <p className="text-2xl font-bold text-white">{openTasks.length}</p>
+                <p className="text-[11px] text-white/40 mt-0.5">available</p>
+              </div>
             </div>
-            <div className="w-px h-8 bg-white/15" />
-            <div>
-              <p className="text-2xl font-bold text-white">{openTasks.length}</p>
-              <p className="text-[11px] text-white/40 mt-0.5">available</p>
-            </div>
-          </div>
+          )}
 
           {/* Progress */}
           <div className="mt-5">
