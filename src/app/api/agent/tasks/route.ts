@@ -209,8 +209,7 @@ export async function POST(req: NextRequest) {
         error: `No wallet registered for agent "${agentId}"`,
         hint: `Set AGENT_WALLET_${(agentId || "DEFAULT").toUpperCase().replace(/-/g, "_")} on the server, OR fund the task yourself and pass escrow_tx_hash`,
         alternatives: {
-          self_fund: `Call RelayEscrow.createTask("${description.slice(0, 50)}...", ${Number(bounty_usdc) * 1e6}, deadline) at ${process.env.NEXT_PUBLIC_ESCROW_ADDRESS || "0x274C38eA9944f57D24A59fbEf558bba2264f9351"}`,
-          human_fund: "Remove fund=true and a human will fund it from the World App",
+          points: "Omit fund: the favour posts as points (custody retired; there is no USDC deposit path)",
         },
       }, { status: 400 });
     }
@@ -299,7 +298,9 @@ export async function POST(req: NextRequest) {
         message: `Task funded with $${bounty_usdc} USDC on-chain`,
       }),
     },
-    escrow_contract: process.env.NEXT_PUBLIC_ESCROW_ADDRESS || "0x274C38eA9944f57D24A59fbEf558bba2264f9351",
+    // No contract address here, on purpose. A response that says "no money
+    // moves" must not hand a bot an address to send USDC to; the old field
+    // carried the RETIRED v1 proxy (guard: api-responses-no-retired-address).
     ...(callback_url ? { callback_url_registered: true } : {}),
   }, { status: 201 });
 }
