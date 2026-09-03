@@ -131,6 +131,13 @@ export function CampaignPage({
       .catch(() => {});
   }, [campaign.id, campaign.unlock, userId, completedTasks.length]);
 
+  // DESIGN-SYSTEM: green is real money ONLY, and the info palette is banned.
+  // A points campaign's declared gradient/accent (teal, emerald) painted the
+  // whole hero as if it paid USDC — Oscar, 2026-09-03: "the design is green".
+  // Points campaigns render in ink; only the $ unlock element may be green.
+  const inkHero = "from-gray-950 via-gray-900 to-gray-800";
+  const heroGradient = campaign.rewardKind === "points" ? inkHero : campaign.heroGradient;
+
   return (
     <div className="flex flex-col min-h-screen max-w-lg mx-auto w-full bg-gray-50">
       {/* Hero - full bleed photo */}
@@ -142,7 +149,7 @@ export function CampaignPage({
             <div className="absolute inset-0 bg-gradient-to-b from-black/75 via-black/45 to-black/75" />
           </>
         ) : (
-          <div className={`absolute inset-0 bg-gradient-to-br ${campaign.heroGradient}`} />
+          <div className={`absolute inset-0 bg-gradient-to-br ${heroGradient}`} />
         )}
 
         <div className="relative px-6 pt-14 pb-10">
@@ -183,7 +190,7 @@ export function CampaignPage({
             </div>
             <div className="w-px h-8 bg-white/15" />
             <div>
-              <p className="text-2xl font-bold text-green-400">{openTasks.length}</p>
+              <p className="text-2xl font-bold text-white">{openTasks.length}</p>
               <p className="text-[11px] text-white/40 mt-0.5">available</p>
             </div>
           </div>
@@ -193,10 +200,7 @@ export function CampaignPage({
             <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
               <div
                 className="h-full rounded-full transition-all duration-700 ease-out"
-                style={{
-                  width: `${progressPct}%`,
-                  background: "linear-gradient(90deg, #4ade80, #22d3ee)",
-                }}
+                style={{ width: `${progressPct}%`, background: "rgba(255,255,255,0.75)" }}
               />
             </div>
             <div className="flex items-center justify-between mt-2">
@@ -256,9 +260,7 @@ export function CampaignPage({
                 className="h-full rounded-full transition-all duration-700 ease-out"
                 style={{
                   width: `${Math.min(100, Math.round((unlockView.progress / unlockView.threshold) * 100))}%`,
-                  background: unlockView.paid
-                    ? "linear-gradient(90deg, #4ade80, #22d3ee)"
-                    : "linear-gradient(90deg, #60a5fa, #6366f1)",
+                  background: unlockView.paid ? "#16a34a" : "#111827",
                 }}
               />
             </div>
@@ -303,7 +305,7 @@ export function CampaignPage({
                   <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
                   <div className="absolute bottom-1.5 left-1.5 right-1.5">
                     <div className="flex items-center gap-1">
-                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#4ade80" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.9)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
                       </svg>
                       <span className="text-[9px] font-bold text-white/90 truncate">{img.description.slice(0, 25)}</span>
@@ -351,8 +353,7 @@ export function CampaignPage({
         {userId && onPostTask && (
           <button
             onClick={onPostTask}
-            className="w-full text-white text-[14px] font-semibold px-4 py-3 rounded-2xl active:scale-[0.98] transition-transform"
-            style={{ backgroundColor: campaign.accentColor }}
+            className="w-full min-h-[44px] bg-white border border-gray-200 text-gray-900 text-[14px] font-semibold px-4 py-3 rounded-xl active:scale-[0.98] transition-transform"
           >
             + Post a favour for {campaign.brand}
           </button>
@@ -363,7 +364,7 @@ export function CampaignPage({
           <div>
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-[13px] font-semibold text-gray-900">Available now</h3>
-              <span className="text-xs text-success-600 font-medium">{openTasks.length} tasks</span>
+              <span className="text-xs text-gray-400 font-medium">{openTasks.length} tasks</span>
             </div>
             <div className="flex flex-col gap-2.5">
               {openTasks.map((task) => (
@@ -407,9 +408,9 @@ export function CampaignPage({
 
         {/* Completed tasks (if no open ones) */}
         {openTasks.length === 0 && completedTasks.length > 0 && (
-          <div className="bg-white border border-success-200 rounded-2xl p-5 text-center">
-            <div className="w-12 h-12 rounded-full bg-success-100 flex items-center justify-center mx-auto mb-3">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#29A352" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <div className="bg-white border border-gray-200 rounded-2xl p-5 text-center">
+            <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-3">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#111827" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
               </svg>
             </div>
@@ -458,6 +459,9 @@ export function FeaturedCampaignBanner({
   const total = scoped ? scoped.length : taskCount;
   const completed = scoped ? scoped.filter((t) => t.status === "completed").length : completedCount;
   const remaining = total - completed;
+  // Same rule as the detail page: a points campaign wears ink, never a brand
+  // colour. The "$N unlock" chip below stays green — it is the money.
+  const bannerGradient = campaign.rewardKind === "points" ? "from-gray-950 via-gray-900 to-gray-800" : campaign.heroGradient;
 
   return (
     <div
@@ -471,7 +475,7 @@ export function FeaturedCampaignBanner({
           <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/55 to-black/20" />
         </>
       ) : (
-        <div className={`absolute inset-0 bg-gradient-to-br ${campaign.heroGradient}`} />
+        <div className={`absolute inset-0 bg-gradient-to-br ${bannerGradient}`} />
       )}
       <div className="relative px-5 py-5 flex items-center justify-between">
         <div>
