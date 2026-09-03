@@ -32,20 +32,30 @@ it depended on. We built a marketplace and accidentally shipped the product.
 
 | Source | What it says | Confidence |
 |---|---|---|
-| Pebblous 2026 market map; Medium (Singhal) | Human data / judgement market **~$5B, growing >50%/yr**. Four firms (Scale, Surge, Mercor, Handshake) hold >75%. Surge pays experts **$50–200 vetted on a trust score**; Mercor **$760M → $2B ARR in six months** (Dec 25 → Jun 26). Frontier work moved from labels to RL environments and human feedback. | High — multiple sources agree on the names and the scale |
+| Pebblous 2026 market map + oligopoly post; Dealroom | The **labeling** market is "about $5B, >50%/yr" — **Pebblous gives no citation for the $5B**; their wider human-data map is ~$8.5B. Four firms (Scale, Surge, Mercor, Handshake) hold >75%. Mercor **$760M → $2B gross run-rate** in six months (Dealroom; gross, ~60–70% paid out to experts). **The growth is at the expert top of the market, not the swipe bottom** — "as the price of a single label fell, the price of designing the experience rose." Surge pay figures circulating ($18–24/hr general, $250–450/hr medical) are from third-party reviews, not Surge. | Medium — the names and the direction are solid; the $5B is uncited and it is a *labeling* number |
 | Prolific (Feb 2026); arXiv 2607.00403; Wiley 2024 | Survey panels are drowning in AI respondents. Prolific shipped "bot authenticity checks" Feb 2026. *"A clean survey record no longer guarantees authenticity."* Buyers now ask *"how many human respondents contributed."* | High — vendor + peer-reviewed |
 | touch-grass.world (opened today) | TouchGrass has **pivoted from tasks to judgement**: *"When AI is uncertain, ask a real human."* Task types are now *AI answer check, search result review, LP first impression, copy trust signal* at ¥1–30. MCP + REST for agents. 20% fee. | High — read at source. Validates the thesis and is the nearest competitor |
 | world.org/blog | World's 2026 bets: **proof-of-human for the agentic web** (AgentKit Jun 24; World ID for Browserbase, Exa, Okta, Vercel), enterprise (Zoom, DocuSign), consumer trust (Tinder, ticketing). Mini Apps are not the headline; personhood-as-infrastructure is. | High |
-| App Store / Play (3+ "Real or AI" apps); whichoneisreal.com (8,000 players); sightengine "AI or Not" | "Real or AI" is a **viral genre**. Every instance is anonymous, single-player, on a canned image set, with no stakes and no verified players. | Medium — traction numbers are self-reported |
-| Production Redis, today | Feed loads 17,923 · jury verdicts 2,868 · proofs 788 · posts 93 · paid 4. Text proofs pass 42/42; photo proofs flagged 22/50 (44%). Feedback 10.17 completions/task; photo 0.32. Most-completed favour ever paid 0 points. | Measured |
-| Jun 7 competitive memo (aged) | World App: 26M users, 2M DAU, Global South, incentive-driven. What succeeds: token claims, financial utility, **skill-based games with rewards (UNO 188M opens)**. What fails: social, creative, effort-without-reward. Dev Rewards need 10K verified humans. | Medium — three months old, directionally right |
+| App Store / Play (3+ "Real or AI" apps); whichoneisreal.com; sightengine "AI or Not" | "Real or AI" is a **live genre** with several shipped apps. Every instance is anonymous, single-player, on a canned image set, with no stakes and no verified players. The "8,000 players" figure did not confirm on the site — treat the genre as real and its traction as unknown. | Medium on existence, low on traction |
+| Production Redis, today | Feed loads 17,923 · jury verdicts 2,869 · proofs 788 · posts 93 · paid 4. Text proofs pass 42/42; photo proofs flagged 22/50 (44%). Feedback 10.17 completions/task; photo 0.32. Most-completed favour ever paid 0 points. **The jury is broad, not a grind: 172 distinct judges, median 10 verdicts, top judge 86, nobody ≥ 100, top-10 judges = 14.5% of verdicts; 29 judges currently qualified (≥10 graded, ≥60%).** Daily: **sign-ins 6–14/day, devices reached 14–25/day** — an earlier draft and NEW-TAKE labeled device reach as sign-ins (~2× overstated; corrected). Pooled 14-day device **D1 = 39/267 = 14.6%**, not the 10% the night report quoted. | Measured — corrected after adversarial re-read |
+| Jun 7 competitive memo (aged) | World App: Global South, incentive-driven. What succeeds: token claims, financial utility, skill-based games with rewards. What fails: social, creative, effort-without-reward. **Its numbers did not survive re-check:** "2M DAU" not found (World's own Jan-2025 post says 1M unique humans/day; recent posts ~38M users, not 26M); "UNO 188M opens" not found anywhere; "Dev Rewards need 10K humans" was the May-2025 *retroactive* bar, 2026 status unverified. | Low on numbers, medium on direction |
 
 ## The thesis, stated once
 
-There is a $5B market for human judgement, growing 50% a year, run by four
-companies whose entire quality story is an *internal* trust score. None of them
-can prove a rater is a unique human. World can. And FAVOUR already has the one
-thing World ID alone does not give you: **a jury that is trained and scored.**
+There is a multi-billion market for human judgement (the labeling slice alone
+is cited, uncited, at ~$5B; the whole human-data map at ~$8.5B), and **its
+growth is at the expert end** — RL environments, gold-standard grading, domain
+verdicts — not at the swipe. It is run by four companies whose quality story is
+an internal trust score. None of them can prove a rater is a unique human.
+World can. And FAVOUR already has the one thing World ID alone does not give
+you: **a jury that is trained and scored against ground truth.**
+
+Be precise about the moat, because "buyer sets a minimum rater quality" is
+old: MTurk has approval-rate and Masters qualifications, Prolific has an
+approval-rate prescreener plus ID verification. What none of them has is
+**Orb-uniqueness + accuracy graded against known answers, per skill.** That
+pair is the moat. A swipe verdict alone is a commodity; the ladder to the
+expert rung is the company.
 
 The graded Real-or-Not deck — where the answer is known — measures every
 judge's accuracy. Today (shipped this afternoon) that score is already the
@@ -76,11 +86,13 @@ finally say "n = 400 verified humans, mean accuracy 0.84" on a data sheet.
 
 ## Hypotheses (ranked)
 
-1. **The jury is the product.** Falsifiable: if a cold-open-into-the-jury front
-   door does not lift D1 return above the current 10%, the game is not a
-   retention engine and this memo is wrong. Kill bar: D1 < 12% measured at
-   **n ≥ 200 new arrivals** (≈ 15 days at today's ~13/day; the sample, not the
-   calendar, closes the test). Cost: one front-door rebuild (Loop 3 slice 1).
+1. **The jury is the product.** Falsifiable: a cold-open-into-the-jury front
+   door must lift device D1 by half over the measured baseline. Baseline is
+   **14.6%** (pooled 14-day, 39/267 — *not* 10%; the first draft's 12% bar was
+   already exceeded before any build, so the test could not fail; caught in
+   refute). Kill bar: **D1 < 22% at n ≥ 200 new devices** (≈ 10–14 days at
+   14–25 devices/day; the sample, not the calendar, closes the test). Cost: one
+   front-door rebuild (Loop 3 slice 1).
 2. **Accuracy-scored verdicts are sellable.** Falsifiable: one external buyer
    (an agent developer, a survey researcher, a platform) pays for a batch of
    ≥ 100 verdicts at ≥ $0.05 each within 30 days of the verdict API existing.
@@ -95,26 +107,32 @@ finally say "n = 400 verified humans, mean accuracy 0.84" on a data sheet.
 4. **A standalone "Real or Not" listing outperforms FAVOUR's front door.**
    Falsifiable: a second Mini App Store listing (Games category) sharing the
    backend reaches ≥ 500 verified humans in its first 30 days. Kill bar: < 200.
-   Cost: one listing + one cold-open route (slice 2, most of it shared).
+   Cost: **more than "a route"** — see slice 2. World's policy has no rule
+   against multiple apps per team (only name-mimicry); the portal's
+   `create_app` makes it first-class.
 
 ## Refute result (Loop 1)
 
 Adversarial pass against each hypothesis, with the strongest counter I can find:
 
-**Against H1 — "you've measured a swipe game, not a product."** 2,868 verdicts
-from ~27 active runners is ~100 per person. That could be a small group
-grinding a 20-points-a-day cap, not a retention engine. *Response:* partly
-fair — `jury_verdict` 11–74/day comes from 15–32 sign-ins/day, so it is a
-minority who play hard. But that is what every retention engine looks like at
-n=30, and the day it went to zero (Sep 2–3) was the day the deck ran dry, which
-is a supply failure, not a demand one. **Survives, with the kill bar attached.**
+**Against H1 — "you've measured a swipe game, not a product; a handful are
+grinding the cap."** *Refuted by the store, in H1's favour.* `jury:stats:*` read
+today: 172 distinct judges, median 10, top judge 86, nobody ≥ 100, the top ten
+account for 14.5%. The cap (`JURY_DAILY_POINTS_CAP = 20`) limits *paid* verdicts
+only; play is unlimited. The first draft's own concession — "~27 runners ≈ 100
+each" — was wrong against itself. The day verdicts went to zero (Sep 2–3) was
+the day the deck ran dry: supply, not demand. **Survives, stronger than
+first argued, with a kill bar that can now actually fail.**
 
-**Against H2 — "TouchGrass already does this, with 10M humans, MCP, and a 20%
-fee."** *Response:* TouchGrass proves the demand and is the nearest competitor.
-Their edge is reach; their gap is quality — verdicts are unscored piecework.
-FAVOUR's edge is the *graded* jury: a buyer gets accuracy-weighted verdicts and
-can set a minimum judge score. That is the Surge trust-score move, and nobody on
-World has it. **Survives — but only if the score is exposed to buyers.** If we
+**Against H2 — "TouchGrass already does this, on World's 10M+ Orb humans, with
+MCP and a 20% fee."** (10M+ is World's network total; TouchGrass has not
+published its own worker count.) *Response:* TouchGrass proves the demand and is the nearest competitor.
+Their edge is reach; their gap is quality — their API returns
+`consensus / distribution / confidence` and the only worker filter is
+`required_verification: "orb"`; no per-worker score. FAVOUR's edge is the
+*graded* jury: accuracy against known answers, per skill, exposed to the buyer.
+Nobody **on World** has it; off World, MTurk and Prolific have approval rates
+but not Orb-uniqueness. **Survives — but only if the score is exposed to buyers.** If we
 sell unscored verdicts we are a smaller TouchGrass.
 
 **Against H2, harder — "$0.05 a verdict is not a company."** Surge pays experts
@@ -136,7 +154,7 @@ test, expensive to be wrong about by assumption. **Survives as an experiment.**
 was about a *separate product*. This is a second **door** to the same product:
 same repo, same Redis, same jury, same proofs. It costs a listing and a route.
 What changed since Jul 1: the game is now the measured winner, "Real or AI" is a
-proven viral genre with no verified-human entrant, and FAVOUR's own front door
+shipped genre (several apps) with no verified-human entrant, and FAVOUR's own front door
 is five screens deep. **Survives, reframed: two listings, one backend.**
 
 **Collision check**
@@ -161,10 +179,20 @@ is five screens deep. **Survives, reframed: two listings, one backend.**
 > Done when: a stranger reaches a verdict in ≤ 2 taps from cold load; D1 tracked
 > against the 12% kill bar. Size: 3–4 days. Risk: HIGH — this is H1's test.
 
-> **2. Second listing: "Real or Not."** Same repo, a `/play` route with the
-> slice-1 screen and none of the marketplace, submitted to the Mini App Store
-> under Games. Done when: listing approved and `world_app_deep_link_opened` is
-> split by listing. Size: 2 days + review latency. Risk: MED — store review.
+> **2. Second listing: "Real or Not."** Same repo and Redis, a `/play` surface
+> with the slice-1 screen and none of the marketplace, submitted under Games.
+> **Not "one route":** `NEXT_PUBLIC_WORLD_APP_ID` is a build-time env read in
+> `minikit-provider.tsx`, `notifications.ts` and `world-app-link.ts`; the push
+> key is per app; and World ID nullifiers are **per `app_id`**, so
+> `checkNullifierUnique` in `verify-identity` will not dedup one human across
+> the two listings. Orb tier is address-keyed via the Address Book, so *that*
+> transfers. Needs a second Vercel deployment (or runtime app-id switching) and
+> a second notification key; identity dedup across listings must key on the
+> wallet, not the nullifier. Done when: listing approved and
+> `world_app_deep_link_opened` is split by listing. Size: **4 days** + review.
+> Risk: MED — store review + the app-id seam. Also: the Dev Portal MCP key on
+> this machine reaches a team whose only app is "Perfect", not FAVOUR — the
+> listing work needs the right portal login.
 
 > **3. The verdict API.** `POST /api/verdicts` — a buyer submits N items with a
 > question and a minimum judge score; qualified judges see them as deck cards;
