@@ -22,8 +22,8 @@ task board behind it, AI proof-verification as the moat.
 
 Half of it landed. The reveal insight was right (489 reveal views against 200
 submits — people come for the answer). The *gate* was not where the engagement
-went. Measured today: REAL OR NOT, the peer jury, holds **2,868 verdicts — 16%
-of every feed load** — against the daily's 200 submits and the marketplace's
+went. Measured today: REAL OR NOT, the peer jury, holds **2,868 verdicts against
+17,923 feed loads** — against the daily's 200 submits and the marketplace's
 788 proofs. The jury out-engages the thing it was bolted onto by an order of
 magnitude, and it was starved (28-proof pool, newest Jul 24) by the marketplace
 it depended on. We built a marketplace and accidentally shipped the product.
@@ -37,7 +37,7 @@ it depended on. We built a marketplace and accidentally shipped the product.
 | touch-grass.world (opened today) | TouchGrass has **pivoted from tasks to judgement**: *"When AI is uncertain, ask a real human."* Task types are now *AI answer check, search result review, LP first impression, copy trust signal* at ¥1–30. MCP + REST for agents. 20% fee. | High — read at source. Validates the thesis and is the nearest competitor |
 | world.org/blog | World's 2026 bets: **proof-of-human for the agentic web** (AgentKit Jun 24; World ID for Browserbase, Exa, Okta, Vercel), enterprise (Zoom, DocuSign), consumer trust (Tinder, ticketing). Mini Apps are not the headline; personhood-as-infrastructure is. | High |
 | App Store / Play (3+ "Real or AI" apps); whichoneisreal.com (8,000 players); sightengine "AI or Not" | "Real or AI" is a **viral genre**. Every instance is anonymous, single-player, on a canned image set, with no stakes and no verified players. | Medium — traction numbers are self-reported |
-| Production Redis, today | Jury 2,868 (16%) · proofs 788 (4.4%) · posts 93 (0.5%) · paid 4 (0.02%). Text proofs pass 42/42; photo proofs flagged 22/50 (44%). Feedback 10.17 completions/task; photo 0.32. Most-completed favour ever paid 0 points. | Measured |
+| Production Redis, today | Feed loads 17,923 · jury verdicts 2,868 · proofs 788 · posts 93 · paid 4. Text proofs pass 42/42; photo proofs flagged 22/50 (44%). Feedback 10.17 completions/task; photo 0.32. Most-completed favour ever paid 0 points. | Measured |
 | Jun 7 competitive memo (aged) | World App: 26M users, 2M DAU, Global South, incentive-driven. What succeeds: token claims, financial utility, **skill-based games with rewards (UNO 188M opens)**. What fails: social, creative, effort-without-reward. Dev Rewards need 10K verified humans. | Medium — three months old, directionally right |
 
 ## The thesis, stated once
@@ -51,6 +51,17 @@ The graded Real-or-Not deck — where the answer is known — measures every
 judge's accuracy. Today (shipped this afternoon) that score is already the
 qualification for the appeal deck, where the answer is *not* known and the
 verdict has consequences. That is the whole company in miniature:
+
+**One correction to "provably good," before anyone reads it as one number.**
+Accuracy is *per skill*. Today's graded card tests one thing — does this proof
+match this spec (`jury.ts`: "judging skill = reading proof specs") — and that
+score transfers cleanly to the appeal rung, which asks the same question. It
+does **not** transfer to "is this image AI-generated" or "is this AI answer
+correct." So every rung of the ladder gets its own graded deck: known-real vs
+known-AI images for the real-or-not rung; buyer-supplied gold-standard items for
+a buyer's question. A judge carries a score per rung, and a buyer buys the rung
+they need. This is what Surge's "trust score" actually is under the hood, and it
+is the difference between a moat and a claim.
 
 - **The game** recruits and trains judges for free, and is fun on its own.
 - **The score** makes the jury provably good, not just provably human.
@@ -66,10 +77,10 @@ finally say "n = 400 verified humans, mean accuracy 0.84" on a data sheet.
 ## Hypotheses (ranked)
 
 1. **The jury is the product.** Falsifiable: if a cold-open-into-the-jury front
-   door does not lift D1 return above the current 10% within two weeks of
-   ship, the game is not a retention engine and this memo is wrong. Kill bar:
-   D1 < 12% at n ≥ 200 new arrivals. Cost: one front-door rebuild (Loop 3
-   slice 1).
+   door does not lift D1 return above the current 10%, the game is not a
+   retention engine and this memo is wrong. Kill bar: D1 < 12% measured at
+   **n ≥ 200 new arrivals** (≈ 15 days at today's ~13/day; the sample, not the
+   calendar, closes the test). Cost: one front-door rebuild (Loop 3 slice 1).
 2. **Accuracy-scored verdicts are sellable.** Falsifiable: one external buyer
    (an agent developer, a survey researcher, a platform) pays for a batch of
    ≥ 100 verdicts at ≥ $0.05 each within 30 days of the verdict API existing.
@@ -162,6 +173,20 @@ is five screens deep. **Survives, reframed: two listings, one backend.**
 > transfer rail when a buyer pays** — the rail that already works, no escrow.
 > Done when: one real external batch of ≥ 100 items resolves end-to-end. Size:
 > 4–5 days. Risk: HIGH — H2's test; needs Oscar's outreach for the first buyer.
+>
+> **The money flow, drawn, because "sidesteps the custody blocker" is a claim
+> until it is:** buyer → x402 payment on World Chain → **lands in the relayer
+> wallet** → relayer pays judges by ERC-20 `transfer` (the rail that has paid
+> every unlock so far). Nothing enters the retired escrow contract. But be
+> honest about what that is: for the interval between a buyer paying and judges
+> being paid, **customer money sits on the hot wallet that also owns the
+> proxy** (ROADMAP §blocker). That is pass-through, not escrow — no contract
+> holds it, no one but FAVOUR can claim it — and at $5–50 per batch the blast
+> radius is the batch. It is still the same key. So: batches are paid out on
+> resolution, not held; the relayer never accumulates more than one open batch;
+> and **the multisig sequencing in ROADMAP applies the day a batch exceeds
+> what Oscar would leave in a hot wallet.** Until then this rail is cleaner
+> than the escrow ever was, because there is no contract to upgrade.
 
 > **4. AgentKit door.** `/api/agent/register` accepts an AgentBook-verified
 > signer in place of `ADMIN_SECRET`; x402 on `/api/verdicts` so an agent pays
@@ -192,7 +217,8 @@ rebrand burn-down. They follow the product; they are not the product.
 
 ## The standalone-app question, answered
 
-**Do not build a second product. Build a second door.** The Jul 1 reasoning
+**Yes — a "Real or Not" listing in the Games category, cold-open, one screen.**
+Built as a second **door**, not a second product. The Jul 1 reasoning
 against a separate app — split funding, split attention, two zero-momentum
 surfaces — is still right and this memo does not overturn it. What it overturns
 is the assumption that the *game* is the side attraction. It is the product,
@@ -223,3 +249,14 @@ deciding — and it would be the best problem this project has ever had.
   third lane that does not need the escrow at all.
 - **Keeps** the Jul 1 "no separate app" ruling; reframes it as "no separate
   product — a second listing is fine."
+
+## The three decisions that are Oscar's
+
+Per CLAUDE.md the decision-log owns priority. This memo becomes the plan when
+he rules, not before.
+
+1. **Slice 1 go/no-go** — the jury becomes the front door of FAVOUR.
+2. **The Games listing** — a second Mini App Store entry, same backend.
+3. **The first buyer** — someone Oscar contacts (survey researcher, agent
+   developer, platform) or an agent arriving through AgentKit. Decides whether
+   slice 3 or slice 4 goes first.
