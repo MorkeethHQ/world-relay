@@ -16,6 +16,8 @@ vi.mock("@/lib/redis", () => ({
       s.add(member); mockSets.set(key, s); return added;
     },
     smembers: async (key: string) => Array.from(mockSets.get(key) || []),
+    sismember: async (key: string, member: string) =>
+      mockSets.get(key)?.has(member) ? 1 : 0,
     incr: async (key: string) => {
       const next = Number(mockStore.get(key) || 0) + 1;
       mockStore.set(key, next); return next;
@@ -38,7 +40,9 @@ vi.mock("@/lib/proof-of-favour", () => ({
   },
 }));
 
-import { composeDeck, issueJuryDeck, recordJuryVerdict, juryPool, JURY_DAILY_POINTS_CAP } from "@/lib/jury";
+import { composeDeck, issueJuryDeck, issueJurySession, recordJuryVerdict, juryPool, assessJuryAvailability, isJuryBridgeEligible, isJuryBridgeClaimOfferable, pickJuryBridgeFavour, JURY_DAILY_POINTS_CAP, JURY_COMPOSE_FLOOR } from "@/lib/jury";
+import { juryAvailabilityCopy } from "@/lib/jury-availability-copy";
+import { recordSeededEarn } from "@/lib/seed-caps";
 
 const JUDGE = "0x" + "9".repeat(40);
 
@@ -152,5 +156,205 @@ describe("verdicts (opaque cards)", () => {
     expect(awards.length).toBe(JURY_DAILY_POINTS_CAP);
     const stats = mockHashes.get(`jury:stats:${JUDGE.toLowerCase()}`)!;
     expect(stats.get("judged")).toBe(JURY_DAILY_POINTS_CAP + 5);
+  });
+
+  it("appeal cards on the graded verdict path error and award nothing", async () => {
+    mockStore.set(
+      `jury:card:appeal-1`,
+      JSON.stringify({
+        judge: JUDGE,
+        proofTaskId: "p1",
+        descTaskId: "p1",
+        isMatch: true,
+        appeal: true,
+      })
+    );
+    const r = await recordJuryVerdict(JUDGE, "appeal-1", true);
+    expect("error" in r).toBe(true);
+    expect((r as { error: string }).error).toMatch(/Appeal cards/);
+    expect(awards.length).toBe(0);
+  });
+});
+
+function openBridgeFavour(overrides: Partial<Task> = {}): Task {
+  seq++;
+  return {
+    id: `bf${seq}`,
+    poster: "0x" + "a".repeat(40),
+    claimant: null,
+    category: "feedback",
+    description: `Share one honest take number ${seq}`,
+    location: "Anywhere",
+    lat: null,
+    lng: null,
+    bountyUsdc: 12,
+    deadline: new Date(Date.now() + 86400000).toISOString(),
+    status: "open",
+    proofImageUrl: null,
+    proofImages: null,
+    proofNote: null,
+    verificationResult: null,
+    attestationTxHash: null,
+    agent: null,
+    aiFollowUp: null,
+    recurring: null,
+    callbackUrl: null,
+    onChainId: null,
+    escrowTxHash: null,
+    claimCode: null,
+    taskType: "standard",
+    rewardType: "points",
+    donOnChainId: null,
+    donStakeTxHash: null,
+    claimantVerification: null,
+    requiresClaim: false,
+    pendingRelease: false,
+    maxCompletions: 1,
+    completionCount: 0,
+    createdAt: new Date().toISOString(),
+    ...overrides,
+  } as Task;
+}
+
+describe("availability (deck | exhausted | empty)", () => {
+  it(`compose floor is ${2} proofs — fewer than that is empty`, () => {
+    expect(JURY_COMPOSE_FLOOR).toBe(2);
+    const one = [doneTask()];
+    const a = assessJuryAvailability(one, JUDGE, new Set());
+    expect(a.availability).toBe("empty");
+    expect(a.baseCount).toBe(1);
+  });
+
+  it("exhausted: base pool has a deck, but this judge already judged them", () => {
+    const proofs = [doneTask(), doneTask(), doneTask()];
+    const judged = new Set(proofs.map((t) => t.id));
+    const a = assessJuryAvailability(proofs, JUDGE, judged);
+    expect(a.availability).toBe("exhausted");
+    expect(a.eligibleCount).toBe(0);
+    expect(a.baseCount).toBe(3);
+  });
+
+  it("deck: enough unjudged proofs remain", () => {
+    const proofs = [doneTask(), doneTask(), doneTask()];
+    const a = assessJuryAvailability(proofs, JUDGE, new Set([proofs[0]!.id]));
+    expect(a.availability).toBe("deck");
+    expect(a.eligibleCount).toBe(2);
+  });
+
+  it("empty vs exhausted: one leftover after judging is exhausted, not empty", () => {
+    const proofs = [doneTask(), doneTask()];
+    const a = assessJuryAvailability(proofs, JUDGE, new Set([proofs[0]!.id]));
+    expect(a.availability).toBe("exhausted");
+    expect(a.eligibleCount).toBe(1);
+  });
+});
+
+describe("jury return bridge eligibility", () => {
+  it("accepts an open remote feedback/review points favour from someone else", () => {
+    const favour = openBridgeFavour({ category: "review" });
+    expect(isJuryBridgeEligible(favour, JUDGE, [favour])).toBe(true);
+  });
+
+  const refusals: Array<[string, Partial<Task>]> = [
+    ["usdc reward", { rewardType: "usdc" }],
+    ["usdc-v2 reward", { rewardType: "usdc-v2" }],
+    ["funded escrow tx", { escrowTxHash: "0x" + "ab".repeat(32) }],
+    ["on-chain id", { onChainId: 7 }],
+    ["escrow-v2 address", { escrowV2Address: "0x" + "c".repeat(40) }],
+    ["campaign", { campaignId: "comeback-2026" }],
+    ["Double-or-Nothing type", { taskType: "double-or-nothing" }],
+    ["Double-or-Nothing stake", { donOnChainId: 3 }],
+    ["claim code", { claimCode: "SECRET" }],
+    ["expired", { deadline: new Date(Date.now() - 1000).toISOString() }],
+    ["own post", { poster: JUDGE }],
+    ["travel coords", { lat: 51.5, lng: -0.1 }],
+    ["non-remote location", { location: "Shoreditch" }],
+    ["photo category", { category: "photo" }],
+    ["capped completions", { completionCount: 1, maxCompletions: 1 }],
+    ["not open", { status: "claimed", claimant: "0x" + "2".repeat(40) }],
+  ];
+
+  for (const [label, over] of refusals) {
+    it(`REFUSES ${label}`, () => {
+      expect(isJuryBridgeEligible(openBridgeFavour(over), JUDGE, [])).toBe(false);
+    });
+  }
+
+  it("issueJurySession: exhausted + bridge favour, cards empty", async () => {
+    const p1 = doneTask();
+    const p2 = doneTask();
+    const favour = openBridgeFavour({ id: "bridge-1", poster: "0x" + "d".repeat(40) });
+    mockSets.set(`jury:judged:${JUDGE.toLowerCase()}`, new Set([p1.id, p2.id]));
+    const session = await issueJurySession([p1, p2, favour], JUDGE, nextId);
+    expect(session.cards).toEqual([]);
+    expect(session.availability).toBe("exhausted");
+    expect(session.bridgeFavour?.id).toBe("bridge-1");
+    expect(session.bridgeFavour?.rewardType).toBe("points");
+  });
+
+  it("issueJurySession: money-shaped candidate yields no bridge", async () => {
+    const p1 = doneTask();
+    const p2 = doneTask();
+    const money = openBridgeFavour({ id: "money-1", rewardType: "usdc", bountyUsdc: 5 });
+    mockSets.set(`jury:judged:${JUDGE.toLowerCase()}`, new Set([p1.id, p2.id]));
+    const session = await issueJurySession([p1, p2, money], JUDGE, nextId);
+    expect(session.availability).toBe("exhausted");
+    expect(session.bridgeFavour).toBeNull();
+  });
+
+  it("issueJurySession: truly empty pool (no proofs) reports empty", async () => {
+    const favour = openBridgeFavour({ id: "bridge-empty" });
+    const session = await issueJurySession([favour], JUDGE, nextId);
+    expect(session.cards).toEqual([]);
+    expect(session.availability).toBe("empty");
+    expect(session.bridgeFavour?.id).toBe("bridge-empty");
+  });
+
+  it("pickJuryBridgeFavour returns at most one", async () => {
+    const a = openBridgeFavour({ id: "a1" });
+    const b = openBridgeFavour({ id: "b2" });
+    const pick = await pickJuryBridgeFavour([a, b], JUDGE);
+    expect(pick).not.toBeNull();
+    expect(["a1", "b2"]).toContain(pick!.id);
+  });
+
+  it("REFUSES seed-capped official points tasks at offer time (not only at claim)", async () => {
+    const seeded = openBridgeFavour({
+      id: "seed-bridge",
+      poster: "agent:relay",
+      agent: { id: "relay", name: "Relay" } as Task["agent"],
+    });
+    // Hit daily points seed cap (3) before offering.
+    for (let i = 0; i < 3; i++) {
+      await recordSeededEarn(seeded, JUDGE);
+    }
+    expect(isJuryBridgeEligible(seeded, JUDGE, [seeded])).toBe(true);
+    expect(await isJuryBridgeClaimOfferable(seeded, JUDGE, [seeded])).toBe(false);
+    expect(await pickJuryBridgeFavour([seeded], JUDGE)).toBeNull();
+  });
+
+  it("does not claim durable prior-completion coverage after reopen", () => {
+    // Store keeps one current row per id. An open favour after reopen has no
+    // completed twin — eligibility must not pretend history is recoverable.
+    const favour = openBridgeFavour({ id: "reopen-1", status: "open", claimant: null });
+    expect(isJuryBridgeEligible(favour, JUDGE, [favour])).toBe(true);
+  });
+});
+
+describe("jury availability copy (floor-accurate)", () => {
+  it("empty with one proof does not say no proofs", () => {
+    const c = juryAvailabilityCopy("empty", 1, 1);
+    expect(c.headline).toMatch(/not enough/i);
+    expect(c.detail).toMatch(/1/);
+    expect(c.detail).not.toMatch(/no eligible proofs to judge right now/i);
+    expect(c.bridgeHint).toMatch(/never includes your own/i);
+  });
+
+  it("exhausted with one leftover does not say every proof", () => {
+    const c = juryAvailabilityCopy("exhausted", 1, 2);
+    expect(c.detail).toMatch(/1 left/i);
+    expect(c.detail).not.toMatch(/every proof currently available/i);
+    expect(c.bridgeHint).not.toMatch(/including ones you do/i);
+    expect(c.bridgeHint).toMatch(/never unlocks your next deck/i);
   });
 });

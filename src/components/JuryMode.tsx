@@ -1,8 +1,11 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { hapticTap, hapticSuccess, hapticError } from "@/lib/minikit-helpers";
 import { CategoryIcon } from "@/components/CategoryIcon";
+import { juryAvailabilityCopy, type JuryAvailability } from "@/lib/jury-availability-copy";
+import { postJuryBridgeClaim } from "@/lib/jury-bridge-claim";
+import type { Task } from "@/lib/types";
 
 type JuryCard = {
   cardId: string;
@@ -13,13 +16,38 @@ type JuryCard = {
   location: string;
 };
 
+type BridgeFavour = {
+  id: string;
+  description: string;
+  category: string;
+  location: string;
+  bountyUsdc: number;
+  rewardType: "points";
+  deadline: string;
+};
+
 type Flash = { correct: boolean; isMatch: boolean; points: number } | null;
 
 // REAL OR NOT — swipe right if the photo proves THIS favour, left if it
 // doesn't. Full-screen immersive deck; verdicts are final; correct calls pay
 // 1 pt (daily cap server-side). The jury never moves money.
-export function JuryMode({ userId, onClose }: { userId: string | null; onClose: () => void }) {
+export function JuryMode({
+  userId,
+  onClose,
+  onBridgeClaimed,
+}: {
+  userId: string | null;
+  onClose: () => void;
+  /** After a successful claim on the return-bridge favour, open the proof screen. */
+  onBridgeClaimed?: (task: Task) => void;
+}) {
   const [cards, setCards] = useState<JuryCard[]>([]);
+  const [availability, setAvailability] = useState<JuryAvailability | null>(null);
+  const [eligibleCount, setEligibleCount] = useState(0);
+  const [baseCount, setBaseCount] = useState(0);
+  const [bridgeFavour, setBridgeFavour] = useState<BridgeFavour | null>(null);
+  const [claiming, setClaiming] = useState(false);
+  const [claimError, setClaimError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [flash, setFlash] = useState<Flash>(null);
   const [session, setSession] = useState({ judged: 0, correct: 0, points: 0 });
@@ -31,14 +59,70 @@ export function JuryMode({ userId, onClose }: { userId: string | null; onClose: 
   const dragging = useRef(false);
   const busy = useRef(false);
 
+  const applyJuryPayload = useCallback((d: {
+    cards?: JuryCard[];
+    availability?: JuryAvailability;
+    eligibleCount?: number;
+    baseCount?: number;
+    bridgeFavour?: BridgeFavour | null;
+  }) => {
+    const next = d.cards || [];
+    setCards(next);
+    setAvailability(d.availability || (next.length ? "deck" : "empty"));
+    setEligibleCount(typeof d.eligibleCount === "number" ? d.eligibleCount : 0);
+    setBaseCount(typeof d.baseCount === "number" ? d.baseCount : 0);
+    setBridgeFavour(d.bridgeFavour || null);
+  }, []);
+
   useEffect(() => {
     const url = `/api/jury${userId ? `?address=${encodeURIComponent(userId)}` : ""}`;
     fetch(url)
       .then((r) => r.json())
-      .then((d) => setCards(d.cards || []))
+      .then(applyJuryPayload)
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [userId]);
+  }, [userId, applyJuryPayload]);
+
+  // After the local deck is swiped through, re-ask the server: more cards, or
+  // truthful exhausted/empty + an optional bridge favour.
+  useEffect(() => {
+    if (loading || showIntro || cards.length > 0) return;
+    let cancelled = false;
+    const url = `/api/jury${userId ? `?address=${encodeURIComponent(userId)}` : ""}`;
+    fetch(url)
+      .then((r) => r.json())
+      .then((d) => {
+        if (cancelled) return;
+        applyJuryPayload(d);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [loading, showIntro, cards.length, userId, applyJuryPayload]);
+
+  const floorCopy = useMemo(() => {
+    if (!availability || availability === "deck") return null;
+    return juryAvailabilityCopy(availability, eligibleCount, baseCount);
+  }, [availability, eligibleCount, baseCount]);
+
+  const claimBridge = useCallback(async () => {
+    if (!userId || !bridgeFavour || claiming) return;
+    setClaiming(true);
+    setClaimError(null);
+    hapticTap();
+    const result = await postJuryBridgeClaim(bridgeFavour.id, userId);
+    if (!result.ok) {
+      setClaimError(result.error);
+      hapticError();
+      setClaiming(false);
+      return;
+    }
+    hapticSuccess();
+    if (onBridgeClaimed) onBridgeClaimed(result.task);
+    else onClose();
+    setClaiming(false);
+  }, [userId, bridgeFavour, claiming, onBridgeClaimed, onClose]);
 
   useEffect(() => {
     try {
@@ -188,7 +272,7 @@ export function JuryMode({ userId, onClose }: { userId: string | null; onClose: 
           </div>
         ) : !card ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 px-8 text-center">
-            {session.judged > 0 ? (
+            {availability === "exhausted" || session.judged > 0 ? (
               <>
                 {/* Celebratory finish: the deck's done, thank the human. Staggered
                     entrance so it lands as a moment, not just an empty state. */}
@@ -196,31 +280,117 @@ export function JuryMode({ userId, onClose }: { userId: string | null; onClose: 
                   <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
                 </div>
                 <div className="animate-[fadeSlideIn_0.4s_ease-out_0.1s_both]">
-                  <p className="text-2xl font-bold text-gray-900">Thanks for keeping FAVOUR human</p>
-                  <p className="text-sm text-gray-400 mt-1">You judged every proof in the deck.</p>
+                  <p className="text-2xl font-bold text-gray-900">
+                    {floorCopy?.headline || "Thanks for keeping FAVOUR human"}
+                  </p>
+                  <p className="text-sm text-gray-400 mt-1">
+                    {floorCopy?.detail ||
+                      (availability === "exhausted"
+                        ? "Fewer than two unjudged proofs remain — not enough to build another deck."
+                        : "You judged every proof in the deck.")}
+                  </p>
                 </div>
-                <div className="flex items-center gap-2 animate-[fadeSlideIn_0.4s_ease-out_0.2s_both]">
-                  <div className="px-4 py-2 rounded-xl bg-gray-100">
-                    <p className="text-lg font-bold text-gray-900 tabular-nums leading-none">{session.correct}/{session.judged}</p>
-                    <p className="text-[10px] text-gray-400 uppercase tracking-wide mt-1">called right</p>
-                  </div>
-                  {session.points > 0 && (
-                    <div className="px-4 py-2 rounded-xl bg-amber-50">
-                      <p className="text-lg font-bold text-amber-600 tabular-nums leading-none">+{session.points}</p>
-                      <p className="text-[10px] text-amber-500 uppercase tracking-wide mt-1">points</p>
+                {session.judged > 0 && (
+                  <div className="flex items-center gap-2 animate-[fadeSlideIn_0.4s_ease-out_0.2s_both]">
+                    <div className="px-4 py-2 rounded-xl bg-gray-100">
+                      <p className="text-lg font-bold text-gray-900 tabular-nums leading-none">{session.correct}/{session.judged}</p>
+                      <p className="text-[10px] text-gray-400 uppercase tracking-wide mt-1">called right</p>
                     </div>
-                  )}
-                </div>
-                <p className="text-xs text-gray-400 animate-[fadeSlideIn_0.4s_ease-out_0.3s_both]">New proofs land as favours get completed.</p>
-                <button onClick={onClose} className="mt-1 px-6 py-3 rounded-xl bg-gray-900 text-white text-sm font-semibold active:scale-95 transition-transform animate-[fadeSlideIn_0.4s_ease-out_0.35s_both]">
-                  Back to favours
-                </button>
+                    {session.points > 0 && (
+                      <div className="px-4 py-2 rounded-xl bg-amber-50">
+                        <p className="text-lg font-bold text-amber-600 tabular-nums leading-none">+{session.points}</p>
+                        <p className="text-[10px] text-amber-500 uppercase tracking-wide mt-1">points</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+                {bridgeFavour && userId ? (
+                  <div className="w-full max-w-sm space-y-3 animate-[fadeSlideIn_0.4s_ease-out_0.3s_both]">
+                    <p className="text-xs text-gray-400">
+                      {floorCopy?.bridgeHint ||
+                        "Do one quick favour to mint a proof for the pool. Your own work never unlocks your next deck."}
+                    </p>
+                    <div className="rounded-2xl border border-gray-200 bg-white px-4 py-3 text-left">
+                      <div className="flex items-center gap-2 mb-1">
+                        <CategoryIcon category={bridgeFavour.category} size={14} />
+                        <span className="text-[11px] uppercase tracking-wide text-gray-400 font-semibold">
+                          {bridgeFavour.category} · {Math.round(bridgeFavour.bountyUsdc)} pts
+                        </span>
+                      </div>
+                      <p className="text-[14px] font-semibold text-gray-900 leading-snug line-clamp-3">
+                        {bridgeFavour.description}
+                      </p>
+                    </div>
+                    {claimError && <p className="text-xs text-red-500">{claimError}</p>}
+                    <button
+                      onClick={claimBridge}
+                      disabled={claiming}
+                      className="w-full py-3.5 rounded-xl bg-gray-900 text-white text-sm font-semibold active:scale-[0.98] transition-transform disabled:opacity-60"
+                    >
+                      {claiming ? "Claiming…" : "Do this favour"}
+                    </button>
+                    <button onClick={onClose} className="w-full py-3 rounded-xl bg-white border border-gray-200 text-gray-700 text-sm font-semibold active:scale-95 transition-transform">
+                      Back to favours
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-xs text-gray-400 animate-[fadeSlideIn_0.4s_ease-out_0.3s_both]">
+                      {floorCopy?.bridgeHint ||
+                        "New proofs land when others complete favours. Your own work never unlocks your next deck."}
+                    </p>
+                    <button onClick={onClose} className="mt-1 px-6 py-3 rounded-xl bg-gray-900 text-white text-sm font-semibold active:scale-95 transition-transform animate-[fadeSlideIn_0.4s_ease-out_0.35s_both]">
+                      Back to favours
+                    </button>
+                  </>
+                )}
               </>
             ) : (
               <>
-                <p className="text-2xl font-bold text-gray-900">All judged</p>
-                <p className="text-sm text-gray-400">No proofs to judge right now. Complete some favours and come back.</p>
-                <button onClick={onClose} className="mt-3 px-6 py-3 rounded-xl bg-gray-900 text-white text-sm font-semibold active:scale-95 transition-transform">
+                <p className="text-2xl font-bold text-gray-900">
+                  {floorCopy?.headline || (availability === "empty" ? "No proofs yet" : "All judged")}
+                </p>
+                <p className="text-sm text-gray-400">
+                  {floorCopy?.detail ||
+                    (availability === "empty"
+                      ? "The pool has no eligible proofs to judge right now."
+                      : "No proofs to judge right now.")}
+                </p>
+                {bridgeFavour && userId && (
+                  <div className="w-full max-w-sm space-y-3 mt-2">
+                    <p className="text-xs text-gray-400">
+                      {floorCopy?.bridgeHint ||
+                        "A quick favour can mint a proof for the pool. Your own contributions never appear in your jury deck."}
+                    </p>
+                    <div className="rounded-2xl border border-gray-200 bg-white px-4 py-3 text-left">
+                      <div className="flex items-center gap-2 mb-1">
+                        <CategoryIcon category={bridgeFavour.category} size={14} />
+                        <span className="text-[11px] uppercase tracking-wide text-gray-400 font-semibold">
+                          {bridgeFavour.category} · {Math.round(bridgeFavour.bountyUsdc)} pts
+                        </span>
+                      </div>
+                      <p className="text-[14px] font-semibold text-gray-900 leading-snug line-clamp-3">
+                        {bridgeFavour.description}
+                      </p>
+                    </div>
+                    {claimError && <p className="text-xs text-red-500">{claimError}</p>}
+                    <button
+                      onClick={claimBridge}
+                      disabled={claiming}
+                      className="w-full py-3.5 rounded-xl bg-gray-900 text-white text-sm font-semibold active:scale-[0.98] transition-transform disabled:opacity-60"
+                    >
+                      {claiming ? "Claiming…" : "Do this favour"}
+                    </button>
+                  </div>
+                )}
+                <button
+                  onClick={onClose}
+                  className={`mt-3 px-6 py-3 rounded-xl text-sm font-semibold active:scale-95 transition-transform ${
+                    bridgeFavour && userId
+                      ? "bg-white border border-gray-200 text-gray-700"
+                      : "bg-gray-900 text-white"
+                  }`}
+                >
                   Back to favours
                 </button>
               </>

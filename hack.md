@@ -46,3 +46,44 @@ Reach (favours completed by non-authors) · produced ÷ promised (favour posted 
 
 ## STOP AT (Oscar only)
 Sending the URL to a first user · any post · World App store submission.
+
+---
+
+# THIS SLICE — exhausted jury → expressive points return bridge (2026-09-06)
+
+## NORTH STAR
+When a juror finishes every proof available to them, the app tells the truth about why the deck stopped and one-taps them into an expressive points favour that can mint the next proof — then they can return to jury.
+
+## PROMISE LINE
+A signed-in juror who exhausts their personal deck gets a server-selected **points-only** feedback/review favour they can claim in one tap; the whole loop never grades appeal cards, never moves money, and never pretends a personal exhaustion is a global empty pool.
+
+## OPEN QUESTIONS
+- (non-blocking) Exact copy tone for the bridge CTA — ship plain truthful wording; Oscar can edit.
+- (non-blocking) Competing branch `night-run/2026-08-31-jury-loop` is not on the remote; reimplemented from the brief.
+- (blocking: none)
+
+## CONSTITUTION
+1. Never change payout, settlement, campaign-progress, or appeal-award rules.
+2. Opaque jury answers stay server-side; session ownership and judged-proof dedup stay.
+3. `recordJuryVerdict` still rejects `answer.appeal`; `jury-appeal.ts` money exclusions untouched.
+4. Bridge favour is points-only — refuse usdc / usdc-v2 / funded / on-chain / escrow / campaign / Double-or-Nothing / claim-code / own post / travel / non-expressive.
+5. A checkbox is true only when its done-when was RUN. Say the command.
+6. No merge to main, no production deploy, no fabricated live metrics.
+7. Do not reorganise the repo; narrow bridge only.
+
+## PLAN (risk-first)
+1. Pure availability + eligibility — done-when: unit tests RUN.
+2. GET /api/jury shape — done-when: session tests RUN.
+3. JuryMode one-tap claim — done-when: wired + browser RUN or BLOCKED.
+4. Receipt + draft PR.
+
+## NOW
+Slice complete on branch `cursor/favour-jury-return-bridge-2026-09-06` (see LOG).
+
+## LOG
+- Starting SHA `aac00fd…12a1e`. Competing branch absent on origin.
+- Implemented availability + bridge + GET + JuryMode + Feed + tests + receipt.
+- `npx vitest run src/__tests__/jury.test.ts src/__tests__/jury-appeal.test.ts` → 52 passed.
+- `npx tsc --noEmit` → 0. `npm run build` → 0.
+- Browser claim→proof BLOCKED (no Redis). Draft PR registered for Oscar approval (not auto-created).
+- **WRONG:** first edit replaced this whole file; restored original launch hack.md and appended this slice contract.

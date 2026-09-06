@@ -852,7 +852,16 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
   }
 
   if (view === "jury") {
-    return <JuryMode userId={userId} onClose={() => setView("board")} />;
+    return (
+      <JuryMode
+        userId={userId}
+        onClose={() => setView("board")}
+        onBridgeClaimed={(task) => {
+          setSelectedTask(task);
+          setView("proof");
+        }}
+      />
+    );
   }
 
   if (view === "post") {
