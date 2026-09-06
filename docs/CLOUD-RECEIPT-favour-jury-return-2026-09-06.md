@@ -3,7 +3,7 @@
 ## Identity
 - **Starting SHA:** `aac00fdc619641dd08c397f21eee4f725fa12a1e`
 - **Branch:** `cursor/favour-jury-return-bridge-2026-09-06`
-- **PR URL:** (filled after draft open)
+- **PR URL:** draft PR registered for human create/approval (branch pushed: `cursor/favour-jury-return-bridge-2026-09-06`); not merged.
 - **Competing branch:** `night-run/2026-08-31-jury-loop` — **not on origin** (`git fetch` / `gh api` found no ref). Reimplemented from the brief; no cherry-pick.
 
 ## Changed files
