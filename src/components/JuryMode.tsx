@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { hapticTap, hapticSuccess, hapticError } from "@/lib/minikit-helpers";
 import { CategoryIcon } from "@/components/CategoryIcon";
+import { juryAvailabilityCopy, type JuryAvailability } from "@/lib/jury-availability-copy";
+import { postJuryBridgeClaim } from "@/lib/jury-bridge-claim";
 import type { Task } from "@/lib/types";
 
 type JuryCard = {
@@ -13,8 +15,6 @@ type JuryCard = {
   category: string;
   location: string;
 };
-
-type JuryAvailability = "deck" | "exhausted" | "empty";
 
 type BridgeFavour = {
   id: string;
@@ -43,6 +43,8 @@ export function JuryMode({
 }) {
   const [cards, setCards] = useState<JuryCard[]>([]);
   const [availability, setAvailability] = useState<JuryAvailability | null>(null);
+  const [eligibleCount, setEligibleCount] = useState(0);
+  const [baseCount, setBaseCount] = useState(0);
   const [bridgeFavour, setBridgeFavour] = useState<BridgeFavour | null>(null);
   const [claiming, setClaiming] = useState(false);
   const [claimError, setClaimError] = useState<string | null>(null);
@@ -57,18 +59,29 @@ export function JuryMode({
   const dragging = useRef(false);
   const busy = useRef(false);
 
+  const applyJuryPayload = useCallback((d: {
+    cards?: JuryCard[];
+    availability?: JuryAvailability;
+    eligibleCount?: number;
+    baseCount?: number;
+    bridgeFavour?: BridgeFavour | null;
+  }) => {
+    const next = d.cards || [];
+    setCards(next);
+    setAvailability(d.availability || (next.length ? "deck" : "empty"));
+    setEligibleCount(typeof d.eligibleCount === "number" ? d.eligibleCount : 0);
+    setBaseCount(typeof d.baseCount === "number" ? d.baseCount : 0);
+    setBridgeFavour(d.bridgeFavour || null);
+  }, []);
+
   useEffect(() => {
     const url = `/api/jury${userId ? `?address=${encodeURIComponent(userId)}` : ""}`;
     fetch(url)
       .then((r) => r.json())
-      .then((d) => {
-        setCards(d.cards || []);
-        setAvailability(d.availability || (d.cards?.length ? "deck" : "empty"));
-        setBridgeFavour(d.bridgeFavour || null);
-      })
+      .then(applyJuryPayload)
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [userId]);
+  }, [userId, applyJuryPayload]);
 
   // After the local deck is swiped through, re-ask the server: more cards, or
   // truthful exhausted/empty + an optional bridge favour.
@@ -80,44 +93,35 @@ export function JuryMode({
       .then((r) => r.json())
       .then((d) => {
         if (cancelled) return;
-        const next = d.cards || [];
-        if (next.length) setCards(next);
-        setAvailability(d.availability || (next.length ? "deck" : "empty"));
-        setBridgeFavour(d.bridgeFavour || null);
+        applyJuryPayload(d);
       })
       .catch(() => {});
     return () => {
       cancelled = true;
     };
-  }, [loading, showIntro, cards.length, userId]);
+  }, [loading, showIntro, cards.length, userId, applyJuryPayload]);
+
+  const floorCopy = useMemo(() => {
+    if (!availability || availability === "deck") return null;
+    return juryAvailabilityCopy(availability, eligibleCount, baseCount);
+  }, [availability, eligibleCount, baseCount]);
 
   const claimBridge = useCallback(async () => {
     if (!userId || !bridgeFavour || claiming) return;
     setClaiming(true);
     setClaimError(null);
     hapticTap();
-    try {
-      const res = await fetch(`/api/tasks/${bridgeFavour.id}/claim`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ claimant: userId }),
-      });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setClaimError(body.error || body.message || "Could not claim this favour");
-        hapticError();
-        return;
-      }
-      hapticSuccess();
-      const task = (body.task || body) as Task;
-      if (onBridgeClaimed) onBridgeClaimed(task);
-      else onClose();
-    } catch {
-      setClaimError("Could not claim this favour");
+    const result = await postJuryBridgeClaim(bridgeFavour.id, userId);
+    if (!result.ok) {
+      setClaimError(result.error);
       hapticError();
-    } finally {
       setClaiming(false);
+      return;
     }
+    hapticSuccess();
+    if (onBridgeClaimed) onBridgeClaimed(result.task);
+    else onClose();
+    setClaiming(false);
   }, [userId, bridgeFavour, claiming, onBridgeClaimed, onClose]);
 
   useEffect(() => {
@@ -276,11 +280,14 @@ export function JuryMode({
                   <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
                 </div>
                 <div className="animate-[fadeSlideIn_0.4s_ease-out_0.1s_both]">
-                  <p className="text-2xl font-bold text-gray-900">Thanks for keeping FAVOUR human</p>
+                  <p className="text-2xl font-bold text-gray-900">
+                    {floorCopy?.headline || "Thanks for keeping FAVOUR human"}
+                  </p>
                   <p className="text-sm text-gray-400 mt-1">
-                    {availability === "exhausted"
-                      ? "You judged every proof available to you."
-                      : "You judged every proof in the deck."}
+                    {floorCopy?.detail ||
+                      (availability === "exhausted"
+                        ? "Fewer than two unjudged proofs remain — not enough to build another deck."
+                        : "You judged every proof in the deck.")}
                   </p>
                 </div>
                 {session.judged > 0 && (
@@ -300,7 +307,8 @@ export function JuryMode({
                 {bridgeFavour && userId ? (
                   <div className="w-full max-w-sm space-y-3 animate-[fadeSlideIn_0.4s_ease-out_0.3s_both]">
                     <p className="text-xs text-gray-400">
-                      Do one quick favour to mint a new proof, then come back to judge.
+                      {floorCopy?.bridgeHint ||
+                        "Do one quick favour to mint a proof for the pool. Your own work never unlocks your next deck."}
                     </p>
                     <div className="rounded-2xl border border-gray-200 bg-white px-4 py-3 text-left">
                       <div className="flex items-center gap-2 mb-1">
@@ -328,9 +336,8 @@ export function JuryMode({
                 ) : (
                   <>
                     <p className="text-xs text-gray-400 animate-[fadeSlideIn_0.4s_ease-out_0.3s_both]">
-                      {availability === "exhausted"
-                        ? "New proofs land when favours get completed — including ones you do."
-                        : "New proofs land as favours get completed."}
+                      {floorCopy?.bridgeHint ||
+                        "New proofs land when others complete favours. Your own work never unlocks your next deck."}
                     </p>
                     <button onClick={onClose} className="mt-1 px-6 py-3 rounded-xl bg-gray-900 text-white text-sm font-semibold active:scale-95 transition-transform animate-[fadeSlideIn_0.4s_ease-out_0.35s_both]">
                       Back to favours
@@ -341,15 +348,20 @@ export function JuryMode({
             ) : (
               <>
                 <p className="text-2xl font-bold text-gray-900">
-                  {availability === "empty" ? "No proofs yet" : "All judged"}
+                  {floorCopy?.headline || (availability === "empty" ? "No proofs yet" : "All judged")}
                 </p>
                 <p className="text-sm text-gray-400">
-                  {availability === "empty"
-                    ? "The pool has no eligible proofs right now. Complete a favour to create one, then come back."
-                    : "No proofs to judge right now. Complete some favours and come back."}
+                  {floorCopy?.detail ||
+                    (availability === "empty"
+                      ? "The pool has no eligible proofs to judge right now."
+                      : "No proofs to judge right now.")}
                 </p>
                 {bridgeFavour && userId && (
                   <div className="w-full max-w-sm space-y-3 mt-2">
+                    <p className="text-xs text-gray-400">
+                      {floorCopy?.bridgeHint ||
+                        "A quick favour can mint a proof for the pool. Your own contributions never appear in your jury deck."}
+                    </p>
                     <div className="rounded-2xl border border-gray-200 bg-white px-4 py-3 text-left">
                       <div className="flex items-center gap-2 mb-1">
                         <CategoryIcon category={bridgeFavour.category} size={14} />

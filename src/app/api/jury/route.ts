@@ -18,6 +18,8 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     cards: session.cards,
     availability: session.availability,
+    eligibleCount: session.eligibleCount,
+    baseCount: session.baseCount,
     bridgeFavour: session.bridgeFavour,
   });
 }

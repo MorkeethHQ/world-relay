@@ -39,3 +39,17 @@
 - Multi-completion “already completed by this juror” history is not persisted after reopen; eligibility only sees a same-id completed record when still present.
 - Seed daily caps are enforced at claim time (existing route), not duplicated in the pure bridge picker.
 - Draft PR only — no merge, no push to `main`.
+
+## Repair pass (local, PR #10 still DRAFT) — 2026-09-06T19:40Z
+
+Root review gaps fixed on this branch (no new cloud run):
+
+1. **Seed-cap / claim offer:** `isJuryBridgeClaimOfferable` runs `checkSeedCap` + failed-claimant before pick; seed-capped official tasks are not offered.
+2. **Prior completion:** no durable reopen history — removed false same-id completed coverage claim; documented limitation.
+3. **Floor copy:** API returns `eligibleCount`/`baseCount`; UI uses `juryAvailabilityCopy` so one leftover ≠ "every proof" / one in pool ≠ "no proofs"; own work never promised to unlock next deck.
+4. **Tests:** `jury-route.test.ts` (GET contract), `jury-bridge-claim.test.ts` (claim success/error with mocked fetch). Lib suite + appeal still green.
+
+### Still NOT covered
+- Cold Redis claim → proof screen on production/local with KV (not exercised here).
+- Durable "juror already completed this favour" after reopen.
+- Broad jury redesign / money rails.

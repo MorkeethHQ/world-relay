@@ -16,6 +16,8 @@ vi.mock("@/lib/redis", () => ({
       s.add(member); mockSets.set(key, s); return added;
     },
     smembers: async (key: string) => Array.from(mockSets.get(key) || []),
+    sismember: async (key: string, member: string) =>
+      mockSets.get(key)?.has(member) ? 1 : 0,
     incr: async (key: string) => {
       const next = Number(mockStore.get(key) || 0) + 1;
       mockStore.set(key, next); return next;
@@ -38,7 +40,9 @@ vi.mock("@/lib/proof-of-favour", () => ({
   },
 }));
 
-import { composeDeck, issueJuryDeck, issueJurySession, recordJuryVerdict, juryPool, assessJuryAvailability, isJuryBridgeEligible, pickJuryBridgeFavour, JURY_DAILY_POINTS_CAP, JURY_COMPOSE_FLOOR } from "@/lib/jury";
+import { composeDeck, issueJuryDeck, issueJurySession, recordJuryVerdict, juryPool, assessJuryAvailability, isJuryBridgeEligible, isJuryBridgeClaimOfferable, pickJuryBridgeFavour, JURY_DAILY_POINTS_CAP, JURY_COMPOSE_FLOOR } from "@/lib/jury";
+import { juryAvailabilityCopy } from "@/lib/jury-availability-copy";
+import { recordSeededEarn } from "@/lib/seed-caps";
 
 const JUDGE = "0x" + "9".repeat(40);
 
@@ -306,11 +310,51 @@ describe("jury return bridge eligibility", () => {
     expect(session.bridgeFavour?.id).toBe("bridge-empty");
   });
 
-  it("pickJuryBridgeFavour returns at most one", () => {
+  it("pickJuryBridgeFavour returns at most one", async () => {
     const a = openBridgeFavour({ id: "a1" });
     const b = openBridgeFavour({ id: "b2" });
-    const pick = pickJuryBridgeFavour([a, b], JUDGE);
+    const pick = await pickJuryBridgeFavour([a, b], JUDGE);
     expect(pick).not.toBeNull();
     expect(["a1", "b2"]).toContain(pick!.id);
+  });
+
+  it("REFUSES seed-capped official points tasks at offer time (not only at claim)", async () => {
+    const seeded = openBridgeFavour({
+      id: "seed-bridge",
+      poster: "agent:relay",
+      agent: { id: "relay", name: "Relay" } as Task["agent"],
+    });
+    // Hit daily points seed cap (3) before offering.
+    for (let i = 0; i < 3; i++) {
+      await recordSeededEarn(seeded, JUDGE);
+    }
+    expect(isJuryBridgeEligible(seeded, JUDGE, [seeded])).toBe(true);
+    expect(await isJuryBridgeClaimOfferable(seeded, JUDGE, [seeded])).toBe(false);
+    expect(await pickJuryBridgeFavour([seeded], JUDGE)).toBeNull();
+  });
+
+  it("does not claim durable prior-completion coverage after reopen", () => {
+    // Store keeps one current row per id. An open favour after reopen has no
+    // completed twin — eligibility must not pretend history is recoverable.
+    const favour = openBridgeFavour({ id: "reopen-1", status: "open", claimant: null });
+    expect(isJuryBridgeEligible(favour, JUDGE, [favour])).toBe(true);
+  });
+});
+
+describe("jury availability copy (floor-accurate)", () => {
+  it("empty with one proof does not say no proofs", () => {
+    const c = juryAvailabilityCopy("empty", 1, 1);
+    expect(c.headline).toMatch(/not enough/i);
+    expect(c.detail).toMatch(/1/);
+    expect(c.detail).not.toMatch(/no eligible proofs to judge right now/i);
+    expect(c.bridgeHint).toMatch(/never includes your own/i);
+  });
+
+  it("exhausted with one leftover does not say every proof", () => {
+    const c = juryAvailabilityCopy("exhausted", 1, 2);
+    expect(c.detail).toMatch(/1 left/i);
+    expect(c.detail).not.toMatch(/every proof currently available/i);
+    expect(c.bridgeHint).not.toMatch(/including ones you do/i);
+    expect(c.bridgeHint).toMatch(/never unlocks your next deck/i);
   });
 });

@@ -2,6 +2,17 @@ import type { Task, TaskCategory } from "./types";
 import { getRedis } from "./redis";
 import { awardPoints } from "./proof-of-favour";
 import { isFunded, isRealMoney } from "./reward";
+import { checkSeedCap } from "./seed-caps";
+import {
+  JURY_COMPOSE_FLOOR as COPY_FLOOR,
+  juryAvailabilityCopy,
+  type JuryAvailability,
+} from "./jury-availability-copy";
+
+export { juryAvailabilityCopy };
+export type { JuryAvailability };
+// Keep compose floor single-sourced with client copy module.
+export const JURY_COMPOSE_FLOOR = COPY_FLOOR;
 
 // REAL OR NOT — the peer jury game (decision-log 2026-07-05 night).
 // One-tap/swipe verdicts on proofs: "does this photo actually match this
@@ -20,10 +31,6 @@ export const JURY_POINT_PER_CORRECT = 1;
 export const JURY_DAILY_POINTS_CAP = 20; // paid correct verdicts per day; play unlimited
 export const JURY_DECK_SIZE = 10;
 export const CARD_TTL_SECONDS = 2 * 3600;
-/** composeDeck refuses to build when fewer than this many eligible proofs remain. */
-export const JURY_COMPOSE_FLOOR = 2;
-
-export type JuryAvailability = "deck" | "exhausted" | "empty";
 
 export type JuryBridgeFavour = {
   id: string;
@@ -104,10 +111,15 @@ export function assessJuryAvailability(
 }
 
 /**
- * Server-side gate for the jury → points favour return bridge.
+ * Pure shape gate for the jury → points favour return bridge.
  * Every money / campaign / travel / ownership exclusion must hold.
+ *
+ * Does NOT claim durable "already completed by this juror" history: after
+ * reopen the store keeps one current row per task id, so a prior completion
+ * is not visible. Callers that need claim-time parity must also run
+ * {@link isJuryBridgeClaimOfferable} (seed cap + failed-claimant checks).
  */
-export function isJuryBridgeEligible(task: Task, judge: string | null, allTasks: Task[] = []): boolean {
+export function isJuryBridgeEligible(task: Task, judge: string | null, _allTasks: Task[] = []): boolean {
   if (task.status !== "open") return false;
   if (new Date(task.deadline).getTime() <= Date.now()) return false;
   if (task.rewardType !== "points") return false;
@@ -127,16 +139,27 @@ export function isJuryBridgeEligible(task: Task, judge: string | null, allTasks:
   const max = task.maxCompletions ?? 1;
   if ((task.completionCount || 0) >= max) return false;
   if (judge && task.poster?.toLowerCase() === judge.toLowerCase()) return false;
-  // Already completed by this juror (same task id still marked completed with them).
-  if (judge) {
-    const j = judge.toLowerCase();
-    if (
-      allTasks.some(
-        (t) => t.id === task.id && t.claimant?.toLowerCase() === j && t.status === "completed"
-      )
-    ) {
-      return false;
-    }
+  return true;
+}
+
+/**
+ * Non-mutating claim-offer check: shape gate + the same seed-cap and
+ * failed-claimant refusals claim uses before mutating. Safe to call when
+ * picking a bridge favour so the UI does not offer a task claim will refuse.
+ */
+export async function isJuryBridgeClaimOfferable(
+  task: Task,
+  judge: string | null,
+  allTasks: Task[] = []
+): Promise<boolean> {
+  if (!isJuryBridgeEligible(task, judge, allTasks)) return false;
+  if (!judge) return true;
+  const seedCap = await checkSeedCap(task, judge);
+  if (!seedCap.allowed) return false;
+  const redis = getRedis();
+  if (redis) {
+    const failed = await redis.sismember(`failed_claimants:${task.id}`, judge).catch(() => 0);
+    if (failed) return false;
   }
   return true;
 }
@@ -153,9 +176,15 @@ export function toJuryBridgeFavour(task: Task): JuryBridgeFavour {
   };
 }
 
-/** At most one eligible conversion favour, stable per judge. */
-export function pickJuryBridgeFavour(tasks: Task[], judge: string | null): JuryBridgeFavour | null {
-  const eligible = tasks.filter((t) => isJuryBridgeEligible(t, judge, tasks));
+/** At most one claim-offerable conversion favour, stable per judge. */
+export async function pickJuryBridgeFavour(
+  tasks: Task[],
+  judge: string | null
+): Promise<JuryBridgeFavour | null> {
+  const eligible: Task[] = [];
+  for (const t of tasks) {
+    if (await isJuryBridgeClaimOfferable(t, judge, tasks)) eligible.push(t);
+  }
   if (!eligible.length) return null;
   eligible.sort((a, b) => a.id.localeCompare(b.id));
   const idx = judge ? hash(judge.toLowerCase()) % eligible.length : 0;
@@ -189,6 +218,8 @@ export function composeDeck(
 export type JuryIssueResult = {
   cards: JuryCard[];
   availability: JuryAvailability;
+  eligibleCount: number;
+  baseCount: number;
   bridgeFavour: JuryBridgeFavour | null;
 };
 
@@ -221,7 +252,11 @@ export async function issueJurySession(
 ): Promise<JuryIssueResult> {
   const redis = getRedis();
   const judgedIds = await loadJudgedProofIds(judge);
-  const { availability } = assessJuryAvailability(tasks, judge, judgedIds);
+  const { availability, eligibleCount, baseCount } = assessJuryAvailability(
+    tasks,
+    judge,
+    judgedIds
+  );
 
   let pool = tasks;
   if (judgedIds.size) {
@@ -239,9 +274,9 @@ export async function issueJurySession(
   }
 
   const bridgeFavour =
-    availability === "deck" ? null : pickJuryBridgeFavour(tasks, judge);
+    availability === "deck" ? null : await pickJuryBridgeFavour(tasks, judge);
 
-  return { cards, availability, bridgeFavour };
+  return { cards, availability, eligibleCount, baseCount, bridgeFavour };
 }
 
 // Shared with lib/jury-appeal.ts so appeal cards live in the same opaque
