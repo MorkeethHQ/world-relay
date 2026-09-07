@@ -15,6 +15,25 @@ here instead of the vault. Paste or move it in if you want it there.
 
 No emergency. All four core endpoints up.
 
+## Cron signals (read from scripts/.ops-cron.log, scripts/.watch-cron.log)
+
+- `.ops-cron.log`: last successful run 2026-09-06 06:10 UTC (file mtime
+  2026-09-06 08:10). Alerts: "no known issue" both that day and the day
+  before. Money numbers flat and small: escrow contract $2.00, relayer
+  $28.06, funding wallet $3.48, 0 open funded tasks, 0 settlements pending.
+  No 2026-09-07 entry yet in the log as of this shift, consistent with the
+  daily cron simply not having fired yet rather than a failure, but I have
+  not confirmed which.
+- `.watch-cron.log`: file mtime 2026-09-07 04:50, so this is today's data.
+  Every hourly run ends in two caught, non-fatal errors: "ticker history
+  read failed" and "ticker write failed", both `errno: -11` on the vault
+  path `.../00 Dashboard/favour-live.md`. Same failure shape appears
+  repeatedly through the log's history, not new tonight. It is swallowed
+  ("continuing without it") so nothing downstream breaks, which is exactly
+  the silent-failure shape: the live ticker dashboard in the vault has
+  likely not been updating for a while and nothing surfaces that on its own
+  screen. Not a money-path issue. Worth a look.
+
 ## Build/test
 
 - `npx tsc --noEmit`: clean, no errors (includes the uncommitted
@@ -24,8 +43,14 @@ No emergency. All four core endpoints up.
   (Node 20.12+). `.vercel/project.json` pins production to `"nodeVersion":
   "24.x"`, confirmed from that file, not assumed. No `.nvmrc` in the repo.
   This is a shell/env mismatch, not a code regression. I could not identify
-  or switch to a working node binary from inside this sandbox (probing
-  `$HOME`, nvm, homebrew were all denied). **I did not run the test suite
+  or switch to a working node binary from inside this sandbox: probing
+  `$HOME`, nvm, and homebrew were all denied by the sandbox, so I never
+  confirmed *why* it resolves to 16.15 (unverified). Best guess, also
+  unverified: a non-interactive shell like this one may not source the
+  rc file where a version manager sets the default, so it falls back to
+  whatever `/usr/local/bin/node` is. If that guess is right, pinning
+  `.nvmrc` alone will not fix an unattended run; the shell also needs to
+  load whatever sets node's default. **I did not run the test suite
   tonight. Nothing below was verified by tests, only by tsc and live curl.**
 - `npx next build`: not run, given the above and the turn/time budget.
 
@@ -38,8 +63,10 @@ No emergency. All four core endpoints up.
    entirely. Compiles clean under tsc. Could not run `board-rank.test.ts`
    against it (see vitest issue above), and board logic is explicitly gated
    in CLAUDE.md ("never tweak board logic inline, change the rules, code,
-   and test together"). Left as is on `main`, untouched, uncommitted. Do not
-   assume it is finished or correct, I have no test signal on it either way.
+   and test together"). Untouched, still uncommitted in the working tree.
+   It carries across branches, including this one, until someone commits,
+   stashes, or discards it. Do not assume it is finished or correct, I have
+   no test signal on it either way.
 2. No TODO/FIXME markers in `src/`. No flaky-test or lint-bug leads to chase
    without a working test runner.
 3. Last 3 commits (`aac00fd`, `11c5225`, `a433b67`), campaign copy/colour
