@@ -213,11 +213,12 @@ export function Onboarding({
             <h1 className="text-[64px] font-bold tracking-tight text-gray-900 leading-none animate-[countUp_0.6s_ease-out]">
               FAVOUR
             </h1>
-            <Typography variant="body" level={2} className="text-gray-500 max-w-[260px]">
-              Pick a small task, do it, send proof, earn points.
+            <Typography variant="body" level={2} className="text-gray-500 max-w-[280px]">
+              Companies ask for small real-world favours. You do them and send proof.
             </Typography>
-            <Typography variant="body" level={4} className="text-gray-400 max-w-[280px] mt-1">
-              A favour is a quick real-world ask — like photographing a shelf or sharing an honest opinion.
+            <Typography variant="body" level={4} className="text-gray-400 max-w-[290px] mt-1">
+              A favour is a quick real-world ask: photograph a shelf, check whether a
+              shop is open, give an honest opinion. Most take a few minutes.
             </Typography>
             <div className="flex items-center gap-3 mt-1">
               <span className="text-[11px] text-gray-300 uppercase tracking-widest">Favours</span>
@@ -236,14 +237,15 @@ export function Onboarding({
                 How it works
               </Typography>
               <Typography variant="body" level={3} className="text-gray-500">
-                Someone posts a small task. You do it, send proof, earn points when it passes.
+                A company or an individual posts an ask, often as a campaign they
+                repeat. You do it, send proof, and earn when it passes.
               </Typography>
             </div>
             <div className="flex flex-col gap-3">
               {[
-                { icon: <IconHandshake />, title: "Pick a favour", body: "Choose something quick from the board — opinions and check-ins are easiest." },
+                { icon: <IconHandshake />, title: "Pick a favour", body: "Someone needs it checked, photographed or answered. Opinions and check-ins are the quickest." },
                 { icon: <IconPoll />, title: "Do it & send proof", body: "Follow the steps, write an answer or snap a photo, and submit." },
-                { icon: <IconCoin />, title: "Earn points", body: "AI checks your proof. Pass = points land in your account." },
+                { icon: <IconCoin />, title: "Earn", body: "AI checks your proof. A pass earns points, and campaigns with a funded pot also pay USDC to Orb-verified humans." },
               ].map((row, i) => (
                 <div
                   key={row.title}

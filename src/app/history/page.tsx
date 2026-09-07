@@ -41,7 +41,21 @@ export default function HistoryPage() {
       </div>
 
       <div className="px-6 py-4 pb-28 flex flex-col gap-4">
-        {/* Platform totals — the proof-of-life numbers */}
+        {/* Platform totals: real measured numbers from /api/stats. Presentation
+            only. When every total is still zero, a wall of three zeros says
+            nothing true that a sentence cannot say better, so say the sentence.
+            The numbers themselves are never rounded up or invented. */}
+        {(stats.volume?.paidOutUsdc ?? 0) === 0 &&
+        (stats.volume?.pointsDistributed ?? 0) === 0 &&
+        (stats.users?.reached ?? stats.users?.verified ?? 0) === 0 ? (
+          <div className="bg-gray-950 rounded-2xl p-5 text-white">
+            <p className="text-[14px] font-semibold leading-snug">Nothing has been paid out yet</p>
+            <p className="text-[12px] text-white/50 mt-1 leading-relaxed">
+              Totals appear here once favours start completing. They are counted,
+              never estimated.
+            </p>
+          </div>
+        ) : (
         <div className="bg-gray-950 rounded-2xl p-5 text-white flex items-center justify-between">
           <div>
             <p className="text-[22px] font-bold leading-none">${(stats.volume?.paidOutUsdc ?? 0).toFixed(0)}</p>
@@ -56,13 +70,20 @@ export default function HistoryPage() {
             <p className="text-[11px] text-white/50 mt-1">people reached</p>
           </div>
         </div>
+        )}
 
         {loading ? (
           <div className="flex justify-center py-16">
             <div className="w-7 h-7 border-2 border-gray-200 border-t-gray-900 rounded-full animate-spin" />
           </div>
         ) : tasks.length === 0 ? (
-          <p className="text-sm text-gray-400 text-center py-16">No completed favours yet.</p>
+          <div className="text-center py-16 px-6">
+            <p className="text-sm font-medium text-gray-600">No completed favours yet</p>
+            <p className="text-[13px] text-gray-400 mt-1.5 leading-relaxed max-w-[34ch] mx-auto">
+              This page lists favours after their proof has passed. The first one
+              to pass shows up here, with the photo that proved it.
+            </p>
+          </div>
         ) : (
           <div className="flex flex-col gap-2.5">
             {tasks.map((task) => (

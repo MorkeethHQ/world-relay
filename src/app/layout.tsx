@@ -16,11 +16,11 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   title: "FAVOUR",
-  description: "Ask favours, complete tasks, earn USDC. AI verifies everything instantly. Inside World App.",
+  description: "Companies ask for small real-world favours. Verified people do them and send proof. Inside World App.",
   metadataBase: new URL("https://world-relay.vercel.app"),
   openGraph: {
     title: "FAVOUR",
-    description: "Ask favours, complete tasks, earn USDC. AI verifies everything. Inside World App.",
+    description: "Companies ask for small real-world favours. Verified people do them and send proof. Inside World App.",
     images: [{ url: "/og-image.png", width: 1035, height: 720, alt: "FAVOUR" }],
     type: "website",
     siteName: "FAVOUR",
@@ -28,7 +28,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "FAVOUR",
-    description: "Ask favours, complete tasks, earn USDC. AI verifies everything. Inside World App.",
+    description: "Companies ask for small real-world favours. Verified people do them and send proof. Inside World App.",
     images: ["/og-image.png"],
   },
 };

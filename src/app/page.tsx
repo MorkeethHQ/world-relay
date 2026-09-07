@@ -196,22 +196,49 @@ export default function Home() {
 
   if (!userId) {
     return (
-      <div className="flex flex-col min-h-screen max-w-lg mx-auto w-full bg-white items-center justify-between px-6 py-16">
+      <div className="flex flex-col min-h-screen max-w-lg mx-auto w-full bg-white items-center justify-between px-6 py-12">
         <div />
 
         <div className="flex flex-col items-center gap-4 w-full max-w-sm">
-          <h1 className="text-[56px] font-bold tracking-tight text-gray-900 leading-none animate-[countUp_0.6s_ease-out]">
+          <h1 className="text-[48px] font-bold tracking-tight text-gray-900 leading-none animate-[countUp_0.6s_ease-out]">
             FAVOUR
           </h1>
-          <p className="text-[15px] text-gray-400 text-center leading-relaxed max-w-[240px] animate-[fadeSlideIn_0.5s_ease-out_0.2s_both]">
-            Real tasks. Real people.<br />Verified on-chain.
+          <p className="text-[15px] text-gray-600 text-center leading-relaxed max-w-[300px] animate-[fadeSlideIn_0.5s_ease-out_0.2s_both]">
+            Companies ask for small real-world favours. Verified people do them
+            and send proof.
           </p>
-          <div className="flex items-center gap-3 mt-2 animate-[fadeSlideIn_0.5s_ease-out_0.4s_both]">
-            <span className="text-[11px] text-gray-300 uppercase tracking-widest">Tasks</span>
-            <span className="w-1 h-1 rounded-full bg-gray-200" />
-            <span className="text-[11px] text-gray-300 uppercase tracking-widest">Polls</span>
-            <span className="w-1 h-1 rounded-full bg-gray-200" />
-            <span className="text-[11px] text-gray-300 uppercase tracking-widest">Campaigns</span>
+
+          {/* Both sides of the exchange, named. A stranger has to be able to
+              tell which one they are before they tap anything. */}
+          <div className="w-full flex flex-col gap-2.5 mt-2 animate-[fadeSlideIn_0.5s_ease-out_0.35s_both]">
+            <div className="rounded-2xl border border-gray-200 bg-white px-4 py-3.5 text-left">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">
+                If you need something done
+              </p>
+              <p className="text-[14px] font-semibold text-gray-900 mt-1.5 leading-snug">
+                Post an ask and get proof back.
+              </p>
+              <p className="text-[13px] text-gray-500 mt-1 leading-relaxed">
+                Describe what you need, set the reward, and a real person does it
+                and sends proof. AI checks every proof before it counts, and a human
+                jury settles the close calls. Post the same ask again whenever you
+                need it answered again. Companies run their recurring asks here as
+                campaigns.
+              </p>
+            </div>
+            <div className="rounded-2xl border border-gray-200 bg-white px-4 py-3.5 text-left">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">
+                If you want to do the work
+              </p>
+              <p className="text-[14px] font-semibold text-gray-900 mt-1.5 leading-snug">
+                Pick an open favour, do it, send proof.
+              </p>
+              <p className="text-[13px] text-gray-500 mt-1 leading-relaxed">
+                Most take a few minutes: a photo, a check-in, an honest opinion.
+                A proof that passes earns points. Campaigns with a funded pot also
+                pay USDC to Orb-verified humans.
+              </p>
+            </div>
           </div>
         </div>
 

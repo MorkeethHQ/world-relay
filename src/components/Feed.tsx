@@ -124,10 +124,14 @@ function StarterFavourBanner({
 function EmptyBoardTeach({ onPost }: { onPost: () => void }) {
   return (
     <div className="flex flex-col gap-4 px-6 py-8 animate-[fadeSlideIn_0.4s_ease-out]">
+      {/* Honest empty state first. The board being empty is the fact; the
+          labelled example below is an explainer, not a listing. Never let the
+          empty state fill itself with something that reads like real stock. */}
       <div>
-        <p className="text-[15px] font-semibold text-gray-900">This is a favour</p>
+        <p className="text-[15px] font-semibold text-gray-900">No favours are open right now</p>
         <p className="text-[13px] text-gray-500 mt-1 leading-relaxed">
-          Someone asks for a small real-world task. You do it, send proof, and earn points when it passes.
+          The board fills when someone posts an ask or a company opens a campaign.
+          Nothing below is a real listing. Here is what one looks like.
         </p>
       </div>
       <div className="rounded-2xl p-4 flex flex-col gap-3 bg-white border border-gray-200">
@@ -157,7 +161,7 @@ function EmptyBoardTeach({ onPost }: { onPost: () => void }) {
         Post a favour (about 1 min)
       </Button>
       <p className="text-[12px] text-gray-400 text-center leading-relaxed">
-        Points favours are free to post. Or check back soon — new favours land twice a day.
+        Points favours are free to post. Or check back later, once a campaign is live.
       </p>
     </div>
   );
