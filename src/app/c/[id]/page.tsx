@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getCampaign } from "@/lib/campaigns";
+import { CAMPAIGNS, getCampaign } from "@/lib/campaigns";
 import { rewardAmountLabel } from "@/lib/reward";
 
 // ---------------------------------------------------------------------------
@@ -21,7 +21,11 @@ import { rewardAmountLabel } from "@/lib/reward";
 // surface. Decoration next to a claim reads as evidence for the claim.
 // ---------------------------------------------------------------------------
 
-export const dynamic = "force-static";
+// The campaign list is a const, so every proposition page can be built ahead of
+// time. force-static without this was a claim the build could not honour.
+export function generateStaticParams() {
+  return CAMPAIGNS.map((c) => ({ id: c.id }));
+}
 
 function Chip({ children }: { children: React.ReactNode }) {
   return (

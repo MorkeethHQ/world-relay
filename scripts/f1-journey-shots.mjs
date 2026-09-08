@@ -9,7 +9,11 @@
 // MemoryRedis and no task this script creates can reach a real record:
 //
 //   KV_REST_API_URL= KV_REST_API_TOKEN= FAVOUR_MEMORY_STORE=1 npx next dev -p 3011
-//   node scripts/f1-journey-shots.mjs
+//   ADMIN_SECRET=$(grep '^ADMIN_SECRET=' .env.local | cut -d= -f2-) \
+//     node scripts/f1-journey-shots.mjs
+//
+// ADMIN_SECRET is required: the real one-favour-per-poster-per-day cap in
+// api/tasks refuses the second POST without the seed-secret path.
 //
 // The script refuses to run if the board already holds tasks, which is the
 // cheapest available signal that it is talking to a populated (real) store.
