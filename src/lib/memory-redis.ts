@@ -64,6 +64,14 @@ export class MemoryRedis {
     return l;
   }
 
+  private sortedSetOf(key: string): Map<string, number> {
+    const e = this.live(key);
+    if (e && e.value instanceof Map) return e.value as Map<string, number>;
+    const z = new Map<string, number>();
+    this.setRaw(key, z);
+    return z;
+  }
+
   // --- strings ---
   async set(key: string, value: unknown, opts?: { nx?: boolean; ex?: number; px?: number }) {
     if (opts?.nx && this.live(key)) return null;
@@ -251,9 +259,12 @@ export class MemoryRedis {
     return api;
   }
 
-  // Not implemented on purpose. A wrong empty answer is worse than a throw.
-  async eval(): Promise<never> {
-    throw new Error("MemoryRedis: eval is not implemented");
+  // Exact compare-and-delete shape used by the points write lock. Any other
+  // script still fails loudly rather than pretending to be Redis.
+  async eval(_script: string, keys: string[], args: string[]) {
+    if (keys.length !== 1 || args.length !== 1) throw new Error("MemoryRedis: eval shape is not implemented");
+    if (await this.get(keys[0]) !== args[0]) return 0;
+    return this.del(keys[0]);
   }
 
   async call(): Promise<never> {
@@ -264,8 +275,11 @@ export class MemoryRedis {
     throw new Error("MemoryRedis: scan is not implemented");
   }
 
-  async zincrby(): Promise<never> {
-    throw new Error("MemoryRedis: zincrby is not implemented");
+  async zincrby(key: string, increment: number, member: string) {
+    const z = this.sortedSetOf(key);
+    const next = (z.get(member) ?? 0) + increment;
+    z.set(member, next);
+    return next;
   }
 }
 
@@ -278,12 +292,22 @@ export function memoryStoreRequested(env: NodeJS.ProcessEnv = process.env): bool
   return true;
 }
 
-let instance: MemoryRedis | null = null;
+// Deterministic browser journeys may ask the isolated store to accept proof.
+// Three conditions make this impossible against production or real KV.
+export function deterministicLocalProofEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+  return env.NODE_ENV !== "production" && env.FAVOUR_LOCAL_PROOF_PASS === "1" && memoryStoreRequested(env);
+}
+
+// Next compiles route handlers and server pages as separate module graphs in
+// development. A module-local singleton made POST /api/campaigns succeed while
+// /c/[id] read a different empty store and returned 404. Global scope is still
+// process-local and is the correct boundary for this explicitly local store.
+const memoryGlobal = globalThis as typeof globalThis & { __favourMemoryRedis?: MemoryRedis };
 
 export function getMemoryRedis(env: NodeJS.ProcessEnv = process.env): MemoryRedis {
   if (env.NODE_ENV === "production") {
     throw new Error("MemoryRedis must never back a production deployment");
   }
-  if (!instance) instance = new MemoryRedis();
-  return instance;
+  if (!memoryGlobal.__favourMemoryRedis) memoryGlobal.__favourMemoryRedis = new MemoryRedis();
+  return memoryGlobal.__favourMemoryRedis;
 }

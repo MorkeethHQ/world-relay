@@ -2,6 +2,7 @@
 
 import { Fragment, useState, useEffect, useCallback, useRef, useMemo } from "react";
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { MiniKit } from "@worldcoin/minikit-js";
 import type { Task, AgentInfo } from "@/lib/types";
 import {
@@ -394,7 +395,7 @@ type Tab = "available" | "polls" | "mine" | "completed";
 
 const RELAY_BOT_ADDRESS = "0x1101158041fd96f21cbcbb0e752a9a2303e6d70e";
 
-export function Feed({ userId, verificationLevel, onLogout, onReauth, initialCampaignId }: { userId: string | null; verificationLevel?: string | null; onLogout?: () => void; onReauth?: () => void; initialCampaignId?: string | null }) {
+export function Feed({ userId, verificationLevel, onLogout, onReauth, initialCampaignId, initialTaskId }: { userId: string | null; verificationLevel?: string | null; onLogout?: () => void; onReauth?: () => void; initialCampaignId?: string | null; initialTaskId?: string | null }) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [view, setView] = useState<"board" | "post" | "proof" | "detail" | "campaign" | "jury">("board");
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -848,6 +849,16 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth, initialCam
     setView("campaign");
   }, [initialCampaignId]);
 
+  const taskDeepLinkedRef = useRef(false);
+  useEffect(() => {
+    if (taskDeepLinkedRef.current || !initialTaskId || tasks.length === 0) return;
+    const task = tasks.find((candidate) => candidate.id === initialTaskId);
+    if (!task) return;
+    taskDeepLinkedRef.current = true;
+    setSelectedTask(task);
+    setView("detail");
+  }, [initialTaskId, tasks]);
+
   const openQuickPost = () => {
     hapticTap();
     setPostQuickTemplate(5); // Quick opinion — online, 1 pt, fastest path
@@ -907,12 +918,15 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth, initialCam
         <div className="flex items-center justify-between px-6 py-3">
           <h1 className="text-[18px] font-bold tracking-tight text-gray-900">FAVOUR</h1>
           {userId && (
-            <button
-              onClick={() => { hapticTap(); setPostCampaignId(null); setView("post"); }}
-              className="bg-gray-900 text-white text-[13px] font-semibold px-4 py-2 rounded-full active:scale-95 transition-transform min-h-[36px]"
-            >
-              + New
-            </button>
+            <div className="flex items-center gap-2">
+              <Link href="/c/new" className="min-h-[36px] rounded-full border border-gray-200 px-3 py-2 text-[12px] font-semibold text-gray-700 active:scale-95">Campaign</Link>
+              <button
+                onClick={() => { hapticTap(); setPostCampaignId(null); setView("post"); }}
+                className="bg-gray-900 text-white text-[13px] font-semibold px-4 py-2 rounded-full active:scale-95 transition-transform min-h-[36px]"
+              >
+                + New
+              </button>
+            </div>
           )}
         </div>
       </div>

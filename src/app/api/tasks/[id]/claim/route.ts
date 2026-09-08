@@ -10,6 +10,8 @@ import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { trackEvent } from "@/lib/track";
 import { checkSeedCap } from "@/lib/seed-caps";
 import { getUserVerificationLevel, tierGateError } from "@/lib/verification-tier";
+import { getCampaignById } from "@/lib/campaign-store";
+import { getAuthedAddress, addressMatches } from "@/lib/session";
 
 export async function POST(
   req: NextRequest,
@@ -33,6 +35,14 @@ export async function POST(
   const task = await getTask(id);
   if (!task) {
     return NextResponse.json({ error: "Task not found" }, { status: 404 });
+  }
+
+  // Requester-created campaigns buy a bounded exemption from the normal post
+  // cap only in return for verified, independent participants. Do not let a
+  // caller fill slots by typing another wallet into the public body field.
+  const requesterCampaign = task.campaignId ? await getCampaignById(task.campaignId) : null;
+  if (requesterCampaign?.owner && !addressMatches(getAuthedAddress(req, Date.now()), claimant)) {
+    return NextResponse.json({ error: "A signed wallet session is required for campaign work." }, { status: 403 });
   }
 
   if (task.claimCode && task.claimCode !== claimCode) {

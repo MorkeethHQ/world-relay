@@ -8,7 +8,7 @@ import { recordFavourPosted } from "@/lib/proof-of-favour";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { sanitizeInput } from "@/lib/sanitize";
 import { trackEvent } from "@/lib/track";
-import { getCampaign } from "@/lib/campaigns";
+import { getCampaignById } from "@/lib/campaign-store";
 import { isEscrowTaskFunded } from "@/lib/escrow";
 import { isTemplateCopy, MIN_DESCRIPTION_LENGTH } from "@/lib/post-templates";
 import { gibberishReason } from "@/lib/post-quality";
@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
 
   // Only accept a campaignId that maps to a real campaign; ignore anything else
   // so a task can't be linked to a non-existent campaign.
-  const validCampaignId = campaignId && getCampaign(campaignId) ? campaignId : undefined;
+  const validCampaignId = campaignId && await getCampaignById(campaignId) ? campaignId : undefined;
 
   // Sanitize text inputs
   const description = sanitizeInput(body.description || "", 500);

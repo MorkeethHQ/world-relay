@@ -7,6 +7,20 @@ export type { Task, TaskStatus, TaskCategory };
 
 const TASK_PREFIX = "task:";
 const TASK_LIST_KEY = "task_ids";
+const COMPLETED_CLAIMANTS_PREFIX = "completed_claimants:";
+const COMPLETION_HISTORY_PREFIX = "task:completions:";
+
+export type TaskCompletion = {
+  taskId: string;
+  campaignId: string | null;
+  claimant: string;
+  proofImageUrl: string | null;
+  proofNote: string | null;
+  reasoning: string;
+  confidence: number;
+  verifiedAt: string;
+  cycle: number;
+};
 
 async function persistTask(task: Task): Promise<void> {
   const redis = getRedis();
@@ -170,6 +184,9 @@ export async function createTask(input: {
 
 export async function spawnRecurringTask(completedTask: Task): Promise<Task | null> {
   if (!completedTask.recurring) return null;
+  // A multi-completion cycle reopens the SAME task after each accepted proof.
+  // The next cycle starts only after the current target is full.
+  if (completedTask.status !== "completed") return null;
   const newCompletedRuns = completedTask.recurring.completedRuns + 1;
 
   completedTask.recurring.completedRuns = newCompletedRuns;
@@ -187,6 +204,10 @@ export async function spawnRecurringTask(completedTask: Task): Promise<Task | nu
     bountyUsdc: completedTask.bountyUsdc,
     deadlineHours: completedTask.recurring.intervalHours,
     agentId: completedTask.agent?.id || null,
+    campaignId: completedTask.campaignId,
+    rewardType: completedTask.rewardType,
+    maxCompletions: completedTask.maxCompletions,
+    requiresClaim: completedTask.requiresClaim,
     recurring: {
       intervalHours: completedTask.recurring.intervalHours,
       totalRuns: completedTask.recurring.totalRuns,
@@ -286,6 +307,10 @@ export async function claimTask(
     const task = await getTask(id);
     if (!task || task.status !== "open") return null;
     if (task.poster === claimant) return null;
+    // Campaign slots are independent human completions. The same wallet cannot
+    // fill two positions in one cycle, including through the direct-proof path.
+    const alreadyCompleted = await redis.sismember(`${COMPLETED_CLAIMANTS_PREFIX}${id}`, claimant);
+    if (alreadyCompleted) return null;
     // Reject if this claimant previously failed verification on this task
     const hasFailed = await redis.sismember(`failed_claimants:${id}`, claimant);
     if (hasFailed) return null;
@@ -318,6 +343,10 @@ export async function submitProof(
     const task = await getTask(id);
     if (!task) return null;
     if (task.status !== "open" && task.status !== "claimed") return null;
+    if (submitter && redis) {
+      const alreadyCompleted = await redis.sismember(`${COMPLETED_CLAIMANTS_PREFIX}${id}`, submitter);
+      if (alreadyCompleted) return null;
+    }
     if (task.status === "open") {
       // An open task has no claimant yet. Proof may attach only if the submitter
       // is claiming it in the same step (verify-proof always passes a submitter;
@@ -346,6 +375,27 @@ export async function completeTask(
   if (!task) return null;
   task.verificationResult = result;
   if (result.verdict === "pass") {
+    // Preserve the accepted work before a multi-completion task clears its
+    // claimant and proof for the next person. The requester dashboard reads
+    // this history; completionCount alone is not a usable result.
+    const redis = getRedis();
+    if (redis && task.claimant) {
+      const completion: TaskCompletion = {
+        taskId: task.id,
+        campaignId: task.campaignId ?? null,
+        claimant: task.claimant,
+        proofImageUrl: task.proofImageUrl,
+        proofNote: task.proofNote,
+        reasoning: result.reasoning,
+        confidence: result.confidence,
+        verifiedAt: new Date().toISOString(),
+        cycle: (task.recurring?.completedRuns ?? 0) + 1,
+      };
+      await Promise.all([
+        redis.sadd(`${COMPLETED_CLAIMANTS_PREFIX}${id}`, task.claimant),
+        redis.lpush(`${COMPLETION_HISTORY_PREFIX}${id}`, JSON.stringify(completion)),
+      ]);
+    }
     task.completionCount = (task.completionCount || 0) + 1;
     if (task.maxCompletions > 1 && task.completionCount < task.maxCompletions) {
       task.status = "open";
@@ -374,6 +424,13 @@ export async function completeTask(
   }
   await persistTask(task);
   return task;
+}
+
+export async function listTaskCompletions(id: string): Promise<TaskCompletion[]> {
+  const redis = getRedis();
+  if (!redis) return [];
+  const rows = await redis.lrange(`${COMPLETION_HISTORY_PREFIX}${id}`, 0, -1);
+  return rows.map((row) => (typeof row === "string" ? JSON.parse(row) : row) as TaskCompletion);
 }
 
 // Settlement state helpers. A funded "pass" is marked settlement-pending until

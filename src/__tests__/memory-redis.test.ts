@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { MemoryRedis, memoryStoreRequested } from "@/lib/memory-redis";
+import { MemoryRedis, memoryStoreRequested, deterministicLocalProofEnabled } from "@/lib/memory-redis";
 
 // The local store must be impossible to switch on by accident. It is a demo and
 // test harness, and a machine holding production KV credentials must never fall
@@ -22,6 +22,32 @@ describe("memoryStoreRequested", () => {
 
   it("is on only with the flag and no KV credentials", () => {
     expect(memoryStoreRequested({ FAVOUR_MEMORY_STORE: "1" } as unknown as NodeJS.ProcessEnv)).toBe(true);
+  });
+});
+
+describe("deterministicLocalProofEnabled", () => {
+  it("requires the explicit isolated-store triple gate", () => {
+    expect(deterministicLocalProofEnabled({ NODE_ENV: "development", FAVOUR_MEMORY_STORE: "1", FAVOUR_LOCAL_PROOF_PASS: "1" } as NodeJS.ProcessEnv)).toBe(true);
+    expect(deterministicLocalProofEnabled({ NODE_ENV: "production", FAVOUR_MEMORY_STORE: "1", FAVOUR_LOCAL_PROOF_PASS: "1" } as NodeJS.ProcessEnv)).toBe(false);
+    expect(deterministicLocalProofEnabled({ NODE_ENV: "development", FAVOUR_MEMORY_STORE: "1", FAVOUR_LOCAL_PROOF_PASS: "1", KV_REST_API_URL: "live", KV_REST_API_TOKEN: "secret" } as NodeJS.ProcessEnv)).toBe(false);
+    expect(deterministicLocalProofEnabled({ NODE_ENV: "development", FAVOUR_MEMORY_STORE: "1" } as NodeJS.ProcessEnv)).toBe(false);
+  });
+});
+
+describe("commands required by the isolated completion path", () => {
+  it("releases a lock only when its token still owns it", async () => {
+    const redis = new MemoryRedis();
+    await redis.set("lock", "mine");
+    expect(await redis.eval("compare-and-delete", ["lock"], ["other"])).toBe(0);
+    expect(await redis.get("lock")).toBe("mine");
+    expect(await redis.eval("compare-and-delete", ["lock"], ["mine"])).toBe(1);
+    expect(await redis.get("lock")).toBeNull();
+  });
+
+  it("increments a weekly score for the same member", async () => {
+    const redis = new MemoryRedis();
+    expect(await redis.zincrby("weekly", 5, "wallet")).toBe(5);
+    expect(await redis.zincrby("weekly", 3, "wallet")).toBe(8);
   });
 });
 
@@ -51,6 +77,6 @@ describe("MemoryRedis", () => {
 
   it("throws rather than faking an unimplemented command", async () => {
     const r = new MemoryRedis();
-    await expect(r.eval()).rejects.toThrow(/not implemented/);
+    await expect(r.eval("unsupported", [], [])).rejects.toThrow(/not implemented/);
   });
 });

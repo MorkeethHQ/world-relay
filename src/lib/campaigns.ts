@@ -21,6 +21,22 @@ export type Campaign = {
   location: string;
   endsAt: string;
   featured: boolean;
+  /** Verified wallet that created a requester campaign. Absent on editorial campaigns. */
+  owner?: string;
+  /** When this requester campaign was created. */
+  createdAt?: string;
+  /** Requester-authored media. Absent renders an explicit no-media state. */
+  media?: {
+    url: string;
+    alt: string;
+    source: "requester-upload";
+  };
+  /** Server-enforced recurring campaign policy. Points only. */
+  cadence?: {
+    completionsPerCycle: number;
+    intervalHours: number;
+    totalCycles: number;
+  };
   // Campaign-unlock mechanic (see BOARD-RULES.md sibling doc + campaign-unlock.ts).
   // Present only on campaigns with a real funded pot. All four fields required
   // together: pot is a HARD cap in USDC; a user unlocks unlockAmount once, after

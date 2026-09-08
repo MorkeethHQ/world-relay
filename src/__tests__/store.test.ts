@@ -1,9 +1,10 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { createTask, getTask, listTasks, claimTask, submitProof, completeTask } from "@/lib/store";
+import { createTask, getTask, listTasks, claimTask, submitProof, completeTask, listTaskCompletions, spawnRecurringTask } from "@/lib/store";
 
 // Mock Redis with an in-memory implementation for tests
 const mockStore = new Map<string, string>();
 const mockSets = new Map<string, Set<string>>();
+const mockLists = new Map<string, string[]>();
 
 vi.mock("@/lib/redis", () => ({
   getRedis: () => ({
@@ -21,6 +22,16 @@ vi.mock("@/lib/redis", () => ({
     smembers: async (key: string) => Array.from(mockSets.get(key) || []),
     sismember: async (key: string, member: string) => (mockSets.get(key)?.has(member) ? 1 : 0),
     srem: async (key: string, member: string) => { mockSets.get(key)?.delete(member); },
+    lpush: async (key: string, value: string) => {
+      const list = mockLists.get(key) || [];
+      list.unshift(value);
+      mockLists.set(key, list);
+      return list.length;
+    },
+    lrange: async (key: string, start: number, stop: number) => {
+      const list = mockLists.get(key) || [];
+      return list.slice(start, stop < 0 ? undefined : stop + 1);
+    },
     pipeline: () => {
       const ops: Array<() => any> = [];
       return {
@@ -36,6 +47,7 @@ vi.mock("@/lib/redis", () => ({
 beforeEach(() => {
   mockStore.clear();
   mockSets.clear();
+  mockLists.clear();
 });
 
 describe("createTask", () => {
@@ -104,6 +116,47 @@ describe("createTask", () => {
 
     expect(task.onChainId).toBe(23);
     expect(task.escrowTxHash).toBe("0xabc123");
+  });
+});
+
+describe("recurring campaign cycle", () => {
+  it("fills with different wallets, preserves results, then opens the next cycle", async () => {
+    const task = await createTask({
+      poster: "requester",
+      description: "Test this week's release and report the first broken promise",
+      location: "Online",
+      bountyUsdc: 5,
+      deadlineHours: 168,
+      rewardType: "points",
+      maxCompletions: 2,
+      campaignId: "weekly-release",
+      recurring: { intervalHours: 168, totalRuns: 3 },
+    });
+
+    expect(await claimTask(task.id, "person-a", "wallet")).not.toBeNull();
+    await submitProof(task.id, null, "The export button returns an empty file.", null, "person-a", "wallet");
+    const first = await completeTask(task.id, { verdict: "pass", reasoning: "Specific reproducible result", confidence: 0.9 });
+    expect(first).toMatchObject({ status: "open", completionCount: 1 });
+    expect(await claimTask(task.id, "person-a", "wallet")).toBeNull();
+
+    expect(await claimTask(task.id, "person-b", "wallet")).not.toBeNull();
+    await submitProof(task.id, null, "The result disappeared after refresh.", null, "person-b", "wallet");
+    const full = await completeTask(task.id, { verdict: "pass", reasoning: "Independent second result", confidence: 0.88 });
+    expect(full).toMatchObject({ status: "completed", completionCount: 2 });
+
+    const history = await listTaskCompletions(task.id);
+    expect(history).toHaveLength(2);
+    expect(new Set(history.map((row) => row.claimant))).toEqual(new Set(["person-a", "person-b"]));
+    expect(history.map((row) => row.proofNote)).toContain("The export button returns an empty file.");
+
+    const next = await spawnRecurringTask(full!);
+    expect(next).toMatchObject({
+      status: "open",
+      campaignId: "weekly-release",
+      rewardType: "points",
+      maxCompletions: 2,
+      recurring: { completedRuns: 1, totalRuns: 3, intervalHours: 168 },
+    });
   });
 });
 

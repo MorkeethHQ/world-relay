@@ -23,6 +23,9 @@ import { recordCampaignCompletion } from "@/lib/campaign-unlock";
 import { getCampaign } from "@/lib/campaigns";
 import { isRealMoney, hasOnChainEscrow } from "@/lib/reward";
 import { recordReferralActivation } from "@/lib/referral";
+import { getCampaignById } from "@/lib/campaign-store";
+import { getAuthedAddress, addressMatches } from "@/lib/session";
+import { deterministicLocalProofEnabled } from "@/lib/memory-redis";
 
 export const maxDuration = 60;
 
@@ -139,6 +142,11 @@ export async function POST(req: NextRequest) {
   const task = await getTask(taskId);
   if (!task) {
     return NextResponse.json({ error: "Task not found" }, { status: 404 });
+  }
+
+  const requesterCampaign = task.campaignId ? await getCampaignById(task.campaignId) : null;
+  if (!demoMode && requesterCampaign?.owner && !addressMatches(getAuthedAddress(req, Date.now()), submitter)) {
+    return NextResponse.json({ error: "A signed wallet session is required for campaign work." }, { status: 403 });
   }
 
   // Allow direct submission from open OR claimed status
@@ -290,7 +298,9 @@ export async function POST(req: NextRequest) {
       // production — the stub (Math.random 70% pass) is dev-only. Unfunded/points
       // tasks flag for review too, so AI-generated proof can't earn by simply
       // exhausting the AI rate limit. (verifyProofStub stays for local testing.)
-      if (taskIsFunded || process.env.NODE_ENV === "production") {
+      if (deterministicLocalProofEnabled()) {
+        result = { verdict: "pass", reasoning: "Accepted by the isolated browser-journey verifier.", confidence: 1 };
+      } else if (taskIsFunded || process.env.NODE_ENV === "production") {
         result = { verdict: "flag", reasoning: "AI verification unavailable - proof requires manual review.", confidence: 0 };
       } else {
         result = verifyProofStub(task.description, proofImages[0]);
@@ -581,7 +591,7 @@ export async function POST(req: NextRequest) {
   let nextRecurringTaskId: string | null = null;
   if (result.verdict === "pass") {
     const updatedTask = await getTask(taskId);
-    if (updatedTask?.recurring) {
+    if (updatedTask?.recurring && updatedTask.status === "completed") {
       const next = await spawnRecurringTask(updatedTask);
       if (next) nextRecurringTaskId = next.id;
     }

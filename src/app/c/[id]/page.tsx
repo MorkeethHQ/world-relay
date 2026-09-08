@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CAMPAIGNS, getCampaign } from "@/lib/campaigns";
+import { getCampaignById } from "@/lib/campaign-store";
+import { listTasks } from "@/lib/store";
 import { rewardAmountLabel } from "@/lib/reward";
+import { RequesterCampaignStatus } from "@/components/RequesterCampaignStatus";
 
 // ---------------------------------------------------------------------------
 // The public campaign proposition (F1, 2026-09-08).
@@ -21,11 +23,9 @@ import { rewardAmountLabel } from "@/lib/reward";
 // surface. Decoration next to a claim reads as evidence for the claim.
 // ---------------------------------------------------------------------------
 
-// The campaign list is a const, so every proposition page can be built ahead of
-// time. force-static without this was a claim the build could not honour.
-export function generateStaticParams() {
-  return CAMPAIGNS.map((c) => ({ id: c.id }));
-}
+// Requester campaigns are created at runtime. Do not freeze the campaign store
+// into a build artifact or touch the live store during `next build`.
+export const dynamic = "force-dynamic";
 
 function Chip({ children }: { children: React.ReactNode }) {
   return (
@@ -49,8 +49,19 @@ export default async function CampaignPropositionPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const campaign = getCampaign(id);
+  const campaign = await getCampaignById(id);
   if (!campaign) notFound();
+
+  const campaignTasks = (await listTasks())
+    .filter((task) => task.campaignId === campaign.id)
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  const activeTask = campaignTasks.find((task) => task.status === "open" || task.status === "claimed") ?? null;
+  const latestTask = activeTask ?? campaignTasks[0] ?? null;
+  const cadence = campaign.cadence;
+  const currentCycle = Math.min(latestTask ? (latestTask.recurring?.completedRuns ?? 0) + 1 : 1, cadence?.totalCycles ?? Number.MAX_SAFE_INTEGER);
+  const cycleTarget = cadence?.completionsPerCycle ?? latestTask?.maxCompletions ?? 0;
+  const cycleFilled = latestTask?.status === "completed" ? cycleTarget : latestTask?.completionCount ?? 0;
+  const totalVerified = campaignTasks.reduce((sum, task) => sum + (task.completionCount || 0), 0);
 
   const brief = campaign.commission ?? null;
   const isPoints = campaign.rewardKind !== "usdc";
@@ -111,6 +122,38 @@ export default async function CampaignPropositionPage({
         </div>
 
         <div className="space-y-3 px-4 pt-4">
+          {campaign.media ? (
+            <figure className="overflow-hidden rounded-2xl border border-gray-200 bg-white">
+              <img src={campaign.media.url} alt={campaign.media.alt} className="aspect-video w-full object-cover" />
+              <figcaption className="px-4 py-2 text-[11px] text-gray-400">Uploaded by the requester</figcaption>
+            </figure>
+          ) : campaign.owner ? (
+            <div className="rounded-2xl border border-dashed border-gray-300 bg-white px-4 py-5 text-center">
+              <SectionLabel>No campaign media</SectionLabel>
+              <p className="mt-2 text-[13px] text-gray-500">The requester did not upload an image. FAVOUR does not add stock media.</p>
+            </div>
+          ) : null}
+
+          {cadence && latestTask && (
+            <section className="rounded-2xl border-2 border-gray-900 bg-white px-4 py-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <SectionLabel>Cycle {currentCycle} of {cadence.totalCycles}</SectionLabel>
+                  <p className="mt-1 text-[18px] font-bold text-gray-950">{cycleFilled} of {cycleTarget} verified</p>
+                </div>
+                <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-bold text-amber-700">{totalVerified} total</span>
+              </div>
+              <div className="mt-4 grid grid-cols-5 gap-2" aria-label={`${cycleFilled} of ${cycleTarget} positions filled`}>
+                {Array.from({ length: cycleTarget }, (_, index) => (
+                  <span key={index} className={`h-3 rounded-full ${index < cycleFilled ? "bg-amber-500" : "bg-gray-100"}`} />
+                ))}
+              </div>
+              <p className="mt-3 text-[12px] leading-relaxed text-gray-500">
+                Each block is a different verified wallet. When all {cycleTarget} fill, cycle {Math.min(currentCycle + 1, cadence.totalCycles)} opens with a clean set of blocks.
+              </p>
+            </section>
+          )}
+
           {!brief && (
             /* Honest empty state. No brief was published, so none is invented. */
             <div className="rounded-2xl border border-dashed border-gray-300 bg-white px-4 py-6 text-center">
@@ -254,10 +297,19 @@ export default async function CampaignPropositionPage({
 
           {/* JOURNEY POINT 4: one primary CTA, to a route that works. */}
           <Link
-            href={`/?campaign=${campaign.id}`}
+            href={campaign.owner && activeTask ? `/?task=${activeTask.id}` : `/?campaign=${campaign.id}`}
             className="flex min-h-[52px] w-full items-center justify-center rounded-xl bg-gray-900 px-4 text-[15px] font-semibold text-white active:scale-[0.98]"
           >
-            See the open favours
+            {campaign.owner && activeTask ? "Do this campaign favour" : "See the open favours"}
+          </Link>
+
+          {campaign.owner && <RequesterCampaignStatus campaignId={campaign.id} />}
+
+          <Link
+            href="/c/new"
+            className="flex min-h-[52px] w-full items-center justify-center rounded-xl border border-gray-900 bg-white px-4 text-[15px] font-semibold text-gray-900 active:scale-[0.98]"
+          >
+            Commission your own campaign
           </Link>
 
           <Link

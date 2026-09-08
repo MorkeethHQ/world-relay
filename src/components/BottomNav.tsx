@@ -50,6 +50,11 @@ export function BottomNav() {
   const pathname = usePathname();
   const router = useRouter();
 
+  // Campaign propositions and the campaign builder are focused journeys with
+  // their own back controls. The fixed app nav covered the fill meter and form
+  // actions at phone width.
+  if (pathname.startsWith("/c/")) return null;
+
   const activeValue = ROUTES.find((r) =>
     r.value === "/" ? pathname === "/" : pathname.startsWith(r.value)
   )?.value ?? "/";

@@ -45,6 +45,7 @@ export default function Home() {
   // arrives with ?campaign=<id> has already read the pitch, so they skip the
   // generic onboarding and land on that campaign once they are signed in.
   const [deepLinkCampaignId, setDeepLinkCampaignId] = useState<string | null>(null);
+  const [deepLinkTaskId, setDeepLinkTaskId] = useState<string | null>(null);
 
   useEffect(() => {
     try { setIsInWorldApp(MiniKit.isInstalled()); } catch { setIsInWorldApp(false); }
@@ -58,10 +59,14 @@ export default function Home() {
       }
     } catch {}
     let campaignParam: string | null = null;
+    let taskParam: string | null = null;
     try {
-      campaignParam = new URLSearchParams(window.location.search).get("campaign");
+      const query = new URLSearchParams(window.location.search);
+      campaignParam = query.get("campaign");
+      taskParam = query.get("task");
     } catch {}
     if (campaignParam) setDeepLinkCampaignId(campaignParam);
+    if (taskParam) setDeepLinkTaskId(taskParam);
     let stored = localStorage.getItem("relay_user_id");
     const storedLevel = localStorage.getItem("relay_verification_level") as VerificationLevel;
     // Self-heal a stale/legacy id (Oscar live-test Jul 8). Early builds could
@@ -87,7 +92,7 @@ export default function Home() {
       setVerificationLevel(storedLevel);
     }
     // Anyone already signed in, or who finished onboarding before, skips it.
-    if (stored || campaignParam || localStorage.getItem("relay_onboarded") === "true") {
+    if (stored || campaignParam || taskParam || localStorage.getItem("relay_onboarded") === "true") {
       setOnboarded(true);
     }
     setMiniKitChecked(true);
@@ -296,7 +301,7 @@ export default function Home() {
         </div>
       )}
 
-      <Feed userId={userId} verificationLevel={verificationLevel} onLogout={handleLogout} onReauth={handleVerify} initialCampaignId={deepLinkCampaignId} />
+      <Feed userId={userId} verificationLevel={verificationLevel} onLogout={handleLogout} onReauth={handleVerify} initialCampaignId={deepLinkCampaignId} initialTaskId={deepLinkTaskId} />
     </div>
   );
 }

@@ -37,3 +37,21 @@ export async function uploadProofImage(
     return `data:image/jpeg;base64,${clean}`;
   }
 }
+
+/** Requester media is uploaded under its own namespace, never presented as proof. */
+export async function uploadCampaignImage(base64Data: string, campaignId: string): Promise<string> {
+  const match = base64Data.match(/^data:image\/(jpeg|png|webp);base64,(.+)$/);
+  if (!match) throw new Error("Campaign media must be a JPEG, PNG or WebP upload");
+  const contentType = `image/${match[1]}`;
+  const buffer = Buffer.from(match[2], "base64");
+  if (buffer.length > 1_000_000) throw new Error("Campaign media must be 1 MB or smaller");
+
+  const blobToken = process.env.BLOB_READ_WRITE_TOKEN;
+  if (!blobToken) return base64Data;
+  const { url } = await put(`campaigns/${campaignId}/requester-media.${match[1]}`, buffer, {
+    access: "public",
+    contentType,
+    token: blobToken,
+  });
+  return url;
+}
