@@ -93,7 +93,7 @@ export default async function CampaignPropositionPage({
             <Chip>{campaign.location}</Chip>
           </div>
 
-          {/* JOURNEY POINT 1 — who is asking, and what recurring work they want. */}
+          {/* JOURNEY POINT 1: who is asking, and what recurring work they want. */}
           <p className="mt-5 text-[13px] font-semibold text-white/70">
             {brief ? brief.requester : campaign.brand} is asking for
           </p>
@@ -135,7 +135,7 @@ export default async function CampaignPropositionPage({
                 </p>
               </div>
 
-              {/* JOURNEY POINT 2 — the participant's actual task. */}
+              {/* JOURNEY POINT 2: the participant's actual task. */}
               <div className="rounded-2xl border border-gray-200 bg-white px-4 py-4">
                 <SectionLabel>Your task</SectionLabel>
                 <ul className="mt-2.5 space-y-2">
@@ -236,7 +236,7 @@ export default async function CampaignPropositionPage({
             )}
           </div>
 
-          {/* JOURNEY POINT 3 — why it repeats, with the mechanic named. */}
+          {/* JOURNEY POINT 3: why it repeats, with the mechanic named. */}
           {brief && (
             <div className="rounded-2xl border border-gray-200 bg-white px-4 py-4">
               <SectionLabel>Why it repeats</SectionLabel>
@@ -252,7 +252,7 @@ export default async function CampaignPropositionPage({
             </div>
           )}
 
-          {/* JOURNEY POINT 4 — one primary CTA, to a route that works. */}
+          {/* JOURNEY POINT 4: one primary CTA, to a route that works. */}
           <Link
             href={`/?campaign=${campaign.id}`}
             className="flex min-h-[52px] w-full items-center justify-center rounded-xl bg-gray-900 px-4 text-[15px] font-semibold text-white active:scale-[0.98]"
