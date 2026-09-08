@@ -25,6 +25,8 @@ export type Campaign = {
   // Present only on campaigns with a real funded pot. All four fields required
   // together: pot is a HARD cap in USDC; a user unlocks unlockAmount once, after
   // unlockThreshold clean completions; requiresOrb gates the cash (no Orb, no cash).
+  /** The requester's brief. Absent means no brief published (honest empty state). */
+  commission?: CampaignCommission;
   unlock?: {
     pot: number;
     unlockThreshold: number;
@@ -32,6 +34,40 @@ export type Campaign = {
     requiresOrb: true;
     maxCountedPerUser: number;
   };
+};
+
+// ---------------------------------------------------------------------------
+// The commission brief (added 2026-09-08, F1).
+//
+// A campaign object described a THEME. It never said who was asking, what
+// counted as done, what proof was required, what the doer received, or why the
+// ask repeats. A cold visitor could not answer any of those from the app, so a
+// campaign read as decoration rather than as commissioned work.
+//
+// This block is the requester's brief. Every field is a claim the requester
+// makes, so it is OPTIONAL by design: a campaign without one renders an honest
+// "no brief published" empty state rather than invented terms. Never write a
+// brief for a campaign whose terms you do not know.
+//
+// Reward terms are NOT written here as free text. `rewardKind` + `rewardPerTask`
+// + `unlock` already own the numbers, and reward.ts owns the labels, so the
+// brief may not restate an amount and can never drift from the money rules.
+// ---------------------------------------------------------------------------
+export type CampaignCommission = {
+  /** WHO is asking. A named requester, never "the platform". */
+  requester: string;
+  /** One line on what that requester is, so a stranger can place them. */
+  requesterKind: string;
+  /** WHAT recurring work is wanted, in the requester's own words. */
+  asks: string;
+  /** What counts as a completed favour. Checkable statements only. */
+  completion: string[];
+  /** What proof the doer must send. */
+  proof: string;
+  /** Why this ask repeats instead of being answered once and closed. */
+  repeats: string;
+  /** The mechanic that makes it repeat, named so the claim is checkable. */
+  repeatsMechanic: string;
 };
 
 export const CAMPAIGNS: Campaign[] = [
@@ -74,6 +110,24 @@ export const CAMPAIGNS: Campaign[] = [
       unlockAmount: 2,
       requiresOrb: true,
       maxCountedPerUser: 1,
+    },
+    commission: {
+      requester: "FAVOUR",
+      requesterKind:
+        "The team that builds this app. This is our own standing ask, run on our own board.",
+      asks:
+        "Show us one real thing from your day, and tell us what we should build next. We ask again every release, because a roadmap read from six weeks ago is a roadmap for a product that has since changed.",
+      completion: [
+        "A photo you took today, of the thing the favour named.",
+        "Nothing staged, nothing downloaded, nothing generated.",
+        "For the build-next favour: one specific sentence, not a wish list.",
+      ],
+      proof:
+        "A photo for the first three favours, plain text for the build-next one. AI models check every proof before it counts.",
+      repeats:
+        "The answer we need changes every time we ship. Yesterday's build-next answer is about a product that no longer exists.",
+      repeatsMechanic:
+        "The campaign favours are multi-completion, so each one reopens after every verified pass rather than closing on the first.",
     },
   },
   {
@@ -257,6 +311,24 @@ export const CAMPAIGNS: Campaign[] = [
     location: "Worldwide",
     endsAt: "2026-08-31T23:59:59Z",
     featured: false,
+    commission: {
+      requester: "FAVOUR",
+      requesterKind:
+        "The team that builds this app. We commission the ground-truth data our own agents and integrations read.",
+      asks:
+        "Photograph what the physical world actually costs, when it is actually open, and how long the queue actually is. We need the same handful of places re-checked, not one snapshot.",
+      completion: [
+        "The photo shows the thing the favour asked for, readable at a glance.",
+        "It was taken by you, now, at the place named. Screenshots and reposts fail.",
+        "Prices, hours or times in the shot are legible, not implied.",
+      ],
+      proof:
+        "One photo you took, plus a short note saying where. AI models check every proof before it counts. A flagged points-only proof can go to a human jury.",
+      repeats:
+        "Ground truth goes stale on its own. A menu board photographed last month is a guess this month, and no API sells the answer.",
+      repeatsMechanic:
+        "These favours are multi-completion: each one reopens for the next person after every verified pass, instead of closing on the first.",
+    },
   },
   {
     id: "ask-for-it",
@@ -296,4 +368,12 @@ export function getFeaturedCampaign(): Campaign | null {
 
 export function getCampaigns(): Campaign[] {
   return CAMPAIGNS;
+}
+
+// The requester's brief for a campaign, or null when none is published.
+// Callers MUST render an honest empty state on null. Inventing terms for a
+// campaign whose requester never stated any is exactly the failure this
+// optional field exists to prevent.
+export function getCampaignCommission(id: string): CampaignCommission | null {
+  return getCampaign(id)?.commission ?? null;
 }

@@ -41,6 +41,10 @@ export default function Home() {
   // New users see the guided onboarding once. Anyone already signed in, or
   // anyone who has finished onboarding before, skips straight to the app / auth.
   const [onboarded, setOnboarded] = useState(false);
+  // Deep link from the public campaign proposition page (/c/[id]). A visitor who
+  // arrives with ?campaign=<id> has already read the pitch, so they skip the
+  // generic onboarding and land on that campaign once they are signed in.
+  const [deepLinkCampaignId, setDeepLinkCampaignId] = useState<string | null>(null);
 
   useEffect(() => {
     try { setIsInWorldApp(MiniKit.isInstalled()); } catch { setIsInWorldApp(false); }
@@ -53,6 +57,11 @@ export default function Home() {
         localStorage.setItem("favour_ref", ref);
       }
     } catch {}
+    let campaignParam: string | null = null;
+    try {
+      campaignParam = new URLSearchParams(window.location.search).get("campaign");
+    } catch {}
+    if (campaignParam) setDeepLinkCampaignId(campaignParam);
     let stored = localStorage.getItem("relay_user_id");
     const storedLevel = localStorage.getItem("relay_verification_level") as VerificationLevel;
     // Self-heal a stale/legacy id (Oscar live-test Jul 8). Early builds could
@@ -78,7 +87,7 @@ export default function Home() {
       setVerificationLevel(storedLevel);
     }
     // Anyone already signed in, or who finished onboarding before, skips it.
-    if (stored || localStorage.getItem("relay_onboarded") === "true") {
+    if (stored || campaignParam || localStorage.getItem("relay_onboarded") === "true") {
       setOnboarded(true);
     }
     setMiniKitChecked(true);
@@ -287,7 +296,7 @@ export default function Home() {
         </div>
       )}
 
-      <Feed userId={userId} verificationLevel={verificationLevel} onLogout={handleLogout} onReauth={handleVerify} />
+      <Feed userId={userId} verificationLevel={verificationLevel} onLogout={handleLogout} onReauth={handleVerify} initialCampaignId={deepLinkCampaignId} />
     </div>
   );
 }

@@ -1867,7 +1867,10 @@ export default function TaskDetailPage() {
                   </p>
                 </>
               ) : (
-                <p className="text-sm text-green-400 font-bold mt-0.5">
+                /* DESIGN-SYSTEM: money colours are for real escrowed USDC only.
+                   This read text-green-400 for every reward, so a 10 pts favour
+                   wore money green on its own detail page. */
+                                <p className={`text-sm font-bold mt-0.5 ${isPointsReward(task) ? "text-amber-600" : "text-success-600"}`}>
                   {rewardAmountLabel(task)}
                 </p>
               )}
@@ -2050,7 +2053,7 @@ export default function TaskDetailPage() {
             <div className="p-4 flex flex-col gap-2">
               <div className="bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-3">
                 <p className="text-xs text-gray-400 uppercase tracking-wider mb-0.5">Amount</p>
-                <p className="text-sm text-success-600 font-bold">{rewardAmountLabel(task)}</p>
+                <p className={`text-sm font-bold ${isPointsReward(task) ? "text-amber-600" : "text-success-600"}`}>{rewardAmountLabel(task)}</p>
               </div>
 
               {task.escrowTxHash && (

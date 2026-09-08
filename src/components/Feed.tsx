@@ -35,7 +35,7 @@ import { hapticSuccess, hapticError, hapticTap, hapticHeavy, hapticMedium, hapti
 import { TASK_TEMPLATES } from "@/lib/agents";
 import { POST_TEMPLATES, MIN_DESCRIPTION_LENGTH } from "@/lib/post-templates";
 import { useWorldUsers, displayName } from "@/hooks/useWorldUser";
-import { getCampaigns, type Campaign } from "@/lib/campaigns";
+import { getCampaigns, getCampaign, type Campaign } from "@/lib/campaigns";
 import DailyFavour from "@/components/DailyFavour";
 import { CampaignPage, FeaturedCampaignBanner } from "@/components/CampaignPage";
 import { PollsFeed, FeedPolls } from "@/components/Polls";
@@ -394,7 +394,7 @@ type Tab = "available" | "polls" | "mine" | "completed";
 
 const RELAY_BOT_ADDRESS = "0x1101158041fd96f21cbcbb0e752a9a2303e6d70e";
 
-export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId: string | null; verificationLevel?: string | null; onLogout?: () => void; onReauth?: () => void }) {
+export function Feed({ userId, verificationLevel, onLogout, onReauth, initialCampaignId }: { userId: string | null; verificationLevel?: string | null; onLogout?: () => void; onReauth?: () => void; initialCampaignId?: string | null }) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [view, setView] = useState<"board" | "post" | "proof" | "detail" | "campaign" | "jury">("board");
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -833,6 +833,20 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
   // tagged with that campaign id (activates strict campaign scoping). Cleared for
   // any normal post so standalone tasks stay unlinked.
   const [postCampaignId, setPostCampaignId] = useState<string | null>(null);
+
+  // Deep link from the public campaign proposition page (/c/[id]). Arriving with
+  // ?campaign=<id> opens that campaign directly, so the CTA on the proposition
+  // lands on the campaign it was selling instead of the generic board. Runs once:
+  // any later navigation inside the app owns the view from then on.
+  const deepLinkedRef = useRef(false);
+  useEffect(() => {
+    if (deepLinkedRef.current || !initialCampaignId) return;
+    const c = getCampaign(initialCampaignId);
+    if (!c) return;
+    deepLinkedRef.current = true;
+    setSelectedCampaign(c);
+    setView("campaign");
+  }, [initialCampaignId]);
 
   const openQuickPost = () => {
     hapticTap();
