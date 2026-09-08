@@ -7,7 +7,7 @@ import { MemoryRedis, memoryStoreRequested } from "@/lib/memory-redis";
 
 describe("memoryStoreRequested", () => {
   it("is off unless explicitly asked for", () => {
-    expect(memoryStoreRequested({} as NodeJS.ProcessEnv)).toBe(false);
+    expect(memoryStoreRequested({} as unknown as NodeJS.ProcessEnv)).toBe(false);
   });
 
   it("is off when real KV credentials are present, even if asked for", () => {
@@ -16,12 +16,12 @@ describe("memoryStoreRequested", () => {
         FAVOUR_MEMORY_STORE: "1",
         KV_REST_API_URL: "https://real.upstash.io",
         KV_REST_API_TOKEN: "token",
-      } as NodeJS.ProcessEnv)
+      } as unknown as NodeJS.ProcessEnv)
     ).toBe(false);
   });
 
   it("is on only with the flag and no KV credentials", () => {
-    expect(memoryStoreRequested({ FAVOUR_MEMORY_STORE: "1" } as NodeJS.ProcessEnv)).toBe(true);
+    expect(memoryStoreRequested({ FAVOUR_MEMORY_STORE: "1" } as unknown as NodeJS.ProcessEnv)).toBe(true);
   });
 });
 

@@ -55,6 +55,14 @@ export default async function CampaignPropositionPage({
     bountyUsdc: campaign.rewardPerTask,
   });
   const unlock = campaign.unlock;
+  // Money green means real, committed USDC. A points campaign is amber, and a
+  // USDC-denominated campaign with no funded pot is neither: it is gray, the
+  // same rule RewardBadge applies to a posted-but-unfunded money task.
+  const amountColour = isPoints
+    ? "text-amber-600"
+    : unlock
+      ? "text-success-600"
+      : "text-gray-400";
   // Formatted in UTC. endsAt is a UTC instant, and rendering it in the server's
   // local zone shifted "31 August" to "1 September" in the first screenshot run.
   const ends = new Date(campaign.endsAt).toLocaleDateString("en-GB", {
@@ -181,9 +189,7 @@ export default async function CampaignPropositionPage({
                 Every verified favour
               </span>
               <span
-                className={`text-[17px] font-bold tabular-nums ${
-                  isPoints ? "text-amber-600" : "text-success-600"
-                }`}
+                className={`text-[17px] font-bold tabular-nums ${amountColour}`}
               >
                 {perFavour}
               </span>
@@ -210,10 +216,18 @@ export default async function CampaignPropositionPage({
                   no cash.
                 </p>
               </div>
-            ) : (
+            ) : isPoints ? (
               <p className="mt-2.5 text-[12px] leading-relaxed text-gray-400">
                 Points only. There is no USDC in this campaign, and nothing here
                 pays cash.
+              </p>
+            ) : (
+              /* Listed in USDC with no funded pot behind it. Custody is retired,
+                 so the only live cash rail is a campaign unlock, and this
+                 campaign has none. Saying so is the whole point. */
+              <p className="mt-2.5 text-[12px] leading-relaxed text-gray-400">
+                Listed in USDC, but no pot is committed to this campaign, so
+                nothing here pays cash today.
               </p>
             )}
           </div>

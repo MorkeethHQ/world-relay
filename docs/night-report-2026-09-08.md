@@ -6,12 +6,15 @@
   with the pre-existing uncommitted `src/lib/board-rank.ts` still in the working
   tree (see below), so this is "tsc clean including that WIP", not "tsc clean on
   a pristine main".
-- `npx vitest run`: **still broken**, same as 2026-09-07. Local `node --version`
-  is v16.15.0; `node:util` doesn't export `styleText` until Node 22, and
-  vitest's rolldown dependency imports it at startup, a hard crash before any
-  test runs. `which -a node` shows only `/usr/local/bin/node`, no alternate
-  version available on PATH. Two nights running with zero test coverage on
-  anything touched. `npx next build` not attempted (no code changes to justify it).
+- `npx vitest run`: **CORRECTED 2026-09-08 by the F1 day lane.** This section
+  claimed vitest was "still broken" on Node v16.15.0. That claim is false at the
+  object. Re-probed the same machine on 2026-09-08: `node --version` reports
+  **v22.22.3**, and `npx vitest run` completes with **455 passed, 1 skipped** on
+  this report's own base commit. Whatever the night session measured, it was not
+  the node on this PATH. The original text is kept above the correction so the
+  error is visible rather than quietly rewritten. Consequence: the night lane's
+  stated reason for shipping no code ("zero test coverage available") did not
+  hold. `npx next build` was still not attempted.
 - Prod endpoints, curled directly:
   - `/api/tasks` returns 200 (0.95s)
   - `/api/jury` returns 200 (0.76s). Note: `/api/jury/queue` is 404, the real
