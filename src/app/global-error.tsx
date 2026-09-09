@@ -25,7 +25,7 @@ export default function GlobalError({
           backgroundColor: "#FAFAFA",
           color: "#191C20",
           fontFamily:
-            'var(--font-sans, "TWK Lausanne", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif)',
+            'var(--font-sans, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif)',
         }}
       >
         <div

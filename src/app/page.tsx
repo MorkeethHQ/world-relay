@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { MiniKit } from "@worldcoin/minikit-js";
 import { Feed } from "@/components/Feed";
 import { Onboarding } from "@/components/Onboarding";
+import { FirstFavour } from "@/components/FirstFavour";
 import { WorldAppHandoff } from "@/components/WorldAppHandoff";
 import { displayName } from "@/hooks/useWorldUser";
 import {
@@ -210,17 +211,24 @@ export default function Home() {
 
   if (!userId) {
     return (
-      <div className="flex flex-col min-h-screen max-w-lg mx-auto w-full bg-white items-center justify-between px-6 py-12">
+      <div className="flex flex-col min-h-screen max-w-lg mx-auto w-full bg-white justify-between px-6 py-12">
         <div />
 
-        <div className="flex flex-col items-center gap-4 w-full max-w-sm">
-          <h1 className="text-[48px] font-bold tracking-tight text-gray-900 leading-none animate-[countUp_0.6s_ease-out]">
-            FAVOUR
-          </h1>
-          <p className="text-[15px] text-gray-600 text-center leading-relaxed max-w-[300px] animate-[fadeSlideIn_0.5s_ease-out_0.2s_both]">
-            Companies ask for small real-world favours. Verified people do them
-            and send proof.
-          </p>
+        <div className="flex flex-col gap-5 w-full max-w-sm">
+          <div className="flex flex-col gap-1.5">
+            <h1 className="text-[30px] font-bold tracking-tight text-gray-900 leading-none animate-[countUp_0.6s_ease-out]">
+              FAVOUR
+            </h1>
+            <p className="text-[15px] text-gray-600 leading-relaxed animate-[fadeSlideIn_0.5s_ease-out_0.2s_both]">
+              Companies ask for small real-world favours. Verified people do them
+              and send proof.
+            </p>
+          </div>
+
+          {/* One real open favour, above the explanation of favours. The two
+              role cards below stay: a stranger still has to be able to tell
+              which side of the market they are on. */}
+          <FirstFavour />
 
           {/* Both sides of the exchange, named. A stranger has to be able to
               tell which one they are before they tap anything. */}

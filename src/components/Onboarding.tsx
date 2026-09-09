@@ -7,6 +7,7 @@ import {
   LiveFeedback,
 } from "@worldcoin/mini-apps-ui-kit-react";
 import { WorldAppHandoff } from "@/components/WorldAppHandoff";
+import { FirstFavour } from "@/components/FirstFavour";
 
 /*
  * Onboarding
@@ -207,26 +208,24 @@ export function Onboarding({
       )}
 
       {/* Content. Re-keyed on step so the entrance animation replays each screen. */}
-      <div key={step} className="flex-1 flex flex-col justify-center px-7 animate-[fadeSlideIn_0.4s_ease-out]">
+      <div key={step} className={`flex-1 flex flex-col px-6 animate-[fadeSlideIn_0.4s_ease-out] ${step === 0 ? "justify-start pt-2" : "justify-center"}`}>
         {step === 0 && (
-          <div className="flex flex-col items-center text-center gap-5">
-            <h1 className="text-[64px] font-bold tracking-tight text-gray-900 leading-none animate-[countUp_0.6s_ease-out]">
-              FAVOUR
-            </h1>
-            <Typography variant="body" level={2} className="text-gray-500 max-w-[280px]">
-              Companies ask for small real-world favours. You do them and send proof.
-            </Typography>
-            <Typography variant="body" level={4} className="text-gray-400 max-w-[290px] mt-1">
-              A favour is a quick real-world ask: photograph a shelf, check whether a
-              shop is open, give an honest opinion. Most take a few minutes.
-            </Typography>
-            <div className="flex items-center gap-3 mt-1">
-              <span className="text-[11px] text-gray-300 uppercase tracking-widest">Favours</span>
-              <span className="w-1 h-1 rounded-full bg-gray-200" />
-              <span className="text-[11px] text-gray-300 uppercase tracking-widest">Polls</span>
-              <span className="w-1 h-1 rounded-full bg-gray-200" />
-              <span className="text-[11px] text-gray-300 uppercase tracking-widest">Points</span>
+          /* The cold first screen leads with ONE real open favour, not with an
+             explanation of favours (2026-09-09). The concept copy that used to
+             fill this screen said what a marketplace is; the card below shows
+             one side's actual work, with its reward and its proof requirement
+             visible before any scroll. Left aligned on purpose: a centred
+             column of prose was the old screen. */
+          <div className="flex flex-col gap-4 pb-6">
+            <div className="flex flex-col gap-1.5">
+              <h1 className="text-[28px] font-bold tracking-tight text-gray-900 leading-none">
+                FAVOUR
+              </h1>
+              <Typography variant="body" level={3} className="text-gray-500">
+                Someone has asked for this. Do it, send proof, get paid.
+              </Typography>
             </div>
+            <FirstFavour compact />
           </div>
         )}
 

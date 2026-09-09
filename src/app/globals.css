@@ -75,7 +75,12 @@ html {
 body {
   background: #FAFAFA;
   color: #191C20;
-  font-family: var(--font-sans, "TWK Lausanne", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
+  /* TWK Lausanne is REAL here, not an aspiration (checked 2026-09-09). It is not
+     loaded from src/: @worldcoin/mini-apps-ui-kit-react/dist/globals.css ships
+     six @font-face rules for it and defines --font-sans at :root, so this var
+     resolves to the World face and the literal below is only the fallback for
+     a build without the kit. Verified in the browser, not assumed. */
+  font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif);
   -webkit-font-smoothing: antialiased;
   min-height: 100dvh;
   overflow-wrap: break-word;

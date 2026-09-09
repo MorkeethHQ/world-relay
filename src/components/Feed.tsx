@@ -313,6 +313,7 @@ import { CategoryIcon } from "@/components/CategoryIcon";
 import { RewardBadge } from "@/components/RewardBadge";
 import { LivenessStrip } from "@/components/LivenessStrip";
 import { rewardAmountLabel, isRealMoney, isFunded, fundingRewardPoints } from "@/lib/reward";
+import { requiresPhotoProof } from "@/lib/proof-requirement";
 
 type TaskTier = "quick" | "medium" | "effort";
 
@@ -328,9 +329,10 @@ const TIER_CONFIG: Record<TaskTier, { label: string; color: string; bg: string; 
   effort: { label: "Full effort", color: "text-orange-700", bg: "bg-orange-50 border-orange-200", time: "30+ min" },
 };
 
-function tierRequiresPhoto(category: string): boolean {
-  return ["photo", "delivery", "errand", "check-in"].includes(category);
-}
+// Proof requirement lives in src/lib/proof-requirement.ts now, so the cold
+// first screen and the public request page state the same rule this form
+// enforces. Alias kept so the call sites below read unchanged.
+const tierRequiresPhoto = requiresPhotoProof;
 
 function SkeletonCard() {
   return (
