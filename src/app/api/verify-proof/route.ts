@@ -25,7 +25,7 @@ import { isRealMoney, hasOnChainEscrow } from "@/lib/reward";
 import { recordReferralActivation } from "@/lib/referral";
 import { getCampaignById } from "@/lib/campaign-store";
 import { getAuthedAddress, addressMatches } from "@/lib/session";
-import { deterministicLocalProofEnabled } from "@/lib/memory-redis";
+import { deterministicLocalProofEnabled, deterministicLocalProofVerdict } from "@/lib/memory-redis";
 
 export const maxDuration = 60;
 
@@ -299,7 +299,12 @@ export async function POST(req: NextRequest) {
       // tasks flag for review too, so AI-generated proof can't earn by simply
       // exhausting the AI rate limit. (verifyProofStub stays for local testing.)
       if (deterministicLocalProofEnabled()) {
-        result = { verdict: "pass", reasoning: "Accepted by the isolated browser-journey verifier.", confidence: 1 };
+        // Isolated journeys drive both outcomes. A rejection takes the same
+        // path a real fail verdict takes, so nothing about rewarding changes.
+        const localVerdict = deterministicLocalProofVerdict(proofNote);
+        result = localVerdict === "fail"
+          ? { verdict: "fail", reasoning: "Rejected by the isolated browser-journey verifier.", confidence: 1 }
+          : { verdict: "pass", reasoning: "Accepted by the isolated browser-journey verifier.", confidence: 1 };
       } else if (taskIsFunded || process.env.NODE_ENV === "production") {
         result = { verdict: "flag", reasoning: "AI verification unavailable - proof requires manual review.", confidence: 0 };
       } else {

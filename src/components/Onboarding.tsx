@@ -222,7 +222,7 @@ export function Onboarding({
                 FAVOUR
               </h1>
               <Typography variant="body" level={3} className="text-gray-500">
-                Someone has asked for this. Do it, send proof, get paid.
+                Someone has asked for this. Do it and send proof. The card says exactly what it pays.
               </Typography>
             </div>
             <FirstFavour compact />

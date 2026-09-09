@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { Task } from "@/lib/types";
 import { RewardBadge } from "@/components/RewardBadge";
+import { isPointsReward, isRealMoney } from "@/lib/reward";
 import { ProofSlot } from "@/components/ProofSlot";
 
 // The cold first screen leads with ONE real open favour (2026-09-09).
@@ -37,6 +38,17 @@ function Eyebrow({ children }: { children: React.ReactNode }) {
   );
 }
 
+// What the reward actually is, in words. Points are points.
+function rewardTruth(task: Task): string {
+  if (isPointsReward(task)) {
+    return "Points, not cash. Points are a score inside FAVOUR and do not convert to money.";
+  }
+  if (isRealMoney(task)) {
+    return "Real USDC, escrowed on-chain for this favour before you start.";
+  }
+  return "Listed in USDC with no escrow funded behind it, so it pays nothing today.";
+}
+
 // Why a stranger would come back, derived from the task itself. Never a
 // cadence nobody measures.
 function returnReason(task: Task): string {
@@ -47,9 +59,12 @@ function returnReason(task: Task): string {
   }
   const left = Math.max(task.maxCompletions - task.completionCount, 0);
   if (task.maxCompletions > 1 && left > 0) {
-    return `This favour still has room for ${left} more verified people, and the board reopens it until they are found.`;
+    // Remaining supply, said as remaining supply. Places left is a reason this
+    // is open to you now. It is NOT a reason the same person returns, and
+    // dressing it as one would be a claim about a market nobody has measured.
+    return `${left} of ${task.maxCompletions} places are still unfilled, so there is room for you on this one today. Places left is availability, not a promise that this ask comes back.`;
   }
-  return "This one runs once. New favours are posted by requesters, so the board changes rather than repeating.";
+  return "This ask runs once. Requesters post new ones, so the board changes rather than repeating.";
 }
 
 export function FirstFavour({ compact = false }: { compact?: boolean }) {
@@ -144,6 +159,11 @@ export function FirstFavour({ compact = false }: { compact?: boolean }) {
       <h2 className="mt-4 text-[20px] font-bold leading-snug tracking-tight text-gray-950">
         {task.description}
       </h2>
+
+      {/* Points are never implied to be cash (CLAUDE.md production rule). The
+          model for this precision is campaigns.ts, which says outright "No
+          points here, this is money, settled on-chain to your wallet." */}
+      <p className="mt-2 text-[12px] leading-relaxed text-gray-500">{rewardTruth(task)}</p>
 
       <div className="mt-5">
         <ProofSlot category={task.category} size={compact ? "sm" : "md"} />

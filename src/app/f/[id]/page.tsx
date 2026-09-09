@@ -5,6 +5,7 @@ import { isPublicTask } from "@/lib/task-serializer";
 import { rewardAmountLabel, isPointsReward, isRealMoney } from "@/lib/reward";
 import { proofRequirement, PROOF_DESTINATION } from "@/lib/proof-requirement";
 import { ProofSlot } from "@/components/ProofSlot";
+import { CategoryArt } from "@/components/CategoryArt";
 import { getCampaignById } from "@/lib/campaign-store";
 import { CAMPAIGNS } from "@/lib/campaigns";
 
@@ -78,6 +79,9 @@ export default async function FavourRequestPage({
     staticCampaign?.brand ??
     shortPoster(task.poster);
 
+  // Only media the requester actually uploaded counts as requester imagery.
+  const campaignMedia = runtimeCampaign?.media?.source === "requester-upload" ? runtimeCampaign.media : null;
+
   const deadline = new Date(task.deadline).toLocaleDateString("en-GB", {
     day: "numeric",
     month: "long",
@@ -110,6 +114,10 @@ export default async function FavourRequestPage({
         </div>
 
         <div className="space-y-3 px-4 pt-4">
+          {/* Requester imagery, or an honest drawn mark where there is none.
+              Never presented as proof or as completed work. */}
+          <CategoryArt category={task.category} media={campaignMedia} />
+
           {/* WHAT YOU RECEIVE */}
           <Card>
             <SectionLabel>What you receive</SectionLabel>

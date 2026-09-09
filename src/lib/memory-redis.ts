@@ -298,6 +298,19 @@ export function deterministicLocalProofEnabled(env: NodeJS.ProcessEnv = process.
   return env.NODE_ENV !== "production" && env.FAVOUR_LOCAL_PROOF_PASS === "1" && memoryStoreRequested(env);
 }
 
+// A deterministic journey needs to drive a REJECTION as well as an acceptance,
+// because "a rejected proof is never shown as rewarded" is only provable if a
+// rejection can be produced on demand. The verdict is chosen by a sentinel in
+// the proof note, and it lives behind exactly the same three conditions as
+// deterministicLocalProofEnabled: never production, never real KV, and only
+// when the isolated store was explicitly asked for. A caller that cannot reach
+// the isolated store cannot reach this.
+export const LOCAL_REJECT_SENTINEL = "[[LOCAL-REJECT]]";
+
+export function deterministicLocalProofVerdict(proofNote: string | null | undefined): "pass" | "fail" {
+  return (proofNote || "").includes(LOCAL_REJECT_SENTINEL) ? "fail" : "pass";
+}
+
 // Next compiles route handlers and server pages as separate module graphs in
 // development. A module-local singleton made POST /api/campaigns succeed while
 // /c/[id] read a different empty store and returned 404. Global scope is still

@@ -4,6 +4,7 @@ import { getCampaignById } from "@/lib/campaign-store";
 import { listTasks } from "@/lib/store";
 import { rewardAmountLabel } from "@/lib/reward";
 import { RequesterCampaignStatus } from "@/components/RequesterCampaignStatus";
+import { NextRound } from "@/components/NextRound";
 
 // ---------------------------------------------------------------------------
 // The public campaign proposition (F1, 2026-09-08).
@@ -304,6 +305,11 @@ export default async function CampaignPropositionPage({
           </Link>
 
           {campaign.owner && <RequesterCampaignStatus campaignId={campaign.id} />}
+
+          {/* RUN THIS AGAIN. The requester reviews the round that ran and
+              drafts the next one; a returning participant sees what changed.
+              Only requester campaigns have rounds to repeat. */}
+          {campaign.owner && <NextRound campaignId={campaign.id} />}
 
           <Link
             href="/c/new"
