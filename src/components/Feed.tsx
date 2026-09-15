@@ -394,6 +394,7 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
   const [tasks, setTasks] = useState<Task[]>([]);
   const [view, setView] = useState<"board" | "post" | "proof" | "detail" | "campaign" | "jury">("board");
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [proofFromBridge, setProofFromBridge] = useState(false);
   const [tab, setTab] = useState<Tab>("available");
   const [tabDirection, setTabDirection] = useState<"left" | "right">("right");
   // Direction-aware tab switch so content phases in from the correct side (World App style)
@@ -737,6 +738,15 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
   }, [filtered, freshReady]);
 
   const [heroVisible, setHeroVisible] = useState(true);
+  const [contributions, setContributions] = useState<Array<{
+    taskId: string;
+    description: string;
+    verdict: string;
+    creditPts: number;
+    creditKind: string;
+    at: string;
+    nextAction?: { kind: string; label: string };
+  }>>([]);
   const { myTaskCount, completedByClaiming, totalEarned, totalPosted, totalClaimed } = useMemo(() => {
     const myTasks = tasks.filter(t => t.poster === userId || t.claimant === userId);
     const completed = tasks.filter(t => t.claimant === userId && t.status === "completed");
@@ -748,6 +758,25 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
       totalClaimed: tasks.filter(t => t.claimant === userId).length,
     };
   }, [tasks, userId]);
+
+  useEffect(() => {
+    if (!userId || !/^0x[0-9a-fA-F]{40}$/.test(userId)) {
+      setContributions([]);
+      return;
+    }
+    let cancelled = false;
+    fetch(`/api/contributions?address=${encodeURIComponent(userId)}`)
+      .then((r) => (r.ok ? r.json() : { contributions: [] }))
+      .then((d) => {
+        if (!cancelled) setContributions(Array.isArray(d.contributions) ? d.contributions : []);
+      })
+      .catch(() => {
+        if (!cancelled) setContributions([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, view, tab]);
 
   // Detect first-time completion and show "create a task" nudge
   useEffect(() => {
@@ -852,7 +881,17 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
   }
 
   if (view === "jury") {
-    return <JuryMode userId={userId} onClose={() => setView("board")} />;
+    return (
+      <JuryMode
+        userId={userId}
+        onClose={() => setView("board")}
+        onBridgeClaimed={(task) => {
+          setSelectedTask(task);
+          setProofFromBridge(true);
+          setView("proof");
+        }}
+      />
+    );
   }
 
   if (view === "post") {
@@ -860,7 +899,17 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
   }
 
   if (view === "proof" && selectedTask) {
-    return <SubmitProof task={selectedTask} userId={userId} onDone={() => { setView("board"); fetchTasks(); }} onCancel={() => setView("board")} onCreateTask={() => { setPostCampaignId(null); setView("post"); }} onJudge={() => setView("jury")} />;
+    return (
+      <SubmitProof
+        task={selectedTask}
+        userId={userId}
+        fromBridge={proofFromBridge}
+        onDone={() => { setProofFromBridge(false); setView("board"); fetchTasks(); }}
+        onCancel={() => { setProofFromBridge(false); setView("board"); }}
+        onCreateTask={() => { setProofFromBridge(false); setPostCampaignId(null); setView("post"); }}
+        onJudge={() => { setProofFromBridge(false); setView("jury"); }}
+      />
+    );
   }
 
   if (view === "detail" && selectedTask) {
@@ -1154,7 +1203,9 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
                   <p className="text-[11px] text-gray-400 mt-0.5">Earned</p>
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-gray-900">{completedByClaiming.length}</p>
+                  <p className="text-2xl font-bold text-gray-900">
+                    {contributions.length > 0 ? contributions.filter((c) => c.verdict === "pass").length : completedByClaiming.length}
+                  </p>
                   <p className="text-[11px] text-gray-400 mt-0.5">Done</p>
                 </div>
                 <div>
@@ -1163,6 +1214,37 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
                 </div>
               </div>
             </div>
+            {contributions.length > 0 && (
+              <div className="mt-3 space-y-2">
+                <p className="text-[12px] font-semibold text-gray-900 tracking-tight">Because you helped</p>
+                {contributions.slice(0, 8).map((c) => (
+                  <div key={`${c.taskId}-${c.at}`} className="rounded-xl border border-gray-200 bg-white px-3.5 py-3">
+                    <p className="text-[13px] font-medium text-gray-900 leading-snug line-clamp-2">{c.description}</p>
+                    <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-gray-400">
+                      <span className={c.verdict === "pass" ? "text-green-600 font-semibold" : c.verdict === "flag" ? "text-yellow-600 font-semibold" : "text-red-500 font-semibold"}>
+                        {c.verdict === "pass" ? "verified" : c.verdict === "flag" ? "pending" : "rejected"}
+                      </span>
+                      <span>·</span>
+                      <span>
+                        {c.creditKind === "points" && c.creditPts > 0
+                          ? `+${c.creditPts} pts`
+                          : c.creditKind === "pending"
+                            ? "credit pending"
+                            : c.creditKind === "usdc"
+                              ? "USDC"
+                              : "no credit"}
+                      </span>
+                      {c.nextAction?.label && (
+                        <>
+                          <span>·</span>
+                          <span className="text-gray-500">{c.nextAction.label}</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -2232,6 +2314,7 @@ function PostTask({
 function SubmitProof({
   task,
   userId,
+  fromBridge = false,
   onDone,
   onCancel,
   onCreateTask,
@@ -2239,6 +2322,7 @@ function SubmitProof({
 }: {
   task: Task;
   userId: string | null;
+  fromBridge?: boolean;
   onDone: () => void;
   onCancel: () => void;
   onCreateTask?: () => void;
@@ -2250,7 +2334,21 @@ function SubmitProof({
   const [proofNote, setProofNote] = useState("");
   const [images, setImages] = useState<{ base64: string; preview: string; isVideo: boolean }[]>([]);
   const [submitting, setSubmitting] = useState(false);
-  const [result, setResult] = useState<{ verdict: string; reasoning: string; locationVerified?: boolean; distanceKm?: number; escrowReleaseTxHash?: string | null; nextAction?: string | null } | null>(null);
+  const [result, setResult] = useState<{
+    verdict: string;
+    reasoning: string;
+    locationVerified?: boolean;
+    distanceKm?: number;
+    escrowReleaseTxHash?: string | null;
+    nextAction?: string | null;
+    pointsAwarded?: number;
+    consequence?: {
+      creditPts: number;
+      creditKind: string;
+      nextAction: { kind: string; label: string };
+      evidence: { note: string | null; hasImage: boolean };
+    } | null;
+  } | null>(null);
   const [proofCoords, setProofCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [preCheck, setPreCheck] = useState<{ assessment: string; likely: "pass" | "marginal" | "retake" } | null>(null);
   const [preChecking, setPreChecking] = useState(false);
@@ -2373,6 +2471,7 @@ function SubmitProof({
           proofNote: proofNote || null,
           lat: proofCoords?.lat || null,
           lng: proofCoords?.lng || null,
+          fromBridge: fromBridge || undefined,
         }),
       });
 
@@ -2403,6 +2502,8 @@ function SubmitProof({
         locationVerified: data.locationVerified,
         distanceKm: data.distanceKm,
         escrowReleaseTxHash: data.escrowReleaseTxHash || null,
+        pointsAwarded: typeof data.pointsAwarded === "number" ? data.pointsAwarded : undefined,
+        consequence: data.consequence || null,
       });
       setSubmitting(false);
 
@@ -2727,29 +2828,56 @@ function SubmitProof({
               </div>
             )}
             {result.verdict === "pass" && (
-              <div className="mt-3 pt-3 border-t border-green-200 flex flex-col gap-2">
-                {task.rewardType === "points" ? (
-                  <p className="font-semibold text-sm text-amber-600">+{Math.round(task.bountyUsdc)} pts earned</p>
-                ) : result.escrowReleaseTxHash ? (
-                  <a
-                    href={`https://worldscan.org/tx/${result.escrowReleaseTxHash}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2 text-sm font-semibold text-green-600 underline underline-offset-2"
-                  >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
-                    </svg>
-                    ${task.bountyUsdc} USDC sent! View transaction
-                  </a>
-                ) : task.escrowTxHash ? (
-                  <p className="text-sm font-semibold text-warning-600 flex items-center gap-2">
-                    <span className="w-3 h-3 border-2 border-warning-500 border-t-transparent rounded-full animate-spin" />
-                    Payment processing...
-                  </p>
-                ) : (
-                  <p className="font-semibold text-sm text-green-600">{rewardAmountLabel(task)}</p>
-                )}
+              <div className="mt-3 pt-3 border-t border-green-200 flex flex-col gap-3">
+                {/* Verified consequence chain — credit from the award path, not a carried figure */}
+                <ol className="space-y-2 text-left">
+                  <li className="flex gap-2 text-xs text-gray-600">
+                    <span className="font-bold text-gray-900 shrink-0">1</span>
+                    <span className="break-words"><span className="font-semibold text-gray-800">Contribution</span> — {task.description}</span>
+                  </li>
+                  <li className="flex gap-2 text-xs text-gray-600">
+                    <span className="font-bold text-gray-900 shrink-0">2</span>
+                    <span>
+                      <span className="font-semibold text-gray-800">Evidence</span> —{" "}
+                      {result.consequence?.evidence?.hasImage || images.length > 0
+                        ? "photo submitted"
+                        : proofNote.trim()
+                          ? `note: “${proofNote.trim().slice(0, 80)}${proofNote.trim().length > 80 ? "…" : ""}”`
+                          : "submitted"}
+                    </span>
+                  </li>
+                  <li className="flex gap-2 text-xs text-gray-600">
+                    <span className="font-bold text-gray-900 shrink-0">3</span>
+                    <span><span className="font-semibold text-gray-800">Verdict</span> — verified by FAVOUR</span>
+                  </li>
+                  <li className="flex gap-2 text-xs text-gray-600">
+                    <span className="font-bold text-gray-900 shrink-0">4</span>
+                    <span>
+                      <span className="font-semibold text-gray-800">Credit</span> —{" "}
+                      {result.consequence?.creditKind === "points" || task.rewardType === "points" ? (
+                        <span className="font-semibold text-amber-600">
+                          +{typeof result.pointsAwarded === "number"
+                            ? result.pointsAwarded
+                            : result.consequence?.creditPts ?? 0}{" "}
+                          pts
+                        </span>
+                      ) : result.escrowReleaseTxHash ? (
+                        <a
+                          href={`https://worldscan.org/tx/${result.escrowReleaseTxHash}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-semibold text-green-600 underline underline-offset-2"
+                        >
+                          ${task.bountyUsdc} USDC sent
+                        </a>
+                      ) : task.escrowTxHash || result.consequence?.creditKind === "pending" ? (
+                        <span className="font-semibold text-warning-600">payment processing</span>
+                      ) : (
+                        <span className="font-semibold text-green-600">{rewardAmountLabel(task)}</span>
+                      )}
+                    </span>
+                  </li>
+                </ol>
                 <div className="flex gap-2">
                   <button
                     onClick={() => {
@@ -2774,24 +2902,49 @@ function SubmitProof({
                     </svg>
                     Share
                   </button>
-                  <button
-                    onClick={() => { hapticTap(); onCreateTask ? onCreateTask() : onDone(); }}
-                    className="flex-1 flex items-center justify-center gap-2 py-2 rounded-xl border border-gray-900 bg-gray-900 hover:bg-gray-800 transition-all text-xs text-white font-semibold active:scale-[0.98]"
-                  >
-                    + Post a favour
-                  </button>
+                  {!fromBridge && (
+                    <button
+                      onClick={() => { hapticTap(); onCreateTask ? onCreateTask() : onDone(); }}
+                      className="flex-1 flex items-center justify-center gap-2 py-2 rounded-xl border border-gray-900 bg-gray-900 hover:bg-gray-800 transition-all text-xs text-white font-semibold active:scale-[0.98]"
+                    >
+                      + Post a favour
+                    </button>
+                  )}
                 </div>
-                <button
-                  onClick={() => { hapticTap(); onDone(); }}
-                  className="w-full py-2.5 rounded-xl border border-gray-200 bg-white text-sm text-gray-900 font-semibold active:scale-[0.98] transition-all"
-                >
-                  Back to favours
-                </button>
+                {/* One genuinely available next action */}
+                {result.consequence?.nextAction?.kind === "jury" && onJudge ? (
+                  <button
+                    onClick={() => { hapticTap(); onJudge(); }}
+                    className="w-full py-2.5 rounded-xl bg-gray-900 text-white text-sm font-semibold active:scale-[0.98] transition-all"
+                  >
+                    {result.consequence.nextAction.label}
+                  </button>
+                ) : result.consequence?.nextAction?.kind === "none" ? (
+                  <div className="space-y-2">
+                    <p className="text-xs text-gray-500">{result.consequence.nextAction.label}</p>
+                    <button
+                      onClick={() => { hapticTap(); onDone(); }}
+                      className="w-full py-2.5 rounded-xl border border-gray-200 bg-white text-sm text-gray-900 font-semibold active:scale-[0.98] transition-all"
+                    >
+                      Back to favours
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => { hapticTap(); onDone(); }}
+                    className="w-full py-2.5 rounded-xl border border-gray-200 bg-white text-sm text-gray-900 font-semibold active:scale-[0.98] transition-all"
+                  >
+                    {result.consequence?.nextAction?.label || "Back to favours"}
+                  </button>
+                )}
               </div>
             )}
             {result.verdict === "flag" && (
-              <div className="mt-2">
-                <p className="text-xs text-yellow-600">Under review. You'll be notified of the result.</p>
+              <div className="mt-2 space-y-2">
+                <p className="text-xs text-yellow-600">Under review. Credit is pending — nothing more to do here yet.</p>
+                {result.consequence?.nextAction && (
+                  <p className="text-xs text-gray-500">{result.consequence.nextAction.label}</p>
+                )}
               </div>
             )}
             {/* A daily cap is not retryable — "Try Again" would fail identically

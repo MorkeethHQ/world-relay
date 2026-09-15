@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getTask, submitProof, completeTask, setAttestationHash, setFollowUp, spawnRecurringTask, markSettled, markSettlementPending } from "@/lib/store";
+import { getTask, listTasks, submitProof, completeTask, setAttestationHash, setFollowUp, spawnRecurringTask, markSettled, markSettlementPending } from "@/lib/store";
 import { verifyProof, verifyProofConsensus, verifyProofStub } from "@/lib/verify-proof";
 import type { ConsensusResult } from "@/lib/verify-proof";
 import { postProofSubmitted, postVerificationResult, postFollowUpQuestion, postSettlementConfirmation, syncAndProcessMessages } from "@/lib/xmtp";
@@ -23,6 +23,13 @@ import { recordCampaignCompletion } from "@/lib/campaign-unlock";
 import { getCampaign } from "@/lib/campaigns";
 import { isRealMoney, hasOnChainEscrow } from "@/lib/reward";
 import { recordReferralActivation } from "@/lib/referral";
+import {
+  buildConsequence,
+  creditPtsForPass,
+  recordContributionConsequence,
+  type ContributionConsequence,
+} from "@/lib/contribution-consequence";
+import { pickJuryBridgeFavour } from "@/lib/jury";
 
 export const maxDuration = 60;
 
@@ -87,6 +94,7 @@ export async function POST(req: NextRequest) {
   const demoAllowed = process.env.NODE_ENV !== "production" || process.env.ALLOW_DEMO_MODE === "true";
   const demoMode = demoAllowed && authHeader === `Bearer ${ADMIN_SECRET}` && !!ADMIN_SECRET;
   const submitter = body.submitter;
+  const fromBridge = body.fromBridge === true;
   if (!submitter && !demoMode) {
     return NextResponse.json({ error: "Submitter identity required" }, { status: 401 });
   }
@@ -432,6 +440,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  let pointsAwarded = 0;
   if (task.claimant) {
     if (result.verdict === "pass") {
       // Referral activation: the invitee's first clean completion pays the
@@ -440,7 +449,9 @@ export async function POST(req: NextRequest) {
       // Count this earn against the claimant's daily seeded-task cap.
       recordSeededEarn(task, task.claimant).catch(console.error);
       // Award attempt and completion points only on a passing verdict.
-      recordFavourAttempted(task.claimant).catch(console.error);
+      // Serialize this profile mutation before the completion mutation below;
+      // both use the same per-wallet lock.
+      await recordFavourAttempted(task.claimant);
       // claimantLevel, NOT the stale task.claimantVerification: passing the stale
       // null left rep.verificationLevel at "wallet" for every Orb human (live: 0 of
       // 33 correct), so getTrustScore withheld the orb +0.3 and mis-sorted the
@@ -459,11 +470,23 @@ export async function POST(req: NextRequest) {
         recordCompletion(task.claimant, task.bountyUsdc, result.confidence, claimantLevel || undefined, taskIsRealMoney).catch(console.error);
         const claimantRep2 = await getReputation(task.claimant);
         // Honest pricing: a points task pays exactly its advertised bounty.
-        recordFavourCompleted(
-          task.claimant,
-          claimantRep2.currentStreak,
-          completionPointsFor(task.rewardType, task.bountyUsdc)
-        ).catch(console.error);
+        const favourCredit = creditPtsForPass(task);
+        if (task.rewardType === "points") {
+          // A response may only report credit after the points ledger write
+          // succeeds. Fire-and-forget made "credited" a prediction.
+          await recordFavourCompleted(
+            task.claimant,
+            claimantRep2.currentStreak,
+            completionPointsFor(task.rewardType, task.bountyUsdc)
+          );
+          pointsAwarded = favourCredit;
+        } else {
+          recordFavourCompleted(
+            task.claimant,
+            claimantRep2.currentStreak,
+            completionPointsFor(task.rewardType, task.bountyUsdc)
+          ).catch(console.error);
+        }
       }
     } else if (result.verdict === "fail") {
       recordFailure(task.claimant).catch(console.error);
@@ -607,6 +630,35 @@ export async function POST(req: NextRequest) {
 
   syncAndProcessMessages().catch(console.error);
 
+  // Evidence for the consequence chain must come from THIS submission —
+  // multi-completion reopen clears proof fields on the stored task row.
+  const consequenceAddress = submitter || task.claimant;
+  let consequence: ContributionConsequence | null = null;
+  if (consequenceAddress && (result.verdict === "pass" || result.verdict === "flag" || result.verdict === "fail")) {
+    const evidenceTask = {
+      ...task,
+      proofNote: proofNote || task.proofNote || null,
+      proofImageUrl: proofImageUrls[0] || task.proofImageUrl || null,
+      proofImages: proofImageUrls.length > 0 ? proofImageUrls : task.proofImages,
+    };
+    consequence = buildConsequence({
+      task: evidenceTask,
+      verdict: result.verdict,
+      reasoning: result.reasoning,
+      fromBridge,
+      creditPts: pointsAwarded,
+    });
+    if (fromBridge && result.verdict === "pass") {
+      // The helper's own proof never enters their jury deck. Only promise a
+      // return action when another claimable bridge favour genuinely exists.
+      const nextBridge = await pickJuryBridgeFavour(await listTasks(), consequenceAddress);
+      consequence.nextAction = nextBridge
+        ? { kind: "jury", label: "Do another available favour" }
+        : { kind: "none", label: "No other eligible favour is available to you right now" };
+    }
+    await recordContributionConsequence(consequenceAddress, consequence);
+  }
+
   return NextResponse.json({
     taskId,
     verification: result,
@@ -624,6 +676,8 @@ export async function POST(req: NextRequest) {
     distanceKm: distanceKm !== null ? Math.round(distanceKm * 100) / 100 : null,
     nextRecurringTaskId,
     task: finalTask,
+    pointsAwarded,
+    consequence,
   });
   } finally {
     if (redis && verifyLock) {

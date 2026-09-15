@@ -46,3 +46,90 @@ Reach (favours completed by non-authors) · produced ÷ promised (favour posted 
 
 ## STOP AT (Oscar only)
 Sending the URL to a first user · any post · World App store submission.
+
+---
+
+# THIS SLICE — exhausted jury → expressive points return bridge (2026-09-06)
+
+## NORTH STAR
+When a juror finishes every proof available to them, the app tells the truth about why the deck stopped and one-taps them into an expressive points favour that can mint the next proof — then they can return to jury.
+
+## PROMISE LINE
+A signed-in juror who exhausts their personal deck gets a server-selected **points-only** feedback/review favour they can claim in one tap; the whole loop never grades appeal cards, never moves money, and never pretends a personal exhaustion is a global empty pool.
+
+## OPEN QUESTIONS
+- (non-blocking) Exact copy tone for the bridge CTA — ship plain truthful wording; Oscar can edit.
+- (non-blocking) Competing branch `night-run/2026-08-31-jury-loop` is not on the remote; reimplemented from the brief.
+- (blocking: none)
+
+## CONSTITUTION
+1. Never change payout, settlement, campaign-progress, or appeal-award rules.
+2. Opaque jury answers stay server-side; session ownership and judged-proof dedup stay.
+3. `recordJuryVerdict` still rejects `answer.appeal`; `jury-appeal.ts` money exclusions untouched.
+4. Bridge favour is points-only — refuse usdc / usdc-v2 / funded / on-chain / escrow / campaign / Double-or-Nothing / claim-code / own post / travel / non-expressive.
+5. A checkbox is true only when its done-when was RUN. Say the command.
+6. No merge to main, no production deploy, no fabricated live metrics.
+7. Do not reorganise the repo; narrow bridge only.
+
+## PLAN (risk-first)
+1. Pure availability + eligibility — done-when: unit tests RUN.
+2. GET /api/jury shape — done-when: session tests RUN.
+3. JuryMode one-tap claim — done-when: wired + browser RUN or BLOCKED.
+4. Receipt + draft PR.
+
+## NOW
+Slice complete on branch `cursor/favour-jury-return-bridge-2026-09-06` (see LOG).
+
+## LOG
+- Starting SHA `aac00fd…12a1e`. Competing branch absent on origin.
+- Implemented availability + bridge + GET + JuryMode + Feed + tests + receipt.
+- `npx vitest run src/__tests__/jury.test.ts src/__tests__/jury-appeal.test.ts` → 52 passed.
+- `npx tsc --noEmit` → 0. `npm run build` → 0.
+- Browser claim→proof BLOCKED (no Redis). Draft PR registered for Oscar approval (not auto-created).
+- **WRONG:** first edit replaced this whole file; restored original launch hack.md and appended this slice contract.
+
+---
+
+# THIS SLICE — verified consequence return (2026-09-15 · D5)
+
+## NORTH STAR
+After I help, I can return and see the verified consequence of my contribution: evidence → authoritative verdict → credit → one genuinely available next action.
+
+## PROMISE LINE
+A labelled wallet that claims a points favour, submits evidence, and gets a server verdict can see that chain (including credit) and one real next step — without inventing supply, moving money, or re-offering a favour they already completed after reopen.
+
+## OPEN QUESTIONS
+- (non-blocking) Mine-tab layout for the consequence list — ship readable chain rows; Oscar can restyle.
+- (blocking: none for exclusion + consequence surface). Live Upstash remains optional; journey may run against a local memory-KV shim when cloud has no `KV_*`.
+
+## CONSTITUTION
+1. Never change payout, settlement, campaign-progress, or appeal-award rules.
+2. Points and USDC stay separated via `reward.ts` / existing verify-proof gates.
+3. AI-flagged proofs still earn nothing automatically; human appeal path untouched.
+4. Previously completed claimants are durably excluded from claim + bridge offer after reopen.
+5. A checkbox is true only when its done-when was RUN. Say the command.
+6. No merge to main, no production deploy, no fabricated completions or fake success.
+7. Continue on `cursor/favour-jury-return-bridge-2026-09-06` / PR #10 only — no second PR.
+8. Do not reorganise the repo; consequence + exclusion only.
+9. Credit shown in UI must come from the award path at the object, never a carried/hardcoded figure.
+10. Outward acts (post/publish/submit/public push beyond this PR branch) are Oscar's click.
+
+## PLAN (risk-first)
+1. Durable prior-completion exclusion (`completed_claimants`) at complete + claim + bridge — done-when: store/jury tests RUN including reopen corpus vs naive baseline arm.
+2. Contribution consequence ledger + verify-proof credit field — done-when: unit + route tests RUN.
+3. Claim→proof→verdict→credit→next UI (bridge return) + Mine history chain — done-when: component wiring + journey script RUN.
+4. Labelled-account browser journey against memory-KV (or honest BLOCKED) — done-when: command RUN.
+5. Receipt on PR #10 branch.
+
+## NOW
+Slice complete for durable exclusion + consequence return — see LOG. Browser UI recording optional follow-up on same branch.
+
+## LOG
+- 2026-09-15: continuing at baseline `ee4d126` on PR #10 branch. Inventory: bridge offer+claim helper exist; claim→proof browser + durable reopen exclusion named as gaps on the PR.
+- Implemented `completed_claimants`, contribution ledger, verify-proof `pointsAwarded`+`consequence`, Mine “Because you helped”, memory-KV + journey script, naive baseline eval.
+- `npx vitest run` (contribution + jury + store suites) → 64 passed. `npx tsc --noEmit` → 0.
+- `node scripts/favour-consequence-journey.mjs` → ok:true (pass pts=8, reclaim 403 Already completed, exclusion beats naive).
+- History `/history` shows “Because you helped” for labelled wallet (browser screenshot).
+- **WRONG then fixed:** consequence evidence initially read cleared reopen row (`note:null`); now captured from this submission.
+- **WRONG:** first journey attempts used POST /api/tasks and hit 429; switched to KV seed.
+- **WRONG:** Mine tab not in bottom-nav — surfaced consequence chain on `/history` instead. `/api/stats` 500 on memory-KV (platform strip only).
