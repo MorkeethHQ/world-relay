@@ -2833,7 +2833,7 @@ function SubmitProof({
                 <ol className="space-y-2 text-left">
                   <li className="flex gap-2 text-xs text-gray-600">
                     <span className="font-bold text-gray-900 shrink-0">1</span>
-                    <span><span className="font-semibold text-gray-800">Contribution</span> — {task.description}</span>
+                    <span className="break-words"><span className="font-semibold text-gray-800">Contribution</span> — {task.description}</span>
                   </li>
                   <li className="flex gap-2 text-xs text-gray-600">
                     <span className="font-bold text-gray-900 shrink-0">2</span>
