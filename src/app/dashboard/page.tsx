@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import type { Task } from "@/lib/types";
 import { ProofOfFavourCard } from "@/components/ProofOfFavourCard";
+import { ContributionHistory } from "@/components/ContributionHistory";
 import { VerificationBadge } from "@/components/VerificationBadge";
 import { displayName, profilePicture, useWorldUsers } from "@/hooks/useWorldUser";
 import { rewardAmountLabel } from "@/lib/reward";
@@ -171,6 +172,10 @@ export default function ProfilePage() {
             </Typography>
             <ProofOfFavourCard address={userId || "anonymous"} />
           </div>
+
+          {userId && /^0x[0-9a-fA-F]{40}$/.test(userId) && (
+            <ContributionHistory address={userId} />
+          )}
 
           {/* Your activity — only the current user's own tasks (posted or completed) */}
           {(() => {

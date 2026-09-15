@@ -2919,13 +2919,16 @@ function SubmitProof({
                   >
                     {result.consequence.nextAction.label}
                   </button>
-                ) : fromBridge && onJudge ? (
-                  <button
-                    onClick={() => { hapticTap(); onJudge(); }}
-                    className="w-full py-2.5 rounded-xl bg-gray-900 text-white text-sm font-semibold active:scale-[0.98] transition-all"
-                  >
-                    Return to Real or Not
-                  </button>
+                ) : result.consequence?.nextAction?.kind === "none" ? (
+                  <div className="space-y-2">
+                    <p className="text-xs text-gray-500">{result.consequence.nextAction.label}</p>
+                    <button
+                      onClick={() => { hapticTap(); onDone(); }}
+                      className="w-full py-2.5 rounded-xl border border-gray-200 bg-white text-sm text-gray-900 font-semibold active:scale-[0.98] transition-all"
+                    >
+                      Back to favours
+                    </button>
+                  </div>
                 ) : (
                   <button
                     onClick={() => { hapticTap(); onDone(); }}

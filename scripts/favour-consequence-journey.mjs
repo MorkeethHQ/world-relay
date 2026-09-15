@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Cold labelled-account consequence journey + naive baseline arm.
+ * Cold labelled-account API consequence journey + naive baseline arm.
  *
  * Requires MEMORY KV (scripts/memory-kv-server.mjs) and a running Next app
  * pointed at it. Does not invent completions: every pass goes through
@@ -14,7 +14,7 @@
  */
 const BASE = process.env.BASE_URL || "http://127.0.0.1:3000";
 const ADMIN = process.env.ADMIN_SECRET || process.env.CRON_SECRET || "";
-const JUDGE = "0x" + "c0n5e9".padEnd(40, "0").slice(0, 40);
+const JUDGE = "0x" + "c0ffee".padEnd(40, "0").slice(0, 40);
 const POSTER = "0x" + "a".repeat(40);
 
 async function json(res) {
@@ -48,7 +48,7 @@ async function main() {
       description: "Sep15 labelled journey: one honest sentence about a place you know",
       location: "Anywhere",
       category: "feedback",
-      bountyUsdc: 11,
+      bountyUsdc: 10,
       rewardType: "points",
       deadlineHours: 24,
       maxCompletions: 3,

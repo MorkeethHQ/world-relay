@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getTask, submitProof, completeTask, setAttestationHash, setFollowUp, spawnRecurringTask, markSettled, markSettlementPending } from "@/lib/store";
+import { getTask, listTasks, submitProof, completeTask, setAttestationHash, setFollowUp, spawnRecurringTask, markSettled, markSettlementPending } from "@/lib/store";
 import { verifyProof, verifyProofConsensus, verifyProofStub } from "@/lib/verify-proof";
 import type { ConsensusResult } from "@/lib/verify-proof";
 import { postProofSubmitted, postVerificationResult, postFollowUpQuestion, postSettlementConfirmation, syncAndProcessMessages } from "@/lib/xmtp";
@@ -29,6 +29,7 @@ import {
   recordContributionConsequence,
   type ContributionConsequence,
 } from "@/lib/contribution-consequence";
+import { pickJuryBridgeFavour } from "@/lib/jury";
 
 export const maxDuration = 60;
 
@@ -468,12 +469,22 @@ export async function POST(req: NextRequest) {
         const claimantRep2 = await getReputation(task.claimant);
         // Honest pricing: a points task pays exactly its advertised bounty.
         const favourCredit = creditPtsForPass(task);
-        pointsAwarded = favourCredit;
-        recordFavourCompleted(
-          task.claimant,
-          claimantRep2.currentStreak,
-          completionPointsFor(task.rewardType, task.bountyUsdc)
-        ).catch(console.error);
+        if (task.rewardType === "points") {
+          // A response may only report credit after the points ledger write
+          // succeeds. Fire-and-forget made "credited" a prediction.
+          await recordFavourCompleted(
+            task.claimant,
+            claimantRep2.currentStreak,
+            completionPointsFor(task.rewardType, task.bountyUsdc)
+          );
+          pointsAwarded = favourCredit;
+        } else {
+          recordFavourCompleted(
+            task.claimant,
+            claimantRep2.currentStreak,
+            completionPointsFor(task.rewardType, task.bountyUsdc)
+          ).catch(console.error);
+        }
       }
     } else if (result.verdict === "fail") {
       recordFailure(task.claimant).catch(console.error);
@@ -622,9 +633,11 @@ export async function POST(req: NextRequest) {
   const evidenceTask: typeof task = {
     ...task,
     ...(finalTask || {}),
-    proofNote: finalTask?.proofNote ?? task.proofNote,
-    proofImageUrl: finalTask?.proofImageUrl ?? task.proofImageUrl,
-    proofImages: finalTask?.proofImages ?? task.proofImages,
+    // Multi-completion pass reopens and clears proof from finalTask. The
+    // accepted request values are the evidence that was actually verified.
+    proofNote: finalTask?.proofNote ?? proofNote ?? task.proofNote,
+    proofImageUrl: finalTask?.proofImageUrl ?? proofImageUrls[0] ?? task.proofImageUrl,
+    proofImages: finalTask?.proofImages ?? (proofImageUrls.length ? proofImageUrls : task.proofImages),
   };
   const consequenceAddress = submitter || task.claimant;
   let consequence: ContributionConsequence | null = null;
@@ -636,6 +649,14 @@ export async function POST(req: NextRequest) {
       fromBridge,
       creditPts: pointsAwarded,
     });
+    if (fromBridge && result.verdict === "pass") {
+      // The helper's own proof never enters their jury deck. Only promise a
+      // return action when another claimable bridge favour genuinely exists.
+      const nextBridge = await pickJuryBridgeFavour(await listTasks(), consequenceAddress);
+      consequence.nextAction = nextBridge
+        ? { kind: "jury", label: "Do another available favour" }
+        : { kind: "none", label: "No other eligible favour is available to you right now" };
+    }
     await recordContributionConsequence(consequenceAddress, consequence);
   }
 
