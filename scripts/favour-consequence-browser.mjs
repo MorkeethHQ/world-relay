@@ -65,6 +65,7 @@ try {
   await page.getByText("Because you helped", { exact: true }).waitFor();
   await page.getByText(evidence, { exact: false }).waitFor();
   await page.getByText("+10 pts credited", { exact: true }).waitFor();
+  await page.getByText("Next — No other eligible favour is available to you right now", { exact: true }).waitFor();
 
   console.log(JSON.stringify({
     ok: true,
@@ -77,6 +78,7 @@ try {
       "10 points credited",
       "honest no-next-favour state",
       "personal contribution history",
+      "history next action",
     ],
   }, null, 2));
 } catch (error) {

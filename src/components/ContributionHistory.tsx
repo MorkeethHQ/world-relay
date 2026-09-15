@@ -55,6 +55,11 @@ export function ContributionHistory({ address }: { address: string }) {
               <p className={`mt-2 text-xs font-bold ${item.creditPts > 0 ? "text-amber-600" : "text-gray-500"}`}>
                 {item.creditPts > 0 ? `+${item.creditPts} pts credited` : item.creditKind === "pending" ? "Credit pending" : "No credit"}
               </p>
+              {item.nextAction?.label && (
+                <p className="mt-2 text-xs text-gray-600">
+                  Next — {item.nextAction.label}
+                </p>
+              )}
             </article>
           ))}
         </div>

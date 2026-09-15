@@ -48,3 +48,10 @@ The local journeys used `scripts/memory-kv-server.mjs`; it implements the Upstas
 - Used: local labelled test account only; no real user notified
 
 Largest gap: a real World App/Orb account against deployed Upstash and production AI has not exercised this return; no deployment or user notification was authorized.
+
+## IDE repair 2026-09-15 (continuation)
+
+Profile `ContributionHistory` now surfaces the stored next-action label (`Next — …`), matching Feed mini-history and the done-when line for return-to-consequence. Browser journey asserts that Profile row after the labelled pass.
+
+Largest remaining gap unchanged: production World App/Orb against deployed Upstash/AI is still untested (no deploy/notify authorized).
+
