@@ -19,6 +19,7 @@ const kv = new Map();
 const sets = new Map();
 const lists = new Map();
 const hashes = new Map();
+const sortedSets = new Map();
 
 function ensureSet(key) {
   if (!sets.has(key)) sets.set(key, new Set());
@@ -77,6 +78,7 @@ function runCommand(parts) {
         if (sets.delete(k)) n += 1;
         if (lists.delete(k)) n += 1;
         if (hashes.delete(k)) n += 1;
+        if (sortedSets.delete(k)) n += 1;
       }
       return { result: n };
     }
@@ -108,6 +110,11 @@ function runCommand(parts) {
     case "LPUSH": {
       const list = ensureList(args[0]);
       for (const v of args.slice(1).reverse()) list.unshift(v);
+      return { result: list.length };
+    }
+    case "RPUSH": {
+      const list = ensureList(args[0]);
+      list.push(...args.slice(1));
       return { result: list.length };
     }
     case "LRANGE": {
@@ -151,6 +158,27 @@ function runCommand(parts) {
         h.set(args[i], args[i + 1]);
       }
       return { result: 1 };
+    }
+    case "ZINCRBY": {
+      const key = args[0];
+      const by = Number(args[1]);
+      const member = args[2];
+      if (!sortedSets.has(key)) sortedSets.set(key, new Map());
+      const zset = sortedSets.get(key);
+      const next = Number(zset.get(member) || 0) + by;
+      zset.set(member, next);
+      return { result: String(next) };
+    }
+    case "EVAL": {
+      // The app uses EVAL only for compare-token lock release.
+      const keyCount = Number(args[1]);
+      const key = keyCount > 0 ? args[2] : null;
+      const token = args[2 + keyCount];
+      if (key && kv.get(key) === token) {
+        kv.delete(key);
+        return { result: 1 };
+      }
+      return { result: 0 };
     }
     case "PING":
       return { result: "PONG" };

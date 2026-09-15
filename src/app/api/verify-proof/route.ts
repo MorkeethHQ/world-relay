@@ -449,7 +449,9 @@ export async function POST(req: NextRequest) {
       // Count this earn against the claimant's daily seeded-task cap.
       recordSeededEarn(task, task.claimant).catch(console.error);
       // Award attempt and completion points only on a passing verdict.
-      recordFavourAttempted(task.claimant).catch(console.error);
+      // Serialize this profile mutation before the completion mutation below;
+      // both use the same per-wallet lock.
+      await recordFavourAttempted(task.claimant);
       // claimantLevel, NOT the stale task.claimantVerification: passing the stale
       // null left rep.verificationLevel at "wallet" for every Orb human (live: 0 of
       // 33 correct), so getTrustScore withheld the orb +0.3 and mis-sorted the
