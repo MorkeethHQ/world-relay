@@ -630,20 +630,17 @@ export async function POST(req: NextRequest) {
 
   syncAndProcessMessages().catch(console.error);
 
-  // Evidence for the consequence chain: prefer the post-submit task when still
-  // present (single-completion), else the in-memory task that still holds proof.
-  const evidenceTask: typeof task = {
-    ...task,
-    ...(finalTask || {}),
-    // Multi-completion pass reopens and clears proof from finalTask. The
-    // accepted request values are the evidence that was actually verified.
-    proofNote: finalTask?.proofNote ?? proofNote ?? task.proofNote,
-    proofImageUrl: finalTask?.proofImageUrl ?? proofImageUrls[0] ?? task.proofImageUrl,
-    proofImages: finalTask?.proofImages ?? (proofImageUrls.length ? proofImageUrls : task.proofImages),
-  };
+  // Evidence for the consequence chain must come from THIS submission —
+  // multi-completion reopen clears proof fields on the stored task row.
   const consequenceAddress = submitter || task.claimant;
   let consequence: ContributionConsequence | null = null;
   if (consequenceAddress && (result.verdict === "pass" || result.verdict === "flag" || result.verdict === "fail")) {
+    const evidenceTask = {
+      ...task,
+      proofNote: proofNote || task.proofNote || null,
+      proofImageUrl: proofImageUrls[0] || task.proofImageUrl || null,
+      proofImages: proofImageUrls.length > 0 ? proofImageUrls : task.proofImages,
+    };
     consequence = buildConsequence({
       task: evidenceTask,
       verdict: result.verdict,

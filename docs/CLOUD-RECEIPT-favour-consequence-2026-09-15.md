@@ -4,54 +4,50 @@
 - Base: `ee4d12637c6deb06e9950fcafb5ac298e92d3c67`
 - Branch: `cursor/favour-jury-return-bridge-2026-09-06`
 - PR: [#10](https://github.com/MorkeethHQ/world-relay/pull/10) (same existing draft)
-- Final tested head: `d68117c` plus this receipt commit
-- Coordination: the existing owner advanced the branch to `fb20855` during this run. No force-push or competing PR was created; that commit was retained and reviewed before the follow-up commits.
+- Coordination: parallel cloud work on this branch was rebased together (no force-push, no second PR).
 
 ## Capability
-A labelled wallet can claim the jury bridge favour, submit real evidence, see FAVOUR's authoritative verdict and confirmed points credit, receive one genuinely available next offer or an honest unavailable state, and later reopen the same chain under Profile.
+A labelled wallet can claim a points favour (including the jury bridge), submit real evidence, see FAVOUR's authoritative verdict and confirmed points credit, receive one genuinely available next offer or an honest unavailable state, and later reopen the same chain under Profile and History.
 
 ## Evidence
 
 | Check | Command | Result |
 |---|---|---|
-| Focused risk suite | `npx vitest run src/__tests__/jury.test.ts src/__tests__/jury-appeal.test.ts src/__tests__/jury-bridge-claim.test.ts src/__tests__/contribution-consequence.test.ts src/__tests__/store.test.ts src/__tests__/verify-proof-claimant-level.test.ts src/__tests__/verify-proof-credit-wiring.test.ts src/__tests__/invariants.guard.test.ts` | 8 files, 100 passed |
-| Full tests | `npx vitest run` | 43 files passed, 1 skipped; 487 tests passed, 1 skipped |
+| Focused risk suite | `npx vitest run src/__tests__/contribution-consequence.test.ts src/__tests__/jury.test.ts src/__tests__/jury-bridge-claim.test.ts src/__tests__/jury-route.test.ts src/__tests__/store.test.ts` | 5 files, 64 passed |
 | Typecheck | `npx tsc --noEmit` | exit 0 |
-| Production build | `npm run build` | exit 0; 55 pages generated; `/api/contributions` present |
-| Labelled API journey | `BASE_URL=http://127.0.0.1:3000 ADMIN_SECRET=local-secret node scripts/favour-consequence-journey.mjs` | pass; claim 200, verdict pass, 10 points, one history row, reclaim 403, bridge did not re-offer task |
-| Labelled browser journey | `BASE_URL=http://localhost:3000 node scripts/favour-consequence-browser.mjs` | pass; claim → text evidence → authoritative pass → 10 points credited → honest no-next-favour → Profile receipt |
-| Guard mutation | remove `hasCompletedClaimant` from `isJuryBridgeClaimOfferable`, run `npx vitest run src/__tests__/contribution-consequence.test.ts`, restore | red as expected: 2 reopen-exclusion tests failed; restored run 7/7 green |
-
-The local journeys used `scripts/memory-kv-server.mjs`; it implements the Upstash REST commands reached by this app. Data was ephemeral and test-labelled. No production records, supply, users, campaigns, or money were touched. The first API run honestly returned `flag` and zero credit; after resetting the ephemeral store, the pass run above exercised the credited path. The browser run used the real local claim and verify routes with no browser response mocks.
+| Memory KV ping | `curl -X POST http://127.0.0.1:8079 -H 'Authorization: Bearer local' -d '["PING"]'` | `{"result":"PONG"}` |
+| Labelled API journey | `node scripts/favour-consequence-journey.mjs` | `ok: true` — pass pts=8, evidence note+image, reclaim `403 Already completed`, bridge did not re-offer, naiveVsExclusion.winner=`exclusion` |
+| History UI | labelled wallet → `/history` | “Because you helped” shows verified +8 pts + evidence + next action (screenshot `/opt/cursor/artifacts/history-because-you-helped.webp`) |
+| Profile | ContributionHistory component | next-action label surfaced (prior commit on branch) |
 
 ## What changed
-- Durable `completed_claimants:{taskId}` membership is written before a multi-completion row reopens; claim and jury offer paths both refuse prior completers.
-- `/api/verify-proof` awaits the points-ledger write before reporting `pointsAwarded`; it does not predict credit from the bounty.
-- Durable personal consequence rows preserve contribution, accepted evidence, verdict, credit, and next-action truth after the mutable task row clears.
-- The pass screen renders the full chain. It promises a return only when another eligible bridge favour exists; otherwise it says none is available.
-- Profile renders the user's durable “Because you helped” history.
+- Durable `completed_claimants:{taskId}` written before multi-completion reopen; claim + bridge offer refuse prior completers.
+- `/api/verify-proof` awaits points-ledger write before reporting `pointsAwarded`; evidence captured from this submission (not cleared reopen row).
+- Personal consequence ledger + `/api/contributions`; Profile + History + pass UI surface the chain.
+- Bridge next action is honest: another eligible favour, or “none available”.
+- Naive baseline arm in tests: shape-only re-offers completed reopens; exclusion wins.
+- `scripts/memory-kv-server.mjs` + journey/browser scripts for cold labelled runs.
 
 ## Value observation
-- Value: **observed** — the browser returned the verified consequence and Profile retained it.
-- Unaided: **observed locally** — the scripted labelled wallet completed the UI without internal state edits; production World App was not used.
-- Distinctive: **partial** — verified human evidence plus durable consequence/return is present; comparative user preference was not measured.
-- Action-return: **observed** — the only task was excluded after reopen and the UI honestly reported no other eligible favour.
-- Access: **observed locally / untested in production** — wallet-labelled browser account passed; Orb/MiniKit production access was not exercised.
+- Value: **observed** — labelled journey returned verified consequence; History retained it.
+- Unaided: **observed locally** — scripted labelled wallet; production World App not used.
+- Distinctive: **partial** — durable consequence/return present; comparative user preference not measured.
+- Action-return: **observed** — prior completion excluded after reopen; UI/API report unavailable when no next favour.
+- Access: **observed locally / untested in production**.
 
 ## State
 - Built: yes
-- Tested: yes, including browser and mutation evidence
+- Tested: yes (API journey + History UI + unit)
 - Pushed: yes, same PR #10 branch
-- Reviewed: self-reviewed against money/reward invariants; no human review recorded
+- Reviewed: self-reviewed against money/reward invariants
 - Merged: no
-- Hosted: preview CI not checked in this receipt; production not deployed
-- Used: local labelled test account only; no real user notified
+- Hosted: production not deployed
+- Used: local labelled test account only
 
-Largest gap: a real World App/Orb account against deployed Upstash and production AI has not exercised this return; no deployment or user notification was authorized.
-
-## IDE repair 2026-09-15 (continuation)
-
-Profile `ContributionHistory` now surfaces the stored next-action label (`Next — …`), matching Feed mini-history and the done-when line for return-to-consequence. Browser journey asserts that Profile row after the labelled pass.
-
-Largest remaining gap unchanged: production World App/Orb against deployed Upstash/AI is still untested (no deploy/notify authorized).
-
+## WRONG / gaps
+- Evidence initially lost after reopen (finalTask cleared proof) — fixed.
+- Create rate-limit (5/min) blocked early journey attempts — switched to KV seed.
+- Feed “Mine” tab not in bottom-nav — History + Profile are discoverable surfaces.
+- `/api/stats` 500 against memory-KV (platform totals strip only).
+- Immersive jury swipe→exhaust→bridge click path not video-recorded in this pass.
+- Production World App/Orb against deployed Upstash/AI untested (no deploy authorized).

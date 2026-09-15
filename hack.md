@@ -122,7 +122,12 @@ A labelled wallet that claims a points favour, submits evidence, and gets a serv
 5. Receipt on PR #10 branch.
 
 ## NOW
-Slice 1 — durable prior-completion exclusion (riskiest: silent re-offer after reopen).
+Slice complete for durable exclusion + consequence return — see LOG. Browser UI recording optional follow-up on same branch.
 
 ## LOG
 - 2026-09-15: continuing at baseline `ee4d126` on PR #10 branch. Inventory: bridge offer+claim helper exist; claim→proof browser + durable reopen exclusion named as gaps on the PR.
+- Implemented `completed_claimants`, contribution ledger, verify-proof `pointsAwarded`+`consequence`, Mine “Because you helped”, memory-KV + journey script, naive baseline eval.
+- `npx vitest run` (contribution + jury + store suites) → 64 passed. `npx tsc --noEmit` → 0.
+- `node scripts/favour-consequence-journey.mjs` → ok:true (pass pts=8, reclaim 403 Already completed, exclusion beats naive).
+- **WRONG then fixed:** consequence evidence initially read cleared reopen row (`note:null`); now captured from this submission.
+- **WRONG:** first journey attempts used POST /api/tasks and hit 429; switched to KV seed.

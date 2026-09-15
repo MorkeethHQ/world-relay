@@ -3,10 +3,12 @@
 import { useState, useEffect } from "react";
 import type { Task } from "@/lib/types";
 import { rewardAmountLabel } from "@/lib/reward";
+import { ContributionHistory } from "@/components/ContributionHistory";
 
 // History as a first-class page: proof the platform is alive. Platform totals
 // live here now, NOT on the profile (Oscar Jul 5: profile felt like an admin
 // dashboard; "history can have total paid out, total points, these things").
+// Sep15: when signed in, lead with YOUR consequence chain (survives reopen).
 type Stats = {
   users?: { total?: number; verified?: number; reached?: number };
   volume?: { paidOutUsdc?: number; pointsDistributed?: number };
@@ -24,7 +26,15 @@ function timeAgo(dateStr: string): string {
 export default function HistoryPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [stats, setStats] = useState<Stats>({});
+  const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("relay_user_id");
+      if (stored && /^0x[0-9a-fA-F]{40}$/.test(stored)) setUserId(stored);
+    } catch {}
+  }, []);
 
   useEffect(() => {
     Promise.all([
@@ -37,10 +47,14 @@ export default function HistoryPage() {
     <div className="min-h-screen bg-gray-50 max-w-lg mx-auto">
       <div className="sticky top-0 z-10 bg-white/95 backdrop-blur-md border-b border-gray-100 px-6 py-3">
         <h1 className="text-[18px] font-bold tracking-tight text-gray-900">History</h1>
-        <p className="text-[11px] text-gray-400 mt-0.5">Recently completed across FAVOUR</p>
+        <p className="text-[11px] text-gray-400 mt-0.5">
+          {userId ? "Your verified consequences, then recent favours across FAVOUR" : "Recently completed across FAVOUR"}
+        </p>
       </div>
 
       <div className="px-6 py-4 pb-28 flex flex-col gap-4">
+        {userId && <ContributionHistory address={userId} />}
+
         {/* Platform totals — the proof-of-life numbers */}
         <div className="bg-gray-950 rounded-2xl p-5 text-white flex items-center justify-between">
           <div>
@@ -65,6 +79,7 @@ export default function HistoryPage() {
           <p className="text-sm text-gray-400 text-center py-16">No completed favours yet.</p>
         ) : (
           <div className="flex flex-col gap-2.5">
+            <p className="text-[12px] font-semibold text-gray-500 tracking-tight">Across FAVOUR</p>
             {tasks.map((task) => (
               <div key={task.id} className="rounded-2xl overflow-hidden bg-white border border-gray-200">
                 {task.proofImageUrl && (
