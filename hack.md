@@ -129,5 +129,7 @@ Slice complete for durable exclusion + consequence return — see LOG. Browser U
 - Implemented `completed_claimants`, contribution ledger, verify-proof `pointsAwarded`+`consequence`, Mine “Because you helped”, memory-KV + journey script, naive baseline eval.
 - `npx vitest run` (contribution + jury + store suites) → 64 passed. `npx tsc --noEmit` → 0.
 - `node scripts/favour-consequence-journey.mjs` → ok:true (pass pts=8, reclaim 403 Already completed, exclusion beats naive).
+- History `/history` shows “Because you helped” for labelled wallet (browser screenshot).
 - **WRONG then fixed:** consequence evidence initially read cleared reopen row (`note:null`); now captured from this submission.
 - **WRONG:** first journey attempts used POST /api/tasks and hit 429; switched to KV seed.
+- **WRONG:** Mine tab not in bottom-nav — surfaced consequence chain on `/history` instead. `/api/stats` 500 on memory-KV (platform strip only).
