@@ -87,3 +87,42 @@ Slice complete on branch `cursor/favour-jury-return-bridge-2026-09-06` (see LOG)
 - `npx tsc --noEmit` → 0. `npm run build` → 0.
 - Browser claim→proof BLOCKED (no Redis). Draft PR registered for Oscar approval (not auto-created).
 - **WRONG:** first edit replaced this whole file; restored original launch hack.md and appended this slice contract.
+
+---
+
+# THIS SLICE — verified consequence return (2026-09-15 · D5)
+
+## NORTH STAR
+After I help, I can return and see the verified consequence of my contribution: evidence → authoritative verdict → credit → one genuinely available next action.
+
+## PROMISE LINE
+A labelled wallet that claims a points favour, submits evidence, and gets a server verdict can see that chain (including credit) and one real next step — without inventing supply, moving money, or re-offering a favour they already completed after reopen.
+
+## OPEN QUESTIONS
+- (non-blocking) Mine-tab layout for the consequence list — ship readable chain rows; Oscar can restyle.
+- (blocking: none for exclusion + consequence surface). Live Upstash remains optional; journey may run against a local memory-KV shim when cloud has no `KV_*`.
+
+## CONSTITUTION
+1. Never change payout, settlement, campaign-progress, or appeal-award rules.
+2. Points and USDC stay separated via `reward.ts` / existing verify-proof gates.
+3. AI-flagged proofs still earn nothing automatically; human appeal path untouched.
+4. Previously completed claimants are durably excluded from claim + bridge offer after reopen.
+5. A checkbox is true only when its done-when was RUN. Say the command.
+6. No merge to main, no production deploy, no fabricated completions or fake success.
+7. Continue on `cursor/favour-jury-return-bridge-2026-09-06` / PR #10 only — no second PR.
+8. Do not reorganise the repo; consequence + exclusion only.
+9. Credit shown in UI must come from the award path at the object, never a carried/hardcoded figure.
+10. Outward acts (post/publish/submit/public push beyond this PR branch) are Oscar's click.
+
+## PLAN (risk-first)
+1. Durable prior-completion exclusion (`completed_claimants`) at complete + claim + bridge — done-when: store/jury tests RUN including reopen corpus vs naive baseline arm.
+2. Contribution consequence ledger + verify-proof credit field — done-when: unit + route tests RUN.
+3. Claim→proof→verdict→credit→next UI (bridge return) + Mine history chain — done-when: component wiring + journey script RUN.
+4. Labelled-account browser journey against memory-KV (or honest BLOCKED) — done-when: command RUN.
+5. Receipt on PR #10 branch.
+
+## NOW
+Slice 1 — durable prior-completion exclusion (riskiest: silent re-offer after reopen).
+
+## LOG
+- 2026-09-15: continuing at baseline `ee4d126` on PR #10 branch. Inventory: bridge offer+claim helper exist; claim→proof browser + durable reopen exclusion named as gaps on the PR.

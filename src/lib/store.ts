@@ -3,6 +3,7 @@ import { getRedis } from "./redis";
 import { getAgent } from "./agents";
 import { recordFundingReward } from "./proof-of-favour";
 import { CUSTODY_RETIRED } from "./custody";
+import { hasCompletedClaimant, recordCompletedClaimant } from "./contribution-consequence";
 export type { Task, TaskStatus, TaskCategory };
 
 const TASK_PREFIX = "task:";
@@ -289,6 +290,9 @@ export async function claimTask(
     // Reject if this claimant previously failed verification on this task
     const hasFailed = await redis.sismember(`failed_claimants:${id}`, claimant);
     if (hasFailed) return null;
+    // Durable prior pass: multi-completion reopen clears the row but must not
+    // let the same helper claim the same favour again (bridge + board).
+    if (await hasCompletedClaimant(id, claimant)) return null;
     task.claimant = claimant;
     task.status = "claimed";
     task.claimantVerification = verificationLevel ?? null;
@@ -346,6 +350,10 @@ export async function completeTask(
   if (!task) return null;
   task.verificationResult = result;
   if (result.verdict === "pass") {
+    // Record BEFORE reopen clears claimant — otherwise history is lost.
+    if (task.claimant) {
+      await recordCompletedClaimant(id, task.claimant);
+    }
     task.completionCount = (task.completionCount || 0) + 1;
     if (task.maxCompletions > 1 && task.completionCount < task.maxCompletions) {
       task.status = "open";

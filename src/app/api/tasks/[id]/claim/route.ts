@@ -10,6 +10,7 @@ import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { trackEvent } from "@/lib/track";
 import { checkSeedCap } from "@/lib/seed-caps";
 import { getUserVerificationLevel, tierGateError } from "@/lib/verification-tier";
+import { hasCompletedClaimant } from "@/lib/contribution-consequence";
 
 export async function POST(
   req: NextRequest,
@@ -40,6 +41,13 @@ export async function POST(
       error: "Invalid claim code",
       requiresCode: true,
       message: "This is a restricted bounty. Enter the claim code to unlock it.",
+    }, { status: 403 });
+  }
+
+  if (await hasCompletedClaimant(id, claimant)) {
+    return NextResponse.json({
+      error: "Already completed",
+      message: "You already completed this favour. It will not be offered to you again.",
     }, { status: 403 });
   }
 

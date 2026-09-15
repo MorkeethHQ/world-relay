@@ -8,6 +8,7 @@ import {
   juryAvailabilityCopy,
   type JuryAvailability,
 } from "./jury-availability-copy";
+import { hasCompletedClaimant } from "./contribution-consequence";
 
 export { juryAvailabilityCopy };
 export type { JuryAvailability };
@@ -114,10 +115,9 @@ export function assessJuryAvailability(
  * Pure shape gate for the jury → points favour return bridge.
  * Every money / campaign / travel / ownership exclusion must hold.
  *
- * Does NOT claim durable "already completed by this juror" history: after
- * reopen the store keeps one current row per task id, so a prior completion
- * is not visible. Callers that need claim-time parity must also run
- * {@link isJuryBridgeClaimOfferable} (seed cap + failed-claimant checks).
+ * Prior-completion after reopen is NOT visible on the task row (store keeps
+ * one current row per id). Callers that need claim-time parity must also run
+ * {@link isJuryBridgeClaimOfferable} (completed_claimants + seed cap + failed).
  */
 export function isJuryBridgeEligible(task: Task, judge: string | null, _allTasks: Task[] = []): boolean {
   if (task.status !== "open") return false;
@@ -143,9 +143,9 @@ export function isJuryBridgeEligible(task: Task, judge: string | null, _allTasks
 }
 
 /**
- * Non-mutating claim-offer check: shape gate + the same seed-cap and
- * failed-claimant refusals claim uses before mutating. Safe to call when
- * picking a bridge favour so the UI does not offer a task claim will refuse.
+ * Non-mutating claim-offer check: shape gate + the same completed-claimant,
+ * seed-cap, and failed-claimant refusals claim uses before mutating. Safe to
+ * call when picking a bridge favour so the UI does not offer a task claim will refuse.
  */
 export async function isJuryBridgeClaimOfferable(
   task: Task,
@@ -154,6 +154,7 @@ export async function isJuryBridgeClaimOfferable(
 ): Promise<boolean> {
   if (!isJuryBridgeEligible(task, judge, allTasks)) return false;
   if (!judge) return true;
+  if (await hasCompletedClaimant(task.id, judge)) return false;
   const seedCap = await checkSeedCap(task, judge);
   if (!seedCap.allowed) return false;
   const redis = getRedis();

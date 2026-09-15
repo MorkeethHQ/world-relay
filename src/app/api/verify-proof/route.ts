@@ -23,6 +23,12 @@ import { recordCampaignCompletion } from "@/lib/campaign-unlock";
 import { getCampaign } from "@/lib/campaigns";
 import { isRealMoney, hasOnChainEscrow } from "@/lib/reward";
 import { recordReferralActivation } from "@/lib/referral";
+import {
+  buildConsequence,
+  creditPtsForPass,
+  recordContributionConsequence,
+  type ContributionConsequence,
+} from "@/lib/contribution-consequence";
 
 export const maxDuration = 60;
 
@@ -87,6 +93,7 @@ export async function POST(req: NextRequest) {
   const demoAllowed = process.env.NODE_ENV !== "production" || process.env.ALLOW_DEMO_MODE === "true";
   const demoMode = demoAllowed && authHeader === `Bearer ${ADMIN_SECRET}` && !!ADMIN_SECRET;
   const submitter = body.submitter;
+  const fromBridge = body.fromBridge === true;
   if (!submitter && !demoMode) {
     return NextResponse.json({ error: "Submitter identity required" }, { status: 401 });
   }
@@ -432,6 +439,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  let pointsAwarded = 0;
   if (task.claimant) {
     if (result.verdict === "pass") {
       // Referral activation: the invitee's first clean completion pays the
@@ -459,6 +467,8 @@ export async function POST(req: NextRequest) {
         recordCompletion(task.claimant, task.bountyUsdc, result.confidence, claimantLevel || undefined, taskIsRealMoney).catch(console.error);
         const claimantRep2 = await getReputation(task.claimant);
         // Honest pricing: a points task pays exactly its advertised bounty.
+        const favourCredit = creditPtsForPass(task);
+        pointsAwarded = favourCredit;
         recordFavourCompleted(
           task.claimant,
           claimantRep2.currentStreak,
@@ -607,6 +617,28 @@ export async function POST(req: NextRequest) {
 
   syncAndProcessMessages().catch(console.error);
 
+  // Evidence for the consequence chain: prefer the post-submit task when still
+  // present (single-completion), else the in-memory task that still holds proof.
+  const evidenceTask: typeof task = {
+    ...task,
+    ...(finalTask || {}),
+    proofNote: finalTask?.proofNote ?? task.proofNote,
+    proofImageUrl: finalTask?.proofImageUrl ?? task.proofImageUrl,
+    proofImages: finalTask?.proofImages ?? task.proofImages,
+  };
+  const consequenceAddress = submitter || task.claimant;
+  let consequence: ContributionConsequence | null = null;
+  if (consequenceAddress && (result.verdict === "pass" || result.verdict === "flag" || result.verdict === "fail")) {
+    consequence = buildConsequence({
+      task: evidenceTask,
+      verdict: result.verdict,
+      reasoning: result.reasoning,
+      fromBridge,
+      creditPts: pointsAwarded,
+    });
+    await recordContributionConsequence(consequenceAddress, consequence);
+  }
+
   return NextResponse.json({
     taskId,
     verification: result,
@@ -624,6 +656,8 @@ export async function POST(req: NextRequest) {
     distanceKm: distanceKm !== null ? Math.round(distanceKm * 100) / 100 : null,
     nextRecurringTaskId,
     task: finalTask,
+    pointsAwarded,
+    consequence,
   });
   } finally {
     if (redis && verifyLock) {

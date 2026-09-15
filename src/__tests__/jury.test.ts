@@ -333,11 +333,11 @@ describe("jury return bridge eligibility", () => {
     expect(await pickJuryBridgeFavour([seeded], JUDGE)).toBeNull();
   });
 
-  it("does not claim durable prior-completion coverage after reopen", () => {
-    // Store keeps one current row per id. An open favour after reopen has no
-    // completed twin — eligibility must not pretend history is recoverable.
+  it("shape gate alone cannot see prior completion after reopen — offerable must refuse via completed_claimants", async () => {
     const favour = openBridgeFavour({ id: "reopen-1", status: "open", claimant: null });
     expect(isJuryBridgeEligible(favour, JUDGE, [favour])).toBe(true);
+    // Without a completed_claimants write, offerable still allows (shape-only).
+    expect(await isJuryBridgeClaimOfferable(favour, JUDGE, [favour])).toBe(true);
   });
 });
 
