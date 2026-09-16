@@ -42,7 +42,35 @@ recur silently.
 - **Curation.** Identical descriptions collapse past `DUPLICATE_DESC_CAP` (2); the
   board caps at `BOARD_CAP` (30). The user's own posts/claims are never hidden by
   any cap.
-- **R6 — Supply floor (added Jul 29, 2026).** The visible open board never sits
+- **R6 AMENDED Sep 16, 2026: the engine is OFF and the floor is a signal.**
+  The paragraph below describes the engine as it was built and how it still
+  behaves if re-enabled. Read this first.
+  **What changed.** The visible open board no longer self-heals. Measured on the
+  live app 16 Sep: **24 of the 25 open favours shared a single timestamp from one
+  replenish run twelve days earlier**, not one of them was at a real place, and
+  agent-posted favours had produced 19 completions across 74 tasks against 460
+  across 105 human ones. Oscar's ruling that day: *"Favour has a lot of stale
+  boring items still"*.
+  **What OFF means, and it is both halves.** The cron entry is removed from
+  `vercel.json`, so nothing is scheduled, and the handler is gated behind
+  `BOARD_REPLENISH_ENABLED` which defaults to **false**, so a manual call, a
+  restored schedule or a fresh deploy cannot quietly refill the board. A caller
+  who arrives anyway gets an explicit `disabled: true` receipt naming the ruling,
+  and a `console.warn`, rather than a successful-looking empty receipt. A job
+  that silently does nothing is indistinguishable from a job that ran and found
+  nothing to do, and removing that ambiguity is the point.
+  **The default direction is deliberate.** `SESSION_ENFORCE` in `session.ts` uses
+  the same env-switch shape but defaults to the permissive side, which is why an
+  identity invariant has sat dormant in production for months. This one defaults
+  to the safe side: forgetting the variable means no posting. A guard test pins
+  that only the exact string `"true"` enables it.
+  **`BOARD_MIN_OPEN` (8) is now a signal, not a promise.** Nothing automatic
+  maintains it, so it means "the board needs a human to post", and it is surfaced
+  as `tasks.belowFloor` on `/api/stats` next to `tasks.floor`. `isBoardBelowFloor`
+  counts what a visitor can actually see, not `status === "open"`.
+  **To re-enable:** set `BOARD_REPLENISH_ENABLED=true` and restore the cron entry.
+  Both, or it will not run.
+- **R6 original, supply floor (added Jul 29, 2026).** The visible open board never sits
   below `BOARD_MIN_OPEN` (8). The replenish engine
   (`src/lib/board-replenish.ts`, cron `/api/cron/replenish-board`, guard test
   `board-replenish.test.ts`) restores supply in two steps: recycle expired,
