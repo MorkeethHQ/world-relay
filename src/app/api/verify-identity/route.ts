@@ -3,7 +3,7 @@ import { createPublicClient, http } from "viem";
 import { worldchain } from "viem/chains";
 import { getRedis } from "@/lib/redis";
 import { trackVisitor, trackEvent } from "@/lib/track";
-import { issueSessionToken, SESSION_COOKIE } from "@/lib/session";
+import { issueSessionToken, SESSION_COOKIE, SESSION_TTL_MS } from "@/lib/session";
 import { attributeReferral } from "@/lib/referral";
 
 // Verify that `signature` over `message` was really produced by `address`.
@@ -159,7 +159,7 @@ export async function POST(req: NextRequest) {
             secure: true,
             sameSite: "lax",
             path: "/",
-            maxAge: 7 * 24 * 3600,
+            maxAge: SESSION_TTL_MS / 1000,
           });
         }
       } else {
@@ -179,11 +179,45 @@ export async function POST(req: NextRequest) {
 
     trackVisitor(body.address).catch(() => {});
 
-    return NextResponse.json({
+    // DEV ACCOUNTS AND THE IDENTITY GATE, decided 2026-09-16.
+    //
+    // A `dev_` id is minted by the browser-preview path when MiniKit is not
+    // installed. Nobody signs anything for it, so it proves nothing, and it is
+    // not a wallet. Under SESSION_ENFORCE it would be locked out of all nine
+    // gated routes by construction, which was one of the two breakages found.
+    //
+    // The decision is NOT to quietly exempt it, because an exemption for
+    // unsigned identities is the hole the invariant exists to close: anyone can
+    // pick a `dev_` id. Instead it gets a session ONLY where dev ids are a
+    // legitimate affordance, which is local and preview, behind an explicit
+    // switch that defaults OFF. In production the switch is absent, dev accounts
+    // hold no session, and enforcement correctly refuses them.
+    //
+    // The default direction matters and follows the same rule as
+    // BOARD_REPLENISH_ENABLED: forgetting the variable must fail to the SAFE
+    // side. Here safe means no session. SESSION_ENFORCE itself defaults the other
+    // way, which is exactly why this gate sat open for months.
+    const res = NextResponse.json({
       verified: true,
       verification_level: "dev",
       dev_mode: true,
+      dev_session: process.env.ALLOW_DEV_SESSIONS === "true",
     });
+
+    if (process.env.ALLOW_DEV_SESSIONS === "true") {
+      const token = issueSessionToken(body.address, Date.now());
+      if (token) {
+        res.cookies.set(SESSION_COOKIE, token, {
+          httpOnly: true,
+          secure: true,
+          sameSite: "lax",
+          path: "/",
+          maxAge: SESSION_TTL_MS / 1000,
+        });
+      }
+    }
+
+    return res;
   }
 
   return NextResponse.json({ error: "Missing verification fields" }, { status: 400 });

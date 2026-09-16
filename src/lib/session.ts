@@ -12,7 +12,32 @@ import { trackEvent } from "./track";
 // HMAC keyed on SESSION_SECRET so it can't be forged without the server key.
 
 export const SESSION_COOKIE = "favour_session";
-const SESSION_TTL_MS = 7 * 24 * 3600_000; // 7 days
+
+// 30 days, raised from 7 on 2026-09-16, and the reason is the re-auth design.
+//
+// A new session REQUIRES A SIGNATURE and cannot be minted silently. Verified at
+// the object in @worldcoin/minikit-js 2.x: the only commands that can prove
+// wallet control are walletAuth, signMessage, signTypedData and sendTransaction,
+// all of them user-approved, and WalletAuthErrorCodes contains `UserRejected`,
+// which only exists because a person is asked. getUserByAddress and getUserInfo
+// return profile data and prove nothing, so minting a session from them would be
+// identity CLAIMED, which is the invariant we are closing.
+//
+// So the signature cannot be removed. It can only be made rare. Two things make
+// it rare, and they work together:
+//   - this longer window, and
+//   - sliding renewal (see shouldRenewSession): a caller who still holds a valid
+//     cookie gets a fresh one with no prompt.
+// Together they mean a person who opens FAVOUR at least once a month never sees
+// a sign-in again. At 7 days with no renewal, which is what shipped, missing two
+// weekends was enough to be challenged.
+export const SESSION_TTL_MS = 30 * 24 * 3600_000;
+
+// Reissue a still-valid session once it is past halfway through its life. This
+// is the silent half of re-auth: no signature, no prompt, no user decision. It
+// is also why the TTL can be long without the cookie becoming long-lived in
+// practice, because an active session is continuously replaced rather than held.
+export const SESSION_RENEW_AFTER_MS = SESSION_TTL_MS / 2;
 
 function secret(): string | null {
   return process.env.SESSION_SECRET || process.env.ADMIN_SECRET || null;
@@ -53,6 +78,32 @@ export function verifySessionToken(token: string | undefined | null, nowMs: numb
   const exp = Number(expStr);
   if (!address || !Number.isFinite(exp) || exp < nowMs) return null;
   return address;
+}
+
+// Returns the token's expiry in ms, or null if the token is not valid NOW.
+// Used by the session endpoint to decide renewal and to tell the client when it
+// will next need a signature.
+export function sessionExpiry(token: string | undefined | null, nowMs: number): number | null {
+  if (!verifySessionToken(token, nowMs)) return null;
+  try {
+    const payload = Buffer.from(String(token).split(".")[0], "base64url").toString();
+    const exp = Number(payload.split(".")[1]);
+    return Number.isFinite(exp) ? exp : null;
+  } catch {
+    return null;
+  }
+}
+
+// True when a VALID session is past halfway and should be silently reissued.
+//
+// An EXPIRED token returns false here, and that distinction is the point. An
+// expired session is not a session, so it must fall through to a signature
+// rather than be quietly renewed. Renewing an expired token would let one old
+// signature authenticate forever, which is worse than the hole being closed.
+export function shouldRenewSession(token: string | undefined | null, nowMs: number): boolean {
+  const exp = sessionExpiry(token, nowMs);
+  if (exp === null) return false;
+  return exp - nowMs < SESSION_RENEW_AFTER_MS;
 }
 
 // Reads and verifies the session cookie off a request. Returns the caller's

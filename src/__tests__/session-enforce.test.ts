@@ -15,6 +15,9 @@ import {
   issueSessionToken,
   verifySessionToken,
   addressMatches,
+  shouldRenewSession,
+  sessionExpiry,
+  SESSION_TTL_MS,
   SESSION_COOKIE,
 } from "@/lib/session";
 import type { NextRequest } from "next/server";
@@ -89,9 +92,13 @@ describe("the gate refuses explicitly when enforcing", () => {
     process.env.SESSION_SECRET = "test-secret";
     process.env.SESSION_ENFORCE = "true";
     const token = issueSessionToken(WALLET, NOW)!;
-    const eightDaysLater = NOW + 8 * 24 * 3600_000;
-    expect(verifySessionToken(token, eightDaysLater)).toBeNull();
-    expect(ownershipError(req(token), WALLET, eightDaysLater)).toMatch(/re-authenticate/i);
+    // Relative to the TTL, never a hardcoded number of days. This test was
+    // written against a 7-day window and silently stopped testing expiry when
+    // the TTL moved to 30 on 2026-09-16: "8 days later" was no longer expired,
+    // so the assertion passed for the wrong reason until it was made relative.
+    const afterExpiry = NOW + SESSION_TTL_MS + 1000;
+    expect(verifySessionToken(token, afterExpiry)).toBeNull();
+    expect(ownershipError(req(token), WALLET, afterExpiry)).toMatch(/re-authenticate/i);
   });
 
   it("refuses when NO signing secret is configured, and does not silently pass", () => {
@@ -138,5 +145,54 @@ describe("addressMatches never lets a non-string through", () => {
     for (const bad of [undefined, null, 42, {}, []]) {
       expect(addressMatches(WALLET.toLowerCase(), bad), String(bad)).toBe(false);
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// RE-AUTH, added 2026-09-16. A new session cannot be minted silently: every
+// MiniKit command that proves wallet control is user-approved, and
+// WalletAuthErrorCodes carries `UserRejected`, which only exists because a
+// person is asked. So the signature cannot be removed, only made rare. Sliding
+// renewal is what makes it rare, and these pin its edges.
+// ---------------------------------------------------------------------------
+describe("sliding renewal is the silent half of re-auth", () => {
+  it("a fresh session does NOT renew", () => {
+    process.env.SESSION_SECRET = "test-secret";
+    const token = issueSessionToken(WALLET, NOW)!;
+    expect(shouldRenewSession(token, NOW)).toBe(false);
+  });
+
+  it("a session past halfway DOES renew, with no signature involved", () => {
+    process.env.SESSION_SECRET = "test-secret";
+    const token = issueSessionToken(WALLET, NOW)!;
+    const pastHalf = NOW + SESSION_TTL_MS / 2 + 1000;
+    expect(shouldRenewSession(token, pastHalf)).toBe(true);
+    // Still a valid session at that moment, which is why renewal is allowed.
+    expect(verifySessionToken(token, pastHalf)).toBe(WALLET.toLowerCase());
+  });
+
+  it("an EXPIRED session never renews, it needs a fresh signature", () => {
+    // The distinction the brief asked for: expired must be treated as expired,
+    // not as absent-and-therefore-fine. Renewing an expired token would let one
+    // old signature authenticate forever, which is worse than the open gate.
+    process.env.SESSION_SECRET = "test-secret";
+    const token = issueSessionToken(WALLET, NOW)!;
+    const afterExpiry = NOW + SESSION_TTL_MS + 1000;
+    expect(verifySessionToken(token, afterExpiry)).toBeNull();
+    expect(shouldRenewSession(token, afterExpiry)).toBe(false);
+    expect(sessionExpiry(token, afterExpiry)).toBeNull();
+  });
+
+  it("a tampered token never renews", () => {
+    process.env.SESSION_SECRET = "test-secret";
+    const token = issueSessionToken(WALLET, NOW)!;
+    const forged = token.slice(0, -1) + (token.slice(-1) === "A" ? "B" : "A");
+    expect(shouldRenewSession(forged, NOW + SESSION_TTL_MS / 2 + 1000)).toBe(false);
+  });
+
+  it("the window is long enough that a monthly visitor is never challenged", () => {
+    // 7 days with no renewal, which is what shipped, meant missing two weekends
+    // was enough to be asked to sign again.
+    expect(SESSION_TTL_MS).toBeGreaterThanOrEqual(30 * 24 * 3600_000);
   });
 });

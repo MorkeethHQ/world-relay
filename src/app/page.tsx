@@ -82,7 +82,65 @@ export default function Home() {
       setOnboarded(true);
     }
     setMiniKitChecked(true);
+
+    // RE-AUTH, added 2026-09-16, and this is the line the whole identity gate
+    // was waiting on.
+    //
+    // A stored id above means "this person signed in once". It does NOT mean
+    // they still hold a session cookie: the cookie is issued only inside
+    // /api/verify-identity, and the branch above returns without ever calling it
+    // again. Before this, a returning person silently carried no session, which
+    // is why enforcing would have locked out ~89% of registered users.
+    //
+    // /api/session answers the question and does the silent half by itself: a
+    // cookie past halfway through its life is reissued server-side with no
+    // prompt. Only someone whose session is genuinely gone gets asked to sign,
+    // because a new proof of wallet control cannot be minted without a signature.
+    if (stored && isWalletId && inWorldApp) {
+      (async () => {
+        try {
+          const res = await fetch("/api/session", { cache: "no-store" });
+          const s = await res.json();
+          if (s?.authenticated) return; // valid, and renewed if it needed it
+          await reauthSilently(stored!);
+        } catch {
+          // Offline or the endpoint is unreachable. Leave them as they are; a
+          // gated action will surface the real reason if it comes to that.
+        }
+      })();
+    }
   }, []);
+
+  // One signature, only when there is no session left to renew. Deliberately
+  // quiet: no error banner and no state change if the person declines, because
+  // the gate is still open and being nagged on arrival would cost more people
+  // than the open gate does. When they decline, gated routes return their own
+  // explicit "re-open the app to re-authenticate" message.
+  const reauthSilently = async (addr: string) => {
+    try {
+      const result = await MiniKit.walletAuth({
+        nonce: crypto.randomUUID().replace(/-/g, ""),
+        statement: "Sign in to FAVOUR",
+        expirationTime: new Date(Date.now() + 3600_000),
+      });
+      if (!result?.data?.address) return;
+      // Only accept a signature from the wallet we already believe we are.
+      // A different address here means the person switched wallets, which is a
+      // fresh sign-in rather than a refresh, and is left to handleVerify.
+      if (result.data.address.toLowerCase() !== addr.toLowerCase()) return;
+      await fetch("/api/verify-identity", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          address: result.data.address,
+          signature: result.data.signature,
+          message: result.data.message,
+        }),
+      });
+    } catch {
+      // User declined, or MiniKit is unavailable. Stay quiet, as above.
+    }
+  };
 
   const handleVerify = async () => {
     setAuthError(null);
