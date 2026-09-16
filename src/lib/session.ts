@@ -1,5 +1,6 @@
 import { createHmac, timingSafeEqual } from "crypto";
 import type { NextRequest } from "next/server";
+import { trackEvent } from "./track";
 
 // Lightweight signed-session layer. Identity in this app is a wallet address;
 // the client proves control of it once via MiniKit walletAuth (SIWE), the server
@@ -70,8 +71,37 @@ export function addressMatches(authed: string | null, claimed: unknown): boolean
 // Kill switch. Session identity is enforced only when SESSION_ENFORCE === "true".
 // Shipped OFF so deploying the session layer cannot lock out returning users
 // (who load from localStorage and haven't re-authenticated for a cookie yet).
-// Flip to "true" in the environment once the login→cookie flow is confirmed in
-// the World App; set back to "false" for an instant, code-free rollback.
+//
+// STATUS 2026-09-16. This switch defaults to the PERMISSIVE side, which is the
+// unsafe direction, and it has stayed there long enough to become the product's
+// open hole: an unauthenticated POST to /api/jury as an arbitrary wallet was
+// answered 409 by production rather than 403, so anyone can farm jury points
+// onto any address behind nothing but an IP rate limit. Jury is the app's
+// dominant human action at 2,738 lifetime verdicts.
+//
+// It was NOT flipped on 2026-09-16, and the reason is a finding rather than
+// caution. THE FLIP WOULD LOCK OUT MOST LIVE USERS TODAY:
+//   - The cookie is issued only inside /api/verify-identity, only when a SIWE
+//     signature verifies, and it lasts 7 days.
+//   - src/app/page.tsx treats a stored `relay_user_id` in localStorage as signed
+//     in and never calls /api/verify-identity again, so a returning user never
+//     refreshes the cookie. retention.ts records the same behaviour measured
+//     against prod on 2026-07-29: wallet overlap between consecutive days was
+//     ZERO for 14 straight days because nobody re-signs-in.
+//   - `dev_` accounts take a branch that issues no cookie at all, ever.
+//   - Upper bound from /api/stats/retention on 2026-09-16: 55 sign_in events in
+//     the last 7 days against 494 registered users. So at most ~11% of users
+//     could hold a valid cookie right now.
+//
+// ORDER OF OPERATIONS, and none of it is a code-only change:
+//   1. Read session_authed vs session_anon (instrumented in ownershipError
+//      below) for a day. That turns the 11% bound into a measured rate.
+//   2. Give a returning user a way to re-establish a cookie without a manual
+//      re-install: a session check on load, or re-auth when the cookie is absent.
+//   3. Confirm SESSION_SECRET (or ADMIN_SECRET) is actually set in the Vercel
+//      environment. If neither is set, `secret()` returns null, no cookie can
+//      ever be issued, and enforcing would close every gated route to everybody.
+//   4. Only then flip, and watch the shadow counters.
 export function sessionEnforced(): boolean {
   return process.env.SESSION_ENFORCE === "true";
 }
@@ -81,6 +111,25 @@ export function sessionEnforced(): boolean {
 // string to return as 403, or null when the request may proceed.
 export function ownershipError(req: NextRequest, claimedAddress: unknown, nowMs: number): string | null {
   const authed = getAuthedAddress(req, nowMs);
+  // SHADOW COUNTER, added 2026-09-16. This is the measurement that has to exist
+  // before SESSION_ENFORCE can be flipped, and its absence is why the flip has
+  // never been safe to make.
+  //
+  // The cookie is issued ONLY inside /api/verify-identity, only on a verified
+  // SIWE signature, and it lives 7 days. page.tsx short-circuits on a stored
+  // localStorage id, so a returning user never re-signs-in and never refreshes
+  // it. retention.ts records the same thing measured against prod on 2026-07-29:
+  // "visitors:<d> ∩ visitors:<d-1> was ZERO for 14 straight days". So an unknown
+  // and probably large share of live callers carry no session at all, and
+  // enforcing without knowing that share locks them out of nine routes.
+  //
+  // `authed` here is the honest per-request answer. Read
+  // session_authed vs session_anon over a day and the flip becomes a decision
+  // with a number under it instead of a hope.
+  trackEvent(authed ? "session_authed" : "session_anon", {
+    path: req.nextUrl?.pathname ?? "?",
+    enforced: sessionEnforced(),
+  }).catch(() => {});
   // Shadow audit — runs even while enforcement is OFF: a session cookie that is
   // present but does NOT match the wallet the request claims to act as is a
   // definite spoof attempt (someone acting as another wallet). Log it so abuse

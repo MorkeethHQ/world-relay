@@ -40,7 +40,49 @@ mechanically blocks the easy-to-regress ones.
    seed (real `0x`+64hex tx hash, never a placeholder string).
 4. **Identity is proven, not claimed.** A mutating action attributed to a wallet
    must be authorized by that wallet's session (`src/lib/session.ts`), not by a
-   `body.poster/claimant/submitter/sender` field (all public). Gate: `SESSION_ENFORCE`.
+   `body.poster/claimant/submitter/sender` field (all public).
+
+   **The invariant is the property above. It is not the switch.** This line used
+   to end "Gate: `SESSION_ENFORCE`", which made the rule circular: it said
+   identity MUST be proven, and then pointed at a flag that decides whether it is.
+   An invariant that names its own off-switch cannot be violated, only disabled,
+   which is how it went months without anyone calling it broken.
+   `SESSION_ENFORCE` is an implementation detail of the rollout. **It cannot
+   weaken the invariant, it can only record that the code does not yet satisfy
+   it.**
+
+   **CONFORMANCE, measured 2026-09-16: NOT MET in production.** An unauthenticated
+   POST to `/api/jury` claiming an arbitrary wallet was answered **409, not 403**,
+   so it passed the ownership check and reached the store. The control that proves
+   this is not a probe artifact: the same unauthenticated shape sent to
+   `/api/daily`, which enforces independently of the switch, returned **403** in
+   the same minute on the same deploy. Consequence: anyone can cast jury verdicts
+   as any wallet, bounded only by an IP rate limit, and jury is the app's dominant
+   human action at 2,738 lifetime verdicts.
+
+   **Why it is still not met, and it is not an oversight.** Turning the switch on
+   today locks out most live users. The session cookie is issued only in
+   `/api/verify-identity` on a verified SIWE signature and lasts 7 days;
+   `src/app/page.tsx` treats a stored `relay_user_id` as signed in and never calls
+   that route again, so a returning user never refreshes it; `dev_` accounts never
+   receive one at all. Upper bound from `/api/stats/retention` the same day: 55
+   `sign_in` events in 7 days against 494 registered users, so **at most ~11% of
+   users could hold a valid cookie**.
+
+   **The gate itself works and has been proven end to end**, against a running
+   instance rather than a mock: with `SESSION_ENFORCE` unset the unauthenticated
+   jury call returns 409, and with `SESSION_ENFORCE=true` the identical call
+   returns **403 "Please re-open the app to re-authenticate before this action."**
+   The blocker is the client re-auth path, not the server check.
+
+   **Order to conformance:** read the `session_authed` / `session_anon` shadow
+   counters (instrumented in `ownershipError`) for a day to replace the 11% bound
+   with a measured rate; give returning users a way to re-establish a cookie;
+   confirm `SESSION_SECRET` or `ADMIN_SECRET` is actually set in the Vercel
+   environment, because if neither is, `secret()` returns null, no cookie can ever
+   be issued and enforcing closes every gated route to everybody; then flip and
+   watch the counters. **Until then this invariant is recorded as violated rather
+   than as configured.**
 5. **AI proof never earns — and a flag never earns MONEY, ever.** A
    `flag`/AI-suspected verdict must not *automatically* award points, USDC,
    completions, reputation, leaderboard, or campaign progress. No random verdict
