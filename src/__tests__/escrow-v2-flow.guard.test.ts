@@ -127,7 +127,7 @@ vi.mock("@/lib/proof-of-favour", () => ({
   recordFavourPosted: async () => {},
   recordFavourCompleted: async () => {},
   recordFundingReward: async () => {},
-  completionPointsFor: () => 15,
+  completionPointsFor: () => 15, streakBonusFor: (streak: number) => streak,
 }));
 vi.mock("@/lib/notifications", () => ({ notifyPaymentReleased: async () => {} }));
 vi.mock("@/lib/notifications-store", () => ({ addNotification: async () => {} }));

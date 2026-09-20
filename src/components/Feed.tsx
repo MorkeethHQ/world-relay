@@ -771,6 +771,19 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
 
   const missionProofs = useMemo(() => (dailyMission ? pickProofStrip(tasks) : []), [dailyMission, tasks]);
 
+  // THE MISSION CARD IS THE COACH, so the first-run coach stands down as soon as
+  // it renders. Without this the coach flag stays true for a new person forever
+  // unless they tap the mission itself: everything gated on !showFirstRunCoach
+  // stays hidden, including REAL OR NOT, which is the app's most-used action at
+  // 2,738 lifetime verdicts, and the board's open/verified/paid-out line. Found
+  // by reading the rendered screen at 390 px, where REAL OR NOT had no bounding
+  // box at all, and not by reading the condition.
+  useEffect(() => {
+    if (!dailyMission || !showFirstRunCoach) return;
+    try { localStorage.setItem("relay_first_run_coach_dismissed", "true"); } catch {}
+    setShowFirstRunCoach(false);
+  }, [dailyMission, showFirstRunCoach]);
+
   const starterFavour = useMemo(() => {
     if (!showFirstRunCoach || tab !== "available") return null;
     // Never two "start here" cards. When the mission card renders, it IS the one
@@ -2359,7 +2372,7 @@ function SubmitProof({
   const [proofNote, setProofNote] = useState("");
   const [images, setImages] = useState<{ base64: string; preview: string; isVideo: boolean }[]>([]);
   const [submitting, setSubmitting] = useState(false);
-  const [result, setResult] = useState<{ verdict: string; reasoning: string; locationVerified?: boolean; distanceKm?: number; escrowReleaseTxHash?: string | null; nextAction?: string | null } | null>(null);
+  const [result, setResult] = useState<{ verdict: string; reasoning: string; locationVerified?: boolean; distanceKm?: number; escrowReleaseTxHash?: string | null; nextAction?: string | null; pointsAwarded?: number | null; streakBonus?: number } | null>(null);
   const [proofCoords, setProofCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [preCheck, setPreCheck] = useState<{ assessment: string; likely: "pass" | "marginal" | "retake" } | null>(null);
   const [preChecking, setPreChecking] = useState(false);
@@ -2526,6 +2539,8 @@ function SubmitProof({
         locationVerified: data.locationVerified,
         distanceKm: data.distanceKm,
         escrowReleaseTxHash: data.escrowReleaseTxHash || null,
+        pointsAwarded: typeof data.pointsAwarded === "number" ? data.pointsAwarded : null,
+        streakBonus: typeof data.streakBonus === "number" ? data.streakBonus : 0,
       });
       setSubmitting(false);
 
@@ -2852,7 +2867,15 @@ function SubmitProof({
             {result.verdict === "pass" && (
               <div className="mt-3 pt-3 border-t border-green-200 flex flex-col gap-2">
                 {task.rewardType === "points" ? (
-                  <p className="font-semibold text-sm text-amber-600">+{Math.round(task.bountyUsdc)} pts earned</p>
+                  // The number the server actually wrote, not the advertised price
+                  // re-derived here. They differ the moment a streak bonus lands,
+                  // and a result screen that disagrees with History is the exact
+                  // thing this release is closing. The advertised value is only a
+                  // fallback for an older response with no pointsAwarded field.
+                  <p className="font-semibold text-sm text-amber-600">
+                    +{result.pointsAwarded ?? Math.round(task.bountyUsdc)} pts earned
+                    {result.streakBonus ? ` (${result.pointsAwarded! - result.streakBonus} for the favour, +${result.streakBonus} streak)` : ""}
+                  </p>
                 ) : result.escrowReleaseTxHash ? (
                   <a
                     href={`https://worldscan.org/tx/${result.escrowReleaseTxHash}`}

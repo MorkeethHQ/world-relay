@@ -55,7 +55,7 @@ vi.mock("@/lib/rate-limit", () => ({ rateLimit: async () => ({ ok: true }), getC
 vi.mock("@/lib/verification-tier", () => ({ tierGateError: async () => null, getUserVerificationLevel: async () => "orb" }));
 vi.mock("@/lib/seed-caps", () => ({ checkSeedCap: async () => ({ allowed: true }), recordSeededEarn: async () => {} }));
 vi.mock("@/lib/campaign-unlock", () => ({ recordCampaignCompletion: async () => ({ counted: false, unlockTx: null }) }));
-vi.mock("@/lib/proof-of-favour", () => ({ recordFavourAttempted: async () => {}, recordFavourCompleted: async () => {}, recordFavourFailed: async () => {}, completionPointsFor: () => 10 }));
+vi.mock("@/lib/proof-of-favour", () => ({ recordFavourAttempted: async () => {}, recordFavourCompleted: async () => {}, recordFavourFailed: async () => {}, completionPointsFor: () => 10, streakBonusFor: (streak: number) => streak }));
 vi.mock("@/lib/escrow", () => ({ releaseEscrow: async () => null, resolveDon: async () => null }));
 vi.mock("@/lib/xmtp", () => ({ postProofSubmitted: async () => {}, postVerificationResult: async () => {}, postFollowUpQuestion: async () => {}, postSettlementConfirmation: async () => {}, syncAndProcessMessages: async () => {} }));
 vi.mock("@/lib/ai-chat", () => ({ generateFollowUpQuestion: async () => null }));

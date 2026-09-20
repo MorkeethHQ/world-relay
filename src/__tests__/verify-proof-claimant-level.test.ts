@@ -120,7 +120,7 @@ vi.mock("@/lib/ai-chat", () => ({ generateFollowUpQuestion: async () => null, ge
 vi.mock("@/lib/referral", () => ({ recordReferralActivation: async () => {} }));
 vi.mock("@/lib/proof-of-favour", () => ({
   recordFavourAttempted: async () => {}, recordFavourCompleted: async () => {},
-  recordFavourFailed: async () => {}, completionPointsFor: () => 10,
+  recordFavourFailed: async () => {}, completionPointsFor: () => 10, streakBonusFor: (streak: number) => streak,
 }));
 vi.mock("@/lib/campaigns", () => ({
   getCampaign: () => ({

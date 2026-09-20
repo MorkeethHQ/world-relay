@@ -49,7 +49,7 @@ vi.mock("@/lib/proof-of-favour", () => ({
   recordFavourAttempted: async () => {},
   recordFavourCompleted: async (...args: any[]) => { recordFavourCompletedCalls.push(args); },
   recordFavourFailed: async () => {},
-  completionPointsFor: () => 9,
+  completionPointsFor: () => 9, streakBonusFor: (streak: number) => streak,
 }));
 vi.mock("@/lib/reputation", async (orig) => {
   const actual = await (orig() as Promise<any>);
@@ -151,6 +151,17 @@ describe("POST /api/verify-proof proves the session owner", () => {
     expect(res.status).toBe(200);
     expect(recordFavourCompletedCalls).toHaveLength(1);
     expect(recordFavourCompletedCalls[0][0]).toBe(CLAIMANT);
+  });
+
+  it("reports the EXACT points it wrote, so the screen cannot disagree with history", async () => {
+    // The pass screen used to re-derive the advertised bounty and render that. It
+    // silently omitted the streak bonus, so a returning person saw one number on
+    // the result and a larger one in History. The route now reports what it wrote.
+    const res = await verify(CLAIMANT, issueSessionToken(CLAIMANT, Date.now())!);
+    const body = await res.json();
+    const written = recordFavourCompletedCalls[0][2];
+    expect(body.pointsAwarded).toBe(written + body.streakBonus);
+    expect(body.pointsAwarded).toBeGreaterThan(0);
   });
 
   it("refuses an EXPIRED session rather than treating it as absent-and-fine", async () => {
