@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 
 // In-memory redis covering everything store.ts + board-replenish.ts touch.
 const kv = new Map<string, string | number>();
@@ -59,7 +59,11 @@ import {
   generateFavourSpecs,
   normaliseDescription,
   runReplenish,
+  replenishEnabled,
+  isBoardBelowFloor,
 } from "@/lib/board-replenish";
+import { readFileSync as readFileSyncForCrons } from "fs";
+import { join as joinForCrons } from "path";
 import { MAX_TASK_POINTS } from "@/lib/proof-of-favour";
 import { listTasks } from "@/lib/store";
 import type { Task } from "@/lib/types";
@@ -451,5 +455,70 @@ describe("R11: FALLBACK_FAVOURS ask for a view, not an errand", () => {
   it("has no duplicate descriptions", () => {
     const keys = FALLBACK_FAVOURS.map((f) => normaliseDescription(f.description));
     expect(new Set(keys).size).toBe(keys.length);
+  });
+});
+
+// R6 as amended 2026-09-16. The engine is OFF and the floor is a signal, not a
+// promise. These assert the NEW behaviour; the old expectation was that the
+// board self-heals to BOARD_MIN_OPEN, and it no longer does.
+describe("R6 amended: the replenish engine is off, and off is explicit", () => {
+  const ENV = process.env.BOARD_REPLENISH_ENABLED;
+  afterEach(() => {
+    if (ENV === undefined) delete process.env.BOARD_REPLENISH_ENABLED;
+    else process.env.BOARD_REPLENISH_ENABLED = ENV;
+  });
+
+  it("defaults to OFF when the variable is absent", () => {
+    delete process.env.BOARD_REPLENISH_ENABLED;
+    expect(replenishEnabled()).toBe(false);
+  });
+
+  it("stays off for every value except the exact string 'true'", () => {
+    // The failure this pins: SESSION_ENFORCE uses the same shape but defaults to
+    // the permissive side, and has sat dormant in production for months. Here a
+    // typo, a "1", or a "yes" must not start posting to a live board.
+    for (const v of ["1", "yes", "TRUE", "True", "on", ""]) {
+      process.env.BOARD_REPLENISH_ENABLED = v;
+      expect(replenishEnabled(), `value ${JSON.stringify(v)}`).toBe(false);
+    }
+  });
+
+  it("turns on only with an explicit opt-in", () => {
+    process.env.BOARD_REPLENISH_ENABLED = "true";
+    expect(replenishEnabled()).toBe(true);
+  });
+
+  it("no longer runs on a schedule: vercel.json has no replenish-board cron", () => {
+    // Off means both halves. Removing the gate without removing the schedule
+    // leaves a job that wakes twice a day to do nothing, which reads as broken.
+    const vercel = JSON.parse(readFileSyncForCrons(joinForCrons(process.cwd(), "vercel.json"), "utf8"));
+    const paths = (vercel.crons ?? []).map((c: { path: string }) => c.path);
+    expect(paths).not.toContain("/api/cron/replenish-board");
+    // The counterpart that REMOVES supply is untouched, so the board can still
+    // expire items even though nothing refills them automatically.
+    expect(paths).toContain("/api/cron/expire-tasks");
+  });
+});
+
+describe("R6 amended: the floor is a signal a human reads", () => {
+  it("reports below-floor when the open board is short", () => {
+    const tasks = Array.from({ length: BOARD_MIN_OPEN - 1 }, () => makeTask({}));
+    expect(isBoardBelowFloor(tasks, NOW)).toBe(true);
+  });
+
+  it("reports at-floor when the board is exactly at the line", () => {
+    const tasks = Array.from({ length: BOARD_MIN_OPEN }, () => makeTask({}));
+    expect(isBoardBelowFloor(tasks, NOW)).toBe(false);
+  });
+
+  it("counts only what a visitor can actually see", () => {
+    // An expired-by-deadline task is not supply, so a board padded with them is
+    // still below the line. This is the wrong-object trap: `status === open` is
+    // not the same population as "open and visible".
+    const visible = Array.from({ length: 3 }, () => makeTask({}));
+    const pastDeadline = Array.from({ length: 10 }, () =>
+      makeTask({ deadline: new Date(NOW - HOUR).toISOString() }),
+    );
+    expect(isBoardBelowFloor([...visible, ...pastDeadline], NOW)).toBe(true);
   });
 });

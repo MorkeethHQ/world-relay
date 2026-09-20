@@ -11,6 +11,11 @@ import {
   POLL_CARDS_MAX,
   TIER,
   isBoardVisible,
+  pickDailyMission,
+  pickProofStrip,
+  dailyMissionScore,
+  PROOF_STRIP_MAX,
+  isMissionCandidate,
   boardTier,
   rankBoard,
   curateBoard,
@@ -229,5 +234,110 @@ describe("pickStarterFavour", () => {
   it("skips the user's own posts", () => {
     const mine = task({ poster: "user1", category: "feedback", location: "Online", rewardType: "points" });
     expect(pickStarterFavour([mine], "user1", NOW)).toBeNull();
+  });
+});
+
+
+// R13, THE DAILY MISSION. The front screen leads with ONE favour, chosen by the
+// rule in board-rank.ts rather than by whatever happened to rank first.
+//
+// The measurement this exists for, taken from the live board on 2026-09-20: the
+// deployed selector put "What's the last thing that made you laugh out loud today?"
+// in front of a stranger, while the favour that states the whole promise of a
+// verified-human board, "what does today smell like where you are?", sat below the
+// fold. Easiest and most distinctive are different questions.
+describe("pickDailyMission", () => {
+  const SMELL = "An AI can read everything ever written and still cannot answer this: what does today smell like where you are?";
+  const LAUGH = "What's the last thing that made you laugh out loud today, even just a little?";
+
+  it("puts the sensory favour in front of the easy one", () => {
+    const laugh = task({ poster: "agent:hermes", description: LAUGH, location: "Anywhere", rewardType: "points", bountyUsdc: 10 });
+    const smell = task({ poster: "agent:openclaw", description: SMELL, location: "Anywhere", rewardType: "points", bountyUsdc: 9 });
+    expect(pickDailyMission([laugh, smell], "2026-09-20", "user1", NOW)?.id).toBe(smell.id);
+    expect(dailyMissionScore(smell)).toBeGreaterThan(dailyMissionScore(laugh));
+  });
+
+  it("is the same favour for everyone on a given day, and stable across the day", () => {
+    const a = task({ description: SMELL, poster: "agent:a", rewardType: "points", bountyUsdc: 9 });
+    const b = task({ description: "How does your street sound right now?", poster: "agent:b", rewardType: "points", bountyUsdc: 9 });
+    const board = [a, b];
+    const one = pickDailyMission(board, "2026-09-20", "alice", NOW);
+    const two = pickDailyMission(board, "2026-09-20", "bob", NOW + 6 * HOUR);
+    expect(one?.id).toBe(two?.id);
+  });
+
+  it("rotates inside the top-scoring group as the date moves", () => {
+    // Both score identically, so only the date decides. Over enough days both
+    // must appear, or "rotating" is a word with nothing behind it.
+    const a = task({ id: "aaa", description: SMELL, poster: "agent:a", rewardType: "points", bountyUsdc: 9 } as Partial<Task>);
+    const b = task({ id: "bbb", description: SMELL, poster: "agent:b", rewardType: "points", bountyUsdc: 9 } as Partial<Task>);
+    const seen = new Set<string>();
+    for (const d of ["2026-09-20", "2026-09-21", "2026-09-22", "2026-09-23", "2026-09-24", "2026-09-25", "2026-09-26"]) {
+      seen.add(pickDailyMission([a, b], d, null, NOW)!.id);
+    }
+    expect(seen.size).toBe(2);
+  });
+
+  it("works for a signed-out caller, because that is who the launch screen is for", () => {
+    // Regression: the first version filtered on `t.claimant !== userId`, and an
+    // OPEN favour has a null claimant, so with userId null every candidate was
+    // excluded and the front screen fell back to the plain board. Found by running
+    // the selector against the real board rather than against a fixture.
+    const smell = task({ description: SMELL, poster: "agent:openclaw", rewardType: "points", bountyUsdc: 9 });
+    expect(pickDailyMission([smell], "2026-09-20", null, NOW)?.id).toBe(smell.id);
+  });
+
+  it("never offers a favour the caller posted or already claimed", () => {
+    const mine = task({ poster: "user1", description: SMELL, rewardType: "points", bountyUsdc: 9 });
+    const claimed = task({ claimant: "user1", status: "claimed", description: SMELL, rewardType: "points", bountyUsdc: 9 });
+    expect(pickDailyMission([mine, claimed], "2026-09-20", "user1", NOW)).toBeNull();
+  });
+
+  it("returns null rather than promoting a favour with no signature quality", () => {
+    // An empty first screen is honest. Dressing an errand up as the daily mission
+    // is not, and the repair is to author better supply.
+    const dull = task({ description: "Deliver this parcel to the address given", category: "delivery", location: "London", rewardType: "points", bountyUsdc: 5 });
+    expect(pickDailyMission([dull], "2026-09-20", null, NOW)).toBeNull();
+    expect(isMissionCandidate(dull)).toBe(false);
+  });
+
+  it("never offers a money favour as the mission (points only, invariant 1)", () => {
+    const funded = task({ description: SMELL, rewardType: "usdc", bountyUsdc: 20, onChainId: 4, escrowTxHash: `0x${"a".repeat(64)}` });
+    expect(pickDailyMission([funded], "2026-09-20", null, NOW)).toBeNull();
+  });
+});
+
+describe("pickProofStrip", () => {
+  it("shows only REAL completed proofs, never preview or test identities", () => {
+    const real = task({ status: "completed", proofImageUrl: "/api/tasks/x/proof-image?i=0", poster: "agent:openclaw", claimant: "0x1" });
+    const devPoster = task({ status: "completed", proofImageUrl: "/p.jpg", poster: "dev_abc" });
+    const devClaimant = task({ status: "completed", proofImageUrl: "/p.jpg", poster: "agent:x", claimant: "demo_1" });
+    const noImage = task({ status: "completed", proofImageUrl: null, poster: "agent:y" });
+    const stillOpen = task({ status: "open", proofImageUrl: "/p.jpg", poster: "agent:z" });
+    const strip = pickProofStrip([real, devPoster, devClaimant, noImage, stillOpen]);
+    expect(strip.map((t) => t.id)).toEqual([real.id]);
+  });
+
+  it("an ordinary remote agent errand does not clear the bar on those traits alone", () => {
+    // remote + agent-posted + a fair points value sums to 30, and that is every
+    // filler favour the replenisher used to post. Without the sensory or here-and-now
+    // rule this selector would promote exactly the supply the board is moving away
+    // from.
+    const errand = task({ poster: "agent:fresh", description: "Recommend one place visitors always miss", location: "Anywhere", rewardType: "points", bountyUsdc: 10 });
+    expect(isMissionCandidate(errand)).toBe(false);
+    expect(pickDailyMission([errand], "2026-09-20", null, NOW)).toBeNull();
+  });
+});
+
+describe("pickProofStrip more", () => {
+  it("caps the strip", () => {
+    const many = Array.from({ length: PROOF_STRIP_MAX + 5 }, () =>
+      task({ status: "completed", proofImageUrl: "/p.jpg", poster: "agent:openclaw" }),
+    );
+    expect(pickProofStrip(many)).toHaveLength(PROOF_STRIP_MAX);
+  });
+
+  it("renders nothing when no real proof exists, rather than decorating", () => {
+    expect(pickProofStrip([task({ status: "completed", proofImageUrl: null })])).toEqual([]);
   });
 });

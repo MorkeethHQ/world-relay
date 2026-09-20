@@ -42,7 +42,35 @@ recur silently.
 - **Curation.** Identical descriptions collapse past `DUPLICATE_DESC_CAP` (2); the
   board caps at `BOARD_CAP` (30). The user's own posts/claims are never hidden by
   any cap.
-- **R6 — Supply floor (added Jul 29, 2026).** The visible open board never sits
+- **R6 AMENDED Sep 16, 2026: the engine is OFF and the floor is a signal.**
+  The paragraph below describes the engine as it was built and how it still
+  behaves if re-enabled. Read this first.
+  **What changed.** The visible open board no longer self-heals. Measured on the
+  live app 16 Sep: **24 of the 25 open favours shared a single timestamp from one
+  replenish run twelve days earlier**, not one of them was at a real place, and
+  agent-posted favours had produced 19 completions across 74 tasks against 460
+  across 105 human ones. Oscar's ruling that day: *"Favour has a lot of stale
+  boring items still"*.
+  **What OFF means, and it is both halves.** The cron entry is removed from
+  `vercel.json`, so nothing is scheduled, and the handler is gated behind
+  `BOARD_REPLENISH_ENABLED` which defaults to **false**, so a manual call, a
+  restored schedule or a fresh deploy cannot quietly refill the board. A caller
+  who arrives anyway gets an explicit `disabled: true` receipt naming the ruling,
+  and a `console.warn`, rather than a successful-looking empty receipt. A job
+  that silently does nothing is indistinguishable from a job that ran and found
+  nothing to do, and removing that ambiguity is the point.
+  **The default direction is deliberate.** `SESSION_ENFORCE` in `session.ts` uses
+  the same env-switch shape but defaults to the permissive side, which is why an
+  identity invariant has sat dormant in production for months. This one defaults
+  to the safe side: forgetting the variable means no posting. A guard test pins
+  that only the exact string `"true"` enables it.
+  **`BOARD_MIN_OPEN` (8) is now a signal, not a promise.** Nothing automatic
+  maintains it, so it means "the board needs a human to post", and it is surfaced
+  as `tasks.belowFloor` on `/api/stats` next to `tasks.floor`. `isBoardBelowFloor`
+  counts what a visitor can actually see, not `status === "open"`.
+  **To re-enable:** set `BOARD_REPLENISH_ENABLED=true` and restore the cron entry.
+  Both, or it will not run.
+- **R6 original, supply floor (added Jul 29, 2026).** The visible open board never sits
   below `BOARD_MIN_OPEN` (8). The replenish engine
   (`src/lib/board-replenish.ts`, cron `/api/cron/replenish-board`, guard test
   `board-replenish.test.ts`) restores supply in two steps: recycle expired,
@@ -96,6 +124,45 @@ recur silently.
   is ever empty anyway, the empty state leads with the REAL OR NOT judge CTA —
   the one surface that cannot run out of supply — instead of a dead end. Same
   redirect the seed-cap wall uses (`seed-caps.ts`, cd963d0).
+
+- **R13 — The daily mission leads the first screen (added Sep 20, 2026).**
+  Ruling, Oscar: "Make the first screen a rotating daily mission and completed
+  proof-image strip; creation stays secondary", and "supply the great favours
+  ourselves". `pickDailyMission` chooses ONE open points favour per UTC day, the
+  same one for everyone on earth that day, and the board follows underneath it.
+
+  Eligibility is a PREDICATE, not a score: a mission must be SENSORY (smell,
+  taste, sound, touch, temperature) or about the answerer's own HERE AND NOW
+  ("where you are", "near you", "right now"). Scoring only orders the eligible,
+  by those two rules first, then reachability (remote location, agent-posted,
+  a 5-25 points band). The first draft used a numeric bar and an ordinary remote
+  agent errand cleared it, which is the exact filler the board is moving away
+  from, so the traits that make a favour REACHABLE must never substitute for the
+  traits that make it WORTH LEADING WITH.
+
+  Rotation is inside the top-scoring group, indexed by a hash of the UTC date.
+  When one favour is the unique top scorer it holds the slot until the supply
+  changes. That is a property of the supply, and the repair is to author more
+  signature favours, never to weaken the rule.
+
+  It returns null rather than promoting a favour with no signature quality, and
+  it never offers a money favour, the caller's own post, or one they already
+  claimed. The measurement behind it, live board 2026-09-20: the deployed
+  selector showed a stranger "What's the last thing that made you laugh out loud
+  today?" while "what does today smell like where you are?" sat below the fold,
+  and 0 of 9 open cards carried a proof image while 29 completed records did.
+
+  Only one "start here" card ever renders: when the mission shows, the first-run
+  starter banner is suppressed, because two suggestions are two decisions before
+  anything gets done.
+
+- **R14 — The proof strip is real completions only (added Sep 20, 2026).**
+  `pickProofStrip` takes completed favours that carry a real proof image, capped
+  at `PROOF_STRIP_MAX`, and excludes `dev_`/`demo_`/`e2e_` posters and claimants
+  the same way `isPublicTask` does. It renders nothing when there is no real
+  proof rather than degrading into decoration. The strip's whole claim is "people
+  did this", so a placeholder in it would be fabricated evidence of use, which
+  CLAUDE.md forbids outright.
 
 ## Where each rule is enforced
 

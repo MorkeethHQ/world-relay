@@ -33,7 +33,33 @@ import { trackEvent } from "./track";
 //      fallback pool so the board refills even with no API key and a model
 //      that is down. A generated favour is an UPGRADE, never a dependency.
 
+// R6 as amended 2026-09-16. This is no longer a floor the machine maintains.
+// It is the line below which the board needs a HUMAN to post. See BOARD-RULES.md
+// R6 and `isBoardBelowFloor` below.
 export const BOARD_MIN_OPEN = 8;
+
+// The replenish engine is OFF unless this is explicitly "true".
+//
+// Ruling 2026-09-16, Oscar: "Favour has a lot of stale boring items still".
+// Measured that day: 24 of the 25 open favours shared a single timestamp from
+// one replenish run twelve days earlier, none was at a real place, and
+// agent-posted tasks had produced 19 completions across 74 tasks against 460
+// across 105 human ones.
+//
+// The default is OFF and that direction matters. SESSION_ENFORCE in session.ts
+// uses the same env-switch shape but defaults to the PERMISSIVE side, which is
+// why an identity invariant has been dormant in production for months. Here the
+// default is the safe side: a deploy that forgets the variable does not post.
+export function replenishEnabled(): boolean {
+  return process.env.BOARD_REPLENISH_ENABLED === "true";
+}
+
+// The floor as a signal rather than a promise. With the engine off, nothing
+// automatic satisfies BOARD_MIN_OPEN, so the honest reading is "a person should
+// post something", not "the system is broken".
+export function isBoardBelowFloor(tasks: Task[], now: number = Date.now()): boolean {
+  return countOpenVisible(tasks, now) < BOARD_MIN_OPEN;
+}
 export const REPLENISH_MAX_PER_RUN = 6;
 export const REPLENISH_MAX_PER_DAY = 12;
 export const RECYCLE_COOLDOWN_DAYS = 7;

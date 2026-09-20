@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getRedis } from "@/lib/redis";
 import type { Task } from "@/lib/types";
+import { BOARD_MIN_OPEN, isBoardBelowFloor } from "@/lib/board-replenish";
 
 const CACHE_KEY = "cache:stats";
 const CACHE_TTL = 60; // seconds
@@ -179,6 +180,12 @@ async function computeStats(redis: NonNullable<ReturnType<typeof getRedis>>) {
       open,
       claimed,
       completed,
+      // R6 as amended 2026-09-16. The replenish engine used to keep the open
+      // board at or above BOARD_MIN_OPEN automatically; it is now off, so this
+      // line is a signal for a person rather than a promise the machine keeps.
+      // True means the board needs a human to post something.
+      floor: BOARD_MIN_OPEN,
+      belowFloor: isBoardBelowFloor(tasks, now),
     },
     volume: {
       // Real money (USDC), kept strictly separate from points.

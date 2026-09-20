@@ -18,7 +18,20 @@ type Flash = { correct: boolean; isMatch: boolean; points: number } | null;
 // REAL OR NOT — swipe right if the photo proves THIS favour, left if it
 // doesn't. Full-screen immersive deck; verdicts are final; correct calls pay
 // 1 pt (daily cap server-side). The jury never moves money.
-export function JuryMode({ userId, onClose }: { userId: string | null; onClose: () => void }) {
+export function JuryMode({
+  userId,
+  onClose,
+  onReauth,
+}: {
+  userId: string | null;
+  onClose: () => void;
+  // Added 2026-09-20 with the session gate on POST /api/jury. Before it, a 403
+  // was swallowed by `res.ok ? json : null`: the card still flew off the deck,
+  // the score never moved, and nothing on screen said why. A silent failure that
+  // looks exactly like success is the worst shape available, so the verdict now
+  // repairs the session once and says so when it cannot.
+  onReauth?: () => void | Promise<void>;
+}) {
   const [cards, setCards] = useState<JuryCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [flash, setFlash] = useState<Flash>(null);
@@ -30,6 +43,10 @@ export function JuryMode({ userId, onClose }: { userId: string | null; onClose: 
   const startX = useRef(0);
   const dragging = useRef(false);
   const busy = useRef(false);
+  // At most one re-authentication per visit to the deck. A person who declines
+  // must not be asked again on every swipe.
+  const authTried = useRef(false);
+  const [needsAuth, setNeedsAuth] = useState(false);
 
   useEffect(() => {
     const url = `/api/jury${userId ? `?address=${encodeURIComponent(userId)}` : ""}`;
@@ -81,14 +98,33 @@ export function JuryMode({ userId, onClose }: { userId: string | null; onClose: 
 
     // Resolve the verdict in the background; flash lands on the next card.
     if (userId) {
-      fetch("/api/jury", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ address: userId, cardId, verdict: saidMatch ? "match" : "not" }),
-      })
-        .then((res) => (res.ok ? res.json() : null))
+      const send = () =>
+        fetch("/api/jury", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ address: userId, cardId, verdict: saidMatch ? "match" : "not" }),
+        });
+
+      (async () => {
+        let res = await send();
+        if (res.status === 403) {
+          const err = await res.clone().json().catch(() => ({} as Record<string, unknown>));
+          if (err.code === "reauth_required" && onReauth && !authTried.current) {
+            authTried.current = true;
+            await onReauth();
+            res = await send();
+          }
+          if (res.status === 403) {
+            // Said out loud, because the points are not being awarded.
+            setNeedsAuth(true);
+            return null;
+          }
+        }
+        return res.ok ? res.json() : null;
+      })()
         .then((result: { correct: boolean; isMatch: boolean; pointsAwarded: number } | null) => {
           if (!result) return;
+          setNeedsAuth(false);
           if (result.correct) hapticSuccess(); else hapticError();
           setFlash({ correct: result.correct, isMatch: result.isMatch, points: result.pointsAwarded });
           setSession((s) => ({
@@ -100,7 +136,7 @@ export function JuryMode({ userId, onClose }: { userId: string | null; onClose: 
         })
         .catch(() => {});
     }
-  }, [card, userId]);
+  }, [card, userId, onReauth]);
 
   const onTouchStart = (e: React.TouchEvent) => {
     if (busy.current) return;
@@ -139,6 +175,23 @@ export function JuryMode({ userId, onClose }: { userId: string | null; onClose: 
           )}
         </div>
       </div>
+
+      {needsAuth && (
+        <div className="mx-5 mb-2 rounded-2xl bg-gray-900 px-4 py-3 flex items-center gap-3" role="alert">
+          <p className="flex-1 text-[12px] text-white leading-snug">
+            Your verdicts are not earning points. Sign in again to get credit.
+          </p>
+          {onReauth && (
+            <button
+              type="button"
+              onClick={() => { hapticTap(); authTried.current = false; onReauth(); }}
+              className="text-[12px] font-semibold text-gray-900 bg-white rounded-full px-3 py-1.5 active:scale-95 transition-transform"
+            >
+              Sign in
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Card stage */}
       <div className="flex-1 relative px-5 pb-2 overflow-hidden">

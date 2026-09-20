@@ -120,7 +120,7 @@ vi.mock("@/lib/ai-chat", () => ({ generateFollowUpQuestion: async () => null, ge
 vi.mock("@/lib/referral", () => ({ recordReferralActivation: async () => {} }));
 vi.mock("@/lib/proof-of-favour", () => ({
   recordFavourAttempted: async () => {}, recordFavourCompleted: async () => {},
-  recordFavourFailed: async () => {}, completionPointsFor: () => 10,
+  recordFavourFailed: async () => {}, completionPointsFor: () => 10, streakBonusFor: (streak: number) => streak,
 }));
 vi.mock("@/lib/campaigns", () => ({
   getCampaign: () => ({
@@ -130,16 +130,29 @@ vi.mock("@/lib/campaigns", () => ({
 }));
 
 import { POST } from "@/app/api/verify-proof/route";
+import { issueSessionToken, SESSION_COOKIE } from "@/lib/session";
+
+// The submitter is a real hex wallet and the request carries its session cookie.
+// Both became necessary on 2026-09-20, when verify-proof started proving the
+// session owner before it writes points: the old placeholder id was not a wallet
+// at all, so the route now refuses it, and a request with no cookie never reaches
+// the code these tests are about.
+const ORB_HUMAN = "0x0000000000000000000000000000000000000b01";
 
 function req(body: any) {
   return new Request("http://localhost/api/verify-proof", {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: {
+      "content-type": "application/json",
+      cookie: `${SESSION_COOKIE}=${issueSessionToken(String(body.submitter), Date.now())}`,
+    },
     body: JSON.stringify(body),
   }) as any;
 }
 
 beforeEach(() => {
+  // See the cookie note above: without a key there is no session to carry.
+  process.env.SESSION_SECRET = "test-secret";
   recordCampaignCompletionCalls.length = 0;
   recordCompletionCalls.length = 0;
 });
@@ -147,7 +160,7 @@ beforeEach(() => {
 const submit = () =>
   POST(req({
     taskId: "t-open",
-    submitter: "0xorbhuman000000000000000000000000000000001",
+    submitter: ORB_HUMAN,
     proofImages: ["data:image/jpeg;base64,AAAA"],
     proofNote: "did it",
   }));

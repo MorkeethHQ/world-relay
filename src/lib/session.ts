@@ -106,11 +106,27 @@ export function shouldRenewSession(token: string | undefined | null, nowMs: numb
   return exp - nowMs < SESSION_RENEW_AFTER_MS;
 }
 
+// Reads the session cookie off a request. The NextRequest cookie API is used when
+// it is there, and the raw Cookie header is parsed when it is not. Both forms
+// carry the same cookie, and reading only the first meant a route could not be
+// exercised with a plain Request at all, so the gate below had no test that ran
+// the route end to end.
+function readSessionCookie(req: NextRequest): string | undefined {
+  const viaApi = req.cookies?.get?.(SESSION_COOKIE)?.value;
+  if (viaApi) return viaApi;
+  const header = req.headers?.get?.("cookie");
+  if (!header) return undefined;
+  for (const part of header.split(";")) {
+    const [name, ...rest] = part.trim().split("=");
+    if (name === SESSION_COOKIE) return decodeURIComponent(rest.join("="));
+  }
+  return undefined;
+}
+
 // Reads and verifies the session cookie off a request. Returns the caller's
 // verified lowercased wallet address, or null if unauthenticated.
 export function getAuthedAddress(req: NextRequest, nowMs: number): string | null {
-  const token = req.cookies.get(SESSION_COOKIE)?.value;
-  return verifySessionToken(token, nowMs);
+  return verifySessionToken(readSessionCookie(req), nowMs);
 }
 
 // Case-insensitive match between a session address and a body-supplied address.
@@ -195,5 +211,56 @@ export function ownershipError(req: NextRequest, claimedAddress: unknown, nowMs:
   if (!sessionEnforced()) return null;
   if (!authed) return "Please re-open the app to re-authenticate before this action.";
   if (!addressMatches(authed, claimedAddress)) return "Session does not match the wallet for this action.";
+  return null;
+}
+
+
+// THE HARD GATE for a route that WRITES POINTS, added 2026-09-20.
+//
+// ownershipError above honours SESSION_ENFORCE. This does not, and that is the
+// whole reason it exists. The 2026-09-16 ruling recorded the shape: an invariant
+// whose gate is its own switch cannot be violated, only disabled, so it stayed
+// "conformant" for months while an unauthenticated POST reached the store. A
+// points-writing route is where that hole is cashed, so on those routes the check
+// is unconditional, the way /api/daily has always done it.
+//
+// Three refusals, and they are different facts about the caller:
+//   - no valid session at all. Recoverable: the client re-authenticates once and
+//     retries, so it carries `reauth_required` for the client to branch on rather
+//     than a string to match.
+//   - a valid session for a DIFFERENT wallet than the one being acted as. This is
+//     the spoof, and it is the one the shadow audit has been logging.
+//   - a session that is not a wallet at all. An unsigned `dev_` identity proves
+//     nothing and anyone can choose one, so it cannot earn. Not recoverable by
+//     retrying: the person needs World App, which is what the client says.
+export type OwnerRefusal = { error: string; code: "reauth_required" | "wallet_required" };
+
+const WALLET_ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
+
+export function ownerRefusal(req: NextRequest, claimedAddress: unknown, nowMs: number): OwnerRefusal | null {
+  // Checked FIRST, and the order is the point. A browser-preview `dev_` identity
+  // holds no cookie and never can, so answering it with "sign in again" sends a
+  // person round a loop that cannot close: re-auth in a browser mints another
+  // unsigned dev_ id and no session. Naming the real fix is the honest answer.
+  if (typeof claimedAddress === "string" && !WALLET_ADDRESS_RE.test(claimedAddress)) {
+    return { error: "Open FAVOUR in World App to earn on a favour. Preview mode can browse only.", code: "wallet_required" };
+  }
+  const authed = getAuthedAddress(req, nowMs);
+  trackEvent(authed ? "session_authed" : "session_anon", {
+    path: req.nextUrl?.pathname ?? "?",
+    enforced: true,
+  }).catch(() => {});
+  if (!authed) {
+    return { error: "Re-open FAVOUR to sign in again, then this will go through.", code: "reauth_required" };
+  }
+  if (!addressMatches(authed, claimedAddress)) {
+    console.warn(
+      `[session] OWNERSHIP MISMATCH cookie=${authed} claimed=${String(claimedAddress).toLowerCase()} path=${req.nextUrl?.pathname ?? "?"}`
+    );
+    return { error: "This action belongs to a different wallet. Sign in again to continue.", code: "reauth_required" };
+  }
+  if (!WALLET_ADDRESS_RE.test(authed)) {
+    return { error: "Open FAVOUR in World App to earn on a favour. Preview mode can browse only.", code: "wallet_required" };
+  }
   return null;
 }

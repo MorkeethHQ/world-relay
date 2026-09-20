@@ -43,7 +43,7 @@ export function completionPointsFor(rewardType: string, bountyUsdc: number): num
 
 // Streak bonus paid on a completion, capped so no single task pays more than
 // FAVOUR_COMPLETED + STREAK_BONUS_MAX_DAYS.
-function streakBonusFor(streak: number): number {
+export function streakBonusFor(streak: number): number {
   const capped = Math.min(Math.max(streak, 0), SEASON_ECONOMY.STREAK_BONUS_MAX_DAYS);
   return capped * SEASON_ECONOMY.STREAK_BONUS_PER_DAY;
 }

@@ -8,7 +8,7 @@ import { notifyProofSubmitted, notifyVerified, notifyFlagged, notifyPaymentRelea
 import { addNotification } from "@/lib/notifications-store";
 import { postAttestation } from "@/lib/attestation";
 import { recordCompletion, recordFailure, getReputation, getTrustScore, getVerificationMultiplier } from "@/lib/reputation";
-import { recordFavourAttempted, recordFavourCompleted, recordFavourFailed, completionPointsFor } from "@/lib/proof-of-favour";
+import { recordFavourAttempted, recordFavourCompleted, recordFavourFailed, completionPointsFor, streakBonusFor } from "@/lib/proof-of-favour";
 import { getRedis } from "@/lib/redis";
 import { fireWebhook } from "@/lib/webhooks";
 import { releaseEscrow, resolveDon } from "@/lib/escrow";
@@ -23,6 +23,7 @@ import { recordCampaignCompletion } from "@/lib/campaign-unlock";
 import { getCampaign } from "@/lib/campaigns";
 import { isRealMoney, hasOnChainEscrow } from "@/lib/reward";
 import { recordReferralActivation } from "@/lib/referral";
+import { ownerRefusal } from "@/lib/session";
 
 export const maxDuration = 60;
 
@@ -89,6 +90,22 @@ export async function POST(req: NextRequest) {
   const submitter = body.submitter;
   if (!submitter && !demoMode) {
     return NextResponse.json({ error: "Submitter identity required" }, { status: 401 });
+  }
+
+  // SESSION OWNERSHIP, 2026-09-20. This route WRITES POINTS: a passing verdict
+  // reaches recordFavourCompleted with `submitter` as the earner. `submitter`
+  // arrived off the request body with no session read anywhere in the route, so
+  // anyone could earn as anybody. The gate is unconditional and does NOT honour
+  // SESSION_ENFORCE, because a switch-gated invariant is the shape that let this
+  // sit open (see lib/session.ownerRefusal and the 2026-09-16 ruling).
+  //
+  // PLACED HERE ON PURPOSE: above the verify lock, the image hash write, the blob
+  // upload and the AI spend. An unauthorised POST must cost nothing and leave no
+  // trace. demoMode is the one exception and is already prod-gated above: it needs
+  // the admin bearer AND a non-production build or ALLOW_DEMO_MODE.
+  if (!demoMode) {
+    const refusal = ownerRefusal(req, submitter, Date.now());
+    if (refusal) return NextResponse.json(refusal, { status: 403 });
   }
 
   // Prevent double-verification race condition
@@ -312,6 +329,9 @@ export async function POST(req: NextRequest) {
   }
 
   // Append claimant verification level and trust score to reasoning
+  // What the claimant actually earned on this pass, for the result screen.
+  let pointsAwarded: number | null = null;
+  let streakBonusAwarded = 0;
   if (task.claimant) {
     const claimantRep = await getReputation(task.claimant);
     const claimantTrust = Math.round(getTrustScore(claimantRep) * 100);
@@ -459,11 +479,14 @@ export async function POST(req: NextRequest) {
         recordCompletion(task.claimant, task.bountyUsdc, result.confidence, claimantLevel || undefined, taskIsRealMoney).catch(console.error);
         const claimantRep2 = await getReputation(task.claimant);
         // Honest pricing: a points task pays exactly its advertised bounty.
-        recordFavourCompleted(
-          task.claimant,
-          claimantRep2.currentStreak,
-          completionPointsFor(task.rewardType, task.bountyUsdc)
-        ).catch(console.error);
+        const completion = completionPointsFor(task.rewardType, task.bountyUsdc);
+        recordFavourCompleted(task.claimant, claimantRep2.currentStreak, completion).catch(console.error);
+        // Reported back so the pass screen can show the EXACT number written,
+        // rather than re-deriving the advertised bounty and quietly dropping the
+        // streak bonus. Same two pure functions the writer uses, same inputs, in
+        // the same request, so the screen and the ledger cannot disagree.
+        pointsAwarded = completion + streakBonusFor(claimantRep2.currentStreak);
+        streakBonusAwarded = streakBonusFor(claimantRep2.currentStreak);
       }
     } else if (result.verdict === "fail") {
       recordFailure(task.claimant).catch(console.error);
@@ -621,6 +644,8 @@ export async function POST(req: NextRequest) {
     settlementNeedsReview,
     donResolveTxHash,
     locationVerified,
+    pointsAwarded,
+    streakBonus: streakBonusAwarded,
     distanceKm: distanceKm !== null ? Math.round(distanceKm * 100) / 100 : null,
     nextRecurringTaskId,
     task: finalTask,
