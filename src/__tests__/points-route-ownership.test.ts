@@ -136,9 +136,13 @@ describe("POST /api/verify-proof proves the session owner", () => {
     expect(recordFavourCompletedCalls).toHaveLength(0);
   });
 
-  it("refuses an unsigned dev_ identity, which proves nothing", async () => {
+  it("refuses an unsigned dev_ identity, and names the fix that exists", async () => {
+    // wallet_required, not reauth_required. A browser-preview identity cannot hold
+    // a session at any point in the future, so telling it to sign in again is a
+    // loop with no exit. The client shows the World App handoff for this code.
     const res = await verify("dev_abc123");
     expect(res.status).toBe(403);
+    expect((await res.json()).code).toBe("wallet_required");
     expect(recordFavourCompletedCalls).toHaveLength(0);
   });
 

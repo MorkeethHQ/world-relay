@@ -1018,7 +1018,10 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
         />
       )}
 
-      {tab === "available" && !loading && showFirstRunCoach && !starterFavour && (
+      {/* The no-starter fallback must also stand down for the mission, or the screen
+          carries two "start here" cards again by a different route. Caught by
+          rendering the real board at 390 px rather than by reading the branch. */}
+      {tab === "available" && !loading && showFirstRunCoach && !starterFavour && !dailyMission && (
         <div className="mx-6 mt-4 rounded-2xl border border-gray-200 bg-white px-4 py-4">
           <p className="text-[13px] font-semibold text-gray-900">Pick any favour below</p>
           <p className="text-[13px] text-gray-500 mt-1">Tap <span className="font-medium text-gray-700">Do it</span>, follow the steps, submit proof.</p>

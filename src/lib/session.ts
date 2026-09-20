@@ -238,6 +238,13 @@ export type OwnerRefusal = { error: string; code: "reauth_required" | "wallet_re
 const WALLET_ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
 
 export function ownerRefusal(req: NextRequest, claimedAddress: unknown, nowMs: number): OwnerRefusal | null {
+  // Checked FIRST, and the order is the point. A browser-preview `dev_` identity
+  // holds no cookie and never can, so answering it with "sign in again" sends a
+  // person round a loop that cannot close: re-auth in a browser mints another
+  // unsigned dev_ id and no session. Naming the real fix is the honest answer.
+  if (typeof claimedAddress === "string" && !WALLET_ADDRESS_RE.test(claimedAddress)) {
+    return { error: "Open FAVOUR in World App to earn on a favour. Preview mode can browse only.", code: "wallet_required" };
+  }
   const authed = getAuthedAddress(req, nowMs);
   trackEvent(authed ? "session_authed" : "session_anon", {
     path: req.nextUrl?.pathname ?? "?",
