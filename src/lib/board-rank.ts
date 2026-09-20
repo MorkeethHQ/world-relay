@@ -221,3 +221,110 @@ export function pickStarterFavour(tasks: Task[], userId: string | null, now = Da
 
   return [...candidates].sort((a, b) => score(b) - score(a))[0];
 }
+
+// R13, THE DAILY MISSION. Oscar's ruling 2026-09-20: "Make the first screen a
+// rotating daily mission and completed proof-image strip; creation stays
+// secondary." So the front door leads with ONE favour rather than with a list,
+// and that favour is chosen by a rule instead of by whatever ranked first.
+//
+// WHY THIS IS NOT pickStarterFavour. That selector optimises for the EASIEST
+// favour: text-friendly, remote, non-photo, a question you can answer with your
+// thumb. Measured against the live board on 2026-09-20 it chose "What's the last
+// thing that made you laugh out loud today?" while the signature favour, OpenClaw's
+// "An AI can read everything ever written and still cannot answer this: what does
+// today smell like where you are?", sat buried below the fold. Easiest and most
+// distinctive are different questions, and the front door asks the second one.
+//
+// THE RULE, in order of weight:
+//   1. SENSORY. A favour a model cannot answer from a corpus, because it needs a
+//      body in a place: smell, taste, sound, touch, temperature. This is the whole
+//      promise of a verified-human board, so it outranks everything else.
+//   2. HERE AND NOW. "where you are", "near you", "right now" — a favour that is
+//      about the answerer's own position in the world at this moment.
+//   3. Reachable by anyone: remote/Anywhere location, so nobody is locked out by
+//      geography, and a points band that reads as worth the trip.
+//   4. Agent-posted, which is how the supply is authored (see AGENT-DOOR.md).
+//      Oscar 2026-09-20: "Supply the great favours ourselves".
+//
+// ROTATION, and what it honestly is. Candidates are scored, the top-scoring group
+// is taken, and the day chooses inside that group by a date hash. So the mission is
+// stable for a whole UTC day, changes as the group changes, and is the SAME favour
+// for everyone on earth on that date, which is what makes a shared daily moment
+// possible. When one favour is the unique top scorer it holds the slot until the
+// supply changes. That is a property of the supply, not a rotation failure, and the
+// fix is to author more signature favours rather than to weaken the rule.
+//
+// It can return null. An empty first screen is honest when the board has nothing
+// signature open; the caller falls back to the ordinary board.
+const SENSORY_RE = /\bsmell|\bsmells|\bscent|\btaste|\btastes|\bsound|\bsounds|\bhear\b|\bloud|\bquiet\b|\btouch|\btexture|\bwarm\b|\bcold\b|\btemperature/;
+const HERE_NOW_RE = /where you are|near you|right now|around you|outside your|nearest/;
+
+export function dailyMissionScore(t: Task): number {
+  const desc = t.description.toLowerCase();
+  let s = 0;
+  if (SENSORY_RE.test(desc)) s += 50;
+  if (HERE_NOW_RE.test(desc)) s += 25;
+  if (isRemoteLocation(t.location)) s += 15;
+  if (t.poster.startsWith("agent")) s += 10;
+  if (t.bountyUsdc >= 5 && t.bountyUsdc <= 25) s += 5;
+  return s;
+}
+
+// Stable 32-bit hash of the UTC date string, so the pick inside the top group is
+// deterministic per day and identical on the server and every client.
+function dateHash(date: string): number {
+  let h = 0;
+  for (let i = 0; i < date.length; i++) h = (h * 31 + date.charCodeAt(i)) >>> 0;
+  return h;
+}
+
+export function pickDailyMission(
+  tasks: Task[],
+  date: string,
+  userId: string | null,
+  now = Date.now(),
+): Task | null {
+  const candidates = tasks.filter(
+    (t) =>
+      isBoardVisible(t, userId, now) &&
+      t.status === "open" &&
+      t.poster !== userId &&
+      // Not `t.claimant !== userId`: an OPEN favour has a null claimant, so that
+      // form excludes every candidate for a signed-out caller (null !== null is
+      // false). Caught by running the selector against the real board with no
+      // user, where it returned null for every date.
+      !(userId && t.claimant === userId) &&
+      t.rewardType === "points" &&
+      t.bountyUsdc > 0 &&
+      dailyMissionScore(t) > 0,
+  );
+  if (candidates.length === 0) return null;
+
+  const best = Math.max(...candidates.map(dailyMissionScore));
+  // Sorted by id so the top group has one canonical order regardless of the
+  // order the board arrived in. Without this the "same favour for everyone"
+  // property quietly depends on API response ordering.
+  const top = candidates.filter((t) => dailyMissionScore(t) === best).sort((a, b) => a.id.localeCompare(b.id));
+  return top[dateHash(date) % top.length];
+}
+
+// The proof strip beside the mission. REAL completed favours only, and only ones
+// that carry a real proof image, because the point of the strip is that these
+// photographs were taken by people. Preview and test identities are excluded the
+// same way isPublicTask excludes them from the board: a `dev_` proof on the front
+// screen would be fabricated evidence of use.
+export const PROOF_STRIP_MAX = 8;
+const NON_HUMAN_PREFIX = /^(dev_|demo_|e2e_)/;
+
+export function pickProofStrip(tasks: Task[], max = PROOF_STRIP_MAX): Task[] {
+  return tasks
+    .filter(
+      (t) =>
+        t.status === "completed" &&
+        !!t.proofImageUrl &&
+        !NON_HUMAN_PREFIX.test(t.poster) &&
+        !(t.claimant && NON_HUMAN_PREFIX.test(t.claimant)),
+    )
+    .sort((a, b) => new Date(b.deadline).getTime() - new Date(a.deadline).getTime())
+    .slice(0, max);
+}

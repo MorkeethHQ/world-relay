@@ -3,7 +3,7 @@ import { listTasks } from "@/lib/store";
 import { issueJuryDeck, recordJuryVerdict } from "@/lib/jury";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { trackEvent } from "@/lib/track";
-import { ownershipError } from "@/lib/session";
+import { ownerRefusal } from "@/lib/session";
 
 const WALLET_RE = /^0x[0-9a-fA-F]{40}$/;
 
@@ -30,10 +30,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "address (wallet), cardId and verdict required" }, { status: 400 });
   }
 
-  // Correct verdicts award points to body.address — gate so no one farms points
-  // onto (or as) another wallet. Dormant until SESSION_ENFORCE is on.
-  const ownErr = ownershipError(req, body.address, Date.now());
-  if (ownErr) return NextResponse.json({ error: ownErr }, { status: 403 });
+  // Correct verdicts award points to body.address, so no one may farm points onto
+  // (or as) another wallet. This was ownershipError, which honours SESSION_ENFORCE,
+  // and that switch has shipped OFF for months: production answered an anonymous
+  // verdict with 409 from the store instead of 403 from the gate. REAL OR NOT is
+  // on the front door, so it is a points-writing route of this journey and the
+  // check is now unconditional (see lib/session.ownerRefusal).
+  const refusal = ownerRefusal(req, body.address, Date.now());
+  if (refusal) return NextResponse.json(refusal, { status: 403 });
 
   const result = await recordJuryVerdict(body.address, cardId, body.verdict === "match");
   if ("error" in result) return NextResponse.json(result, { status: 409 });

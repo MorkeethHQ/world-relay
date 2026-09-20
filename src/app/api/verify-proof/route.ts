@@ -23,6 +23,7 @@ import { recordCampaignCompletion } from "@/lib/campaign-unlock";
 import { getCampaign } from "@/lib/campaigns";
 import { isRealMoney, hasOnChainEscrow } from "@/lib/reward";
 import { recordReferralActivation } from "@/lib/referral";
+import { ownerRefusal } from "@/lib/session";
 
 export const maxDuration = 60;
 
@@ -89,6 +90,22 @@ export async function POST(req: NextRequest) {
   const submitter = body.submitter;
   if (!submitter && !demoMode) {
     return NextResponse.json({ error: "Submitter identity required" }, { status: 401 });
+  }
+
+  // SESSION OWNERSHIP, 2026-09-20. This route WRITES POINTS: a passing verdict
+  // reaches recordFavourCompleted with `submitter` as the earner. `submitter`
+  // arrived off the request body with no session read anywhere in the route, so
+  // anyone could earn as anybody. The gate is unconditional and does NOT honour
+  // SESSION_ENFORCE, because a switch-gated invariant is the shape that let this
+  // sit open (see lib/session.ownerRefusal and the 2026-09-16 ruling).
+  //
+  // PLACED HERE ON PURPOSE: above the verify lock, the image hash write, the blob
+  // upload and the AI spend. An unauthorised POST must cost nothing and leave no
+  // trace. demoMode is the one exception and is already prod-gated above: it needs
+  // the admin bearer AND a non-production build or ALLOW_DEMO_MODE.
+  if (!demoMode) {
+    const refusal = ownerRefusal(req, submitter, Date.now());
+    if (refusal) return NextResponse.json(refusal, { status: 403 });
   }
 
   // Prevent double-verification race condition

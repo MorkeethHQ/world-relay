@@ -79,19 +79,46 @@ describe("invariant guards", () => {
   });
 
   it("Inv 4: points-spending routes enforce session ownership (anti-grief)", () => {
-    // stake/jury/appeal all debit or award points off a body-supplied address.
-    // Without the ownershipError gate anyone could spend or farm points as
-    // another wallet. The gate is dormant until SESSION_ENFORCE=true but must be
-    // present so flipping the flag closes the hole everywhere at once.
+    // stake/appeal debit or award points off a body-supplied address. Without a
+    // session gate anyone could spend or farm points as another wallet. These two
+    // still use ownershipError, which honours SESSION_ENFORCE, so the hole closes
+    // everywhere the day that flag flips.
     for (const route of [
       join("predictions", "[id]", "stake"),
-      join("jury"),
       join("jury", "appeal"),
     ]) {
       const f = files.find((p) => p.endsWith(join(route, "route.ts")));
       expect(f, `${route}/route.ts not found`).toBeTruthy();
       expect(read(f!), `${route} route must call ownershipError`).toMatch(/ownershipError\(/);
     }
+  });
+
+  it("Inv 4: the FRONT DOOR points writers gate UNCONDITIONALLY, not behind a flag", () => {
+    // Changed 2026-09-20. The routes a new person actually walks through, the
+    // board proof submission and REAL OR NOT, must not depend on SESSION_ENFORCE.
+    // That switch shipped permissive and stayed permissive for months, so an
+    // invariant gated by it could be disabled rather than violated and production
+    // answered an anonymous points write with 409 from the store instead of 403
+    // from the gate. ownerRefusal takes no flag, which is the whole point, so this
+    // test also fails if someone swaps it back to ownershipError.
+    for (const route of [join("verify-proof"), join("jury")]) {
+      const f = files.find((p) => p.endsWith(join(route, "route.ts")));
+      expect(f, `${route}/route.ts not found`).toBeTruthy();
+      const src = read(f!);
+      expect(src, `${route} route must call ownerRefusal`).toMatch(/ownerRefusal\(/);
+      expect(src, `${route} route must not gate points writes behind SESSION_ENFORCE`).not.toMatch(/ownershipError\(/);
+    }
+    // And the helper itself must not consult the switch. A gate that reads the
+    // flag one layer down is the same hole with more files.
+    const sess = files.find((p) => p.endsWith(join("lib", "session.ts")));
+    expect(sess, "session.ts not found").toBeTruthy();
+    const src = read(sess!);
+    const start = src.indexOf("export function ownerRefusal");
+    expect(start, "ownerRefusal not found in session.ts").toBeGreaterThanOrEqual(0);
+    const rest = src.slice(start + 1);
+    const nextExport = rest.indexOf("\nexport ");
+    const body = nextExport === -1 ? rest : rest.slice(0, nextExport);
+    expect(body, "ownerRefusal must not consult sessionEnforced()").not.toMatch(/sessionEnforced\(/);
   });
 
   it("Inv 2: manual poster-confirm never releases funded escrow (money is AI-verified only)", () => {

@@ -69,9 +69,10 @@ vi.mock("@/lib/track", () => ({ trackEvent: async () => {} }));
 vi.mock("@/lib/referral", () => ({ recordReferralActivation: async () => {} }));
 
 import { POST } from "@/app/api/verify-proof/route";
+import { issueSessionToken, SESSION_COOKIE } from "@/lib/session";
 
 const CLAIMANT = "0xcccccccccccccccccccccccccccccccccccccccc";
-const POSTER = "0xpppppppppppppppppppppppppppppppppppppppp";
+const POSTER = "0x2222222222222222222222222222222222222222";
 const REAL_TX = `0x${"a".repeat(64)}`;
 
 function task(over: Record<string, any> = {}) {
@@ -89,15 +90,26 @@ function task(over: Record<string, any> = {}) {
   };
 }
 
+// Carries the submitter's session cookie. verify-proof proves the session owner
+// before it writes points (2026-09-20), so an anonymous request is refused at 403
+// and never reaches the credit path these tests pin.
 const req = (body: any) =>
   new Request("http://localhost/api/verify-proof", {
-    method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body),
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      cookie: `${SESSION_COOKIE}=${issueSessionToken(String(body.submitter), Date.now())}`,
+    },
+    body: JSON.stringify(body),
   }) as any;
 
 const submit = () => POST(req({ taskId: "t1", submitter: CLAIMANT, proofNote: "https://x.com/me/status/1 — posted it" }));
 const isFundedArg = () => recordCompletionCalls[0]?.[4];
 
 beforeEach(() => {
+  // A key must exist or no cookie can be minted and every case below would be
+  // refused by the session gate before reaching the credit path.
+  process.env.SESSION_SECRET = "test-secret";
   recordCompletionCalls.length = 0;
   storedTask = null;
   // The route picks its verifier from env at REQUEST time:
