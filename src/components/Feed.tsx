@@ -45,6 +45,8 @@ import {
   curateBoard,
   haversineKm,
   pickStarterFavour,
+  pickDailyMission,
+  pickProofStrip,
   POLL_INSERT_AFTER,
   POLL_CARDS_MAX,
 } from "@/lib/board-rank";
@@ -116,6 +118,77 @@ function StarterFavourBanner({
         >
           Browse all favours instead
         </button>
+      </div>
+    </div>
+  );
+}
+
+// THE DAILY MISSION, the first thing on the first screen (Oscar 2026-09-20:
+// "Make the first screen a rotating daily mission and completed proof-image strip;
+// creation stays secondary").
+//
+// The probe that produced this: a stranger saw four onboarding screens, then a
+// generic "what made you laugh" starter, then text-only cards, while the favour
+// that says what this app is for, OpenClaw's "what does today smell like where you
+// are?", sat below the fold, and 29 real proof photographs sat buried in completed
+// history. Both facts were true of the deployed build.
+//
+// The strip is REAL completed proofs and nothing else. It is evidence that people
+// did this, so a placeholder or a stock image in it would be a lie about use.
+// pickProofStrip excludes dev_/demo_/e2e_ identities for the same reason.
+// It renders nothing at all when there are no real proofs, rather than degrading
+// into decoration.
+function DailyMissionCard({
+  task,
+  proofs,
+  onStart,
+}: {
+  task: Task;
+  proofs: Task[];
+  onStart: () => void;
+}) {
+  const needsPhoto = tierRequiresPhoto(task.category);
+  return (
+    <div className="mx-6 mt-4 rounded-3xl border border-gray-900 bg-white overflow-hidden animate-[fadeSlideIn_0.4s_ease-out]">
+      <div className="px-5 pt-4 pb-3">
+        <div className="flex items-center justify-between">
+          <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-900">Today&apos;s mission</span>
+          <span className="text-[13px] font-bold text-gray-900">{rewardLabel(task)}</span>
+        </div>
+        {/* break-words is required by the viewport-containment guard: a mission is
+            supplied text and a long unbroken string would push the card wider than
+            a 390 px phone. */}
+        <p className="text-[20px] font-bold leading-snug tracking-tight text-gray-900 mt-2 break-words">{task.description}</p>
+        <p className="text-[12px] text-gray-400 mt-2">
+          {task.agent?.name ? `${task.agent.name} asked` : "Asked on the board"} · {task.location} ·{" "}
+          {needsPhoto ? "photo proof" : "a few words"}
+        </p>
+      </div>
+
+      {proofs.length > 0 && (
+        <div className="px-5 pb-1">
+          <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1">
+            {proofs.map((p) => (
+              <img
+                key={p.id}
+                src={p.proofImageUrl!}
+                alt=""
+                aria-hidden
+                loading="lazy"
+                className="w-[72px] h-[72px] rounded-xl object-cover bg-gray-100 shrink-0"
+              />
+            ))}
+          </div>
+          <p className="text-[11px] text-gray-400">
+            {proofs.length} real proofs from favours people already finished
+          </p>
+        </div>
+      )}
+
+      <div className="px-5 pt-3 pb-5">
+        <Button fullWidth variant="primary" size="lg" onClick={onStart}>
+          Do today&apos;s mission
+        </Button>
       </div>
     </div>
   );
@@ -688,15 +761,30 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
     });
   }, [tasks, tab, userLocation, userId]);
 
+  // The mission is chosen for the UTC day, so it is the same favour for everyone on
+  // earth today (see R13 in board-rank.ts). It can be null when nothing signature
+  // is open, and then the board leads as it did before.
+  const dailyMission = useMemo(() => {
+    if (tab !== "available") return null;
+    return pickDailyMission(tasks, new Date().toISOString().slice(0, 10), userId);
+  }, [tab, tasks, userId]);
+
+  const missionProofs = useMemo(() => (dailyMission ? pickProofStrip(tasks) : []), [dailyMission, tasks]);
+
   const starterFavour = useMemo(() => {
     if (!showFirstRunCoach || tab !== "available") return null;
+    // Never two "start here" cards. When the mission card renders, it IS the one
+    // next action, and a second suggestion underneath it is a second decision to
+    // make before doing anything.
+    if (dailyMission) return null;
     return pickStarterFavour(tasks, userId);
-  }, [showFirstRunCoach, tab, tasks, userId]);
+  }, [showFirstRunCoach, tab, tasks, userId, dailyMission]);
 
   const boardTasks = useMemo(() => {
-    if (!starterFavour) return filtered;
-    return filtered.filter((t) => t.id !== starterFavour.id);
-  }, [filtered, starterFavour]);
+    const lead = starterFavour ?? dailyMission;
+    if (!lead) return filtered;
+    return filtered.filter((t) => t.id !== lead.id);
+  }, [filtered, starterFavour, dailyMission]);
 
   const openProof = useCallback((task: Task) => {
     hapticTap();
@@ -852,7 +940,7 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
   }
 
   if (view === "jury") {
-    return <JuryMode userId={userId} onClose={() => setView("board")} />;
+    return <JuryMode userId={userId} onClose={() => setView("board")} onReauth={onReauth} />;
   }
 
   if (view === "post") {
@@ -860,7 +948,7 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
   }
 
   if (view === "proof" && selectedTask) {
-    return <SubmitProof task={selectedTask} userId={userId} onDone={() => { setView("board"); fetchTasks(); }} onCancel={() => setView("board")} onCreateTask={() => { setPostCampaignId(null); setView("post"); }} onJudge={() => setView("jury")} />;
+    return <SubmitProof task={selectedTask} userId={userId} onDone={() => { setView("board"); fetchTasks(); }} onCancel={() => setView("board")} onCreateTask={() => { setPostCampaignId(null); setView("post"); }} onJudge={() => setView("jury")} onReauth={onReauth} />;
   }
 
   if (view === "detail" && selectedTask) {
@@ -904,6 +992,16 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
         key={tab}
         className="flex-1 flex flex-col"
       >
+
+      {/* THE DAILY MISSION leads the screen. Everything else on this tab is below
+          it, including creation, which is the small "+ New" in the header. */}
+      {tab === "available" && !loading && dailyMission && (
+        <DailyMissionCard
+          task={dailyMission}
+          proofs={missionProofs}
+          onStart={() => startFavour(dailyMission)}
+        />
+      )}
 
       {/* Daily poll — after favours for first-time users so it doesn't hijack the loop */}
       {tab === "available" && !loading && !showFirstRunCoach && (
@@ -954,7 +1052,7 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
       {tab === "available" && !loading && (
         <div className="px-6 pt-6 pb-2 animate-[fadeSlideIn_0.4s_ease-out]">
           <p className="text-[19px] font-bold text-gray-900 tracking-tight leading-snug">
-            {showFirstRunCoach ? "Or browse more favours" : "Do a favour. Prove it. Get rewarded."}
+            {showFirstRunCoach || dailyMission ? "Or browse more favours" : "Do a favour. Prove it. Get rewarded."}
           </p>
           {!showFirstRunCoach && (
           <div className="flex items-center gap-4 mt-2">
@@ -2236,11 +2334,19 @@ function SubmitProof({
   onCancel,
   onCreateTask,
   onJudge,
+  onReauth,
 }: {
   task: Task;
   userId: string | null;
   onDone: () => void;
   onCancel: () => void;
+  // Re-authentication, threaded down here on 2026-09-20 with the session gate.
+  // verify-proof now refuses a submission whose session is gone, and the person
+  // has ALREADY done the favour and taken the photo by the time we find out.
+  // Bouncing them back to the board at that moment is the identity dead end the
+  // release acceptance forbids, so the signature is requested in place and the
+  // same proof is resubmitted once, still in state.
+  onReauth?: () => void | Promise<void>;
   onCreateTask?: () => void;
   // Where a user goes when they have run out of work. See the churn-moment
   // comment in src/lib/seed-caps.ts.
@@ -2361,8 +2467,8 @@ function SubmitProof({
 
     const proofImages = images.map((img) => img.base64);
 
-    try {
-      const res = await fetch("/api/verify-proof", {
+    const send = () =>
+      fetch("/api/verify-proof", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -2375,6 +2481,20 @@ function SubmitProof({
           lng: proofCoords?.lng || null,
         }),
       });
+
+    try {
+      let res = await send();
+
+      // `reauth_required` means the session expired, not that the proof is bad.
+      // One signature, then the SAME proof goes again. Only once: a loop here
+      // would ask a person who declined to keep declining.
+      if (res.status === 403 && onReauth) {
+        const peek = await res.clone().json().catch(() => ({} as Record<string, unknown>));
+        if (peek.code === "reauth_required") {
+          await onReauth();
+          res = await send();
+        }
+      }
 
       if (!res.ok) {
         // The server writes actionable rejections (daily cap with reset info,

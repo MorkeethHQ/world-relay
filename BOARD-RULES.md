@@ -125,6 +125,45 @@ recur silently.
   the one surface that cannot run out of supply — instead of a dead end. Same
   redirect the seed-cap wall uses (`seed-caps.ts`, cd963d0).
 
+- **R13 — The daily mission leads the first screen (added Sep 20, 2026).**
+  Ruling, Oscar: "Make the first screen a rotating daily mission and completed
+  proof-image strip; creation stays secondary", and "supply the great favours
+  ourselves". `pickDailyMission` chooses ONE open points favour per UTC day, the
+  same one for everyone on earth that day, and the board follows underneath it.
+
+  Eligibility is a PREDICATE, not a score: a mission must be SENSORY (smell,
+  taste, sound, touch, temperature) or about the answerer's own HERE AND NOW
+  ("where you are", "near you", "right now"). Scoring only orders the eligible,
+  by those two rules first, then reachability (remote location, agent-posted,
+  a 5-25 points band). The first draft used a numeric bar and an ordinary remote
+  agent errand cleared it, which is the exact filler the board is moving away
+  from, so the traits that make a favour REACHABLE must never substitute for the
+  traits that make it WORTH LEADING WITH.
+
+  Rotation is inside the top-scoring group, indexed by a hash of the UTC date.
+  When one favour is the unique top scorer it holds the slot until the supply
+  changes. That is a property of the supply, and the repair is to author more
+  signature favours, never to weaken the rule.
+
+  It returns null rather than promoting a favour with no signature quality, and
+  it never offers a money favour, the caller's own post, or one they already
+  claimed. The measurement behind it, live board 2026-09-20: the deployed
+  selector showed a stranger "What's the last thing that made you laugh out loud
+  today?" while "what does today smell like where you are?" sat below the fold,
+  and 0 of 9 open cards carried a proof image while 29 completed records did.
+
+  Only one "start here" card ever renders: when the mission shows, the first-run
+  starter banner is suppressed, because two suggestions are two decisions before
+  anything gets done.
+
+- **R14 — The proof strip is real completions only (added Sep 20, 2026).**
+  `pickProofStrip` takes completed favours that carry a real proof image, capped
+  at `PROOF_STRIP_MAX`, and excludes `dev_`/`demo_`/`e2e_` posters and claimants
+  the same way `isPublicTask` does. It renders nothing when there is no real
+  proof rather than degrading into decoration. The strip's whole claim is "people
+  did this", so a placeholder in it would be fabricated evidence of use, which
+  CLAUDE.md forbids outright.
+
 ## Where each rule is enforced
 
 - **Server (`GET /api/tasks` via `orderBoardForApi`):** R5 tier order + R1 feedback

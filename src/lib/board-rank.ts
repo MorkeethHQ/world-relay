@@ -256,8 +256,24 @@ export function pickStarterFavour(tasks: Task[], userId: string | null, now = Da
 //
 // It can return null. An empty first screen is honest when the board has nothing
 // signature open; the caller falls back to the ordinary board.
-const SENSORY_RE = /\bsmell|\bsmells|\bscent|\btaste|\btastes|\bsound|\bsounds|\bhear\b|\bloud|\bquiet\b|\btouch|\btexture|\bwarm\b|\bcold\b|\btemperature/;
+// Deliberately narrow. An earlier draft included "loud", which matched "laugh out
+// loud" and scored a generic question as a sensory one. A selector that matches the
+// wrong thing generously is worse than one that matches nothing.
+const SENSORY_RE = /\bsmell|\bscent|\btaste|\bsound|\bhear\b|\btouch|\btexture|\btemperature|\bwarm\b|\bcold\b/;
 const HERE_NOW_RE = /where you are|near you|right now|around you|outside your|nearest/;
+
+// ELIGIBILITY IS A PREDICATE, NOT A SCORE THRESHOLD, and the first draft got this
+// wrong in a way worth keeping written down. With a numeric bar, remote plus
+// agent-posted plus a fair points value summed to 30 and cleared it, and that
+// combination describes every filler favour the replenisher used to post. So the
+// traits that make a favour REACHABLE were letting it in, while the traits that make
+// it WORTH LEADING WITH were optional. A mission must be sensory or about the
+// answerer's own here and now. Nothing else qualifies, and when nothing qualifies the
+// screen leads with the plain board and the repair is to author better supply.
+export function isMissionCandidate(t: Task): boolean {
+  const desc = t.description.toLowerCase();
+  return SENSORY_RE.test(desc) || HERE_NOW_RE.test(desc);
+}
 
 export function dailyMissionScore(t: Task): number {
   const desc = t.description.toLowerCase();
@@ -296,7 +312,7 @@ export function pickDailyMission(
       !(userId && t.claimant === userId) &&
       t.rewardType === "points" &&
       t.bountyUsdc > 0 &&
-      dailyMissionScore(t) > 0,
+      isMissionCandidate(t),
   );
   if (candidates.length === 0) return null;
 
