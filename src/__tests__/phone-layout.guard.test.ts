@@ -29,7 +29,7 @@ describe("the pass panel's actions are one per row, 48 px, readable", () => {
 
 describe("board card chips are legible and never truncated", () => {
   it("no 10 px chip in the task card's chip row, and the agent chip is not truncated", () => {
-    const at = feed.indexOf("task.agent.name} asked");
+    const at = feed.indexOf("{authorLabel(task) ?? \"Agent\"}");
     const row = feed.slice(at - 1400, at + 200);
     expect(row).not.toMatch(/text-\[10px\]/);
     expect(row).not.toMatch(/truncate max-w-\[120px\]/);

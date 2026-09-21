@@ -1608,7 +1608,7 @@ export default function TaskDetailPage() {
     done: true,
     label: "Task Posted",
     detail: task.agent
-      ? `Posted by ${task.agent.name}`
+      ? `Posted by ${task.poster.startsWith("agent:") ? `${task.agent.name}, a FAVOUR agent` : task.agent.name}`
       : `Posted by ${truncate(task.poster)}`,
     time: `${timeAgo(task.createdAt)} -- ${formatDate(task.createdAt)}`,
     icon: "\u{1F4CB}",
