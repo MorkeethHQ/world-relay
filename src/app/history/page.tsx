@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import type { Task } from "@/lib/types";
 import { rewardAmountLabel } from "@/lib/reward";
+import type { Contribution } from "@/lib/completions";
 
 // History as a first-class page: proof the platform is alive. Platform totals
 // live here now, NOT on the profile (Oscar Jul 5: profile felt like an admin
@@ -11,6 +12,8 @@ type Stats = {
   users?: { total?: number; verified?: number; reached?: number };
   volume?: { paidOutUsdc?: number; pointsDistributed?: number };
 };
+
+const PAGE = 12;
 
 function timeAgo(dateStr: string): string {
   const ms = Date.now() - new Date(dateStr).getTime();
@@ -21,15 +24,65 @@ function timeAgo(dateStr: string): string {
   return `${Math.floor(hours / 24)}d ago`;
 }
 
+// ONE CARD for every result on this page, added 2026-09-21. Measured at 390 px
+// before this: the page was 15,976 px tall, because one completed favour's
+// description was a whole pasted markdown specification rendered in full, photo
+// cards and text cards had different shapes, and the points badge sat on the image
+// corner on one and in the right-hand column on the other. Now: the badge is always
+// top-right of the header, text is clamped, and an image is always the same height.
+// Nothing is removed from the store; this is display only.
+function ResultCard({
+  description,
+  badge,
+  imageUrl,
+  note,
+  meta,
+  mine,
+}: {
+  description: string;
+  badge: string;
+  imageUrl: string | null;
+  note?: string | null;
+  meta: string;
+  mine?: boolean;
+}) {
+  return (
+    <div className={`rounded-2xl overflow-hidden bg-white border ${mine ? "border-gray-900" : "border-gray-200"}`}>
+      <div className="p-4 pb-3 flex items-start gap-3">
+        <p className="flex-1 min-w-0 text-[14px] font-medium leading-snug text-gray-900 line-clamp-3 break-words">{description}</p>
+        <span className="shrink-0 text-[12px] font-bold text-gray-900 bg-gray-100 rounded-full px-2.5 py-1">{badge}</span>
+      </div>
+      {imageUrl && (
+        <img src={imageUrl} alt="Proof" className="w-full h-40 object-cover bg-gray-100" loading="lazy" />
+      )}
+      {note && (
+        <p className="px-4 pt-3 text-[13px] leading-snug text-gray-600 line-clamp-3 break-words">{note}</p>
+      )}
+      <p className="px-4 pt-2 pb-4 text-[12px] text-gray-400 truncate">{meta}</p>
+    </div>
+  );
+}
+
 export default function HistoryPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [stats, setStats] = useState<Stats>({});
   const [loading, setLoading] = useState(true);
+  // The signed-in person's own results, from the session. Empty when signed out.
+  // This is where "See your proof" on a done mission lands.
+  const [mine, setMine] = useState<Contribution[]>([]);
+  // The page shows a first screenful and grows on request. At 390 px the full
+  // 60-result list measured 10,819 px even after clamping, which is a wall to scroll
+  // rather than a record to read.
+  const [shown, setShown] = useState(PAGE);
 
   useEffect(() => {
     Promise.all([
       fetch("/api/history").then((r) => r.json()).then((d) => setTasks(d.tasks || [])),
       fetch("/api/stats").then((r) => r.json()).then(setStats).catch(() => {}),
+      fetch("/api/me/contributions", { cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => setMine(Array.isArray(d?.contributions) ? d.contributions : []))
+        .catch(() => {}),
     ]).finally(() => setLoading(false));
   }, []);
 
@@ -57,6 +110,24 @@ export default function HistoryPage() {
           </div>
         </div>
 
+        {mine.length > 0 && (
+          <section className="flex flex-col gap-2.5" aria-label="Your results">
+            <h2 className="text-[13px] font-semibold text-gray-900">Yours</h2>
+            {mine.map((c) => (
+              <ResultCard
+                key={`${c.taskId}-${c.at}`}
+                description={c.description}
+                badge={`+${c.points} pts`}
+                imageUrl={c.proofImageUrl}
+                note={c.proofNote}
+                meta={`Passed ${timeAgo(c.at)}`}
+                mine
+              />
+            ))}
+            <h2 className="text-[13px] font-semibold text-gray-900 mt-3">Across FAVOUR</h2>
+          </section>
+        )}
+
         {loading ? (
           <div className="flex justify-center py-16">
             <div className="w-7 h-7 border-2 border-gray-200 border-t-gray-900 rounded-full animate-spin" />
@@ -65,27 +136,25 @@ export default function HistoryPage() {
           <p className="text-sm text-gray-400 text-center py-16">No completed favours yet.</p>
         ) : (
           <div className="flex flex-col gap-2.5">
-            {tasks.map((task) => (
-              <div key={task.id} className="rounded-2xl overflow-hidden bg-white border border-gray-200">
-                {task.proofImageUrl && (
-                  <div className="relative">
-                    <img src={task.proofImageUrl} alt="Proof" className="w-full h-40 object-cover" loading="lazy" />
-                    <div className="absolute bottom-2 left-2">
-                      <span className="text-[11px] font-bold text-white bg-black/50 backdrop-blur-sm rounded-full px-2.5 py-1">{rewardAmountLabel(task)}</span>
-                    </div>
-                  </div>
-                )}
-                <div className="p-4">
-                  <p className="text-[14px] font-medium leading-snug break-words text-gray-900">{task.description}</p>
-                  <div className="flex items-center gap-2 mt-1.5">
-                    <span className="text-xs text-gray-400 truncate max-w-[140px]">{task.location}</span>
-                    <span className="text-xs text-gray-300">&middot;</span>
-                    <span className="text-xs text-gray-400">{timeAgo(task.createdAt)}</span>
-                    {!task.proofImageUrl && <span className="text-xs text-success-600 font-medium ml-auto">{rewardAmountLabel(task)}</span>}
-                  </div>
-                </div>
-              </div>
+            {tasks.slice(0, shown).map((task) => (
+              <ResultCard
+                key={task.id}
+                description={task.description}
+                badge={rewardAmountLabel(task)}
+                imageUrl={task.proofImageUrl}
+                note={task.proofImageUrl ? null : task.proofNote}
+                meta={`${task.location} · ${timeAgo(task.createdAt)}`}
+              />
             ))}
+            {shown < tasks.length && (
+              <button
+                type="button"
+                onClick={() => setShown((n) => n + PAGE)}
+                className="min-h-[44px] rounded-2xl border border-gray-200 bg-white text-[14px] font-semibold text-gray-900 active:scale-[0.99]"
+              >
+                Show more ({tasks.length - shown})
+              </button>
+            )}
           </div>
         )}
       </div>

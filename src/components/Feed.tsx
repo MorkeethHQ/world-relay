@@ -51,7 +51,8 @@ import {
   POLL_CARDS_MAX,
 } from "@/lib/board-rank";
 import { JuryMode } from "@/components/JuryMode";
-import { DailyMissionCard } from "@/components/MissionCard";
+import { DailyMissionCard, DailyMissionDoneCard } from "@/components/MissionCard";
+import type { Contribution } from "@/lib/completions";
 import { PENDING_MISSION_KEY } from "@/components/Onboarding";
 import { trackFunnelEvent } from "@/lib/funnel-events";
 
@@ -712,10 +713,34 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
   // The mission is chosen for the UTC day, so it is the same favour for everyone on
   // earth today (see R13 in board-rank.ts). It can be null when nothing signature
   // is open, and then the board leads as it did before.
+  // The signed-in person's own completions (session-only, see /api/me/contributions).
+  // A favour many people may complete is wiped after every pass, so the task list
+  // alone cannot say "you already did this". Refetched when a proof screen closes.
+  const [contributions, setContributions] = useState<Contribution[]>([]);
+  const [contribRefresh, setContribRefresh] = useState(0);
+  useEffect(() => {
+    if (!userId || !/^0x[0-9a-fA-F]{40}$/.test(userId)) { setContributions([]); return; }
+    let live = true;
+    fetch("/api/me/contributions", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (live) setContributions(Array.isArray(d?.contributions) ? d.contributions : []); })
+      .catch(() => {});
+    return () => { live = false; };
+  }, [userId, contribRefresh]);
+  const completedIds = useMemo(() => new Set(contributions.map((c) => c.taskId)), [contributions]);
+
   const dailyMission = useMemo(() => {
     if (tab !== "available") return null;
     return pickDailyMission(tasks, new Date().toISOString().slice(0, 10), userId);
   }, [tab, tasks, userId]);
+
+  // Today's mission, already done by this person. It stops being an action and
+  // becomes a result: the done card replaces the mission card, and the favour is
+  // taken off the board below as well.
+  const missionDone = useMemo(() => {
+    if (!dailyMission || !completedIds.has(dailyMission.id)) return null;
+    return contributions.find((c) => c.taskId === dailyMission.id) ?? null;
+  }, [dailyMission, completedIds, contributions]);
 
   const missionProofs = useMemo(() => (dailyMission ? pickProofStrip(tasks) : []), [dailyMission, tasks]);
 
@@ -743,9 +768,9 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
 
   const boardTasks = useMemo(() => {
     const lead = starterFavour ?? dailyMission;
-    if (!lead) return filtered;
-    return filtered.filter((t) => t.id !== lead.id);
-  }, [filtered, starterFavour, dailyMission]);
+    // A favour this person already passed is not an active choice for them.
+    return filtered.filter((t) => !completedIds.has(t.id) && (!lead || t.id !== lead.id));
+  }, [filtered, starterFavour, dailyMission, completedIds]);
 
   const openProof = useCallback((task: Task) => {
     hapticTap();
@@ -937,7 +962,7 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
   }
 
   if (view === "proof" && selectedTask) {
-    return <SubmitProof task={selectedTask} userId={userId} onDone={() => { setView("board"); fetchTasks(); }} onCancel={() => setView("board")} onCreateTask={() => { setPostCampaignId(null); setView("post"); }} onJudge={() => setView("jury")} onReauth={onReauth} />;
+    return <SubmitProof task={selectedTask} userId={userId} onDone={() => { setView("board"); fetchTasks(); setContribRefresh((n) => n + 1); }} onCancel={() => setView("board")} onCreateTask={() => { setPostCampaignId(null); setView("post"); }} onJudge={() => setView("jury")} onReauth={onReauth} />;
   }
 
   if (view === "detail" && selectedTask) {
@@ -984,7 +1009,14 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
 
       {/* THE DAILY MISSION leads the screen. Everything else on this tab is below
           it, including creation, which is the small "+ New" in the header. */}
-      {tab === "available" && !loading && dailyMission && (
+      {tab === "available" && !loading && dailyMission && missionDone && (
+        <DailyMissionDoneCard
+          task={dailyMission}
+          points={missionDone.points}
+          proofImageUrl={missionDone.proofImageUrl}
+        />
+      )}
+      {tab === "available" && !loading && dailyMission && !missionDone && (
         <DailyMissionCard
           task={dailyMission}
           proofs={missionProofs}
@@ -1325,23 +1357,18 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
                 className="rounded-2xl overflow-hidden bg-white border border-gray-200 cursor-pointer active:scale-[0.98] transition-all"
                 onClick={() => { setSelectedTask(task); setView("detail"); }}
               >
-                {task.proofImageUrl && (
-                  <div className="relative">
-                    <img src={task.proofImageUrl} alt="Proof" className="w-full h-40 object-cover" loading="lazy" />
-                    <div className="absolute bottom-2 left-2">
-                      <span className="text-[11px] font-bold text-white bg-black/50 backdrop-blur-sm rounded-full px-2.5 py-1">{rewardLabel(task)}</span>
-                    </div>
-                  </div>
-                )}
-                <div className="p-4">
-                  <p className="text-[14px] font-medium leading-snug break-words text-gray-900">{task.description}</p>
-                  <div className="flex items-center gap-2 mt-1.5">
-                    <span className="text-xs text-gray-400 truncate max-w-[140px]">{task.location}</span>
-                    <span className="text-xs text-gray-300">&middot;</span>
-                    <span className="text-xs text-gray-400">{timeAgo(task.createdAt)}</span>
-                    {!task.proofImageUrl && <span className="text-xs text-success-600 font-medium ml-auto">{rewardLabel(task)}</span>}
-                  </div>
+                {/* Same card as /history (2026-09-21): points badge always top-right
+                    of the header, description clamped, image a fixed height. The badge
+                    used to sit on the photo corner on one card and in a side column on
+                    the next, so the reward moved every time the eye did. */}
+                <div className="p-4 pb-3 flex items-start gap-3">
+                  <p className="flex-1 min-w-0 text-[14px] font-medium leading-snug text-gray-900 line-clamp-3 break-words">{task.description}</p>
+                  <span className="shrink-0 text-[12px] font-bold text-gray-900 bg-gray-100 rounded-full px-2.5 py-1">{rewardLabel(task)}</span>
                 </div>
+                {task.proofImageUrl && (
+                  <img src={task.proofImageUrl} alt="Proof" className="w-full h-40 object-cover bg-gray-100" loading="lazy" />
+                )}
+                <p className="px-4 pt-2 pb-4 text-xs text-gray-400 truncate">{task.location} &middot; {timeAgo(task.createdAt)}</p>
               </div>
             ))}
           </div>

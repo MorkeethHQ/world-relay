@@ -67,3 +67,41 @@ export function DailyMissionCard({
   );
 }
 
+
+// THE DONE STATE, added 2026-09-21. Once today's mission is completed it stops
+// being an action: no button, no second go. What is left is the result, the
+// points actually written (not the advertised price, which omits a streak bonus),
+// and the way back to the proof in History.
+export function DailyMissionDoneCard({
+  task,
+  points,
+  proofImageUrl,
+}: {
+  task: Task;
+  points: number;
+  proofImageUrl: string | null;
+}) {
+  return (
+    <div className="mx-6 mt-4 rounded-3xl border border-gray-200 bg-white overflow-hidden animate-[fadeSlideIn_0.4s_ease-out]">
+      <div className="px-5 pt-4 pb-4 flex gap-4 items-start">
+        {proofImageUrl ? (
+          <img src={proofImageUrl} alt="Your proof" loading="lazy" className="w-16 h-16 rounded-xl object-cover bg-gray-100 shrink-0" />
+        ) : (
+          <div className="w-16 h-16 rounded-xl bg-gray-100 shrink-0 flex items-center justify-center text-gray-400" aria-hidden>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+          </div>
+        )}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-success-600">Done today</span>
+            <span className="text-[13px] font-bold text-gray-900 shrink-0">+{points} pts</span>
+          </div>
+          <p className="text-[14px] font-medium leading-snug text-gray-900 mt-1 line-clamp-2 break-words">{task.description}</p>
+          <a href="/history" className="inline-block mt-2 text-[13px] font-semibold text-gray-900 underline underline-offset-2">
+            See your proof
+          </a>
+        </div>
+      </div>
+    </div>
+  );
+}
