@@ -124,3 +124,60 @@ describe("the allowlist holds against a hostile caller", () => {
     expect(tracked).toHaveLength(0);
   });
 });
+
+// THE FIRST-VISIT FUNNEL (2026-09-21). Four steps a stranger walks, counted per day.
+// The names come from one module that both the client and this route read, so a
+// step cannot be fired by the client and silently dropped here.
+describe("the first-visit funnel is recorded", () => {
+  const STEPS = ["mission_viewed", "terms_accepted", "sign_in_completed", "mission_started"];
+
+  it("each of the four steps is accepted and counted under its own name", async () => {
+    for (const event of STEPS) {
+      const res = await POST(post({ event }));
+      expect(res.status, event).toBe(200);
+    }
+    expect(tracked.map((t) => t.event)).toEqual(STEPS);
+  });
+
+  it("the route's list IS the client's list, so they cannot drift apart", async () => {
+    const { FUNNEL_EVENTS } = await import("@/lib/funnel-events");
+    expect([...FUNNEL_EVENTS]).toEqual(STEPS);
+  });
+
+  it("an unknown name is REFUSED with 400 and nothing is written", async () => {
+    // Before this, an unlisted name fell through to the page-view path and got 200,
+    // so a misspelled funnel step looked exactly like success while recording
+    // nothing. A near-miss spelling is the realistic failure, so that is the probe.
+    for (const event of ["mission_view", "mission_started ", "Mission_Viewed", "sign_in_complete"]) {
+      const res = await POST(post({ event }));
+      expect(res.status, JSON.stringify(event)).toBe(400);
+    }
+    expect(tracked).toHaveLength(0);
+  });
+
+  it("no identifier can ride along on a funnel event, even if a client sends one", async () => {
+    // The client sends these with no data. This pins what happens if a future
+    // client gets it wrong: the address, username and free text are all dropped.
+    await POST(post({
+      event: "sign_in_completed",
+      data: {
+        address: "0x1111111111111111111111111111111111111111",
+        wallet: "0x1111111111111111111111111111111111111111",
+        username: "someone",
+        note: "free text",
+      },
+    }));
+    expect(tracked).toEqual([{ event: "sign_in_completed", data: {} }]);
+    expect(JSON.stringify(tracked)).not.toMatch(/0x1111|someone|free text/);
+  });
+
+  it("the retention report lists all four, so the funnel is readable, not just written", async () => {
+    // A counter nobody can read is a claim. /api/stats/retention reads a fixed list
+    // of names; if a step is missing there, it is recorded forever and never shown.
+    const src = (await import("fs")).readFileSync(
+      (await import("path")).join(__dirname, "../lib/retention.ts"),
+      "utf8",
+    );
+    for (const event of STEPS) expect(src, event).toContain(`"${event}"`);
+  });
+});

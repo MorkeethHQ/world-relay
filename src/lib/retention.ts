@@ -100,6 +100,13 @@ const TRACKED_EVENTS = [
   "task_claimed",
   "cap_hit",
   "board_replenished",
+  // The first-visit funnel (2026-09-21). Recorded by /api/track; listed here so the
+  // retention report can show where a stranger drops off. Listed by hand rather than
+  // spread from funnel-events, because this array is the report's column order.
+  "mission_viewed",
+  "terms_accepted",
+  "sign_in_completed",
+  "mission_started",
 ] as const;
 
 export async function computeRetention(
