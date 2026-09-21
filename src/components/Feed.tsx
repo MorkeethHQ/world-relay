@@ -3196,7 +3196,9 @@ function SubmitProof({
   return (
     <div className="flex flex-col h-[calc(100dvh-5rem)] max-w-lg mx-auto w-full">
       <TopBar
-        title={quick ? (tierRequiresPhoto(task.category) ? "Photo" : "Answer") : "Submit proof"}
+        // A company campaign piece is a contribution, not an answer to a question
+        // (2026-09-21 walk of Filipino Lokal): the title names what is being made.
+        title={pieceKind ? "Your piece" : quick ? (tierRequiresPhoto(task.category) ? "Photo" : "Answer") : "Submit proof"}
         startAdornment={
           <Button variant="tertiary" size="sm" onClick={onCancel}>Cancel</Button>
         }
