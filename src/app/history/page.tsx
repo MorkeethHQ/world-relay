@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import type { Task } from "@/lib/types";
 import { rewardAmountLabel } from "@/lib/reward";
 import type { Contribution } from "@/lib/completions";
+import { getCampaign } from "@/lib/campaigns";
 
 // History as a first-class page: proof the platform is alive. Platform totals
 // live here now, NOT on the profile (Oscar Jul 5: profile felt like an admin
@@ -120,7 +121,9 @@ export default function HistoryPage() {
                 badge={`+${c.points} pts`}
                 imageUrl={c.proofImageUrl}
                 note={c.proofNote}
-                meta={`Passed ${timeAgo(c.at)}`}
+                // Step 6 of the company journey: the campaign a piece belongs to
+                // shows with its reward, so a person can see what they did it for.
+                meta={`${c.campaignLabel ? `${c.campaignLabel} · ` : c.campaignId && getCampaign(c.campaignId) ? `${getCampaign(c.campaignId)!.name} · ` : ""}Passed ${timeAgo(c.at)}`}
                 mine
               />
             ))}

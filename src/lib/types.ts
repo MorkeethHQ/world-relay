@@ -54,6 +54,11 @@ export type Task = {
   // Optional link to a Campaign (see lib/campaigns.ts). When set, the task only
   // shows up under that campaign. Absent on standalone tasks and legacy data.
   campaignId?: string;
+  // A company's POINTS-ONLY campaign (lib/campaign-drafts.ts), published by the
+  // company from its own plan. Deliberately a DIFFERENT field from campaignId:
+  // campaignId is what campaign-unlock.ts reads to pay USDC, and a company
+  // campaign's pool is only proposed, so its pieces must never reach that path.
+  companyCampaignId?: string;
   description: string;
   location: string;
   lat: number | null;
