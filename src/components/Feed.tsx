@@ -33,7 +33,7 @@ import { CUSTODY_RETIRED } from "@/lib/custody";
 import { SWAP_ENABLED } from "@/lib/contracts";
 import { hapticSuccess, hapticError, hapticTap, hapticHeavy, hapticMedium, hapticSelection, shareTask } from "@/lib/minikit-helpers";
 import { TASK_TEMPLATES } from "@/lib/agents";
-import { POST_TEMPLATES, MIN_DESCRIPTION_LENGTH } from "@/lib/post-templates";
+import { POST_TEMPLATES, QUICK_IDEAS, MIN_DESCRIPTION_LENGTH, isTemplateCopy } from "@/lib/post-templates";
 import { useWorldUsers, displayName } from "@/hooks/useWorldUser";
 import { getCampaigns, type Campaign } from "@/lib/campaigns";
 import DailyFavour from "@/components/DailyFavour";
@@ -494,6 +494,7 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
   const [showCreateNudge, setShowCreateNudge] = useState(false);
   const [showFirstRunCoach, setShowFirstRunCoach] = useState(false);
   const [postQuickTemplate, setPostQuickTemplate] = useState<number | null>(null);
+  const [postPaid, setPostPaid] = useState(false);
   const prevCompletedCount = useRef(0);
   const touchStartY = useRef(0);
   const isPulling = useRef(false);
@@ -957,7 +958,13 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
   }
 
   if (view === "post") {
-    return <PostTask userId={userId} campaignId={postCampaignId ?? undefined} quickStartTemplate={postQuickTemplate ?? undefined} onDone={() => { setPostCampaignId(null); setPostQuickTemplate(null); setView("board"); fetchTasks(); }} onCancel={() => { setPostCampaignId(null); setPostQuickTemplate(null); setView("board"); }} />;
+    const leave = (refresh: boolean) => { setPostCampaignId(null); setPostQuickTemplate(null); setPostPaid(false); setView("board"); if (refresh) fetchTasks(); };
+    // Campaign posts and the paid wizard keep the full flow. Everything else is
+    // the one-screen points favour.
+    if (!postCampaignId && !postPaid) {
+      return <QuickPost userId={userId} onDone={() => leave(true)} onCancel={() => leave(false)} onPaid={() => setPostPaid(true)} />;
+    }
+    return <PostTask userId={userId} paid={postPaid} campaignId={postCampaignId ?? undefined} quickStartTemplate={postQuickTemplate ?? undefined} onDone={() => leave(true)} onCancel={() => leave(false)} />;
   }
 
   if (view === "proof" && selectedTask) {
@@ -1797,17 +1804,258 @@ function TemplateIcon({ index }: { index: number }) {
 // Steps: 0 pick type -> 1 describe -> 2 reward + fund (goes live) -> 3 confirmation.
 type WizardStep = 0 | 1 | 2 | 3;
 
+// The points favour: one screen, one ask, one button. Oscar, 2026-09-21:
+// points favours should be quick and easy to post; real USDC favours can
+// require more work. So this is the default "+ New", and the paid wizard below
+// is one clearly labelled link away, never a toggle on this screen. Every rule
+// that matters is still the server's (1 to 10 pts, own words, one a day).
+const QUICK_POINTS = ["1", "5", "10"];
+// The World UI kit ships an UNLAYERED preflight (see globals.css) that resets
+// font, padding, border colour and background on button and textarea, and it
+// outranks Tailwind's layered utilities. Selected states and the big ask text
+// were invisible at 390 px until these load-bearing styles moved inline.
+const quickChoice = (on: boolean, points = false): React.CSSProperties => ({
+  border: `1px solid ${on ? (points ? "#d97706" : "#111827") : "#e5e7eb"}`,
+  background: on && points ? "#fffbeb" : "#ffffff",
+  color: on ? (points ? "#b45309" : "#111827") : "#6b7280",
+  fontWeight: on ? 600 : 400,
+});
+
+function QuickPost({
+  userId,
+  onDone,
+  onCancel,
+  onPaid,
+}: {
+  userId: string | null;
+  onDone: () => void;
+  onCancel: () => void;
+  onPaid: () => void;
+}) {
+  const [ask, setAsk] = useState("");
+  const [photo, setPhoto] = useState(false);
+  const [points, setPoints] = useState("5");
+  const [atPlace, setAtPlace] = useState(false);
+  const [place, setPlace] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [posted, setPosted] = useState(false);
+  const [paidOpen, setPaidOpen] = useState(false);
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+
+  useEffect(() => {
+    fetch("/api/escrow-v2")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (d?.enabled) setPaidOpen(true); })
+      .catch(() => {});
+  }, []);
+
+  // Coordinates only travel with an ask that is tied to a place. An online ask
+  // has no reason to carry where the poster was sitting.
+  useEffect(() => {
+    if (!atPlace || coords || !navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => {},
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  }, [atPlace, coords]);
+
+  const trimmed = ask.trim();
+  const unedited = isTemplateCopy(trimmed);
+  const location = atPlace ? place.trim() : "Online";
+  const canPost = !!userId && trimmed.length >= MIN_DESCRIPTION_LENGTH && !unedited && !!location && !submitting;
+
+  const pickIdea = (text: string, isPhoto: boolean) => {
+    hapticSelection();
+    setAsk(text);
+    setPhoto(isPhoto);
+    setError(null);
+  };
+
+  const post = async () => {
+    if (!canPost) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          poster: userId,
+          category: photo ? "photo" : "custom",
+          description: trimmed,
+          location,
+          lat: atPlace ? coords?.lat ?? null : null,
+          lng: atPlace ? coords?.lng ?? null : null,
+          bountyUsdc: Number(points),
+          deadlineHours: 24,
+          rewardType: "points",
+        }),
+      });
+      if (!res.ok) {
+        // The server's refusal is the honest one (one a day, own words, gibberish).
+        const data = await res.json().catch(() => ({} as Record<string, unknown>));
+        hapticError();
+        setError(typeof data.error === "string" ? data.error : "Could not post it. Nothing was saved. Try again.");
+        return;
+      }
+      hapticSuccess();
+      setPosted(true);
+    } catch {
+      hapticError();
+      setError("Network error. Nothing was saved. Try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (posted) {
+    return (
+      <div className="flex flex-col min-h-[calc(100vh-5rem)] max-w-lg mx-auto w-full bg-gray-50">
+        <div className="flex-1 px-6 pt-16 flex flex-col gap-3">
+          <p className="text-[10px] font-semibold text-amber-700 tracking-wide uppercase">Points favour &middot; live</p>
+          <p className="text-[22px] font-bold text-gray-900 leading-[1.2] tracking-tight break-words">{trimmed}</p>
+          <p className="text-[14px] text-gray-500">
+            Anyone can answer it now. Each accepted {photo ? "photo" : "answer"} earns {points} pts, paid by FAVOUR, not by you.
+          </p>
+        </div>
+        <div className="px-6" style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 24px)" }}>
+          <Button onClick={onDone} variant="primary" fullWidth size="lg">Back to favours</Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col min-h-[calc(100vh-5rem)] max-w-lg mx-auto w-full bg-gray-50">
+      <TopBar
+        title="New favour"
+        startAdornment={<Button variant="tertiary" size="sm" onClick={() => { hapticTap(); onCancel(); }}>Cancel</Button>}
+      />
+      <div className="flex-1 px-6 pt-5 pb-4 flex flex-col gap-5">
+        <div>
+          <p className="text-[10px] font-semibold text-amber-700 tracking-wide uppercase">Points favour &middot; free to post</p>
+          <textarea
+            aria-label="Your ask"
+            placeholder="Ask anyone anything quick."
+            value={ask}
+            onChange={(e) => { setAsk(e.target.value); setError(null); }}
+            rows={3}
+            autoFocus
+            maxLength={280}
+            className="mt-2 w-full bg-transparent tracking-tight focus:outline-none placeholder:text-gray-300"
+            style={{ fontSize: 22, fontWeight: 700, lineHeight: 1.2, resize: "none", padding: 0, border: "none", background: "transparent" }}
+          />
+          {unedited ? (
+            <p className="text-[13px] text-amber-700">Make it yours: change a few words first.</p>
+          ) : !trimmed ? (
+            <div className="flex flex-col items-start gap-1.5">
+              <p className="text-[12px] text-gray-400">Need an idea?</p>
+              {QUICK_IDEAS.slice(0, 3).map((idea) => (
+                <button
+                  key={idea.text}
+                  type="button"
+                  onClick={() => pickIdea(idea.text, idea.photo)}
+                  className="text-left text-[14px] text-gray-700 rounded-xl min-h-[40px] active:scale-[0.98] transition-transform"
+                  style={{ padding: "8px 12px", border: "1px solid #e5e7eb", background: "#ffffff" }}
+                >
+                  {idea.text}
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </div>
+
+        <div>
+          <p className="text-[12px] text-gray-400 mb-2">They send back</p>
+          <div className="flex gap-2">
+            {[{ k: false, label: "An answer" }, { k: true, label: "A photo" }].map((o) => (
+              <button
+                key={o.label}
+                type="button"
+                onClick={() => { hapticSelection(); setPhoto(o.k); }}
+                className="flex-1 min-h-[48px] rounded-xl text-[15px] transition-colors"
+                style={quickChoice(photo === o.k)}
+                aria-pressed={photo === o.k}
+              >
+                {o.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <p className="text-[12px] text-gray-400 mb-2">Points for each accepted {photo ? "photo" : "answer"}</p>
+          <div className="flex gap-2">
+            {QUICK_POINTS.map((amt) => (
+              <button
+                key={amt}
+                type="button"
+                onClick={() => { hapticSelection(); setPoints(amt); }}
+                className="flex-1 min-h-[48px] rounded-xl text-[15px] tabular-nums transition-colors"
+                style={quickChoice(points === amt, true)}
+                aria-pressed={points === amt}
+              >
+                {amt} pts
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {atPlace ? (
+          <div>
+            <p className="text-[12px] text-gray-400 mb-2">Where</p>
+            <input
+              type="text"
+              placeholder="A street, venue or area"
+              value={place}
+              onChange={(e) => setPlace(e.target.value)}
+              maxLength={200}
+              className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-[15px] focus:outline-none focus:border-gray-400 placeholder:text-gray-400 min-h-[48px]"
+            />
+            <button type="button" onClick={() => { setAtPlace(false); setPlace(""); }} className="mt-1 min-h-[40px] text-[13px] text-gray-500">Anywhere is fine</button>
+          </div>
+        ) : (
+          <button type="button" onClick={() => { hapticTap(); setAtPlace(true); }} className="self-start min-h-[40px] text-[13px] text-gray-500">
+            + Only at a specific place
+          </button>
+        )}
+      </div>
+
+      <div className="px-6 pt-2" style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 20px)" }}>
+        {error && (
+          <p role="alert" className="mb-3 text-[14px] text-error-700 bg-error-100 border border-error-200 rounded-xl px-4 py-3">{error}</p>
+        )}
+        <LiveFeedback state={submitting ? "pending" : undefined}>
+          <Button onClick={post} disabled={!canPost} variant="primary" fullWidth size="lg">
+            {submitting ? "Posting..." : `Post · ${points} pts`}
+          </Button>
+        </LiveFeedback>
+        {paidOpen && (
+          <button type="button" onClick={() => { hapticTap(); onPaid(); }} className="w-full mt-2 min-h-[44px] text-[13px] text-gray-500">
+            Paying real USDC instead? <span className="text-green-700 font-medium">Set up a paid favour</span>
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function PostTask({
   userId,
   onDone,
   onCancel,
   campaignId,
   quickStartTemplate,
+  paid = false,
 }: {
   userId: string | null;
   onDone: () => void;
   onCancel: () => void;
   campaignId?: string;
+  /** Opened from "Set up a paid favour": USDC only, no points toggle. */
+  paid?: boolean;
   /** Skip type-picker and land on Describe with this POST_TEMPLATES index pre-selected. */
   quickStartTemplate?: number;
 }) {
@@ -1820,7 +2068,7 @@ function PostTask({
   // is open (GET /api/escrow-v2 404s while ESCROW_V2_ENABLED is absent). A v2
   // post moves NO money — the poster funds from their own wallet when a
   // claimant accepts (demand-gated custody).
-  const [rewardType, setRewardType] = useState<"usdc" | "points" | "usdc-v2">("points");
+  const [rewardType, setRewardType] = useState<"usdc" | "points" | "usdc-v2">(paid ? "usdc-v2" : "points");
   const [v2Rail, setV2Rail] = useState<{ maxUsd: number | null; disclosure: string } | null>(null);
   useEffect(() => {
     fetch("/api/escrow-v2")
@@ -1873,7 +2121,8 @@ function PostTask({
     // The template text is only a placeholder hint; the user writes their own
     // description (the API rejects verbatim template copy).
     setDescription("");
-    setBounty(t.bounty);
+    // Template bounties are points values. A paid favour picks its own dollars.
+    setBounty(paid ? "" : t.bounty);
     setCategory(t.category);
     // One tap on a type advances straight to Describe.
     setDir("fwd");
@@ -1991,7 +2240,7 @@ function PostTask({
   // for the points-vs-money distinction on the confirmation screen.
   const rewardPreview = { rewardType, bountyUsdc: parseFloat(bounty) || 0, escrowTxHash: escrowSuccess, onChainId: null };
 
-  const stepTitle = step === 0 ? "Pick a type" : step === 1 ? "Describe it" : step === 2 ? "Set the reward" : "You're live";
+  const stepTitle = paid && step < 3 ? "Paid favour" : step === 0 ? "Pick a type" : step === 1 ? "Describe it" : step === 2 ? "Set the reward" : "You're live";
   const stepAnim = dir === "back" ? "tab-slide-left" : "tab-slide-right";
 
   const presets = rewardType === "points" ? ["1", "5", "10"] : ["5", "15", "25"];
@@ -2106,7 +2355,19 @@ function PostTask({
                 FavourEscrowV2 rail is open. Choosing USDC here moves NO money —
                 the poster funds their own wallet -> verified escrow when a
                 claimant accepts. The legacy custody picker below stays dead. */}
-            {CUSTODY_RETIRED && v2Rail && (
+            {paid && (
+              <div className="bg-white border border-green-200 rounded-xl p-4">
+                <p className="text-[10px] font-semibold text-green-700 tracking-wide uppercase">Paid favour &middot; real USDC</p>
+                <dl className="mt-3 flex flex-col gap-2.5 text-[13px]">
+                  <div><dt className="font-semibold text-gray-900">Funding</dt><dd className="text-gray-500">Nothing is charged now. When someone accepts, you fund the escrow from your World wallet.</dd></div>
+                  <div><dt className="font-semibold text-gray-900">Who can post</dt><dd className="text-gray-500">A wallet signed in through World App. One person completes it.</dd></div>
+                  <div><dt className="font-semibold text-gray-900">Evidence</dt><dd className="text-gray-500">The person who does it submits a photo or answer against your description.</dd></div>
+                  <div><dt className="font-semibold text-gray-900">Payout</dt><dd className="text-gray-500">{v2Rail?.disclosure || "Loading the escrow terms."}</dd></div>
+                </dl>
+                {!v2Rail && <p className="mt-3 text-[13px] text-warning-700">Paid favours are not open right now. Post a points favour instead.</p>}
+              </div>
+            )}
+            {!paid && CUSTODY_RETIRED && v2Rail && (
               <div>
                 <Typography variant="label" level={2} className="text-gray-400 mb-2">Reward type</Typography>
                 <div className="flex items-center gap-2">
@@ -2212,8 +2473,8 @@ function PostTask({
               </div>
             )}
 
-            {/* Reward + escrow explainer */}
-            <div className="bg-white border border-gray-200 rounded-xl p-4">
+            {/* Reward + escrow explainer (the paid header above already says it) */}
+            {!paid && <div className="bg-white border border-gray-200 rounded-xl p-4">
               <div className="flex items-start gap-3">
                 <span className="text-gray-900 mt-0.5">
                   {rewardType === "points" ? (
@@ -2256,7 +2517,7 @@ function PostTask({
                   )}
                 </div>
               </div>
-            </div>
+            </div>}
           </div>
         )}
 
@@ -2369,6 +2630,10 @@ function SubmitProof({
   onJudge?: () => void;
 }) {
   const MAX_PHOTOS = 3;
+  // A points favour is a quick ask: one answer or one photo, one Submit, the
+  // exact points back. The checklist, tier badge and "proof" wording stay on
+  // paid favours, where the evidence decides whether real money moves.
+  const quick = task.rewardType === "points" && !isFunded(task);
   const [proofNote, setProofNote] = useState("");
   const [images, setImages] = useState<{ base64: string; preview: string; isVideo: boolean }[]>([]);
   const [submitting, setSubmitting] = useState(false);
@@ -2561,9 +2826,9 @@ function SubmitProof({
   };
 
   return (
-    <div className="flex flex-col h-screen max-w-lg mx-auto w-full">
+    <div className="flex flex-col h-[calc(100dvh-5rem)] max-w-lg mx-auto w-full">
       <TopBar
-        title="Submit proof"
+        title={quick ? (tierRequiresPhoto(task.category) ? "Photo" : "Answer") : "Submit proof"}
         startAdornment={
           <Button variant="tertiary" size="sm" onClick={onCancel}>Cancel</Button>
         }
@@ -2576,6 +2841,76 @@ function SubmitProof({
           const tc = TIER_CONFIG[tier];
           const instructions = proofInstructions(task);
           const needsPhoto = tierRequiresPhoto(task.category);
+          if (quick) {
+            return (
+              <>
+                <div>
+                  <p className="text-[10px] font-semibold text-amber-700 tracking-wide uppercase">Points favour &middot; {rewardLabel(task)}</p>
+                  <p className="text-[22px] font-bold text-gray-900 leading-[1.2] tracking-tight mt-2 break-words">{task.description}</p>
+                  {!isRemoteLocation(task.location) && (
+                    <p className="text-[13px] text-gray-500 mt-1.5 break-words">At {task.location}</p>
+                  )}
+                </div>
+                {needsPhoto ? (
+                  <div>
+                    {images.length > 0 && (
+                      <div className="flex gap-2 mb-3 overflow-x-auto pb-1">
+                        {images.map((img, i) => (
+                          <div key={i} className="relative shrink-0 w-24 h-24 rounded-xl overflow-hidden border border-gray-200">
+                            <img src={img.preview} alt={`Photo ${i + 1}`} className="w-full h-full object-cover" loading="lazy" />
+                            <button onClick={() => removeImage(i)} aria-label="Remove photo" className="absolute top-1 right-1 w-7 h-7 bg-black/70 rounded-full flex items-center justify-center text-white text-xs font-bold">x</button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {images.length < MAX_PHOTOS && (
+                      <label className="flex items-center justify-center gap-2 border border-dashed border-gray-300 rounded-2xl min-h-[96px] cursor-pointer bg-white active:scale-[0.99] transition-transform">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="text-gray-500">
+                          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+                          <circle cx="12" cy="13" r="4" />
+                        </svg>
+                        <span className="text-[15px] font-medium text-gray-700">{images.length === 0 ? "Take a photo" : "Add another"}</span>
+                        <input type="file" accept="image/*,video/*" capture="environment" onChange={handleFileChange} className="hidden" />
+                      </label>
+                    )}
+                    <input
+                      type="text"
+                      placeholder="Add a line about it (optional)"
+                      value={proofNote}
+                      onChange={(e) => setProofNote(e.target.value)}
+                      className="mt-3 w-full bg-white border border-gray-200 rounded-xl px-4 py-3 text-[15px] focus:outline-none focus:border-gray-400 placeholder:text-gray-400 min-h-[44px]"
+                    />
+                  </div>
+                ) : (
+                  <div>
+                    <textarea
+                      placeholder="Type your answer"
+                      value={proofNote}
+                      onChange={(e) => setProofNote(e.target.value)}
+                      rows={4}
+                      className="w-full rounded-2xl focus:outline-none placeholder:text-gray-400"
+                      style={{ fontSize: 16, padding: "12px 16px", border: "1px solid #e5e7eb", background: "#ffffff", resize: "none" }}
+                    />
+                    {images.length > 0 ? (
+                      <div className="flex gap-2 mt-2 overflow-x-auto pb-1">
+                        {images.map((img, i) => (
+                          <div key={i} className="relative shrink-0 w-16 h-16 rounded-xl overflow-hidden border border-gray-200">
+                            <img src={img.preview} alt={`Photo ${i + 1}`} className="w-full h-full object-cover" loading="lazy" />
+                            <button onClick={() => removeImage(i)} aria-label="Remove photo" className="absolute top-0.5 right-0.5 w-6 h-6 bg-black/70 rounded-full flex items-center justify-center text-white text-[10px] font-bold">x</button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <label className="inline-flex items-center gap-1.5 mt-2 min-h-[44px] text-[13px] text-gray-500 cursor-pointer">
+                        <span className="text-gray-400">+</span> Add a photo (optional)
+                        <input type="file" accept="image/*,video/*" capture="environment" onChange={handleFileChange} className="hidden" />
+                      </label>
+                    )}
+                  </div>
+                )}
+              </>
+            );
+          }
           return (
             <>
               <div className="bg-white border border-gray-200 rounded-2xl p-4">
@@ -2800,9 +3135,9 @@ function SubmitProof({
           <div className="flex flex-col items-center gap-4 py-8">
             <Spinner />
             <div className="text-center">
-              <Typography variant="body" level={2}>Verifying proof...</Typography>
+              <Typography variant="body" level={2}>{quick ? "Checking..." : "Verifying proof..."}</Typography>
               <Typography variant="body" level={4} className="text-gray-400 mt-1">
-                {images.length > 0 ? `Analyzing your photo${images.length > 1 ? "s" : ""}` : "Reviewing your response"}
+                {images.length > 0 ? `Looking at your photo${images.length > 1 ? "s" : ""}` : quick ? "Reading your answer" : "Reviewing your response"}
               </Typography>
             </div>
           </div>
@@ -2846,7 +3181,9 @@ function SubmitProof({
                 result.verdict === "error" ? "text-gray-600" :
                 "text-red-600"
               }`}>
-                {result.verdict === "pass" ? "VERIFIED" : result.verdict === "flag" ? "FLAGGED" : result.verdict === "error" ? "TRY AGAIN" : "REJECTED"}
+                {quick
+                  ? (result.verdict === "pass" ? "Accepted" : result.verdict === "flag" ? "Waiting for a human check" : result.verdict === "error" ? "Not sent" : "Not accepted")
+                  : (result.verdict === "pass" ? "VERIFIED" : result.verdict === "flag" ? "FLAGGED" : result.verdict === "error" ? "TRY AGAIN" : "REJECTED")}
               </span>
             </div>
             <p className="text-xs text-gray-500 leading-relaxed">{String(result.reasoning)}</p>
@@ -2937,7 +3274,7 @@ function SubmitProof({
             )}
             {result.verdict === "flag" && (
               <div className="mt-2">
-                <p className="text-xs text-yellow-600">Under review. You'll be notified of the result.</p>
+                <p className="text-xs text-yellow-600">{quick ? "No points yet. People check it by hand, and the points land if they clear it." : "Under review. You'll be notified of the result."}</p>
               </div>
             )}
             {/* A daily cap is not retryable — "Try Again" would fail identically
@@ -2961,12 +3298,18 @@ function SubmitProof({
             )}
             {result.verdict === "fail" && (
               <div className="mt-2 flex flex-col gap-2">
-                <p className="text-xs text-red-600 font-medium">How to improve:</p>
-                <ul className="text-xs text-gray-500 list-disc pl-4 space-y-0.5">
-                  <li>Make sure you're at the exact location</li>
-                  <li>Take a clearer photo showing the requested detail</li>
-                  <li>Add a note explaining what you found</li>
-                </ul>
+                {quick && !tierRequiresPhoto(task.category) ? (
+                  <p className="text-xs text-gray-500">No points were added. Answer the question directly and try again.</p>
+                ) : (
+                  <>
+                    <p className="text-xs text-red-600 font-medium">How to improve:</p>
+                    <ul className="text-xs text-gray-500 list-disc pl-4 space-y-0.5">
+                      {!isRemoteLocation(task.location) && <li>Make sure you're at the exact location</li>}
+                      <li>Take a clearer photo showing the requested detail</li>
+                      <li>Add a note explaining what you found</li>
+                    </ul>
+                  </>
+                )}
                 <button
                   onClick={() => { setResult(null); setPreCheck(null); hasAutoChecked.current = false; }}
                   className="mt-1 w-full py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm text-gray-700 font-medium active:scale-[0.98] transition-all"
@@ -2985,7 +3328,9 @@ function SubmitProof({
             const needsPhoto = tierRequiresPhoto(task.category);
             const hasContent = images.length > 0 || proofNote.trim().length > 0;
             const disabled = needsPhoto ? images.length === 0 : !hasContent;
-            const label = needsPhoto
+            const label = quick
+              ? "Submit"
+              : needsPhoto
               ? (images.length > 0 ? "Submit for Verification" : "Add a photo to submit")
               : (proofNote.trim() ? "Submit Response" : "Write your response to submit");
             return (

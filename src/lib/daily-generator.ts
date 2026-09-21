@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { getRedis } from "./redis";
-import { PROMPTS, promptForDate, type DailyPrompt } from "./daily";
+import { PROMPTS, CURATED_PROMPTS, promptForDate, type DailyPrompt } from "./daily";
 
 // DAILY QUEST GENERATOR
 //
@@ -262,6 +262,14 @@ export async function ensurePromptFor(date: string): Promise<{ stored: boolean; 
   if (existing) {
     const p = typeof existing === "string" ? JSON.parse(existing) : (existing as DailyPrompt);
     return { stored: false, generated: false, question: p.question, reason: "already set" };
+  }
+
+  // A curated prompt beats the generator, but only into an empty slot (above).
+  const curated = CURATED_PROMPTS[date];
+  if (curated) {
+    await redis.set(`daily:prompt:${date}`, JSON.stringify({ ...curated, date }), { nx: true });
+    await rememberQuestion(curated.question);
+    return { stored: true, generated: false, question: curated.question, reason: "curated" };
   }
 
   const { prompt, generated, reason } = await generatePrompt(date);

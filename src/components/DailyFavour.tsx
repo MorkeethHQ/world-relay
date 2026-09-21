@@ -171,7 +171,7 @@ export default function DailyFavour({
       >
         <div className="min-w-0 flex-1">
           <p className="text-[10px] font-semibold text-amber-700 tracking-wide uppercase">
-            Today&rsquo;s favour &middot; done
+            Daily poll &middot; done
           </p>
           <p className="text-[13px] text-gray-900 truncate mt-0.5">{results.verdict}</p>
         </div>
@@ -194,7 +194,7 @@ export default function DailyFavour({
             twinkle is not. The label carries it. */}
         <div className="flex items-center gap-1.5 mb-3">
           <span className="text-[10px] font-semibold text-amber-700 tracking-wide uppercase">
-            Today&rsquo;s favour
+            Daily poll
           </span>
           {streak > 0 && (
             <span className="ml-auto text-[10px] font-medium text-amber-700/70 tabular-nums">

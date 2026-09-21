@@ -11,13 +11,29 @@ export const POST_TEMPLATES = [
   { label: "Quick opinion", desc: "Share your honest take on something. Detailed answers earn more.", category: "feedback" as const, bounty: "1" },
 ];
 
+// Ideas on the quick points screen. Each asks for a view, not an errand (the
+// 2026-09-03 completion data in CLAUDE.md), and each is answerable in under a
+// minute from anywhere. Tapping one fills the box as a starting point. The
+// verbatim idea is rejected like template copy, so the board never fills with
+// the same five asks from different posters.
+export const QUICK_IDEAS: { text: string; photo: boolean }[] = [
+  { text: "What should I cook tonight with eggs, rice and not much else?", photo: false },
+  { text: "Show me the view from where you are right now.", photo: true },
+  { text: "Which song would fix a grey Monday?", photo: false },
+  { text: "What is the best cheap lunch near you, and what does it cost?", photo: false },
+  { text: "Photo the oddest sign you pass today.", photo: true },
+];
+
 export const MIN_DESCRIPTION_LENGTH = 12;
 
 function normalize(s: string): string {
   return s.toLowerCase().replace(/\s+/g, " ").trim();
 }
 
-const TEMPLATE_SET = new Set(POST_TEMPLATES.map((t) => normalize(t.desc)));
+const TEMPLATE_SET = new Set([
+  ...POST_TEMPLATES.map((t) => normalize(t.desc)),
+  ...QUICK_IDEAS.map((i) => normalize(i.text)),
+]);
 
 export function isTemplateCopy(description: string): boolean {
   return TEMPLATE_SET.has(normalize(description));
