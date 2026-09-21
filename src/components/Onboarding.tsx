@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, ReactNode } from "react";
+import { useState, useEffect, useRef, ReactNode } from "react";
 import {
   Button,
   Typography,
@@ -10,6 +10,7 @@ import { WorldAppHandoff } from "@/components/WorldAppHandoff";
 import { DailyMissionCard } from "@/components/MissionCard";
 import { pickDailyMission, pickProofStrip } from "@/lib/board-rank";
 import type { Task } from "@/lib/types";
+import { trackFunnelEvent, trackMissionViewedOncePerDay } from "@/lib/funnel-events";
 
 // The mission a signed-out visitor tapped. Feed reads it once after sign-in and
 // opens that favour, so the tap is not lost behind terms and the wallet prompt.
@@ -167,6 +168,12 @@ export function Onboarding({
       .catch(() => {});
   }, []);
 
+  // Funnel step 1: the card is on screen. Keyed on step 0 AND a mission, because
+  // that is the only state in which the card actually renders.
+  useEffect(() => {
+    if (step === 0 && mission) trackMissionViewedOncePerDay();
+  }, [step, mission]);
+
   // Acting on the mission is where consent and sign-in happen, not before
   // looking at it. The terms step is unchanged and still comes first.
   const startMission = () => {
@@ -181,8 +188,15 @@ export function Onboarding({
   // When the existing MiniKit sign-in succeeds, the parent flips authed=true.
   // A visitor who came for the mission goes straight to it; everyone else gets
   // the final "you're in" screen.
+  // Funnel step 3 fires once, on the transition into authed at the sign-in step.
+  // The effect can run again on a re-render; the ref keeps it to one event.
+  const signInTracked = useRef(false);
   useEffect(() => {
     if (!authed || step !== 3) return;
+    if (!signInTracked.current) {
+      signInTracked.current = true;
+      trackFunnelEvent("sign_in_completed");
+    }
     if (pendingMission) onComplete();
     else setStep(4);
   }, [authed, step, pendingMission, onComplete]);
@@ -199,6 +213,7 @@ export function Onboarding({
         JSON.stringify({ version: TERMS_VERSION, acceptedAt: new Date().toISOString() })
       );
     } catch {}
+    trackFunnelEvent("terms_accepted");
     next();
   };
 

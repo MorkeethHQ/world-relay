@@ -53,6 +53,7 @@ import {
 import { JuryMode } from "@/components/JuryMode";
 import { DailyMissionCard } from "@/components/MissionCard";
 import { PENDING_MISSION_KEY } from "@/components/Onboarding";
+import { trackFunnelEvent } from "@/lib/funnel-events";
 
 // Fire-and-forget telemetry. The event name must be in CLIENT_EVENTS in
 // /api/track, which is an allowlist because that route is public.
@@ -773,7 +774,12 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
     } catch {}
     if (!pending?.id || pending.date !== new Date().toISOString().slice(0, 10)) return;
     const task = tasks.find((t) => t.id === pending!.id && t.status === "open" && t.rewardType === "points" && t.poster !== userId);
-    if (task) startFavour(task);
+    if (task) {
+      // Funnel step 4: the mission a first-time visitor tapped before signing in
+      // is now open in front of them. This is the end of the first-visit path.
+      trackFunnelEvent("mission_started");
+      startFavour(task);
+    }
   }, [loading, userId, tasks, startFavour]);
 
   // Freshness for returning users: remember when this device last saw the board,

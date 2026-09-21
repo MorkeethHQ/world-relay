@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { trackEvent, trackReach } from "@/lib/track";
+import { FUNNEL_EVENTS } from "@/lib/funnel-events";
 
 // This route is PUBLIC and unauthenticated, and trackEvent writes the event name
 // straight into a redis hash field (`events:counts`). So the name is an allowlist,
@@ -14,6 +15,9 @@ const CLIENT_EVENTS = new Set([
   "invite_share_opened",
   "loop_arrive",
   "loop_start_intent",
+  // The first-visit funnel (2026-09-21). One source of truth for the names, so a
+  // step cannot be fired by the client and silently dropped here.
+  ...FUNNEL_EVENTS,
 ]);
 
 // Numbers only, finite, clamped. Keeps a hostile caller from writing an essay into
@@ -43,6 +47,14 @@ export async function POST(req: NextRequest) {
     if (balance !== undefined) data.balance = balance;
     trackEvent(event, data).catch(() => {});
     return NextResponse.json({ ok: true });
+  }
+
+  // An event name that is not on the list is REFUSED, not waved through. Before
+  // 2026-09-21 it fell through to the page-view path and answered 200, so a typo in
+  // a client event looked exactly like success while recording nothing. A refusal
+  // is the only way a misspelled funnel step shows up before the numbers do.
+  if (typeof event === "string") {
+    return NextResponse.json({ error: "unknown event" }, { status: 400 });
   }
 
   // Reach: count this open (deduped per device) even for anonymous visitors.
