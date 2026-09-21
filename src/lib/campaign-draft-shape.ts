@@ -10,6 +10,14 @@ export const PIECE_LABEL: Record<PieceKind, string> = {
   review: "An honest review",
 };
 
+// THE PIECE CAP while a pool is only proposed (ruling 2026-09-21, from the
+// publish-limit review of #19). Any World App wallet may publish, so the cap bounds
+// what one campaign can put on the board: at most 10 pieces of any kind and 20 in
+// total, so at most 20 x 10 = 200 points per campaign instead of 3 x 50 x 10 =
+// 1,500. The default plan, 5 UGC + 2 articles + 10 reviews = 17, fits.
+export const MAX_PIECES_PER_KIND = 10;
+export const MAX_PIECES_TOTAL = 20;
+
 export type ReviewRule = "ai" | "ai_and_jury";
 
 export type CampaignDraft = {
