@@ -201,6 +201,19 @@ export function Onboarding({
     else setStep(4);
   }, [authed, step, pendingMission, onComplete]);
 
+  // Favours in the nav, tapped while onboarding is showing, returns to the start:
+  // today's mission, the Favours home for someone not yet signed in. Not while a
+  // sign-in is in flight, which must not be interrupted by a stray tap.
+  useEffect(() => {
+    const onReselect = (e: Event) => {
+      if ((e as CustomEvent).detail !== "/" || isVerifying) return;
+      setPendingMission(false);
+      setStep(0);
+    };
+    window.addEventListener("favour:nav-reselect", onReselect);
+    return () => window.removeEventListener("favour:nav-reselect", onReselect);
+  }, [isVerifying]);
+
   const next = () => setStep((s) => Math.min(s + 1, TOTAL_STEPS - 1));
   const back = () => setStep((s) => Math.max(s - 1, 0));
 
@@ -229,7 +242,18 @@ export function Onboarding({
       : "You are set up in preview mode. Pick an open favour below, tap Do it, and submit proof to earn points.";
 
   return (
-    <div className="fixed inset-0 z-[60] bg-white flex flex-col max-w-lg mx-auto w-full overflow-y-auto">
+    // Stops ABOVE the bottom nav instead of covering it (2026-09-21). This was
+    // `fixed inset-0 z-[60]`, a full-screen panel over the nav (z-50), so a
+    // signed-out visitor could neither see nor tap Favours, Polls, History or
+    // Profile: at 390 px Playwright's tap on "Favours" timed out because this
+    // panel's own footer sat on top of it. The fix is here and not in the nav,
+    // because JuryMode is z-[60] ON PURPOSE to cover the nav, and raising the
+    // nav would break that. The bottom offset is the nav's height plus the same
+    // safe-area inset the nav itself pads by.
+    <div
+      className="fixed inset-x-0 top-0 z-[60] bg-white flex flex-col max-w-lg mx-auto w-full overflow-y-auto"
+      style={{ bottom: "calc(var(--favour-nav-h, 56px) + env(safe-area-inset-bottom, 0px))" }}
+    >
       {/* Back navigation. Available between the intro steps, not on the terminal
           success screen, and not while a sign-in is in flight. */}
       {step > 0 && step < 4 && (

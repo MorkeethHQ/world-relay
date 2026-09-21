@@ -24,6 +24,7 @@ import { getCampaign } from "@/lib/campaigns";
 import { isRealMoney, hasOnChainEscrow } from "@/lib/reward";
 import { recordReferralActivation } from "@/lib/referral";
 import { ownerRefusal } from "@/lib/session";
+import { buildContribution, checkCompletedTask, claimCompletionSlot, recordTaskCompletion } from "@/lib/completions";
 
 export const maxDuration = 60;
 
@@ -169,6 +170,37 @@ export async function POST(req: NextRequest) {
   // Can't submit proof for your own task
   if (submitter && task.poster === submitter) {
     return NextResponse.json({ error: "Can't submit proof for your own task" }, { status: 403 });
+  }
+  // ONE PASS PER PERSON on a favour many people may complete, added 2026-09-21.
+  //
+  // A multi-completion favour is reset to `open` on every pass with its claimant
+  // cleared, so nothing stopped the same wallet completing the daily mission again
+  // and again: 9 points times maxCompletions 100, bounded only by the seeded daily
+  // cap. Hiding the button in the app would be a claim about the UI, not a rule, so
+  // the refusal lives here. It sits before the upload and the AI call, so a repeat
+  // costs nothing. It only knows passes recorded from today on: there was no record
+  // of who completed a multi-completion favour before this, so there is nothing to
+  // backfill from.
+  //
+  // FAILS CLOSED: if the record cannot be read, the submission is refused with 503
+  // rather than allowed, because a guard that passes on error passes forever during
+  // a persistent outage. Concurrency is covered twice: this route already holds a
+  // per-task lock (lock:verify:<taskId>, SET NX) for the whole request, and every
+  // credit below is gated on an atomic SADD that only one caller can win.
+  if (!demoMode && task.maxCompletions > 1 && submitter) {
+    const done = await checkCompletedTask(taskId, submitter);
+    if (done === "yes") {
+      return NextResponse.json(
+        { error: "You already completed this favour. Your points and proof are in History.", code: "already_completed" },
+        { status: 409 },
+      );
+    }
+    if (done === "unknown") {
+      return NextResponse.json(
+        { error: "We couldn't check whether you've already done this favour. Nothing was submitted. Please try again.", code: "completion_check_unavailable" },
+        { status: 503 },
+      );
+    }
   }
   // Escrow-v2 sequencing: work happens AFTER the money is locked. An unfunded
   // v2 task accepts no proof — otherwise a claimant can be lured into doing
@@ -426,11 +458,28 @@ export async function POST(req: NextRequest) {
     taskId,
   }).catch(console.error);
 
+  // THE CREDIT GATE for a favour many people may complete (2026-09-21). The
+  // person's completion slot is claimed atomically HERE, before the campaign unlock
+  // below (which can move real USDC), and before referral, seeded-cap and points
+  // credit. A pass that does not win the slot writes no credit of any kind: a
+  // concurrent duplicate ("duplicate") or an unreadable store ("unknown"). Placed
+  // above the unlock on purpose, found on review: the first draft gated only the
+  // points block, which runs AFTER the unlock. Single-completion favours are guarded
+  // by status and claimant as before and never reach this gate.
+  let creditAllowed = true;
+  if (result.verdict === "pass" && task.claimant && task.maxCompletions > 1 && !demoMode) {
+    const slot = await claimCompletionSlot(taskId, task.claimant);
+    if (slot !== "claimed") {
+      creditAllowed = false;
+      console.error(`[verify-proof] completion slot ${slot} for ${task.claimant} on ${taskId}; no credit written`);
+    }
+  }
+
   // Campaign unlock: count clean (pass + Orb) completions toward the campaign
   // threshold and pay the unlock when reached. Awaited because it can move real
   // USDC; failures land in the unlock retry set drained by the reconcile cron.
   let campaignUnlockTx: string | null = null;
-  if (result.verdict === "pass" && task.claimant && task.campaignId) {
+  if (result.verdict === "pass" && task.claimant && task.campaignId && creditAllowed) {
     // claimantVerification MUST come from claimantLevel, not the spread: `task` is
     // the :138 snapshot, still `open`, so its claimantVerification is null and the
     // clean gate (campaign-unlock.ts:139) rejected every direct submission. This is
@@ -452,7 +501,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  if (task.claimant) {
+  if (task.claimant && creditAllowed) {
     if (result.verdict === "pass") {
       // Referral activation: the invitee's first clean completion pays the
       // referrer (points only, once, capped — see src/lib/referral.ts).
@@ -492,6 +541,28 @@ export async function POST(req: NextRequest) {
       recordFailure(task.claimant).catch(console.error);
       recordFavourFailed(task.claimant).catch(console.error);
     }
+  }
+
+  // The durable record of this pass, for the person who made it: what they did,
+  // what they earned, and where their proof lives. Written from values this request
+  // already holds (proofImageUrls, proofNote), because completeTask above has just
+  // wiped them from a multi-completion task. Awaited rather than fire-and-forget:
+  // the result screen and History read it straight after this response, and a
+  // record that lands later would show a mission as still to do.
+  if (result.verdict === "pass" && task.claimant && creditAllowed) {
+    await recordTaskCompletion(
+      task.claimant,
+      buildContribution({
+        taskId,
+        description: task.description,
+        points: pointsAwarded ?? 0,
+        streakBonus: streakBonusAwarded,
+        proofImageUrl: proofImageUrls[0] ?? null,
+        proofNote: proofNote ?? null,
+        campaignId: task.campaignId ?? null,
+        now: Date.now(),
+      }),
+    ).catch(console.error);
   }
 
   // Auto-release escrow (payment is the priority). A funded pass must either

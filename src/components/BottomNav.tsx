@@ -81,7 +81,14 @@ export function BottomNav() {
           return (
             <button
               key={route.value}
-              onClick={() => router.push(route.value)}
+              onClick={() => {
+                // Tapping the tab you are already on returns that tab to its start.
+                // A plain router.push to the current path is a no-op, so without
+                // this a signed-out visitor part-way through onboarding who taps
+                // Favours saw nothing happen at all (2026-09-21).
+                if (active) window.dispatchEvent(new CustomEvent("favour:nav-reselect", { detail: route.value }));
+                router.push(route.value);
+              }}
               className={`flex-1 min-w-0 flex flex-col items-center justify-center gap-0.5 min-h-[44px] px-0.5 transition-colors ${
                 active ? "text-gray-900" : "text-gray-400"
               }`}
