@@ -16,6 +16,7 @@ const fakeRedis = {
   set: async (k: string, v: any, opts?: { nx?: boolean }) => { if (opts?.nx && store.has(k)) return null; store.set(k, v); return "OK"; },
   lpush: async (k: string, v: string) => { const l = store.get(k) ?? []; l.unshift(v); store.set(k, l); return l.length; },
   ltrim: async () => "OK",
+  del: async (k: string) => (store.delete(k) ? 1 : 0),
   lrange: async (k: string, a: number, b: number) => (store.get(k) ?? []).slice(a, b + 1),
   sadd: async (k: string, m: string) => { const s = sets.get(k) ?? new Set(); const had = s.has(m); s.add(m); sets.set(k, s); return had ? 0 : 1; },
   smembers: async (k: string) => [...(sets.get(k) ?? [])],
@@ -254,5 +255,72 @@ describe("publishing cannot put filler on the board", () => {
   it("a real brief passes, and a one-word company name is fine", () => {
     expect(validateDraftInput(EXAMPLE).ok).toBe(true);
     expect(validateDraftInput({ ...EXAMPLE, company: "Acme" }).ok).toBe(true);
+  });
+});
+
+
+describe("publishing is resumable: a failure part way can be finished, never duplicated", () => {
+  // Oscar's review, 2026-09-21: a failure on piece 2 of 3 used to leave piece 1 live
+  // with no campaign identity, spend the day's publish, and leave the company unable
+  // to finish or retry.
+  it("piece 2 fails, piece 1 keeps its identity, and a same-day retry adds only the rest", async () => {
+    const draft = await aSavedDraft();
+    const created: any[] = [];
+    let failOn = 2;
+    const flaky = async (input: any) => {
+      if (created.length + 1 === failOn) { failOn = -1; throw new Error("store blip"); }
+      created.push(input);
+      return { id: `task-${input.maxCompletions}` }; // one id per kind (5, 2, 10)
+    };
+
+    const first = await publishDraft(COMPANY, draft.id, Date.now(), flaky);
+    expect(first).toMatchObject({ ok: false, status: 502 });
+    expect(created).toHaveLength(1);
+
+    // Piece 1 is live and STILL KNOWS ITS CAMPAIGN: identity, kind and label resolve.
+    const partial = await getPublishedCampaign(draft.id);
+    expect(partial?.status).toBe("publishing");
+    expect(partial?.company).toBe("Example company");
+    expect(Object.keys(partial?.pieceTaskIds ?? {})).toHaveLength(1);
+    // It is not advertised as a finished campaign on the board list.
+    expect((await listPublishedCampaigns()).map((c) => c.id)).not.toContain(draft.id);
+
+    // Same day, same draft: the retry is allowed and creates only the two missing kinds.
+    const retry = await publishDraft(COMPANY, draft.id, Date.now(), flaky);
+    expect(retry.ok).toBe(true);
+    expect(created).toHaveLength(3);
+    const kinds = created.map((t) => t.maxCompletions).sort((a, b) => a - b);
+    expect(kinds).toEqual([2, 5, 10]); // each kind exactly once, no duplicate of piece 1
+    const done = await getPublishedCampaign(draft.id);
+    expect(done?.status).toBe("published");
+    expect(Object.keys(done?.pieceTaskIds ?? {})).toHaveLength(3);
+    expect((await listPublishedCampaigns()).map((c) => c.id)).toContain(draft.id);
+
+    // And a further retry is a no-op refusal, not a second set.
+    expect(await publishDraft(COMPANY, draft.id, Date.now(), flaky)).toMatchObject({ ok: false, status: 409 });
+    expect(created).toHaveLength(3);
+  });
+
+  it("a DIFFERENT draft still waits a day, even while the first is part published", async () => {
+    const draft = await aSavedDraft();
+    const boom = async () => { throw new Error("fail"); };
+    await publishDraft(COMPANY, draft.id, Date.now(), boom as any);
+    const other = validateDraftInput(EXAMPLE);
+    if (!other.ok) throw new Error(other.error);
+    const d2 = await saveDraft(COMPANY, other.draft, Date.now(), () => "other");
+    if (!d2.ok) throw new Error(d2.error);
+    expect(await publishDraft(COMPANY, d2.draft.id, Date.now(), boom as any)).toMatchObject({ ok: false, status: 429 });
+  });
+
+  it("two concurrent publishes of one draft cannot both create pieces", async () => {
+    const draft = await aSavedDraft();
+    const created: any[] = [];
+    const slow = async (input: any) => { await new Promise((r) => setTimeout(r, 20)); created.push(input); return { id: `t-${input.maxCompletions}` }; };
+    const [a, b] = await Promise.all([
+      publishDraft(COMPANY, draft.id, Date.now(), slow),
+      publishDraft(COMPANY, draft.id, Date.now(), slow),
+    ]);
+    expect([a.ok, b.ok].filter(Boolean)).toHaveLength(1);
+    expect(created).toHaveLength(3);
   });
 });

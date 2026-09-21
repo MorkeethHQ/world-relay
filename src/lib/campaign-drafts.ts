@@ -207,6 +207,22 @@ async function loadDraft(id: string): Promise<CampaignDraft | null> {
   }
 }
 
+export const PUBLISH_LOCK_PREFIX = "campaign:company:publish-lock:";
+
+// RESUMABLE and IDEMPOTENT (fix, 2026-09-21). The first version claimed the day's
+// publish, then created pieces one by one, and only marked the draft published at
+// the end. A failure on piece 2 of 3 therefore left piece 1 live on the board with
+// a campaign id that resolved to nothing (no label, no kind, no company page), and
+// the day's publish was spent, so the company could neither finish nor retry.
+//
+// Now:
+//   - the day slot is keyed to THIS draft, so the same draft can resume the same
+//     day, while a different draft still waits a day;
+//   - the draft moves to "publishing" before the first piece, and its pieceTaskIds
+//     are saved after EACH piece, so a retry creates only what is missing;
+//   - a campaign in "publishing" resolves by id, so pieces already made keep their
+//     campaign identity for History, review results and the company page;
+//   - a per-draft lock stops two concurrent publishes duplicating a piece.
 export async function publishDraft(
   owner: string,
   id: string,
@@ -216,40 +232,71 @@ export async function publishDraft(
   const redis = getRedis();
   if (!redis) return { ok: false, error: "Campaigns cannot be published right now.", status: 503 };
   const addr = owner.toLowerCase();
-  const draft = await loadDraft(id);
+  const first = await loadDraft(id);
   // Not found and not yours answer the same, so a draft id reveals nothing.
-  if (!draft || draft.owner !== addr) return { ok: false, error: "No such draft.", status: 404 };
-  if (draft.status !== "draft") return { ok: false, error: "This campaign is already published.", status: 409 };
+  if (!first || first.owner !== addr) return { ok: false, error: "No such draft.", status: 404 };
+  if (first.status === "published") return { ok: false, error: "This campaign is already published.", status: 409 };
 
-  // One publish per company wallet per UTC day, claimed atomically, so a double
-  // tap or a script cannot flood the board.
-  const day = new Date(now).toISOString().slice(0, 10);
-  const claimed = await redis.set(`${PUBLISH_DAY_PREFIX}${addr}:${day}`, id, { nx: true, ex: 2 * 86400 });
-  if (!claimed) return { ok: false, error: "You can publish one campaign a day.", status: 429 };
+  const lockKey = `${PUBLISH_LOCK_PREFIX}${id}`;
+  const locked = await redis.set(lockKey, "1", { nx: true, px: 60_000 });
+  if (!locked) return { ok: false, error: "Publishing is already in progress. Try again in a minute.", status: 409 };
 
-  const pieceTaskIds: Partial<Record<PieceKind, string>> = {};
-  for (const p of draft.pieces) {
-    const task = await createTask({
-      poster: addr,
-      category: KIND_CATEGORY[p.kind],
-      description: pieceDescription(draft.company, draft.brief, p.kind),
-      location: "Online",
-      bountyUsdc: draft.rewardPerPiecePoints,
-      deadlineHours: PIECE_DEADLINE_HOURS,
-      rewardType: "points",
-      maxCompletions: p.count,
-      companyCampaignId: draft.id,
-    });
-    pieceTaskIds[p.kind] = task.id;
+  try {
+    // Re-read under the lock: another request may have finished it meanwhile.
+    const draft = (await loadDraft(id)) ?? first;
+    if (draft.status === "published") return { ok: false, error: "This campaign is already published.", status: 409 };
+
+    // One publish per company wallet per UTC day, keyed to the draft. A resume of
+    // the SAME draft passes; a different draft is refused.
+    const day = new Date(now).toISOString().slice(0, 10);
+    const dayKey = `${PUBLISH_DAY_PREFIX}${addr}:${day}`;
+    const claimed = await redis.set(dayKey, id, { nx: true, ex: 2 * 86400 });
+    if (!claimed) {
+      const holder = await redis.get(dayKey).catch(() => null);
+      if (holder !== id) return { ok: false, error: "You can publish one campaign a day.", status: 429 };
+    }
+
+    const pieceTaskIds: Partial<Record<PieceKind, string>> = { ...(draft.pieceTaskIds ?? {}) };
+    let current: CampaignDraft = { ...draft, status: "publishing", pieceTaskIds };
+    await redis.set(`${DRAFT_PREFIX}${id}`, JSON.stringify(current));
+
+    for (const p of draft.pieces) {
+      if (pieceTaskIds[p.kind]) continue; // made on an earlier attempt
+      let task: Pick<Task, "id">;
+      try {
+        task = await createTask({
+          poster: addr,
+          category: KIND_CATEGORY[p.kind],
+          description: pieceDescription(draft.company, draft.brief, p.kind),
+          location: "Online",
+          bountyUsdc: draft.rewardPerPiecePoints,
+          deadlineHours: PIECE_DEADLINE_HOURS,
+          rewardType: "points",
+          maxCompletions: p.count,
+          companyCampaignId: draft.id,
+        });
+      } catch {
+        return {
+          ok: false,
+          error: "Publishing stopped part way. Nothing is lost: tap Finish publishing to add the rest.",
+          status: 502,
+        };
+      }
+      pieceTaskIds[p.kind] = task.id;
+      current = { ...current, pieceTaskIds: { ...pieceTaskIds } };
+      await redis.set(`${DRAFT_PREFIX}${id}`, JSON.stringify(current));
+    }
+
+    const published: CampaignDraft & { status: "published" } = { ...current, status: "published", publishedAt: new Date(now).toISOString() };
+    await redis.set(`${DRAFT_PREFIX}${id}`, JSON.stringify(published));
+    await redis.sadd(PUBLISHED_INDEX, id);
+    return { ok: true, campaign: toPublic(published) };
+  } finally {
+    await redis.del(lockKey).catch(() => {});
   }
-
-  const published: CampaignDraft = { ...draft, status: "published", publishedAt: new Date(now).toISOString(), pieceTaskIds };
-  await redis.set(`${DRAFT_PREFIX}${id}`, JSON.stringify(published));
-  await redis.sadd(PUBLISHED_INDEX, id);
-  return { ok: true, campaign: toPublic(published) };
 }
 
-function toPublic(d: CampaignDraft): PublicCompanyCampaign {
+function toPublic(d: CampaignDraft & { status: "publishing" | "published" }): PublicCompanyCampaign {
   return {
     id: d.id,
     company: d.company,
@@ -260,13 +307,18 @@ function toPublic(d: CampaignDraft): PublicCompanyCampaign {
     reviewRule: d.reviewRule,
     publishedAt: d.publishedAt,
     pieceTaskIds: d.pieceTaskIds,
-    status: "published",
+    status: d.status,
   };
 }
 
+// Resolves a campaign whose pieces exist on the board: fully published, or part way
+// through publishing. The second matters: a piece made before an interrupted
+// publish must still carry its campaign's name and kind. A plain draft, which has
+// no pieces on the board, never resolves.
 export async function getPublishedCampaign(id: string): Promise<PublicCompanyCampaign | null> {
   const d = await loadDraft(id);
-  return d && d.status === "published" ? toPublic(d) : null;
+  if (!d || (d.status !== "published" && d.status !== "publishing")) return null;
+  return toPublic(d as CampaignDraft & { status: "publishing" | "published" });
 }
 
 export async function listPublishedCampaigns(limit = 10): Promise<PublicCompanyCampaign[]> {

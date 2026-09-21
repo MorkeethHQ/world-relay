@@ -1025,6 +1025,7 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
         onDone={() => { setJustSavedDraft(null); setView("board"); }}
         onPublished={(c) => { fetchTasks(); setDraftsKey((n) => n + 1); setCompanyCampaignId(c.id); setView("company"); }}
         onOpen={(id) => { setCompanyCampaignId(id); setView("company"); }}
+        onChanged={() => setDraftsKey((n) => n + 1)}
       />
     );
   }
