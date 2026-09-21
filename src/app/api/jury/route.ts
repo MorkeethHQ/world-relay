@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { listTasks } from "@/lib/store";
-import { issueJuryDeck, recordJuryVerdict } from "@/lib/jury";
+import { issueJuryDeckWithMode, recordJuryVerdict } from "@/lib/jury";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { trackEvent } from "@/lib/track";
 import { ownerRefusal } from "@/lib/session";
@@ -14,8 +14,10 @@ export async function GET(req: NextRequest) {
   const address = new URL(req.url).searchParams.get("address");
   const judge = address && WALLET_RE.test(address) ? address : null;
   const tasks = await listTasks();
-  const deck = await issueJuryDeck(tasks, judge, () => crypto.randomUUID());
-  return NextResponse.json({ cards: deck });
+  // `practice: true` when this judge has ruled on every live proof: the deck is a
+  // replay of real, verified proofs that earns no points (lib/jury.ts).
+  const { cards, practice } = await issueJuryDeckWithMode(tasks, judge, () => crypto.randomUUID());
+  return NextResponse.json({ cards, practice });
 }
 
 // POST /api/jury { address, cardId, verdict: "match" | "not" }

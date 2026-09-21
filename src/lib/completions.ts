@@ -41,6 +41,10 @@ export type Contribution = {
   // A readable name for what the piece was for, e.g. "Example company campaign".
   campaignLabel?: string | null;
   at: string;
+  // True for a row recovered from the completion log by
+  // scripts/backfill-completions.mjs: the pass predates this record, so the proof
+  // and any streak bonus were not kept. Points are the favour's own price.
+  recovered?: boolean;
 };
 
 export function completedClaimantsKey(taskId: string): string {

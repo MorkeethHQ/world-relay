@@ -40,6 +40,11 @@ export type CardAnswer = {
   // them, or a card with no ground truth would be graded against isMatch and
   // pay a point for a coin flip.
   appeal?: boolean;
+  // PRACTICE cards (2026-09-21, Oscar: "Real or not should be playable for
+  // ever"). Dealt when a judge has used up every live proof. Same real proofs,
+  // same known answer by construction, but they pay NO points and do not count
+  // toward the judge's stats, so an endless game cannot be farmed.
+  practice?: boolean;
 };
 
 function hash(s: string): number {
@@ -91,6 +96,19 @@ export async function issueJuryDeck(
   judge: string | null,
   randomId: () => string
 ): Promise<JuryCard[]> {
+  return (await issueJuryDeckWithMode(tasks, judge, randomId)).cards;
+}
+
+// The deck, plus whether it is a PRACTICE round. A judge who has ruled on every
+// live proof used to get an empty deck and a dead end. Now the same pool of REAL,
+// already-verified proofs is dealt again as practice: nothing is generated or
+// invented, the pairing and the hidden answer are built exactly as for a live card,
+// and the answer is marked practice so recordJuryVerdict pays nothing for it.
+export async function issueJuryDeckWithMode(
+  tasks: Task[],
+  judge: string | null,
+  randomId: () => string
+): Promise<{ cards: JuryCard[]; practice: boolean }> {
   const redis = getRedis();
   // Exclude proofs this judge has already ruled on. Dedup is by TASK, not by
   // cardId: every deck mints fresh cardIds for the same proofs, so a per-cardId
@@ -104,16 +122,23 @@ export async function issueJuryDeck(
       pool = tasks.filter((t) => !seen.has(t.id));
     }
   }
-  const composed = composeDeck(pool, judge);
+  let composed = composeDeck(pool, judge);
+  let practice = false;
+  if (composed.length === 0 && judge) {
+    // Live deck used up: deal a practice round from the full real pool.
+    composed = composeDeck(tasks, judge);
+    practice = composed.length > 0;
+  }
   const cards: JuryCard[] = [];
   for (const { answer, content } of composed) {
     const cardId = randomId();
+    const stored: CardAnswer = practice ? { ...answer, practice: true } : answer;
     if (redis) {
-      await redis.set(`jury:card:${cardId}`, JSON.stringify(answer), { ex: CARD_TTL_SECONDS }).catch(() => {});
+      await redis.set(`jury:card:${cardId}`, JSON.stringify(stored), { ex: CARD_TTL_SECONDS }).catch(() => {});
     }
     cards.push({ cardId, proofImageUrl: `/api/jury/card/${cardId}/image`, ...content });
   }
-  return cards;
+  return { cards, practice };
 }
 
 // Shared with lib/jury-appeal.ts so appeal cards live in the same opaque
@@ -138,6 +163,7 @@ export type JuryVerdictResult = {
   pointsAwarded: number;
   judged: number;
   correctTotal: number;
+  practice?: boolean;
 };
 
 // Resolves the answer SERVER-SIDE from the stored card. Rejects unknown cards
@@ -159,6 +185,15 @@ export async function recordJuryVerdict(
   const fresh = await redis.sadd(`jury:seen:${judge.toLowerCase()}`, cardId);
   if (!fresh) return { error: "Already judged" };
   await redis.del(`jury:card:${cardId}`).catch(() => {});
+
+  // PRACTICE: graded so the player learns, and nothing else. No points, no daily
+  // cap consumed, no stats, no judged-set write. Returned before any of those.
+  if (answer.practice) {
+    const statsKey = `jury:stats:${judge.toLowerCase()}`;
+    const judged = Number((await redis.hget(statsKey, "judged")) || 0);
+    const correctTotal = Number((await redis.hget(statsKey, "correct")) || 0);
+    return { correct: saidMatch === answer.isMatch, isMatch: answer.isMatch, pointsAwarded: 0, judged, correctTotal, practice: true };
+  }
   // Record the underlying proof as judged so future decks never resurface it
   // (a proof is judged once per human, regardless of how many cards wrap it).
   await redis.sadd(`jury:judged:${judge.toLowerCase()}`, answer.proofTaskId).catch(() => {});

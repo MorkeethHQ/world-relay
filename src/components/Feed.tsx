@@ -784,7 +784,9 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
     let live = true;
     fetch(`/api/jury?address=${encodeURIComponent(userId)}`, { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => { if (live) setReviewDeck(Array.isArray(d?.cards) ? d.cards : []); })
+      // A PRACTICE deck earns nothing, so it must not sit in the feed under
+      // "Review a proof, earn points". Only a live deck is shown there.
+      .then((d) => { if (live) setReviewDeck(!d?.practice && Array.isArray(d?.cards) ? d.cards : []); })
       .catch(() => {});
     return () => { live = false; };
   }, [userId, reviewDeckKey]);
@@ -1082,7 +1084,7 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
       {/* Header - minimal. The top tab bar is GONE (Oscar Jul 5: two
           navigations create confusion) — Polls and History are bottom-nav
           pages now; this screen is only the board. */}
-      <div className="sticky top-0 z-10 bg-white/95 backdrop-blur-md border-b border-gray-100">
+      <div className="sticky top-0 z-10 bg-white border-b border-gray-100">
         <div className="flex items-center justify-between px-6 py-3">
           <h1 className="text-[18px] font-bold tracking-tight text-gray-900">FAVOUR</h1>
           {userId && (
@@ -1124,6 +1126,7 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
           task={dailyMission}
           points={missionDone.points}
           proofImageUrl={missionDone.proofImageUrl}
+          at={missionDone.at}
         />
       )}
       {tab === "available" && !loading && dailyMission && !missionDone && (
@@ -1813,22 +1816,22 @@ function TaskCard({
           <p className="text-[15px] font-medium leading-snug break-words text-gray-900 line-clamp-2">{task.description}</p>
           <div className="flex items-center flex-wrap gap-x-2 gap-y-1 mt-1.5">
             {isNew && (
-              <span className="text-[10px] font-bold uppercase tracking-wide text-gray-900 bg-gray-100 rounded px-1.5 py-0.5 shrink-0">New</span>
+              <span className="text-[12px] font-semibold text-gray-900 bg-gray-100 rounded-md px-2 py-1 shrink-0">New</span>
             )}
             {isUnfundedMoney ? (
               // Escrow-v2 is demand-gated: unfunded-while-open is the design
               // (poster funds when someone accepts), not a broken promise.
-              <span className="text-[10px] font-bold uppercase tracking-wide text-warning-700 bg-warning-100 rounded px-1.5 py-0.5 shrink-0">{task.rewardType === "usdc-v2" ? "Funds on accept" : "Not funded"}</span>
+              <span className="text-[12px] font-semibold text-warning-700 bg-warning-100 rounded-md px-2 py-1 shrink-0">{task.rewardType === "usdc-v2" ? "Funds on accept" : "Not funded"}</span>
             ) : endingSoon ? (
-              <span className="text-[10px] font-bold uppercase tracking-wide text-warning-700 bg-warning-100 rounded px-1.5 py-0.5 shrink-0">Ending soon</span>
+              <span className="text-[12px] font-semibold text-warning-700 bg-warning-100 rounded-md px-2 py-1 shrink-0">Ending soon</span>
             ) : isStale ? (
-              <span className="text-[10px] font-bold uppercase tracking-wide text-gray-400 bg-gray-100 rounded px-1.5 py-0.5 shrink-0">Open a while</span>
+              <span className="text-[12px] font-semibold text-gray-400 bg-gray-100 rounded-md px-2 py-1 shrink-0">Open a while</span>
             ) : null}
             {/* The agent's NAME, not a generic chip (2026-09-21): an ask is only as
                 trustworthy as knowing who is asking, and "OpenClaw asked" already
                 says so on the mission card. Falls back to "Agent" when unnamed. */}
             {isAgentTask && (
-              <span className="text-[11px] font-semibold text-gray-600 bg-gray-100 rounded px-1.5 py-0.5 shrink-0 truncate max-w-[120px]">{task.agent?.name ? `${task.agent.name} asked` : "Agent"}</span>
+              <span className="text-[12px] font-semibold text-gray-700 bg-gray-100 rounded-md px-2 py-1 shrink-0">{task.agent?.name ? `${task.agent.name} asked` : "Agent"}</span>
             )}
             <span className="text-xs text-gray-400 truncate max-w-[140px]">{task.location}</span>
             {distance !== null && (
@@ -3568,7 +3571,7 @@ function SubmitProof({
                 ) : (
                   <p className="font-semibold text-sm text-green-600">{rewardAmountLabel(task)}</p>
                 )}
-                <div className="flex gap-2">
+                <div className="flex flex-col gap-2">
                   <button
                     onClick={() => {
                       hapticTap();
@@ -3581,9 +3584,9 @@ function SubmitProof({
                         funded: task.onChainId !== null || !!task.escrowTxHash,
                       });
                     }}
-                    className="flex-1 flex items-center justify-center gap-2 py-2 rounded-xl border border-green-200 bg-green-50 hover:bg-green-100 transition-all text-xs text-green-600 active:scale-[0.98]"
+                    className="w-full min-h-[48px] flex items-center justify-center gap-2 rounded-2xl border border-green-200 bg-green-50 hover:bg-green-100 transition-all text-[15px] font-semibold text-green-700 active:scale-[0.98]"
                   >
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <circle cx="18" cy="5" r="3" />
                       <circle cx="6" cy="12" r="3" />
                       <circle cx="18" cy="19" r="3" />
@@ -3594,14 +3597,14 @@ function SubmitProof({
                   </button>
                   <button
                     onClick={() => { hapticTap(); onCreateTask ? onCreateTask() : onDone(); }}
-                    className="flex-1 flex items-center justify-center gap-2 py-2 rounded-xl border border-gray-900 bg-gray-900 hover:bg-gray-800 transition-all text-xs text-white font-semibold active:scale-[0.98]"
+                    className="w-full min-h-[48px] flex items-center justify-center gap-2 rounded-2xl border border-gray-900 bg-gray-900 hover:bg-gray-800 transition-all text-[15px] text-white font-semibold active:scale-[0.98]"
                   >
                     + Post a favour
                   </button>
                 </div>
                 <button
                   onClick={() => { hapticTap(); onDone(); }}
-                  className="w-full py-2.5 rounded-xl border border-gray-200 bg-white text-sm text-gray-900 font-semibold active:scale-[0.98] transition-all"
+                  className="w-full min-h-[48px] rounded-2xl border border-gray-300 bg-white text-[15px] text-gray-900 font-semibold active:scale-[0.98] transition-all"
                 >
                   Back to favours
                 </button>

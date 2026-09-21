@@ -76,11 +76,16 @@ export function DailyMissionDoneCard({
   task,
   points,
   proofImageUrl,
+  at,
 }: {
   task: Task;
   points: number;
   proofImageUrl: string | null;
+  // When the pass happened. The mission can run for days, so a pass from an
+  // earlier day reads "Done", never "Done today".
+  at?: string;
 }) {
+  const today = !at || at.slice(0, 10) === new Date().toISOString().slice(0, 10);
   return (
     <div className="mx-6 mt-4 rounded-3xl border border-gray-200 bg-white overflow-hidden animate-[fadeSlideIn_0.4s_ease-out]">
       <div className="px-5 pt-4 pb-4 flex gap-4 items-start">
@@ -93,7 +98,7 @@ export function DailyMissionDoneCard({
         )}
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-success-600">Done today</span>
+            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-success-600">{today ? "Done today" : "Done"}</span>
             <span className="text-[13px] font-bold text-gray-900 shrink-0">+{points} pts</span>
           </div>
           <p className="text-[14px] font-medium leading-snug text-gray-900 mt-1 line-clamp-2 break-words">{task.description}</p>
