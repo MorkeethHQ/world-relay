@@ -66,8 +66,8 @@ describe("review supply is real proofs only", () => {
   });
 });
 
-describe("an agent's ask carries the agent's name", () => {
-  it("board cards say who asked", () => {
-    expect(feed).toMatch(/task\.agent\?\.name \? `\$\{task\.agent\.name\} asked` : "Agent"/);
+describe("an agent's ask carries the agent's name, honestly", () => {
+  it("board cards use authorLabel, which names FAVOUR's own personas as such", () => {
+    expect(feed).toMatch(/\{authorLabel\(task\) \?\? "Agent"\}/);
   });
 });

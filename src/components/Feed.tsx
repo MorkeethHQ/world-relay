@@ -58,6 +58,7 @@ import { DailyMissionCard, DailyMissionDoneCard } from "@/components/MissionCard
 import type { Contribution } from "@/lib/completions";
 import { PENDING_MISSION_KEY } from "@/components/Onboarding";
 import { trackFunnelEvent } from "@/lib/funnel-events";
+import { authorLabel } from "@/lib/authorship";
 
 // Fire-and-forget telemetry. The event name must be in CLIENT_EVENTS in
 // /api/track, which is an allowlist because that route is public.
@@ -1840,7 +1841,7 @@ function TaskCard({
                 trustworthy as knowing who is asking, and "OpenClaw asked" already
                 says so on the mission card. Falls back to "Agent" when unnamed. */}
             {isAgentTask && (
-              <span className="text-[12px] font-semibold text-gray-700 bg-gray-100 rounded-md px-2 py-1 shrink-0">{task.agent?.name ? `${task.agent.name} asked` : "Agent"}</span>
+              <span className="text-[12px] font-semibold text-gray-700 bg-gray-100 rounded-md px-2 py-1 shrink-0">{authorLabel(task) ?? "Agent"}</span>
             )}
             <span className="text-xs text-gray-400 truncate max-w-[140px]">{task.location}</span>
             {distance !== null && (

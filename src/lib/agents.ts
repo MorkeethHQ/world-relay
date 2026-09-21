@@ -7,7 +7,7 @@ export const AGENT_REGISTRY: Record<string, AgentInfo> = {
     icon: "🏷️",
     color: "#f59e0b",
     verificationPrompt: "Focus on price tags being visible and legible. Check that prices/menus are clearly readable, not blurry. Verify currency and date context. Reject if prices are cut off, too small to read, or if the photo only shows part of a shelf/menu.",
-    personality: "Retail intelligence at scale. Brands pay for real shelf data — prices, stock levels, display conditions. Thousands of checks per city, per month.",
+    personality: "A FAVOUR agent: a persona FAVOUR uses to ask what is actually on the shelves near you. It is not a company, and nobody pays it for your answers.",
   },
   freshmap: {
     id: "freshmap",
@@ -15,7 +15,7 @@ export const AGENT_REGISTRY: Record<string, AgentInfo> = {
     icon: "🗺️",
     color: "#3b82f6",
     verificationPrompt: "Look for freshness indicators — is this a current photo? Check for 'à louer' signs, open/closed status, recent renovations. Verify storefront conditions match current reality. Flag if the photo appears outdated or if timestamps contradict the submission time.",
-    personality: "Local business intelligence. Is this place still open? Is the menu accurate? FreshMap keeps local data fresh with real human visits. Google Maps ground truth.",
+    personality: "A FAVOUR agent: a persona FAVOUR uses to ask about places near you, the tips no map has. It is not a company, and nobody pays it for your answers.",
   },
   queuepulse: {
     id: "queuepulse",
@@ -23,7 +23,7 @@ export const AGENT_REGISTRY: Record<string, AgentInfo> = {
     icon: "⏱️",
     color: "#8b5cf6",
     verificationPrompt: "Estimate queue length from the photo. Count visible people in line. Assess wait time. Check the photo captures the full queue, not just a portion. Flag if the queue is cropped or if there is no clear line formation visible.",
-    personality: "Real-time wait time intelligence. Logistics and booking platforms need live ground truth. QueuePulse tracks actual wait times — data no API provides.",
+    personality: "A FAVOUR agent: a persona FAVOUR uses to ask how long the wait is where you are. It is not a company, and nobody pays it for your answers.",
   },
   propertycheck: {
     id: "propertycheck",
@@ -31,7 +31,7 @@ export const AGENT_REGISTRY: Record<string, AgentInfo> = {
     icon: "🏠",
     color: "#06b6d4",
     verificationPrompt: "Focus on building exterior, entrance condition, and street context. Compare visible address to task description. Check for accessibility, building state, and neighborhood accuracy. Flag if the address does not match or if key details are missing.",
-    personality: "Listing verification at scale. Rental platforms need verified listings. PropertyCheck sends humans to confirm the building, the view, the neighborhood — what photos don't show.",
+    personality: "A FAVOUR agent: a persona FAVOUR uses to ask what the buildings and streets around you are really like. It is not a company, and nobody pays it for your answers.",
   },
   dropscout: {
     id: "dropscout",
@@ -39,7 +39,7 @@ export const AGENT_REGISTRY: Record<string, AgentInfo> = {
     icon: "🔥",
     color: "#f97316",
     verificationPrompt: "Focus on event/pop-up identification — brand signage, storefront setup, crowd presence. Verify the location matches the described event. Check for QR codes, promotional materials, or brand indicators. Flag if the scene doesn't match an active event or pop-up.",
-    personality: "Eyes-on-the-ground for brands and platforms. Limited drops, pop-ups, local events. DropScout gets there before anyone else.",
+    personality: "A FAVOUR agent: a persona FAVOUR uses to ask what is on right now near you, the pop-ups and small events. It is not a company, and nobody pays it for your answers.",
   },
   openclaw: {
     id: "openclaw",
@@ -47,7 +47,7 @@ export const AGENT_REGISTRY: Record<string, AgentInfo> = {
     icon: "🦞",
     color: "#ef4444",
     verificationPrompt: "Verify that the human response addresses the specific limitation the AI agent described. Check for genuine first-hand observation — not something that could be googled. Flag vague or copy-pasted responses.",
-    personality: "Open-source AI agent that crawls the web for data. Fast at aggregation, stuck when something requires a body. Needs humans for sensory ground truth.",
+    personality: "A FAVOUR agent: a persona FAVOUR uses to ask the things only a body in a place can answer, like what today smells like. It is not an outside agent, and nobody pays it for your answers.",
   },
   hermes: {
     id: "hermes",
@@ -55,7 +55,7 @@ export const AGENT_REGISTRY: Record<string, AgentInfo> = {
     icon: "📨",
     color: "#8b5cf6",
     verificationPrompt: "Verify that the human completed the communication task as described. Check for evidence of the interaction — screenshots, confirmation messages, or detailed accounts. Flag if the response is too vague to confirm action was taken.",
-    personality: "Messaging agent that handles DMs and notifications. Can send a thousand messages but can't pick up the phone, knock on a door, or read someone's face.",
+    personality: "A FAVOUR agent: a persona FAVOUR uses for quick questions about your day. It is not an outside agent, and nobody pays it for your answers.",
   },
   claudecode: {
     id: "claudecode",
@@ -63,7 +63,7 @@ export const AGENT_REGISTRY: Record<string, AgentInfo> = {
     icon: "🤖",
     color: "#1a1a1a",
     verificationPrompt: "Verify that the human tested the specific thing the AI could not. Look for real screenshots, specific observations, or measured results. Flag responses that could be fabricated without actual testing.",
-    personality: "AI coding assistant. Can write code all day but can't open a browser, tap a screen, or verify what a real user actually sees. Needs humans to close the loop.",
+    personality: "A FAVOUR agent: a persona FAVOUR uses to ask how real people actually use things. It is not Anthropic's Claude Code and not an outside agent, and nobody pays it for your answers.",
   },
 };
 

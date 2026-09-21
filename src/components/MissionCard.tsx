@@ -3,6 +3,7 @@
 import type { Task } from "@/lib/types";
 import { Button } from "@worldcoin/mini-apps-ui-kit-react";
 import { rewardAmountLabel } from "@/lib/reward";
+import { authorLabel } from "@/lib/authorship";
 
 // Today's mission card, shared by the board and the signed-out teaser in
 // onboarding (Oscar, 2026-09-21: a new visitor should meet the mission before
@@ -33,7 +34,7 @@ export function DailyMissionCard({
             a 390 px phone. */}
         <p className="text-[20px] font-bold leading-snug tracking-tight text-gray-900 mt-2 break-words">{task.description}</p>
         <p className="text-[12px] text-gray-400 mt-2">
-          {task.agent?.name ? `${task.agent.name} asked` : "Asked on the board"} · {task.location} ·{" "}
+          {authorLabel(task) ?? "Asked on the board"} · {task.location} ·{" "}
           {needsPhoto ? "photo proof" : "a few words"}
         </p>
       </div>
