@@ -29,7 +29,7 @@ export const DRAFT_INDEX_PREFIX = "campaign:drafts:";
 export const DRAFT_ID_PREFIX = "draft_";
 export const DRAFTS_PER_OWNER_MAX = 10;
 
-import { PIECE_KINDS, PIECE_LABEL, MAX_PIECES_PER_KIND, MAX_PIECES_TOTAL, type PieceKind, type ReviewRule, type CampaignDraft, type PublicCompanyCampaign, type CampaignResult } from "./campaign-draft-shape";
+import { PIECE_KINDS, PIECE_LABEL, PIECE_ASK, MAX_PIECES_PER_KIND, MAX_PIECES_TOTAL, type PieceKind, type ReviewRule, type CampaignDraft, type PublicCompanyCampaign, type CampaignResult } from "./campaign-draft-shape";
 export { PIECE_KINDS, PIECE_LABEL, MAX_PIECES_PER_KIND, MAX_PIECES_TOTAL, type PieceKind, type ReviewRule, type CampaignDraft, type PublicCompanyCampaign, type CampaignResult } from "./campaign-draft-shape";
 import type { Task, TaskCategory } from "./types";
 import { gibberishReason } from "./post-quality";
@@ -182,11 +182,9 @@ const KIND_CATEGORY: Record<PieceKind, TaskCategory> = {
   review: "review",
 };
 
-const KIND_ASK: Record<PieceKind, string> = {
-  ugc: "Make a short clip about it and post it where people will see it. Send the link.",
-  article: "Write a short article about it and publish it. Send the link.",
-  review: "Try it and write an honest review, the real verdict. Send the link or the text.",
-};
+// The ask per kind lives in campaign-draft-shape (PIECE_ASK) so the proof screen can
+// show it on its own line.
+const KIND_ASK = PIECE_ASK;
 
 export function pieceDescription(company: string, brief: string, kind: PieceKind): string {
   return `${company} campaign · ${PIECE_LABEL[kind]}. ${brief} ${KIND_ASK[kind]}`;
