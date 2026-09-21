@@ -86,6 +86,22 @@ img, svg, video, canvas, iframe {
   max-width: 100%;
 }
 
+/*
+ * Image HEIGHT utilities, re-asserted unlayered (2026-09-21). Same cause as the
+ * text-white block at the top of this file: the kit's unlayered preflight carries
+ * `img, video { height: auto }`, and unlayered rules beat Tailwind v4's
+ * `@layer utilities`, so every `h-*` on an <img> was silently ignored. Measured on
+ * production at 390 px: a card image classed `h-40` rendered 756 px tall, and that
+ * is most of why /history measured 15,976 px. Scoped to img/video and to the exact
+ * classes the app puts on media, so nothing else in the cascade moves.
+ */
+img.h-full, video.h-full { height: 100%; }
+img.h-40 { height: 10rem; }
+img.h-16 { height: 4rem; }
+img.h-\[72px\] { height: 72px; }
+img.max-h-80 { max-height: 20rem; }
+img.max-h-72 { max-height: 18rem; }
+
 input, textarea {
   color: #191C20;
 }
