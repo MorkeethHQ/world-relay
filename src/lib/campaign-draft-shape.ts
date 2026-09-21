@@ -10,6 +10,20 @@ export const PIECE_LABEL: Record<PieceKind, string> = {
   review: "An honest review",
 };
 
+// What each kind of piece asks the participant to do, and what their proof is. Shared
+// by the server (the task description) and the proof screen, which shows the ask on
+// its own line instead of at the end of a pasted brief (2026-09-21 walk).
+export const PIECE_ASK: Record<PieceKind, string> = {
+  ugc: "Make a short clip about it and post it where people will see it. Send the link.",
+  article: "Write a short article about it and publish it. Send the link.",
+  review: "Try it and write an honest review, the real verdict. Send the link or the text.",
+};
+export const PIECE_PROOF_HINT: Record<PieceKind, string> = {
+  ugc: "Paste the link to your clip",
+  article: "Paste the link to your article",
+  review: "Paste the link, or write your review here",
+};
+
 // THE PIECE CAP while a pool is only proposed (ruling 2026-09-21, from the
 // publish-limit review of #19). Any World App wallet may publish, so the cap bounds
 // what one campaign can put on the board: at most 10 pieces of any kind and 20 in

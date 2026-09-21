@@ -52,7 +52,8 @@ import {
 } from "@/lib/board-rank";
 import { JuryMode, type JuryCard } from "@/components/JuryMode";
 import { CompanyVisionCard, CampaignDraftForm, CampaignDraftList, CompanyCampaignCard, CompanyCampaignView } from "@/components/CompanyCampaign";
-import type { CampaignDraft, PublicCompanyCampaign } from "@/lib/campaign-draft-shape";
+import type { CampaignDraft, PublicCompanyCampaign, PieceKind } from "@/lib/campaign-draft-shape";
+import { PIECE_LABEL, PIECE_ASK, PIECE_PROOF_HINT, PIECE_KINDS } from "@/lib/campaign-draft-shape";
 import { PENDING_LAUNCH_KEY } from "@/components/Onboarding";
 import { DailyMissionCard, DailyMissionDoneCard } from "@/components/MissionCard";
 import type { Contribution } from "@/lib/completions";
@@ -2983,6 +2984,25 @@ function SubmitProof({
   // Campaign tasks keep the full screen: their rules differ (no human appeal).
   const quick = task.rewardType === "points" && !isFunded(task) && !task.campaignId;
   const [proofNote, setProofNote] = useState("");
+  // A COMPANY CAMPAIGN PIECE (2026-09-21 walk of "Filipino Lokal"): the proof step
+  // showed the whole brief as one heading, with the actual instruction last, asked to
+  // "Type your answer" for a piece whose proof is a link, and said nothing about
+  // review or reward. The campaign is read so the step can say what to do, what to
+  // send, and what happens next. If the read fails, the plain description stays.
+  const [pieceCampaign, setPieceCampaign] = useState<PublicCompanyCampaign | null>(null);
+  const [briefOpen, setBriefOpen] = useState(false);
+  useEffect(() => {
+    if (!task.companyCampaignId) return;
+    let live = true;
+    fetch(`/api/campaigns/company/${encodeURIComponent(task.companyCampaignId)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (live && d?.campaign) setPieceCampaign(d.campaign); })
+      .catch(() => {});
+    return () => { live = false; };
+  }, [task.companyCampaignId]);
+  const pieceKind: PieceKind | null = pieceCampaign
+    ? (PIECE_KINDS.find((k) => pieceCampaign.pieceTaskIds?.[k] === task.id) ?? null)
+    : null;
   const [images, setImages] = useState<{ base64: string; preview: string; isVideo: boolean }[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<{ verdict: string; reasoning: string; locationVerified?: boolean; distanceKm?: number; escrowReleaseTxHash?: string | null; nextAction?: string | null; pointsAwarded?: number | null; streakBonus?: number } | null>(null);
@@ -3192,13 +3212,38 @@ function SubmitProof({
           if (quick) {
             return (
               <>
-                <div>
-                  <p className="text-[10px] font-semibold text-amber-700 tracking-wide uppercase">Points favour &middot; {rewardLabel(task)}</p>
-                  <p className="text-[22px] font-bold text-gray-900 leading-[1.2] tracking-tight mt-2 break-words">{task.description}</p>
-                  {!isRemoteLocation(task.location) && (
-                    <p className="text-[13px] text-gray-500 mt-1.5 break-words">At {task.location}</p>
-                  )}
-                </div>
+                {pieceCampaign && pieceKind ? (
+                  <div className="flex flex-col gap-3">
+                    <div>
+                      <p className="text-[11px] font-semibold text-gray-500 tracking-wide uppercase">{pieceCampaign.company} &middot; company campaign &middot; {rewardLabel(task)}</p>
+                      <p className="text-[24px] font-bold text-gray-900 leading-[1.15] tracking-tight mt-1.5 break-words">{PIECE_LABEL[pieceKind]}</p>
+                      <p className="text-[16px] font-medium text-gray-900 leading-snug mt-2 break-words">{PIECE_ASK[pieceKind]}</p>
+                    </div>
+                    <div className="rounded-2xl bg-white border border-gray-200 px-4 py-3">
+                      <p className="text-[12px] font-semibold text-gray-900">The brief</p>
+                      <p className={`text-[14px] text-gray-700 leading-snug mt-1 break-words ${briefOpen ? "" : "line-clamp-3"}`}>{pieceCampaign.brief}</p>
+                      <button type="button" onClick={() => setBriefOpen((v) => !v)} className="mt-1 min-h-[40px] text-[13px] font-semibold text-gray-900">
+                        {briefOpen ? "Show less" : "Read the brief"}
+                      </button>
+                    </div>
+                    <div className="rounded-2xl bg-gray-100 px-4 py-3">
+                      <p className="text-[12px] font-semibold text-gray-900">What happens next</p>
+                      <ul className="mt-1 flex flex-col gap-1 text-[13px] text-gray-700 leading-snug">
+                        <li>{pieceCampaign.reviewRule === "ai_and_jury" ? "An AI checks your proof, then human judges look at it." : "An AI checks your proof."}</li>
+                        <li>Accepted: <span className="font-semibold text-gray-900">+{pieceCampaign.rewardPerPiecePoints} points</span>, shown in History under {pieceCampaign.company}. Rejected: you see why.</li>
+                        <li>This pays points only. The {pieceCampaign.proposedPoolUsdc} USDC pool is proposed, not funded.</li>
+                      </ul>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <p className="text-[10px] font-semibold text-amber-700 tracking-wide uppercase">Points favour &middot; {rewardLabel(task)}</p>
+                    <p className="text-[22px] font-bold text-gray-900 leading-[1.2] tracking-tight mt-2 break-words">{task.description}</p>
+                    {!isRemoteLocation(task.location) && (
+                      <p className="text-[13px] text-gray-500 mt-1.5 break-words">At {task.location}</p>
+                    )}
+                  </div>
+                )}
                 {needsPhoto ? (
                   <div>
                     {images.length > 0 && (
@@ -3232,7 +3277,7 @@ function SubmitProof({
                 ) : (
                   <div>
                     <textarea
-                      placeholder="Type your answer"
+                      placeholder={pieceKind ? PIECE_PROOF_HINT[pieceKind] : "Type your answer"}
                       value={proofNote}
                       onChange={(e) => setProofNote(e.target.value)}
                       rows={4}
