@@ -60,9 +60,26 @@ export function replenishEnabled(): boolean {
 export function isBoardBelowFloor(tasks: Task[], now: number = Date.now()): boolean {
   return countOpenVisible(tasks, now) < BOARD_MIN_OPEN;
 }
+// RE-ENABLED WITH A QUALITY GATE, 2026-09-21. Oscar: "right now we just REFRESH the
+// favours once again, we need to have infinite ones." That supersedes the 16 Sep
+// kill, but the reason for the kill still stands (one run posted 24 of 25 open
+// favours, stale and samey), so the engine comes back with the fixes for exactly
+// that:
+//   - a TARGET of about 15 open favours, topped up hourly by cron;
+//   - no ask reposted if it, or a near-duplicate, was on the board in the last 14
+//     days, whatever happened to it (NO_REPEAT_DAYS, isNearDuplicate);
+//   - kinds rotate: no single category takes more than half of a run, and the
+//     categories thinnest on the board come first (balanceKinds);
+//   - model calls are capped per day, because each one is spend on the key.
+// Everything that made it safe before still holds: points only, named agents,
+// no money field anywhere, seeded caps and one pass per person unchanged.
+export const REPLENISH_TARGET_OPEN = 15;
 export const REPLENISH_MAX_PER_RUN = 6;
-export const REPLENISH_MAX_PER_DAY = 12;
-export const RECYCLE_COOLDOWN_DAYS = 7;
+export const REPLENISH_MAX_PER_DAY = 20;
+export const RECYCLE_COOLDOWN_DAYS = 14;
+export const NO_REPEAT_DAYS = 14;
+export const NEAR_DUP_THRESHOLD = 0.6;
+export const MODEL_CALLS_PER_DAY = 6;
 // R8 — recycle can never take the whole run. Recycling is cheaper than
 // generating, so a recycle-first planner with an unbounded share picks recycle
 // every time: the board always has expired points favours, so generateCount was
@@ -113,6 +130,66 @@ const MONEY_BANNED = /\$|usd|usdc|dollar|money|cash|pay(?:ment|out)?s?\b|bount(?
 
 export function normaliseDescription(d: string): string {
   return d.toLowerCase().replace(/[^a-z0-9 ]/g, "").replace(/\s+/g, " ").trim();
+}
+
+// NEAR-DUPLICATES. An exact-match check let a lightly reworded ask back on the board
+// ("What is one thing people in your country do..." vs "...that the rest of the
+// world should copy"). Compared on the content words (4+ letters, common words
+// dropped) by Jaccard overlap: at or above NEAR_DUP_THRESHOLD, it is the same ask.
+const STOP = new Set(["what","that","this","with","from","your","have","where","when","which","there","they","their","them","would","could","should","about","right","today","just","into","than","then","only","every","some","more","most","one","the","and","for","are","you"]);
+function contentWords(d: string): Set<string> {
+  return new Set(normaliseDescription(d).split(" ").filter((w) => w.length >= 4 && !STOP.has(w)));
+}
+export function similarity(a: string, b: string): number {
+  const A = contentWords(a), B = contentWords(b);
+  if (A.size === 0 || B.size === 0) return normaliseDescription(a) === normaliseDescription(b) ? 1 : 0;
+  let inter = 0;
+  for (const w of A) if (B.has(w)) inter++;
+  return inter / (A.size + B.size - inter);
+}
+export function isNearDuplicate(d: string, against: Iterable<string>): boolean {
+  const n = normaliseDescription(d);
+  for (const other of against) {
+    if (normaliseDescription(other) === n) return true;
+    if (similarity(d, other) >= NEAR_DUP_THRESHOLD) return true;
+  }
+  return false;
+}
+
+// Every ask that was on the board in the last NO_REPEAT_DAYS, in any state: still
+// open, completed, expired, cancelled. "Was open" is read as "was created or is
+// still open" within the window. Raw descriptions, for isNearDuplicate.
+export function recentDescriptions(tasks: Task[], now: number = Date.now()): string[] {
+  const since = now - NO_REPEAT_DAYS * 86_400_000;
+  return tasks
+    .filter((t) => t.status === "open" || new Date(t.createdAt).getTime() >= since || new Date(t.deadline).getTime() >= since)
+    .map((t) => t.description);
+}
+
+// KIND ROTATION. At most half of a run may share a category, and categories that
+// are thinnest on the open board go first, so a run cannot fill the board with one
+// shape of ask (the 16 Sep failure was 24 near-identical favours).
+export function balanceKinds(specs: FavourSpec[], openTasks: Task[], count: number): FavourSpec[] {
+  const onBoard = new Map<string, number>();
+  for (const t of openTasks) onBoard.set(t.category, (onBoard.get(t.category) ?? 0) + 1);
+  const perKindCap = Math.max(1, Math.ceil(count / 2));
+  const sorted = [...specs].sort((a, b) => (onBoard.get(a.category) ?? 0) - (onBoard.get(b.category) ?? 0));
+  const taken = new Map<string, number>();
+  const out: FavourSpec[] = [];
+  for (const s of sorted) {
+    if (out.length >= count) break;
+    const n = taken.get(s.category) ?? 0;
+    if (n >= perKindCap) continue;
+    taken.set(s.category, n + 1);
+    out.push(s);
+  }
+  // Rotation is a preference, not a reason to leave the board short: if the
+  // candidates cannot fill the run within the per-kind cap, the rest fill it.
+  for (const s of sorted) {
+    if (out.length >= count) break;
+    if (!out.includes(s)) out.push(s);
+  }
+  return out;
 }
 
 export function validateFavourSpec(raw: unknown): FavourSpec | null {
@@ -230,7 +307,7 @@ export function planReplenish(input: {
 }): ReplenishPlan {
   const now = input.now ?? Date.now();
   const openVisible = countOpenVisible(input.tasks, now);
-  const deficit = Math.max(0, BOARD_MIN_OPEN - openVisible);
+  const deficit = Math.max(0, REPLENISH_TARGET_OPEN - openVisible);
   const budget = Math.max(0, Math.min(deficit, REPLENISH_MAX_PER_RUN, REPLENISH_MAX_PER_DAY - input.usedToday));
   if (budget === 0) return { deficit, budget, recycle: [], generateCount: 0 };
 
@@ -242,13 +319,24 @@ export function planReplenish(input: {
   // 1, so a one-slot run is not forced into a model call).
   const recycleBudget = Math.max(budget >= 2 ? 1 : budget, Math.floor(budget * RECYCLE_MAX_SHARE));
 
+  // A recycled ask must have been OFF the board for NO_REPEAT_DAYS (its deadline
+  // passed at least that long ago), and must not be a near-duplicate of anything on
+  // the board in that window. Bringing back last week's ask is exactly the stale
+  // repeat the 16 Sep ruling was about.
+  const repeatCutoff = now - NO_REPEAT_DAYS * 86_400_000;
+  const recent = input.tasks.filter((t) => recentDescriptions([t], now).length > 0);
+
   const recycle: Task[] = [];
-  const chosen = new Set<string>();
+  const chosen: string[] = [];
   for (const t of recycleCandidates(input.tasks, now)) {
     if (recycle.length >= recycleBudget) break;
     const key = normaliseDescription(t.description);
-    if (openDescs.has(key) || input.recycledRecently.has(key) || chosen.has(key)) continue;
-    chosen.add(key);
+    if (new Date(t.deadline).getTime() >= repeatCutoff) continue;
+    if (openDescs.has(key) || input.recycledRecently.has(key)) continue;
+    if (isNearDuplicate(t.description, chosen)) continue;
+    const others = recent.filter((r) => r.id !== t.id && normaliseDescription(r.description) !== key).map((r) => r.description);
+    if (isNearDuplicate(t.description, others)) continue;
+    chosen.push(t.description);
     recycle.push(t);
   }
 
@@ -264,13 +352,26 @@ export function planReplenish(input: {
 export async function generateFavourSpecs(
   count: number,
   avoidDescriptions: Set<string>,
+  opts: { recent?: string[]; allowModel?: boolean } = {},
 ): Promise<{ specs: FavourSpec[]; generated: number; reason?: string }> {
+  // Everything a new ask must not repeat, raw, for the near-duplicate check.
+  const recent = opts.recent ?? [];
+  // The pool is walked ROUND-ROBIN by category, so the kinds rotate even when every
+  // ask comes from the pool (no key, or the model cap reached).
+  const byKind = new Map<string, FavourSpec[]>();
+  for (const f of FALLBACK_FAVOURS) byKind.set(f.category, [...(byKind.get(f.category) ?? []), f]);
+  const rotated: FavourSpec[] = [];
+  for (let i = 0; rotated.length < FALLBACK_FAVOURS.length; i++) {
+    for (const list of byKind.values()) if (list[i]) rotated.push(list[i]);
+  }
   const fromPool = (n: number, taken: Set<string>): FavourSpec[] => {
     const picked: FavourSpec[] = [];
-    for (const f of FALLBACK_FAVOURS) {
+    for (const f of rotated) {
       if (picked.length >= n) break;
       const key = normaliseDescription(f.description);
       if (avoidDescriptions.has(key) || taken.has(key)) continue;
+      if (isNearDuplicate(f.description, recent)) continue;
+      if (isNearDuplicate(f.description, picked.map((p) => p.description))) continue;
       taken.add(key);
       picked.push(f);
     }
@@ -278,6 +379,10 @@ export async function generateFavourSpecs(
   };
 
   const key = process.env.ANTHROPIC_API_KEY;
+  if (opts.allowModel === false) {
+    const taken = new Set<string>();
+    return { specs: fromPool(count, taken), generated: 0, reason: "daily model-call cap reached; pool only" };
+  }
   if (!key) {
     const taken = new Set<string>();
     return { specs: fromPool(count, taken), generated: 0, reason: "no ANTHROPIC_API_KEY" };
@@ -313,7 +418,7 @@ ${agentBriefs}
 Return ONLY a JSON array, no preamble, no code fence. Each element:
 {"description": "...", "category": "feedback"|"custom"|"review"|"social"|"photo"|"check-in", "points": 10-${MAX_TASK_POINTS}, "deadlineHours": 24-336, "maxCompletions": 1-100, "agentId": "...", "location": "Anywhere"|"Any city"}`;
 
-  const user = `Write ${count} favours. Do NOT reuse or lightly reword any of these:\n${[...avoidDescriptions]
+  const user = `Write ${count * 2} favours, spread across kinds: an opinion, a local tip, a quick fact from where you are, and a "show us" photo. No two alike. Do NOT reuse or lightly reword any of these:\n${[...new Set([...avoidDescriptions, ...recent.map(normaliseDescription)])]
     .slice(0, 60)
     .map((d) => `- ${d}`)
     .join("\n")}`;
@@ -339,16 +444,18 @@ Return ONLY a JSON array, no preamble, no code fence. Each element:
     const taken = new Set<string>();
     if (Array.isArray(parsed)) {
       for (const raw of parsed) {
-        if (specs.length >= count) break;
+        if (specs.length >= count * 2) break;
         const spec = validateFavourSpec(raw);
         if (!spec) continue;
         const k = normaliseDescription(spec.description);
         if (avoidDescriptions.has(k) || taken.has(k)) continue;
+        if (isNearDuplicate(spec.description, recent)) continue;
+        if (isNearDuplicate(spec.description, specs.map((x) => x.description))) continue;
         taken.add(k);
         specs.push(spec);
       }
     }
-    const generated = specs.length;
+    const generated = Math.min(specs.length, count);
     if (specs.length < count) specs.push(...fromPool(count - specs.length, taken));
     return { specs, generated, reason: generated < count ? "model output partially rejected, pool topped up" : undefined };
   } catch (err) {
@@ -443,10 +550,20 @@ export async function runReplenish(now: number = Date.now()): Promise<ReplenishR
       ...tasks.filter((t) => t.status === "open").map((t) => normaliseDescription(t.description)),
       ...plan.recycle.map((t) => normaliseDescription(t.description)),
     ]);
-    const gen = await generateFavourSpecs(plan.generateCount, avoid);
-    generatedByModel = gen.generated;
+    // Model calls are spend on the key: at most MODEL_CALLS_PER_DAY, then the pool.
+    const modelKey = `replenish:model:${dayBucket(now)}`;
+    const modelCalls = redis ? Number((await redis.get(modelKey)) || 0) : 0;
+    const allowModel = modelCalls < MODEL_CALLS_PER_DAY;
+    if (redis && allowModel && process.env.ANTHROPIC_API_KEY) {
+      await redis.incr(modelKey);
+      await redis.expire(modelKey, 2 * 86_400);
+    }
+    const recent = [...recentDescriptions(tasks, now), ...plan.recycle.map((t) => t.description)];
+    const gen = await generateFavourSpecs(plan.generateCount, avoid, { recent, allowModel });
+    const chosen = balanceKinds(gen.specs, tasks.filter((t) => t.status === "open"), plan.generateCount);
+    generatedByModel = Math.min(gen.generated, chosen.length);
     reason = gen.reason;
-    for (const spec of gen.specs) {
+    for (const spec of chosen) {
       const created = await createTask({
         poster: `agent:${spec.agentId}`,
         category: spec.category,

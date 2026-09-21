@@ -125,6 +125,19 @@ recur silently.
   the one surface that cannot run out of supply — instead of a dead end. Same
   redirect the seed-cap wall uses (`seed-caps.ts`, cd963d0).
 
+- **R6 amended again (Sep 21, 2026): the board refills itself, behind a quality gate.**
+  Oscar: "right now we just REFRESH the favours once again, we need to have infinite
+  ones." The replenish engine is back on (`BOARD_REPLENISH_ENABLED=true`, cron hourly),
+  topping up toward `REPLENISH_TARGET_OPEN` = 15 open favours. The reason it was
+  killed on Sep 16 (one run posted 24 of 25 open favours, stale and samey) is what the
+  gate now prevents: no ask returns if it, or a near-duplicate (`isNearDuplicate`,
+  content-word overlap >= 0.6), was on the board in the last 14 days in any state;
+  a recycled ask must have been off the board for 14 days; kinds rotate, with no
+  category taking more than half a run and the thinnest categories first; model calls
+  are capped per day (`MODEL_CALLS_PER_DAY`), then the curated pool. Every generated
+  ask is posted by a named agent, points only; money fields cannot be set. Expiry runs
+  hourly. `BOARD_MIN_OPEN` (8) stays as the "a person should post" signal.
+
 - **R13 — The daily mission leads the first screen (added Sep 20, 2026).**
   Ruling, Oscar: "Make the first screen a rotating daily mission and completed
   proof-image strip; creation stays secondary", and "supply the great favours
