@@ -171,7 +171,7 @@ export default function DailyFavour({
       >
         <div className="min-w-0 flex-1">
           <p className="text-[10px] font-semibold text-amber-700 tracking-wide uppercase">
-            Today&rsquo;s favour &middot; done
+            Today&rsquo;s question &middot; done
           </p>
           <p className="text-[13px] text-gray-900 truncate mt-0.5">{results.verdict}</p>
         </div>
@@ -183,18 +183,20 @@ export default function DailyFavour({
   }
 
   return (
-    <div className="rounded-3xl overflow-hidden border border-amber-200/70 bg-gradient-to-b from-amber-50 to-white shadow-sm">
-      {/* Hero. Deliberately AMBER, not the gray-950 strip every other card wears:
-          this is the one surface everybody meets first, and amber is already the
-          canonical points colour (DESIGN-SYSTEM.md), so it reads as its own place
-          without inventing an off-system hue. */}
+    // Demoted 2026-09-21 (Oscar): the mission is the one hero. This is a
+    // second, lighter card: same amber points colour, no gradient, no shadow,
+    // a smaller question. The answer, guess and reveal beats are unchanged.
+    <div className="rounded-3xl overflow-hidden border border-amber-200/70 bg-white">
+      {/* Amber, not the gray-950 strip every other card wears: amber is already
+          the canonical points colour (DESIGN-SYSTEM.md), so the question reads
+          as its own place without inventing an off-system hue. */}
       <div className="px-5 pt-5 pb-4">
         {/* No pulsing status dot. A blinking amber light is a named slop tell
             (observability-console theater) — semantic colour is fine, making it
             twinkle is not. The label carries it. */}
         <div className="flex items-center gap-1.5 mb-3">
           <span className="text-[10px] font-semibold text-amber-700 tracking-wide uppercase">
-            Today&rsquo;s favour
+            Today&rsquo;s question
           </span>
           {streak > 0 && (
             <span className="ml-auto text-[10px] font-medium text-amber-700/70 tabular-nums">
@@ -204,13 +206,13 @@ export default function DailyFavour({
         </div>
 
         {/* Bigger. This is the first thing anyone sees in the app. */}
-        <p className="text-[22px] font-bold text-gray-900 leading-[1.2] tracking-tight">
+        <p className="text-[17px] font-semibold text-gray-900 leading-snug tracking-tight">
           {prompt.question}
         </p>
         <p className="text-[12px] text-gray-500 mt-1.5">
           {beat === "reveal"
             ? `${results?.total ?? 0} ${results?.total === 1 ? "person" : "people"} answered today`
-            : prompt.hint || "Everyone on earth gets this same question today"}
+            : prompt.hint || "Answer, then see what everyone said."}
         </p>
       </div>
 

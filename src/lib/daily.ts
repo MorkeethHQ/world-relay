@@ -83,6 +83,21 @@ export const PROMPTS: Omit<DailyPrompt, "date">[] = [
   { question: "How many screens are on around you?", type: "number" },
 ];
 
+// Human-curated prompts, keyed by UTC date. They sit in front of the pool and
+// the generator, and BEHIND anything already stored for that date: a stored
+// prompt may already have answers, and swapping the question after people
+// voted would relabel their results. Only add a date that has not started yet.
+// Written for FAVOUR itself (Oscar, 2026-09-21: the near/far poll "does not
+// hook"), so the reveal says something about favours, not about eyesight.
+export const CURATED_PROMPTS: Record<string, Omit<DailyPrompt, "date">> = {
+  "2026-09-22": {
+    question: "Which tiny favour from a stranger would make your day?",
+    type: "choice",
+    options: ["Find my lost thing", "Pick my perfect song", "Save me a seat"],
+    hint: "Pick yours, guess the world, then see what everyone chose.",
+  },
+};
+
 const promptKey = (date: string) => `daily:prompt:${date}`;
 const subsKey = (date: string) => `daily:sub:${date}`;
 const streakKey = (address: string) => `daily:streak:${address}`;
@@ -119,6 +134,7 @@ function previousDate(date: string): string {
 // everyone on earth. That is the whole point — the reveal is only interesting
 // because every human answered the SAME question on the SAME day.
 export function promptForDate(date: string): DailyPrompt {
+  if (CURATED_PROMPTS[date]) return { ...CURATED_PROMPTS[date], date };
   let h = 0;
   for (let i = 0; i < date.length; i++) h = (h * 31 + date.charCodeAt(i)) >>> 0;
   return { ...PROMPTS[h % PROMPTS.length], date };

@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { getRedis } from "./redis";
-import { PROMPTS, promptForDate, type DailyPrompt } from "./daily";
+import { PROMPTS, CURATED_PROMPTS, promptForDate, utcDate, type DailyPrompt } from "./daily";
 
 // DAILY QUEST GENERATOR
 //
@@ -259,9 +259,30 @@ export async function ensurePromptFor(date: string): Promise<{ stored: boolean; 
   if (!redis) return { stored: false, generated: false, question: promptForDate(date).question, reason: "no store" };
 
   const existing = await redis.get(`daily:prompt:${date}`);
+  const curated = CURATED_PROMPTS[date];
+  // A curated prompt may replace a stored one ONLY while its date is still in
+  // the future. Answers are accepted for today's UTC date only, so a future
+  // date has no answers to relabel, and there is no window for one to land
+  // between this check and the write. Once the day starts, whatever is stored
+  // stays, curated or not.
+  if (existing && curated && date > utcDate(Date.now())) {
+    const p = typeof existing === "string" ? JSON.parse(existing) : (existing as DailyPrompt);
+    if (p?.question !== curated.question) {
+      await redis.set(`daily:prompt:${date}`, JSON.stringify({ ...curated, date }));
+      await rememberQuestion(curated.question);
+      return { stored: true, generated: false, question: curated.question, reason: "curated replaced a future prompt" };
+    }
+  }
   if (existing) {
     const p = typeof existing === "string" ? JSON.parse(existing) : (existing as DailyPrompt);
     return { stored: false, generated: false, question: p.question, reason: "already set" };
+  }
+
+  // A curated prompt beats the generator for an empty slot.
+  if (curated) {
+    await redis.set(`daily:prompt:${date}`, JSON.stringify({ ...curated, date }), { nx: true });
+    await rememberQuestion(curated.question);
+    return { stored: true, generated: false, question: curated.question, reason: "curated" };
   }
 
   const { prompt, generated, reason } = await generatePrompt(date);

@@ -93,7 +93,14 @@ describe("layer 2 — the UI offers no way in", () => {
     // it is dark unless ESCROW_V2_ENABLED=1 (see escrow-v2.guard.test.ts).
     // What this guard pins is that POINTS stays the default and the legacy
     // custody escrow never becomes reachable again.
-    expect(feed).toMatch(/useState<"usdc" \| "points" \| "usdc-v2">\("points"\)/);
+    // Amended 2026-09-21: the paid wizard, opened only from its own labelled
+    // link, starts on the v2 rail. The legacy "usdc" value is still never a
+    // default, and the one-screen points post can only send "points".
+    expect(feed).toMatch(/useState<"usdc" \| "points" \| "usdc-v2">\(paid \? "usdc-v2" : "points"\)/);
+    expect(feed).not.toMatch(/useState<"usdc" \| "points" \| "usdc-v2">\([^)]*"usdc"\)/);
+    const quick = feed.slice(feed.indexOf("function QuickPost("), feed.indexOf("function PostTask("));
+    expect(quick).toMatch(/rewardType: "points"/);
+    expect(quick).not.toMatch(/rewardType: "usdc|escrowTxHash|onChainId|sendTransaction/);
   });
 });
 

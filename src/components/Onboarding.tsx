@@ -7,6 +7,13 @@ import {
   LiveFeedback,
 } from "@worldcoin/mini-apps-ui-kit-react";
 import { WorldAppHandoff } from "@/components/WorldAppHandoff";
+import { DailyMissionCard } from "@/components/MissionCard";
+import { pickDailyMission, pickProofStrip } from "@/lib/board-rank";
+import type { Task } from "@/lib/types";
+
+// The mission a signed-out visitor tapped. Feed reads it once after sign-in and
+// opens that favour, so the tap is not lost behind terms and the wallet prompt.
+export const PENDING_MISSION_KEY = "favour_pending_mission";
 
 /*
  * Onboarding
@@ -140,12 +147,45 @@ export function Onboarding({
 }: OnboardingProps) {
   const [step, setStep] = useState(0);
   const [showTerms, setShowTerms] = useState(false);
+  const [pendingMission, setPendingMission] = useState(false);
+
+  // Read-only teaser: today's mission, picked by the same rule as the board
+  // (R13, pickDailyMission with no user), from the public task list. Nothing
+  // here writes. If the list fails or nothing qualifies, step 0 falls back to
+  // the plain intro below.
+  const [mission, setMission] = useState<Task | null>(null);
+  const [proofs, setProofs] = useState<Task[]>([]);
+  useEffect(() => {
+    fetch("/api/tasks")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        const tasks: Task[] = Array.isArray(d?.tasks) ? d.tasks : [];
+        const m = pickDailyMission(tasks, new Date().toISOString().slice(0, 10), null);
+        setMission(m);
+        if (m) setProofs(pickProofStrip(tasks));
+      })
+      .catch(() => {});
+  }, []);
+
+  // Acting on the mission is where consent and sign-in happen, not before
+  // looking at it. The terms step is unchanged and still comes first.
+  const startMission = () => {
+    if (!mission) return;
+    try {
+      localStorage.setItem(PENDING_MISSION_KEY, JSON.stringify({ id: mission.id, date: new Date().toISOString().slice(0, 10) }));
+    } catch {}
+    setPendingMission(true);
+    setStep(2);
+  };
 
   // When the existing MiniKit sign-in succeeds, the parent flips authed=true.
-  // Advance from the sign-in screen to the final "you're in" screen.
+  // A visitor who came for the mission goes straight to it; everyone else gets
+  // the final "you're in" screen.
   useEffect(() => {
-    if (authed && step === 3) setStep(4);
-  }, [authed, step]);
+    if (!authed || step !== 3) return;
+    if (pendingMission) onComplete();
+    else setStep(4);
+  }, [authed, step, pendingMission, onComplete]);
 
   const next = () => setStep((s) => Math.min(s + 1, TOTAL_STEPS - 1));
   const back = () => setStep((s) => Math.max(s - 1, 0));
@@ -208,7 +248,17 @@ export function Onboarding({
 
       {/* Content. Re-keyed on step so the entrance animation replays each screen. */}
       <div key={step} className="flex-1 flex flex-col justify-center px-7 animate-[fadeSlideIn_0.4s_ease-out]">
-        {step === 0 && (
+        {step === 0 && mission && (
+          <div className="flex flex-col gap-3 -mx-7">
+            <div className="px-7">
+              <p className="text-[18px] font-bold tracking-tight text-gray-900">FAVOUR</p>
+              <p className="text-[14px] text-gray-500 mt-1">Small asks from real people. Look first. You sign in when you do one.</p>
+            </div>
+            <DailyMissionCard task={mission} proofs={proofs} onStart={startMission} />
+          </div>
+        )}
+
+        {step === 0 && !mission && (
           <div className="flex flex-col items-center text-center gap-5">
             <h1 className="text-[64px] font-bold tracking-tight text-gray-900 leading-none animate-[countUp_0.6s_ease-out]">
               FAVOUR
@@ -363,6 +413,10 @@ export function Onboarding({
               </>
             )}
           </div>
+        ) : step === 0 && mission ? (
+          <button type="button" onClick={next} className="w-full min-h-[44px] text-[14px] font-medium text-gray-500">
+            How FAVOUR works
+          </button>
         ) : step === 4 ? (
           <Button onClick={onComplete} fullWidth variant="primary" size="lg">
             See open favours
