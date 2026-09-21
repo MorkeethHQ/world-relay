@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { validatePrompt } from "@/lib/daily-generator";
 import { CURATED_PROMPTS, promptForDate } from "@/lib/daily";
 import { QUICK_IDEAS, isTemplateCopy, MIN_DESCRIPTION_LENGTH } from "@/lib/post-templates";
@@ -43,14 +43,29 @@ describe("ensurePromptFor never relabels a stored prompt", () => {
     }));
   });
 
-  it("keeps an already stored question for a curated date", async () => {
+  afterEach(() => { vi.useRealTimers(); });
+
+  it("keeps an already stored question once the curated date has started", async () => {
     const date = Object.keys(CURATED_PROMPTS)[0];
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(`${date}T00:10:00Z`));
     const existing = { date, question: "Right now, are your eyes focused near or far?", type: "choice", options: ["Near", "Far"] };
     store.set(`daily:prompt:${date}`, JSON.stringify(existing));
     const { ensurePromptFor } = await import("@/lib/daily-generator");
     const r = await ensurePromptFor(date);
     expect(r.stored).toBe(false);
     expect(JSON.parse(store.get(`daily:prompt:${date}`)!).question).toBe(existing.question);
+  });
+
+  it("replaces a stored question while the curated date is still in the future", async () => {
+    const date = Object.keys(CURATED_PROMPTS)[0];
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(new Date(`${date}T00:00:00Z`).getTime() - 2 * 3600e3));
+    store.set(`daily:prompt:${date}`, JSON.stringify({ date, question: "Right now, how loud is it around you?", type: "choice", options: ["Quiet", "Loud"] }));
+    const { ensurePromptFor } = await import("@/lib/daily-generator");
+    const r = await ensurePromptFor(date);
+    expect(r.stored).toBe(true);
+    expect(JSON.parse(store.get(`daily:prompt:${date}`)!).question).toBe(CURATED_PROMPTS[date].question);
   });
 
   it("fills an empty slot with the curated question, with no model call", async () => {
