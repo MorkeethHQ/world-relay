@@ -38,6 +38,8 @@ export type Contribution = {
   proofImageUrl: string | null;
   proofNote: string | null;
   campaignId: string | null;
+  // A readable name for what the piece was for, e.g. "Example company campaign".
+  campaignLabel?: string | null;
   at: string;
 };
 
@@ -62,6 +64,7 @@ export function buildContribution(input: {
   proofImageUrl: string | null | undefined;
   proofNote: string | null | undefined;
   campaignId?: string | null;
+  campaignLabel?: string | null;
   now: number;
 }): Contribution {
   const url = input.proofImageUrl && /^https?:\/\//.test(input.proofImageUrl) ? input.proofImageUrl : null;
@@ -73,6 +76,7 @@ export function buildContribution(input: {
     proofImageUrl: url,
     proofNote: cap(input.proofNote, NOTE_MAX),
     campaignId: input.campaignId ?? null,
+    campaignLabel: input.campaignLabel ?? null,
     at: new Date(input.now).toISOString(),
   };
 }

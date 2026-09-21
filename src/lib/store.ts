@@ -109,6 +109,7 @@ export async function createTask(input: {
   requiresClaim?: boolean;
   maxCompletions?: number;
   campaignId?: string;
+  companyCampaignId?: string;
 }): Promise<Task> {
   const id = crypto.randomUUID();
   const agent = input.agentId ? getAgent(input.agentId) : null;
@@ -131,6 +132,7 @@ export async function createTask(input: {
     claimant: null,
     category: input.category || "custom",
     ...(input.campaignId ? { campaignId: input.campaignId } : {}),
+    ...(input.companyCampaignId ? { companyCampaignId: input.companyCampaignId } : {}),
     description: input.description,
     location: input.location,
     lat: input.lat ?? null,

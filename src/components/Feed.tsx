@@ -51,6 +51,9 @@ import {
   POLL_CARDS_MAX,
 } from "@/lib/board-rank";
 import { JuryMode, type JuryCard } from "@/components/JuryMode";
+import { CompanyVisionCard, CampaignDraftForm, CampaignDraftList, CompanyCampaignCard, CompanyCampaignView } from "@/components/CompanyCampaign";
+import type { CampaignDraft, PublicCompanyCampaign } from "@/lib/campaign-draft-shape";
+import { PENDING_LAUNCH_KEY } from "@/components/Onboarding";
 import { DailyMissionCard, DailyMissionDoneCard } from "@/components/MissionCard";
 import type { Contribution } from "@/lib/completions";
 import { PENDING_MISSION_KEY } from "@/components/Onboarding";
@@ -413,7 +416,8 @@ const RELAY_BOT_ADDRESS = "0x1101158041fd96f21cbcbb0e752a9a2303e6d70e";
 
 export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId: string | null; verificationLevel?: string | null; onLogout?: () => void; onReauth?: () => void }) {
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [view, setView] = useState<"board" | "post" | "proof" | "detail" | "campaign" | "jury">("board");
+  const [view, setView] = useState<"board" | "post" | "proof" | "detail" | "campaign" | "jury" | "launch" | "drafts" | "company">("board");
+  const [companyCampaignId, setCompanyCampaignId] = useState<string | null>(null);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [tab, setTab] = useState<Tab>("available");
   const [tabDirection, setTabDirection] = useState<"left" | "right">("right");
@@ -729,6 +733,44 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
   }, [userId, contribRefresh]);
   const completedIds = useMemo(() => new Set(contributions.map((c) => c.taskId)), [contributions]);
 
+  // The signed-in person's own company campaign drafts (session-only, private).
+  const [drafts, setDrafts] = useState<CampaignDraft[]>([]);
+  const [justSavedDraft, setJustSavedDraft] = useState<string | null>(null);
+  const [draftsKey, setDraftsKey] = useState(0);
+  useEffect(() => {
+    if (!userId || !/^0x[0-9a-fA-F]{40}$/.test(userId)) { setDrafts([]); return; }
+    let live = true;
+    fetch("/api/campaigns/drafts", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (live) setDrafts(Array.isArray(d?.drafts) ? d.drafts : []); })
+      .catch(() => {});
+    return () => { live = false; };
+  }, [userId, draftsKey]);
+
+  // REAL published company campaigns (points only). Only what a company actually
+  // published; the explanatory example card is never one of these.
+  const [companyCampaigns, setCompanyCampaigns] = useState<PublicCompanyCampaign[]>([]);
+  useEffect(() => {
+    let live = true;
+    fetch("/api/campaigns/company", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (live) setCompanyCampaigns(Array.isArray(d?.campaigns) ? d.campaigns : []); })
+      .catch(() => {});
+    return () => { live = false; };
+  }, [draftsKey]);
+
+  // A signed-out visitor who tapped "Plan a campaign" on the first screen went
+  // through terms and sign-in first. Land them on the form they asked for.
+  useEffect(() => {
+    if (!userId) return;
+    try {
+      if (localStorage.getItem(PENDING_LAUNCH_KEY)) {
+        localStorage.removeItem(PENDING_LAUNCH_KEY);
+        setView("launch");
+      }
+    } catch {}
+  }, [userId]);
+
   // REVIEW SUPPLY IN THE FEED (FAVOUR-FEED-CONTRIBUTIONS-2026-09-21). Real proofs
   // people submitted and that are waiting for a verdict, from the same deck REAL OR
   // NOT judges. Nothing here is seeded or invented: an empty deck renders nothing.
@@ -965,6 +1007,38 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
     );
   }
 
+  if (view === "launch") {
+    return (
+      <CampaignDraftForm
+        onReauth={onReauth}
+        onCancel={() => setView("board")}
+        onSaved={(d) => { setJustSavedDraft(d.id); setDrafts((prev) => [d, ...prev.filter((x) => x.id !== d.id)]); setDraftsKey((n) => n + 1); setView("drafts"); }}
+      />
+    );
+  }
+  if (view === "drafts") {
+    return (
+      <CampaignDraftList
+        drafts={drafts}
+        justSaved={justSavedDraft}
+        onReauth={onReauth}
+        onDone={() => { setJustSavedDraft(null); setView("board"); }}
+        onPublished={(c) => { fetchTasks(); setDraftsKey((n) => n + 1); setCompanyCampaignId(c.id); setView("company"); }}
+        onOpen={(id) => { setCompanyCampaignId(id); setView("company"); }}
+      />
+    );
+  }
+  if (view === "company" && companyCampaignId) {
+    return (
+      <CompanyCampaignView
+        id={companyCampaignId}
+        tasks={tasks}
+        completedIds={completedIds}
+        onJoin={(t) => startFavour(t)}
+        onBack={() => setView("board")}
+      />
+    );
+  }
   if (view === "jury") {
     // The deck shown in the feed is judged as-is. On close, a fresh deck is issued
     // for the next preview, since judged cards are consumed.
@@ -1026,6 +1100,21 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
         key={tab}
         className="flex-1 flex flex-col"
       >
+
+      {/* THE VISION comes first (FAVOUR-COMPANY-JOURNEY-2026-09-21): a company
+          launches a favour campaign. An example, labelled as one and not funded.
+          Today's mission stays, below it. */}
+      {tab === "available" && !loading && (
+        <CompanyVisionCard
+          onLaunch={() => { hapticTap(); setView("launch"); }}
+          drafts={drafts.length}
+          onSeeDrafts={() => { hapticTap(); setJustSavedDraft(null); setView("drafts"); }}
+        />
+      )}
+
+      {tab === "available" && !loading && companyCampaigns.map((c) => (
+        <CompanyCampaignCard key={c.id} c={c} onOpen={() => { hapticTap(); setCompanyCampaignId(c.id); setView("company"); }} />
+      ))}
 
       {/* THE DAILY MISSION leads the screen. Everything else on this tab is below
           it, including creation, which is the small "+ New" in the header. */}
@@ -3601,7 +3690,10 @@ function TaskTimeline({ task }: { task: Task }) {
              task.verificationResult ? "Rejected" : "Review",
       done: !!task.verificationResult,
     },
-    { label: "Paid", done: task.status === "completed" },
+    // "Paid" only where money moves. A points favour is credited, and calling it
+    // paid reads as cash (review, 2026-09-21: company campaign pieces are points
+    // with a proposed, unfunded pool, and must never read as payable USDC).
+    { label: task.rewardType === "points" ? "Credited" : "Paid", done: task.status === "completed" },
   ];
 
   const doneCount = steps.filter(s => s.done).length;

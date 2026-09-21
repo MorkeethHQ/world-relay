@@ -47,3 +47,10 @@ describe("image height utilities actually apply", () => {
     for (const c of used) expect(covered, `unguarded ${c}`).toContain(c);
   });
 });
+
+describe("a white button is actually white", () => {
+  it("button.bg-white is re-asserted unlayered, because the kit resets button backgrounds", () => {
+    const css = readFileSync(join(__dirname, "../app/globals.css"), "utf8");
+    expect(css).toMatch(/button\.bg-white \{ background-color: #fff; \}/);
+  });
+});

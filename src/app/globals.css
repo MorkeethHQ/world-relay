@@ -102,6 +102,16 @@ img.h-\[72px\] { height: 72px; }
 img.max-h-80 { max-height: 20rem; }
 img.max-h-72 { max-height: 18rem; }
 
+/*
+ * White BUTTON backgrounds, re-asserted unlayered (2026-09-21). The kit's
+ * unlayered preflight resets `button { background-color: transparent }`, which
+ * beats Tailwind's layered `bg-white`, and the kit does not define `.bg-white`
+ * itself (the same gap that made `.text-white` invisible). Found on the company
+ * vision card: its white "Launch a campaign" button rendered transparent, dark
+ * text on a dark card, invisible.
+ */
+button.bg-white { background-color: #fff; }
+
 input, textarea {
   color: #191C20;
 }

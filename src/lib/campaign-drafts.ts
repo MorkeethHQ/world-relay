@@ -1,0 +1,316 @@
+import { getRedis } from "./redis";
+
+// COMPANY CAMPAIGN DRAFTS (FAVOUR-COMPANY-JOURNEY-2026-09-21).
+//
+// The journey Oscar ruled on 2026-09-21: a company launches a favour campaign,
+// proposes a pool (the example is 200 USDC), invites useful work (a UGC clip, a
+// short article, an honest review), and people pick a piece, submit proof, get
+// reviewed and come back to their reward.
+//
+// WHAT A DRAFT IS, AND WHAT IT CAN NEVER DO.
+//
+// A draft is a company's PROPOSAL. It is stored here, in its own namespace
+// (`campaign:draft:*`), and nowhere else. Live campaigns are the hardcoded list in
+// campaigns.ts, and the ONLY path that can pay campaign USDC, campaign-unlock.ts,
+// resolves a campaign through getCampaign(), which reads that list and never this
+// store. So a draft cannot be unlocked, cannot be paid from, and a task cannot be
+// tagged to one (POST /api/tasks validates campaignId through getCampaign too).
+//
+// The proposed pool is a number a company typed. It is shown, labelled "proposed,
+// not funded", and it pays points at most. USDC only ever comes from a funded pot
+// under the existing rules (Orb-gated, hard-capped, relayer transfer), and turning
+// a draft into one is a separate, human act that this module has no way to do: a
+// draft carries no `unlock`, no `pot` and no funding state, and any such field in
+// the input is dropped, not stored. campaign-drafts.test.ts goes red if that ever
+// stops being true.
+
+export const DRAFT_PREFIX = "campaign:draft:";
+export const DRAFT_INDEX_PREFIX = "campaign:drafts:";
+export const DRAFT_ID_PREFIX = "draft_";
+export const DRAFTS_PER_OWNER_MAX = 10;
+
+import { PIECE_KINDS, PIECE_LABEL, type PieceKind, type ReviewRule, type CampaignDraft, type PublicCompanyCampaign, type CampaignResult } from "./campaign-draft-shape";
+export { PIECE_KINDS, PIECE_LABEL, type PieceKind, type ReviewRule, type CampaignDraft, type PublicCompanyCampaign, type CampaignResult } from "./campaign-draft-shape";
+import type { Task, TaskCategory } from "./types";
+import { gibberishReason } from "./post-quality";
+
+type Result = { ok: true; draft: Omit<CampaignDraft, "id" | "owner" | "createdAt"> } | { ok: false; error: string };
+
+function text(v: unknown, max: number): string {
+  return typeof v === "string" ? v.replace(/\s+/g, " ").trim().slice(0, max) : "";
+}
+
+// Builds a draft from untrusted input by COPYING ONLY KNOWN FIELDS. Anything else
+// in the body (unlock, pot, funded, escrow, status, owner) never reaches storage.
+export function validateDraftInput(body: unknown): Result {
+  const b = (body && typeof body === "object" ? body : {}) as Record<string, unknown>;
+  const company = text(b.company, 80);
+  const brief = text(b.brief, 500);
+  if (company.length < 2) return { ok: false, error: "Add the company name." };
+  if (brief.length < 20) return { ok: false, error: "Say what you want made, in a sentence or two." };
+  // The same quality gate POST /api/tasks applies to a favour's text. Publishing
+  // creates tasks directly, so without this a keyboard-mash brief would become
+  // three filler cards on the board, the exact supply Oscar ruled against on
+  // 2026-09-16. Checked on the plan, so it is refused before anything is saved.
+  const junk = gibberishReason(brief);
+  if (junk) return { ok: false, error: junk };
+
+  const rawPieces = Array.isArray(b.pieces) ? b.pieces : [];
+  const pieces: CampaignDraft["pieces"] = [];
+  for (const p of rawPieces) {
+    const kind = (p as { kind?: unknown })?.kind;
+    const count = Number((p as { count?: unknown })?.count);
+    if (!PIECE_KINDS.includes(kind as PieceKind)) continue;
+    if (!Number.isInteger(count) || count < 1) continue;
+    if (pieces.some((x) => x.kind === kind)) continue;
+    pieces.push({ kind: kind as PieceKind, count: Math.min(count, 50) });
+  }
+  if (pieces.length === 0) return { ok: false, error: "Choose at least one kind of work and how many pieces." };
+
+  const reward = Number(b.rewardPerPiecePoints);
+  if (!Number.isInteger(reward) || reward < 1 || reward > 10) {
+    return { ok: false, error: "Reward per accepted piece is 1 to 10 points while the pool is only proposed." };
+  }
+
+  const pool = Number(b.proposedPoolUsdc);
+  if (!Number.isFinite(pool) || pool < 0 || pool > 10_000) {
+    return { ok: false, error: "The proposed pool must be between 0 and 10,000 USDC." };
+  }
+
+  const reviewRule: ReviewRule = b.reviewRule === "ai_and_jury" ? "ai_and_jury" : "ai";
+
+  return {
+    ok: true,
+    draft: {
+      status: "draft",
+      company,
+      brief,
+      pieces,
+      rewardPerPiecePoints: reward,
+      proposedPoolUsdc: Math.round(pool * 100) / 100,
+      reviewRule,
+    },
+  };
+}
+
+// A draft never pays USDC. Stated as a function so the rule has one place to live
+// and one test to fail.
+export function draftCanPayUsdc(_draft: CampaignDraft): false {
+  return false;
+}
+
+export function isDraftId(id: unknown): boolean {
+  return typeof id === "string" && id.startsWith(DRAFT_ID_PREFIX);
+}
+
+export async function saveDraft(
+  owner: string,
+  input: Omit<CampaignDraft, "id" | "owner" | "createdAt">,
+  now: number,
+  newId: () => string,
+): Promise<{ ok: true; draft: CampaignDraft } | { ok: false; error: string; status: number }> {
+  const redis = getRedis();
+  if (!redis) return { ok: false, error: "Drafts cannot be saved right now.", status: 503 };
+  const addr = owner.toLowerCase();
+  const indexKey = `${DRAFT_INDEX_PREFIX}${addr}`;
+  const count = Number((await redis.scard(indexKey)) || 0);
+  if (count >= DRAFTS_PER_OWNER_MAX) {
+    return { ok: false, error: `You already have ${DRAFTS_PER_OWNER_MAX} drafts.`, status: 409 };
+  }
+  const draft: CampaignDraft = { ...input, id: `${DRAFT_ID_PREFIX}${newId()}`, owner: addr, createdAt: new Date(now).toISOString() };
+  await redis.set(`${DRAFT_PREFIX}${draft.id}`, JSON.stringify(draft));
+  await redis.sadd(indexKey, draft.id);
+  return { ok: true, draft };
+}
+
+export async function listDrafts(owner: string): Promise<CampaignDraft[]> {
+  const redis = getRedis();
+  if (!redis) return [];
+  const ids = ((await redis.smembers(`${DRAFT_INDEX_PREFIX}${owner.toLowerCase()}`).catch(() => [])) as string[]) || [];
+  const out: CampaignDraft[] = [];
+  for (const id of ids) {
+    const raw = await redis.get(`${DRAFT_PREFIX}${id}`).catch(() => null);
+    if (!raw) continue;
+    try {
+      const d = (typeof raw === "string" ? JSON.parse(raw) : raw) as CampaignDraft;
+      if (d && d.owner === owner.toLowerCase()) out.push(d);
+    } catch {
+      // One bad row must not hide the rest.
+    }
+  }
+  return out.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+
+// ─── PUBLISHING A PLAN AS A POINTS-ONLY CAMPAIGN ──────────────────────────────
+//
+// Oscar, 2026-09-21: "The crucial next user path is company campaign -> visible
+// pieces people can join -> proof -> review -> reward -> return, with real 200 USDC
+// funding as a separate authorized step." So a company may publish its own plan,
+// and that puts its pieces on the board as ordinary POINTS favours that anyone can
+// join. Everything after that is the existing path: the proof flow, the AI check,
+// the jury, the points credit, History.
+//
+// What publishing does NOT do: fund anything. There is no funded state. The pieces
+// carry `companyCampaignId`, never `campaignId`, and campaign-unlock.ts, the only
+// campaign path that can pay USDC, reads campaignId alone. The proposed pool stays
+// a proposal; turning it into a funded pot is the separate step this module
+// cannot take.
+//
+// One task per KIND of piece, with maxCompletions = pieces wanted, so a campaign
+// adds at most three cards to the board. Combined with one pass per person per
+// favour (lib/completions.ts), each person can deliver each kind once.
+
+export const PUBLISHED_INDEX = "campaign:company:published";
+export const PUBLISH_DAY_PREFIX = "campaign:company:publish-day:";
+export const RESULTS_PREFIX = "campaign:company:results:";
+export const RESULTS_MAX = 100;
+export const PIECE_DEADLINE_HOURS = 7 * 24;
+
+const KIND_CATEGORY: Record<PieceKind, TaskCategory> = {
+  ugc: "social",
+  article: "custom",
+  review: "review",
+};
+
+const KIND_ASK: Record<PieceKind, string> = {
+  ugc: "Make a short clip about it and post it where people will see it. Send the link.",
+  article: "Write a short article about it and publish it. Send the link.",
+  review: "Try it and write an honest review, the real verdict. Send the link or the text.",
+};
+
+export function pieceDescription(company: string, brief: string, kind: PieceKind): string {
+  return `${company} campaign · ${PIECE_LABEL[kind]}. ${brief} ${KIND_ASK[kind]}`;
+}
+
+type CreateTaskFn = (input: {
+  poster: string;
+  category: TaskCategory;
+  description: string;
+  location: string;
+  bountyUsdc: number;
+  deadlineHours: number;
+  rewardType: "points";
+  maxCompletions: number;
+  companyCampaignId: string;
+}) => Promise<Pick<Task, "id">>;
+
+async function loadDraft(id: string): Promise<CampaignDraft | null> {
+  const redis = getRedis();
+  if (!redis) return null;
+  const raw = await redis.get(`${DRAFT_PREFIX}${id}`).catch(() => null);
+  if (!raw) return null;
+  try {
+    return (typeof raw === "string" ? JSON.parse(raw) : raw) as CampaignDraft;
+  } catch {
+    return null;
+  }
+}
+
+export async function publishDraft(
+  owner: string,
+  id: string,
+  now: number,
+  createTask: CreateTaskFn,
+): Promise<{ ok: true; campaign: PublicCompanyCampaign } | { ok: false; error: string; status: number }> {
+  const redis = getRedis();
+  if (!redis) return { ok: false, error: "Campaigns cannot be published right now.", status: 503 };
+  const addr = owner.toLowerCase();
+  const draft = await loadDraft(id);
+  // Not found and not yours answer the same, so a draft id reveals nothing.
+  if (!draft || draft.owner !== addr) return { ok: false, error: "No such draft.", status: 404 };
+  if (draft.status !== "draft") return { ok: false, error: "This campaign is already published.", status: 409 };
+
+  // One publish per company wallet per UTC day, claimed atomically, so a double
+  // tap or a script cannot flood the board.
+  const day = new Date(now).toISOString().slice(0, 10);
+  const claimed = await redis.set(`${PUBLISH_DAY_PREFIX}${addr}:${day}`, id, { nx: true, ex: 2 * 86400 });
+  if (!claimed) return { ok: false, error: "You can publish one campaign a day.", status: 429 };
+
+  const pieceTaskIds: Partial<Record<PieceKind, string>> = {};
+  for (const p of draft.pieces) {
+    const task = await createTask({
+      poster: addr,
+      category: KIND_CATEGORY[p.kind],
+      description: pieceDescription(draft.company, draft.brief, p.kind),
+      location: "Online",
+      bountyUsdc: draft.rewardPerPiecePoints,
+      deadlineHours: PIECE_DEADLINE_HOURS,
+      rewardType: "points",
+      maxCompletions: p.count,
+      companyCampaignId: draft.id,
+    });
+    pieceTaskIds[p.kind] = task.id;
+  }
+
+  const published: CampaignDraft = { ...draft, status: "published", publishedAt: new Date(now).toISOString(), pieceTaskIds };
+  await redis.set(`${DRAFT_PREFIX}${id}`, JSON.stringify(published));
+  await redis.sadd(PUBLISHED_INDEX, id);
+  return { ok: true, campaign: toPublic(published) };
+}
+
+function toPublic(d: CampaignDraft): PublicCompanyCampaign {
+  return {
+    id: d.id,
+    company: d.company,
+    brief: d.brief,
+    pieces: d.pieces,
+    rewardPerPiecePoints: d.rewardPerPiecePoints,
+    proposedPoolUsdc: d.proposedPoolUsdc,
+    reviewRule: d.reviewRule,
+    publishedAt: d.publishedAt,
+    pieceTaskIds: d.pieceTaskIds,
+    status: "published",
+  };
+}
+
+export async function getPublishedCampaign(id: string): Promise<PublicCompanyCampaign | null> {
+  const d = await loadDraft(id);
+  return d && d.status === "published" ? toPublic(d) : null;
+}
+
+export async function listPublishedCampaigns(limit = 10): Promise<PublicCompanyCampaign[]> {
+  const redis = getRedis();
+  if (!redis) return [];
+  const ids = ((await redis.smembers(PUBLISHED_INDEX).catch(() => [])) as string[]) || [];
+  const out: PublicCompanyCampaign[] = [];
+  for (const id of ids) {
+    const c = await getPublishedCampaign(id);
+    if (c) out.push(c);
+  }
+  return out.sort((a, b) => (b.publishedAt ?? "").localeCompare(a.publishedAt ?? "")).slice(0, limit);
+}
+
+// Which kind of piece a task is, from the campaign's own map.
+export function kindOfTask(c: Pick<CampaignDraft, "pieceTaskIds">, taskId: string): PieceKind | null {
+  for (const k of PIECE_KINDS) if (c.pieceTaskIds?.[k] === taskId) return k;
+  return null;
+}
+
+// The company sees what was accepted and what was rejected, and why. Written by
+// verify-proof for pieces of a published company campaign. The participant is
+// shortened: the company needs to see the work was reviewed, not who they are.
+export async function recordCampaignResult(companyCampaignId: string, r: CampaignResult): Promise<void> {
+  const redis = getRedis();
+  if (!redis) return;
+  await redis.lpush(`${RESULTS_PREFIX}${companyCampaignId}`, JSON.stringify(r));
+  await redis.ltrim(`${RESULTS_PREFIX}${companyCampaignId}`, 0, RESULTS_MAX - 1);
+}
+
+export async function listCampaignResults(companyCampaignId: string, limit = 30): Promise<CampaignResult[]> {
+  const redis = getRedis();
+  if (!redis) return [];
+  const raw = await redis.lrange(`${RESULTS_PREFIX}${companyCampaignId}`, 0, limit - 1).catch(() => [] as unknown[]);
+  const out: CampaignResult[] = [];
+  for (const r of raw as unknown[]) {
+    try {
+      const x = typeof r === "string" ? JSON.parse(r) : r;
+      if (x && typeof x.taskId === "string") out.push(x as CampaignResult);
+    } catch {}
+  }
+  return out;
+}
+
+export function shortAddress(a: string): string {
+  return /^0x[0-9a-fA-F]{40}$/.test(a) ? `${a.slice(0, 6)}…${a.slice(-4)}` : "someone";
+}

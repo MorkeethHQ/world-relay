@@ -8,6 +8,7 @@ import {
 } from "@worldcoin/mini-apps-ui-kit-react";
 import { WorldAppHandoff } from "@/components/WorldAppHandoff";
 import { DailyMissionCard } from "@/components/MissionCard";
+import { CompanyVisionCard } from "@/components/CompanyCampaign";
 import { pickDailyMission, pickProofStrip } from "@/lib/board-rank";
 import type { Task } from "@/lib/types";
 import { trackFunnelEvent, trackMissionViewedOncePerDay } from "@/lib/funnel-events";
@@ -15,6 +16,9 @@ import { trackFunnelEvent, trackMissionViewedOncePerDay } from "@/lib/funnel-eve
 // The mission a signed-out visitor tapped. Feed reads it once after sign-in and
 // opens that favour, so the tap is not lost behind terms and the wallet prompt.
 export const PENDING_MISSION_KEY = "favour_pending_mission";
+// Same idea for "Launch a campaign" (FAVOUR-COMPANY-JOURNEY-2026-09-21): a company
+// that taps it signed out goes through terms and sign-in, then lands on the form.
+export const PENDING_LAUNCH_KEY = "favour_pending_launch";
 
 /*
  * Onboarding
@@ -174,6 +178,12 @@ export function Onboarding({
     if (step === 0 && mission) trackMissionViewedOncePerDay();
   }, [step, mission]);
 
+  const startLaunch = () => {
+    try { localStorage.setItem(PENDING_LAUNCH_KEY, "1"); } catch {}
+    setPendingMission(true);
+    setStep(2);
+  };
+
   // Acting on the mission is where consent and sign-in happen, not before
   // looking at it. The terms step is unchanged and still comes first.
   const startMission = () => {
@@ -292,6 +302,9 @@ export function Onboarding({
             <div className="px-7">
               <p className="text-[18px] font-bold tracking-tight text-gray-900">FAVOUR</p>
               <p className="text-[14px] text-gray-500 mt-1">Small asks from real people. Look first. You sign in when you do one.</p>
+            </div>
+            <div className="-mt-1">
+              <CompanyVisionCard onLaunch={startLaunch} launchLabel="Plan a campaign" />
             </div>
             <DailyMissionCard task={mission} proofs={proofs} onStart={startMission} />
           </div>

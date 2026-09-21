@@ -25,6 +25,7 @@ import { isRealMoney, hasOnChainEscrow } from "@/lib/reward";
 import { recordReferralActivation } from "@/lib/referral";
 import { ownerRefusal } from "@/lib/session";
 import { buildContribution, checkCompletedTask, claimCompletionSlot, recordTaskCompletion } from "@/lib/completions";
+import { getPublishedCampaign, kindOfTask, recordCampaignResult, shortAddress } from "@/lib/campaign-drafts";
 
 export const maxDuration = 60;
 
@@ -549,6 +550,23 @@ export async function POST(req: NextRequest) {
   // wiped them from a multi-completion task. Awaited rather than fire-and-forget:
   // the result screen and History read it straight after this response, and a
   // record that lands later would show a mission as still to do.
+  // A COMPANY CAMPAIGN PIECE: the company sees what was accepted or rejected and
+  // why (FAVOUR-COMPANY-JOURNEY-2026-09-21). Recorded for a credited pass and for a
+  // fail; a flag is still under review, so it waits for its verdict. Display only,
+  // no credit: the points for a pass are written above like any points favour, and
+  // nothing here reads or writes money.
+  const cc = task.companyCampaignId ? await getPublishedCampaign(task.companyCampaignId).catch(() => null) : null;
+  if (task.companyCampaignId && task.claimant && (result.verdict === "fail" || (result.verdict === "pass" && creditAllowed))) {
+    await recordCampaignResult(task.companyCampaignId, {
+      taskId,
+      kind: cc ? kindOfTask(cc, taskId) : null,
+      verdict: result.verdict,
+      reason: String(result.reasoning || "").split(" | ")[0].slice(0, 280),
+      participant: shortAddress(task.claimant),
+      at: new Date().toISOString(),
+    }).catch(console.error);
+  }
+
   if (result.verdict === "pass" && task.claimant && creditAllowed) {
     await recordTaskCompletion(
       task.claimant,
@@ -559,7 +577,8 @@ export async function POST(req: NextRequest) {
         streakBonus: streakBonusAwarded,
         proofImageUrl: proofImageUrls[0] ?? null,
         proofNote: proofNote ?? null,
-        campaignId: task.campaignId ?? null,
+        campaignId: task.campaignId ?? task.companyCampaignId ?? null,
+        campaignLabel: cc ? `${cc.company} campaign` : null,
         now: Date.now(),
       }),
     ).catch(console.error);
