@@ -29,8 +29,8 @@ export const DRAFT_INDEX_PREFIX = "campaign:drafts:";
 export const DRAFT_ID_PREFIX = "draft_";
 export const DRAFTS_PER_OWNER_MAX = 10;
 
-import { PIECE_KINDS, PIECE_LABEL, type PieceKind, type ReviewRule, type CampaignDraft, type PublicCompanyCampaign, type CampaignResult } from "./campaign-draft-shape";
-export { PIECE_KINDS, PIECE_LABEL, type PieceKind, type ReviewRule, type CampaignDraft, type PublicCompanyCampaign, type CampaignResult } from "./campaign-draft-shape";
+import { PIECE_KINDS, PIECE_LABEL, MAX_PIECES_PER_KIND, MAX_PIECES_TOTAL, type PieceKind, type ReviewRule, type CampaignDraft, type PublicCompanyCampaign, type CampaignResult } from "./campaign-draft-shape";
+export { PIECE_KINDS, PIECE_LABEL, MAX_PIECES_PER_KIND, MAX_PIECES_TOTAL, type PieceKind, type ReviewRule, type CampaignDraft, type PublicCompanyCampaign, type CampaignResult } from "./campaign-draft-shape";
 import type { Task, TaskCategory } from "./types";
 import { gibberishReason } from "./post-quality";
 
@@ -63,9 +63,18 @@ export function validateDraftInput(body: unknown): Result {
     if (!PIECE_KINDS.includes(kind as PieceKind)) continue;
     if (!Number.isInteger(count) || count < 1) continue;
     if (pieces.some((x) => x.kind === kind)) continue;
-    pieces.push({ kind: kind as PieceKind, count: Math.min(count, 50) });
+    // REFUSED, not clamped. A silent clamp would publish a different campaign
+    // from the one the company planned.
+    if (count > MAX_PIECES_PER_KIND) {
+      return { ok: false, error: `Up to ${MAX_PIECES_PER_KIND} pieces of each kind while the pool is only proposed.` };
+    }
+    pieces.push({ kind: kind as PieceKind, count });
   }
   if (pieces.length === 0) return { ok: false, error: "Choose at least one kind of work and how many pieces." };
+  const totalPieces = pieces.reduce((n, p) => n + p.count, 0);
+  if (totalPieces > MAX_PIECES_TOTAL) {
+    return { ok: false, error: `Up to ${MAX_PIECES_TOTAL} pieces in total while the pool is only proposed. This plan has ${totalPieces}.` };
+  }
 
   const reward = Number(b.rewardPerPiecePoints);
   if (!Number.isInteger(reward) || reward < 1 || reward > 10) {

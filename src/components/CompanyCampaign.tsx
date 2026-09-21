@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import type { CampaignDraft, PieceKind, PublicCompanyCampaign, CampaignResult } from "@/lib/campaign-draft-shape";
 import type { Task } from "@/lib/types";
-import { PIECE_LABEL } from "@/lib/campaign-draft-shape";
+import { PIECE_LABEL, MAX_PIECES_PER_KIND, MAX_PIECES_TOTAL } from "@/lib/campaign-draft-shape";
 
 // THE COMPANY JOURNEY (FAVOUR-COMPANY-JOURNEY-2026-09-21). Oscar's ruling: the
 // first screen shows the vision. A company launches a favour campaign, people do
@@ -140,7 +140,14 @@ export function CampaignDraftForm({ onSaved, onCancel, onReauth }: {
     }
   };
 
-  const step = (k: PieceKind, d: number) => setCounts((c) => ({ ...c, [k]: Math.max(0, Math.min(50, c[k] + d)) }));
+  // The same caps the server refuses beyond, so the form cannot offer a plan that
+  // will be rejected: 10 of a kind, 20 in total, while the pool is only proposed.
+  const totalPieces = counts.ugc + counts.article + counts.review;
+  const step = (k: PieceKind, d: number) => setCounts((c) => {
+    const total = c.ugc + c.article + c.review;
+    if (d > 0 && (c[k] >= MAX_PIECES_PER_KIND || total >= MAX_PIECES_TOTAL)) return c;
+    return { ...c, [k]: Math.max(0, c[k] + d) };
+  });
 
   return (
     <div className="flex flex-col min-h-[calc(100vh-5rem)] max-w-lg mx-auto w-full bg-gray-50">
@@ -162,7 +169,10 @@ export function CampaignDraftForm({ onSaved, onCancel, onReauth }: {
           <textarea id="c-brief" className={inputCls} rows={3} value={brief} onChange={(e) => setBrief(e.target.value)} maxLength={500} placeholder="Short honest pieces about our new product, made by real customers." />
         </div>
         <div>
-          <p className="text-[12px] text-gray-400 mb-2">Pieces wanted</p>
+          <div className="flex items-baseline justify-between mb-2">
+            <p className="text-[12px] text-gray-400">Pieces wanted</p>
+            <p className="text-[12px] text-gray-500 tabular-nums">{totalPieces} of {MAX_PIECES_TOTAL} · up to {MAX_PIECES_PER_KIND} each</p>
+          </div>
           <div className="flex flex-col gap-2">
             {(Object.keys(counts) as PieceKind[]).map((k) => (
               <div key={k} className="flex items-center justify-between bg-white border border-gray-200 rounded-xl px-4 min-h-[52px]">
@@ -170,7 +180,9 @@ export function CampaignDraftForm({ onSaved, onCancel, onReauth }: {
                 <div className="flex items-center gap-3">
                   <button type="button" aria-label={`Fewer: ${PIECE_LABEL[k]}`} onClick={() => step(k, -1)} className="w-9 h-9 rounded-full bg-gray-100 text-[18px]">−</button>
                   <span className="w-6 text-center tabular-nums text-[15px] font-semibold">{counts[k]}</span>
-                  <button type="button" aria-label={`More: ${PIECE_LABEL[k]}`} onClick={() => step(k, 1)} className="w-9 h-9 rounded-full bg-gray-100 text-[18px]">+</button>
+                  <button type="button" aria-label={`More: ${PIECE_LABEL[k]}`} onClick={() => step(k, 1)}
+                    disabled={counts[k] >= MAX_PIECES_PER_KIND || totalPieces >= MAX_PIECES_TOTAL}
+                    className="w-9 h-9 rounded-full bg-gray-100 text-[18px] disabled:opacity-30">+</button>
                 </div>
               </div>
             ))}

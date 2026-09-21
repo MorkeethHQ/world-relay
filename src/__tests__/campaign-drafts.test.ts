@@ -324,3 +324,37 @@ describe("publishing is resumable: a failure part way can be finished, never dup
     expect(created).toHaveLength(3);
   });
 });
+
+describe("the piece cap while the pool is only proposed: 10 of a kind, 20 in total", () => {
+  it("the default plan, 5 UGC + 2 articles + 10 reviews = 17, is accepted", () => {
+    const ok = validateDraftInput(EXAMPLE);
+    expect(ok.ok).toBe(true);
+    if (ok.ok) expect(ok.draft.pieces.reduce((n, p) => n + p.count, 0)).toBe(17);
+  });
+
+  it("exactly 20 is accepted", () => {
+    expect(validateDraftInput({ ...EXAMPLE, pieces: [{ kind: "ugc", count: 10 }, { kind: "review", count: 10 }] }).ok).toBe(true);
+  });
+
+  it("21 in total is refused, not clamped", () => {
+    const r = validateDraftInput({ ...EXAMPLE, pieces: [{ kind: "ugc", count: 10 }, { kind: "article", count: 1 }, { kind: "review", count: 10 }] });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error).toMatch(/20 pieces in total/);
+  });
+
+  it("11 of one kind is refused, not clamped", () => {
+    const r = validateDraftInput({ ...EXAMPLE, pieces: [{ kind: "review", count: 11 }] });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error).toMatch(/10 pieces of each kind/);
+  });
+
+  it("so one campaign can put at most 200 points on the board", async () => {
+    const { MAX_PIECES_TOTAL } = await import("@/lib/campaign-drafts");
+    expect(MAX_PIECES_TOTAL * 10).toBe(200);
+  });
+
+  it("the form offers nothing the server will refuse", () => {
+    const src = require("fs").readFileSync(require("path").join(__dirname, "../components/CompanyCampaign.tsx"), "utf8");
+    expect(src).toMatch(/disabled=\{counts\[k\] >= MAX_PIECES_PER_KIND \|\| totalPieces >= MAX_PIECES_TOTAL\}/);
+  });
+});
