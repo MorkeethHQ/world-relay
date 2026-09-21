@@ -261,7 +261,7 @@ describe("planReplenish — the decision", () => {
       makeTask({}),
       ...Array.from({ length: 4 }, () => expiredCandidate()),
     ];
-    const plan = planReplenish({ tasks, recycledRecently: new Set(), usedToday: 0, now: NOW });
+    const plan = planReplenish({ tasks, recycledRecently: new Set(), usedToday: 0, now: NOW, recycle: true });
     expect(plan.deficit).toBe(REPLENISH_TARGET_OPEN - 2);
     expect(plan.budget).toBe(REPLENISH_MAX_PER_RUN);
     // R8: 4 candidates were available but recycle is capped at half the run, so
@@ -277,7 +277,7 @@ describe("planReplenish — the decision", () => {
     // The live failure shape: nothing open, plenty expired. Every slot used to
     // go to recycle; at least half must now be fresh.
     const tasks = Array.from({ length: 30 }, () => expiredCandidate());
-    const plan = planReplenish({ tasks, recycledRecently: new Set(), usedToday: 0, now: NOW });
+    const plan = planReplenish({ tasks, recycledRecently: new Set(), usedToday: 0, now: NOW, recycle: true });
     expect(plan.budget).toBe(REPLENISH_MAX_PER_RUN);
     expect(plan.generateCount).toBeGreaterThanOrEqual(Math.floor(REPLENISH_MAX_PER_RUN / 2));
     expect(plan.recycle.length + plan.generateCount).toBe(REPLENISH_MAX_PER_RUN);
@@ -288,7 +288,7 @@ describe("planReplenish — the decision", () => {
       ...Array.from({ length: REPLENISH_TARGET_OPEN - 1 }, () => makeTask({})),
       expiredCandidate(),
     ];
-    const plan = planReplenish({ tasks, recycledRecently: new Set(), usedToday: 0, now: NOW });
+    const plan = planReplenish({ tasks, recycledRecently: new Set(), usedToday: 0, now: NOW, recycle: true });
     expect(plan.budget).toBe(1);
     expect(plan.recycle).toHaveLength(1);
     expect(plan.generateCount).toBe(0);
@@ -326,6 +326,7 @@ describe("planReplenish — the decision", () => {
       recycledRecently: new Set([normaliseDescription(cooled.description)]),
       usedToday: 0,
       now: NOW,
+      recycle: true,
     });
     expect(plan.recycle.map((t) => t.id)).toEqual([fresh.id]);
   });
@@ -354,8 +355,9 @@ describe("runReplenish — end to end against the mock store", () => {
     const receipt = await runReplenish(NOW);
     expect(receipt.openVisible).toBe(2);
     expect(receipt.deficit).toBe(REPLENISH_TARGET_OPEN - 2);
-    expect(receipt.recycled).toHaveLength(3);
-    expect(receipt.generated).toHaveLength(REPLENISH_MAX_PER_RUN - 3);
+    // Recycling is off (2026-09-21): the whole run is fresh supply.
+    expect(receipt.recycled).toHaveLength(0);
+    expect(receipt.generated).toHaveLength(REPLENISH_MAX_PER_RUN);
     expect(receipt.generatedByModel).toBe(0); // no key → pool
 
     // THE MONEY GUARD: every task this engine created is points-only.
@@ -385,27 +387,16 @@ describe("runReplenish — end to end against the mock store", () => {
     }
   });
 
-  it("a recycled favour goes on cooldown and is not recycled twice", async () => {
+  it("with recycling off, an old expired favour is never brought back", async () => {
+    // 2026-09-21: the first run after re-enabling brought back two old errands.
+    // The executor must now post only fresh supply.
     const candidate = expiredCandidate();
     await persist(candidate);
-
     const first = await runReplenish(NOW);
-    expect(first.recycled).toHaveLength(1);
-
-    // Kill everything open again; the same expired original is still in the store.
-    const all = await listTasks();
-    for (const t of all.filter((x) => x.status === "open")) {
-      await persist({ ...t, status: "expired", deadline: new Date(NOW - HOUR).toISOString() });
-    }
-
-    const second = await runReplenish(NOW);
-    // The candidate's description is on cooldown: whatever the second run
-    // recycled, it must not be that favour again.
+    expect(first.recycled).toEqual([]);
     const after = await listTasks();
-    const secondRecycled = after.filter((t) => second.recycled.includes(t.id));
-    for (const t of secondRecycled) {
-      expect(normaliseDescription(t.description)).not.toBe(normaliseDescription(candidate.description));
-    }
+    const created = after.filter((t) => first.generated.includes(t.id));
+    for (const t of created) expect(normaliseDescription(t.description)).not.toBe(normaliseDescription(candidate.description));
   });
 
   it("across repeated runs: never over the daily cap, never a repeat or near-repeat", async () => {

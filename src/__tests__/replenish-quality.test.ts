@@ -103,3 +103,14 @@ describe("the target and the model cap", () => {
     }
   });
 });
+
+describe("recycling is off by default (2026-09-21)", () => {
+  it("the planner recycles nothing unless asked", async () => {
+    const { RECYCLE_ENABLED } = await import("@/lib/board-replenish");
+    expect(RECYCLE_ENABLED).toBe(false);
+    const expired = { id: "old", status: "expired", rewardType: "points", onChainId: null, escrowTxHash: null, donOnChainId: null, claimant: null, completionCount: 0, poster: "agent:dropscout", agent: { id: "dropscout" }, description: "Look for any pop-up stall near you", deadline: new Date(NOW - 20 * DAY).toISOString(), createdAt: new Date(NOW - 27 * DAY).toISOString(), maxCompletions: 10, bountyUsdc: 15 } as any;
+    const plan = planReplenish({ tasks: [expired], recycledRecently: new Set(), usedToday: 0, now: NOW });
+    expect(plan.recycle).toEqual([]);
+    expect(plan.generateCount).toBe(plan.budget);
+  });
+});
