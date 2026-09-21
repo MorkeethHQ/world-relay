@@ -22,6 +22,9 @@ describe("a campaign piece's proof step says what to do, what to send, and what 
     expect(feed).toMatch(/shown in History under \{pieceCampaign\.company\}/);
     expect(feed).toMatch(/This pays points only\. The \{pieceCampaign\.proposedPoolUsdc\} USDC pool is proposed, not funded\./);
   });
+  it("titles the step 'Your piece', not 'Answer', for a campaign piece", () => {
+    expect(feed).toMatch(/title=\{pieceKind \? "Your piece" : quick \?/);
+  });
   it("keeps the brief readable: clamped, with a way to read it all", () => {
     expect(feed).toMatch(/briefOpen \? "" : "line-clamp-3"/);
     expect(feed).toMatch(/Read the brief/);
