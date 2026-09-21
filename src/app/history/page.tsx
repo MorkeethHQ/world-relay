@@ -89,7 +89,7 @@ export default function HistoryPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 max-w-lg mx-auto">
-      <div className="sticky top-0 z-10 bg-white/95 backdrop-blur-md border-b border-gray-100 px-6 py-3">
+      <div className="sticky top-0 z-10 bg-white border-b border-gray-100 px-6 py-3">
         <h1 className="text-[18px] font-bold tracking-tight text-gray-900">History</h1>
         <p className="text-[11px] text-gray-400 mt-0.5">Recently completed across FAVOUR</p>
       </div>
@@ -123,7 +123,7 @@ export default function HistoryPage() {
                 note={c.proofNote}
                 // Step 6 of the company journey: the campaign a piece belongs to
                 // shows with its reward, so a person can see what they did it for.
-                meta={`${c.campaignLabel ? `${c.campaignLabel} · ` : c.campaignId && getCampaign(c.campaignId) ? `${getCampaign(c.campaignId)!.name} · ` : ""}Passed ${timeAgo(c.at)}`}
+                meta={`${c.campaignLabel ? `${c.campaignLabel} · ` : c.campaignId && getCampaign(c.campaignId) ? `${getCampaign(c.campaignId)!.name} · ` : ""}Passed ${timeAgo(c.at)}${c.recovered ? " · from the completion log" : ""}`}
                 mine
               />
             ))}

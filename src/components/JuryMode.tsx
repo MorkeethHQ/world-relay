@@ -54,15 +54,25 @@ export function JuryMode({
   const authTried = useRef(false);
   const [needsAuth, setNeedsAuth] = useState(false);
 
-  useEffect(() => {
-    if (initialCards && initialCards.length > 0) return;
+  // PLAYABLE FOREVER (2026-09-21). `practice` is set by the server when this judge
+  // has ruled on every live proof: the deck is a replay of real, verified proofs
+  // that earns no points. `deal` fetches the next deck, live if new proofs have
+  // landed, practice otherwise, so the game never ends in a dead end.
+  const [practice, setPractice] = useState(false);
+  const deal = useCallback(() => {
+    setLoading(true);
     const url = `/api/jury${userId ? `?address=${encodeURIComponent(userId)}` : ""}`;
     fetch(url)
       .then((r) => r.json())
-      .then((d) => setCards(d.cards || []))
+      .then((d) => { setCards(d.cards || []); setPractice(!!d.practice); })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [userId, initialCards]);
+  }, [userId]);
+
+  useEffect(() => {
+    if (initialCards && initialCards.length > 0) return;
+    deal();
+  }, [deal, initialCards]);
 
   useEffect(() => {
     try {
@@ -129,7 +139,7 @@ export function JuryMode({
         }
         return res.ok ? res.json() : null;
       })()
-        .then((result: { correct: boolean; isMatch: boolean; pointsAwarded: number } | null) => {
+        .then((result: { correct: boolean; isMatch: boolean; pointsAwarded: number; practice?: boolean } | null) => {
           if (!result) return;
           setNeedsAuth(false);
           if (result.correct) hapticSuccess(); else hapticError();
@@ -197,6 +207,13 @@ export function JuryMode({
               Sign in
             </button>
           )}
+        </div>
+      )}
+
+      {practice && (
+        <div className="mx-5 mb-2 rounded-2xl bg-gray-100 px-4 py-2.5" role="status">
+          <p className="text-[12px] font-semibold text-gray-900">Practice round</p>
+          <p className="text-[12px] text-gray-600 leading-snug">Real proofs you have already judged. Call them for practice; they earn no points. New live proofs come back when favours are completed.</p>
         </div>
       )}
 
@@ -271,8 +288,16 @@ export function JuryMode({
                     </div>
                   )}
                 </div>
-                <p className="text-xs text-gray-400 animate-[fadeSlideIn_0.4s_ease-out_0.3s_both]">New proofs land as favours get completed.</p>
-                <button onClick={onClose} className="mt-1 px-6 py-3 rounded-xl bg-gray-900 text-white text-sm font-semibold active:scale-95 transition-transform animate-[fadeSlideIn_0.4s_ease-out_0.35s_both]">
+                <p className="text-xs text-gray-400 animate-[fadeSlideIn_0.4s_ease-out_0.3s_both]">
+                  {practice ? "Another practice round is ready. Practice earns no points." : "New proofs land as favours get completed. Until then, keep playing on real past proofs, for practice."}
+                </p>
+                <button
+                  onClick={() => { hapticTap(); setSession({ judged: 0, correct: 0, points: 0 }); deal(); }}
+                  className="mt-1 w-full max-w-xs min-h-[48px] rounded-full bg-gray-900 text-white text-[15px] font-semibold active:scale-95 transition-transform"
+                >
+                  Keep playing
+                </button>
+                <button onClick={onClose} className="w-full max-w-xs min-h-[48px] rounded-full border border-gray-300 text-gray-900 text-[15px] font-semibold active:scale-95 transition-transform">
                   Back to favours
                 </button>
               </>

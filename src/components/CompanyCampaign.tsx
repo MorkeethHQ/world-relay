@@ -151,7 +151,7 @@ export function CampaignDraftForm({ onSaved, onCancel, onReauth }: {
 
   return (
     <div className="flex flex-col min-h-[calc(100vh-5rem)] max-w-lg mx-auto w-full bg-gray-50">
-      <div className="sticky top-0 z-10 bg-white/95 backdrop-blur-md border-b border-gray-100 px-6 py-3 flex items-center justify-between">
+      <div className="sticky top-0 z-10 bg-white border-b border-gray-100 px-6 py-3 flex items-center justify-between">
         <button type="button" onClick={onCancel} className="min-h-[40px] text-[14px] text-gray-500">Cancel</button>
         <p className="text-[15px] font-semibold text-gray-900">Plan a campaign</p>
         <span className="w-12" />
@@ -353,7 +353,7 @@ export function CompanyCampaignView({ id, tasks, completedIds, onJoin, onBack }:
   const c = data?.campaign;
   return (
     <div className="flex flex-col min-h-[calc(100vh-5rem)] max-w-lg mx-auto w-full bg-gray-50">
-      <div className="sticky top-0 z-10 bg-white/95 backdrop-blur-md border-b border-gray-100 px-6 py-3 flex items-center gap-3">
+      <div className="sticky top-0 z-10 bg-white border-b border-gray-100 px-6 py-3 flex items-center gap-3">
         <button type="button" onClick={onBack} className="min-h-[40px] text-[14px] text-gray-500">Back</button>
         <p className="flex-1 min-w-0 text-[15px] font-semibold text-gray-900 truncate">{c ? c.company : "Campaign"}</p>
       </div>
