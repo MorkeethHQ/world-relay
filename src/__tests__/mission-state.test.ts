@@ -244,3 +244,17 @@ describe("buildContribution keeps what is safe to show back", () => {
     expect(c.proofNote!.length).toBeLessThanOrEqual(NOTE_MAX);
   });
 });
+
+describe("an AI-made decoy can never be paid as a completion", () => {
+  it("verify-proof on a decoy id finds no task: 404, and nothing is credited", async () => {
+    storedTask = null; // decoys are constants in lib/decoys.ts, never tasks
+    const res = await VERIFY_POST(new Request("http://localhost/api/verify-proof", {
+      method: "POST",
+      headers: { "content-type": "application/json", cookie: `${SESSION_COOKIE}=${issueSessionToken(CLAIMANT, Date.now())}` },
+      body: JSON.stringify({ taskId: "decoy:smell", submitter: CLAIMANT, proofNote: "Wet concrete and jasmine." }),
+    }) as any);
+    expect(res.status).toBe(404);
+    expect(recordFavourCompletedCalls).toHaveLength(0);
+    expect(recorded).toHaveLength(0);
+  });
+});

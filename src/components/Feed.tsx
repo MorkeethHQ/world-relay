@@ -778,6 +778,9 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
   // issues cards and stores their answers; fetching again on open would issue a
   // second deck for one visit.
   const [reviewDeck, setReviewDeck] = useState<JuryCard[]>([]);
+  // REAL proofs waiting, from the server. Never the deck's length: the deck can
+  // hold AI-made decoys, and no public count may include one.
+  const [reviewWaiting, setReviewWaiting] = useState(0);
   const [reviewDeckKey, setReviewDeckKey] = useState(0);
   useEffect(() => {
     if (!userId || !/^0x[0-9a-fA-F]{40}$/.test(userId)) { setReviewDeck([]); return; }
@@ -786,7 +789,11 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
       .then((r) => (r.ok ? r.json() : null))
       // A PRACTICE deck earns nothing, so it must not sit in the feed under
       // "Review a proof, earn points". Only a live deck is shown there.
-      .then((d) => { if (live) setReviewDeck(!d?.practice && Array.isArray(d?.cards) ? d.cards : []); })
+      .then((d) => {
+        if (!live) return;
+        setReviewDeck(!d?.practice && Array.isArray(d?.cards) ? d.cards : []);
+        setReviewWaiting(!d?.practice && typeof d?.waiting === "number" ? d.waiting : 0);
+      })
       .catch(() => {});
     return () => { live = false; };
   }, [userId, reviewDeckKey]);
@@ -1149,10 +1156,12 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
       )}
 
       {/* REVIEW A PROOF, EARN POINTS. Only real proofs waiting for a verdict. */}
-      {tab === "available" && !loading && reviewDeck.length > 0 && (
+      {/* Illustrated from the REAL proof strip, never from the deck: the deck is
+          opaque and may hold AI-made decoys, which must not reach the feed. */}
+      {tab === "available" && !loading && reviewDeck.length > 0 && reviewWaiting > 0 && pickProofStrip(tasks)[0] && (
         <ReviewProofCard
-          card={reviewDeck[0]}
-          waiting={reviewDeck.length}
+          proof={pickProofStrip(tasks)[0]}
+          waiting={reviewWaiting}
           onReview={() => { hapticTap(); setView("jury"); }}
         />
       )}
@@ -2114,11 +2123,11 @@ function FeedComposer({
 // the deck and how many are waiting. The image is the opaque card image served by
 // the jury route, so the preview reveals nothing the game would not.
 function ReviewProofCard({
-  card,
+  proof,
   waiting,
   onReview,
 }: {
-  card: JuryCard;
+  proof: Task;
   waiting: number;
   onReview: () => void;
 }) {
@@ -2127,13 +2136,13 @@ function ReviewProofCard({
       <div className="p-4 pb-3 flex items-start gap-3">
         <div className="flex-1 min-w-0">
           <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-900">Review a proof, earn points</p>
-          <p className="text-[14px] font-medium leading-snug text-gray-900 mt-1 line-clamp-2 break-words">{card.description}</p>
+          <p className="text-[14px] font-medium leading-snug text-gray-900 mt-1 line-clamp-2 break-words">{proof.description}</p>
         </div>
         <span className="shrink-0 text-[12px] font-bold text-gray-900 bg-gray-100 rounded-full px-2.5 py-1">{waiting} waiting</span>
       </div>
-      <img src={card.proofImageUrl} alt="A submitted proof" loading="lazy" className="w-full h-40 object-cover bg-gray-100" />
+      <img src={proof.proofImageUrl!} alt="A finished proof" loading="lazy" className="w-full h-40 object-cover bg-gray-100" />
       <div className="p-4 pt-3">
-        <p className="text-[12px] text-gray-500">Does this proof match what was asked? A correct call earns points.</p>
+        <p className="text-[12px] text-gray-500">Does a proof match what was asked? A correct call earns points.</p>
         <button
           type="button"
           onClick={onReview}
