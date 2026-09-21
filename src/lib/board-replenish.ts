@@ -88,6 +88,12 @@ export const MODEL_CALLS_PER_DAY = 6;
 // were FALLBACK_FAVOURS entries). At most half of each run may be recycled, so
 // fresh supply reaches the board on every single run, not just when the recycle
 // pool happens to run dry.
+// RECYCLING OFF, 2026-09-21. The first run after re-enabling recycled two old agent
+// ERRANDS ("Look for any pop-up stall...", "Find a public water fountain...") of the
+// exact "go and find" shape the Sep 3 pool rewrite retired and the Sep 16 ruling
+// called stale. The recycle backlog is, by construction, the old supply, so it is not
+// a source of fresh favours. Fresh supply is the model and the curated pool only.
+export const RECYCLE_ENABLED = false;
 export const RECYCLE_MAX_SHARE = 0.5;
 export const RECYCLE_WINDOW_DAYS = 30;
 
@@ -304,6 +310,9 @@ export function planReplenish(input: {
   recycledRecently: Set<string>; // normalised descriptions on cooldown
   usedToday: number;
   now?: number;
+  // Defaults to RECYCLE_ENABLED (off). Explicit so the recycle rules stay tested
+  // for the day it is turned back on.
+  recycle?: boolean;
 }): ReplenishPlan {
   const now = input.now ?? Date.now();
   const openVisible = countOpenVisible(input.tasks, now);
@@ -317,7 +326,7 @@ export function planReplenish(input: {
 
   // R8: recycle takes at most half the run (but at least one when the budget is
   // 1, so a one-slot run is not forced into a model call).
-  const recycleBudget = Math.max(budget >= 2 ? 1 : budget, Math.floor(budget * RECYCLE_MAX_SHARE));
+  const recycleBudget = !(input.recycle ?? RECYCLE_ENABLED) ? 0 : Math.max(budget >= 2 ? 1 : budget, Math.floor(budget * RECYCLE_MAX_SHARE));
 
   // A recycled ask must have been OFF the board for NO_REPEAT_DAYS (its deadline
   // passed at least that long ago), and must not be a near-duplicate of anything on
@@ -585,11 +594,14 @@ export async function runReplenish(now: number = Date.now()): Promise<ReplenishR
     await redis.expire(usedKey, 2 * 86_400);
   }
 
+  // `reason` says why generation fell back to the pool, when it did. The first
+  // production run made a model call and got 0 usable asks, and nothing recorded why.
   trackEvent("board_replenished", {
     openBefore: openVisible,
     recycled: recycledIds.length,
     generated: generatedIds.length,
     fromModel: generatedByModel,
+    ...(reason ? { reason: String(reason).slice(0, 200) } : {}),
   }).catch(() => {});
 
   return {
