@@ -83,6 +83,13 @@ mechanically blocks the easy-to-regress ones.
    be issued and enforcing closes every gated route to everybody; then flip and
    watch the counters. **Until then this invariant is recorded as violated rather
    than as configured.**
+
+   **Per-route conformance, 2026-09-21.** `POST /api/tasks` now binds `poster`
+   to the session with `ownerRefusal`, which ignores the switch: no session, a
+   session for another wallet, and a `dev_` poster are all refused 403 before any
+   store read or write. Only an `agent:` poster skips it, because that string
+   cannot name a wallet; its privilege lane is still dormant behind
+   `SEED_AUTH_ENFORCE`. Guard: `tasks-route-poster-auth.test.ts`.
 5. **AI proof never earns — and a flag never earns MONEY, ever.** A
    `flag`/AI-suspected verdict must not *automatically* award points, USDC,
    completions, reputation, leaderboard, or campaign progress. No random verdict

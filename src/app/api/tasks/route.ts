@@ -22,6 +22,7 @@ import {
   seedAuthEnforced,
   SEED_SECRET_HEADER,
 } from "@/lib/seeder";
+import { ownerRefusal } from "@/lib/session";
 
 export async function GET() {
   trackEvent("feed_loaded").catch(() => {});
@@ -105,6 +106,28 @@ export async function POST(req: NextRequest) {
     enforced: seedAuthEnforced(),
   });
   auditPostingPrivilege(privilege, poster);
+
+  // IDENTITY BINDING, added 2026-09-21 (PR12 review). `poster` is a public body
+  // field, and until now it was only checked for length, so anyone could post a
+  // points favour, or a usdc-v2 listing its wallet would later be asked to fund,
+  // in another wallet's name. Posting also writes points to the poster
+  // (recordFavourPosted below), so this is the hard gate, not ownershipError: the
+  // SESSION_ENFORCE switch does not apply here (see lib/session.ownerRefusal and
+  // the 2026-09-16 ruling). It runs before the throttle read and the store write.
+  //
+  // Only an `agent:` poster skips it. That string cannot name a wallet, so it
+  // cannot impersonate one or fund usdc-v2, and its own privilege lane is still
+  // dormant behind SEED_AUTH_ENFORCE so the external seeding caller does not
+  // break on deploy (lib/seeder.ts). The seed secret does NOT skip it: it proves
+  // the caller is the operator, not that the operator is this wallet. The owner
+  // address gets no skip either: it is a body string like any other, so its
+  // exemption now needs the owner's own session.
+  const isAgentPoster = typeof poster === "string" && poster.startsWith("agent:");
+  if (!isAgentPoster) {
+    const refusal = ownerRefusal(req, poster, Date.now());
+    if (refusal) return NextResponse.json(refusal, { status: 403 });
+  }
+
   const resolvedAgentId = privilege.agentId;
   const isAdmin = privilege.isAdmin;
   // Board quality: user posts must be written in the poster's own words.

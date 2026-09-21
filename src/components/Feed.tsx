@@ -925,9 +925,9 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
     // Campaign posts and the paid wizard keep the full flow. Everything else is
     // the one-screen points favour.
     if (!postCampaignId && !postPaid) {
-      return <QuickPost userId={userId} onDone={() => leave(true)} onCancel={() => leave(false)} onPaid={() => { setPostQuickTemplate(null); setPostPaid(true); }} />;
+      return <QuickPost userId={userId} onReauth={onReauth} onDone={() => leave(true)} onCancel={() => leave(false)} onPaid={() => { setPostQuickTemplate(null); setPostPaid(true); }} />;
     }
-    return <PostTask userId={userId} paid={postPaid} campaignId={postCampaignId ?? undefined} quickStartTemplate={postQuickTemplate ?? undefined} onDone={() => leave(true)} onCancel={() => leave(false)} />;
+    return <PostTask userId={userId} onReauth={onReauth} paid={postPaid} campaignId={postCampaignId ?? undefined} quickStartTemplate={postQuickTemplate ?? undefined} onDone={() => leave(true)} onCancel={() => leave(false)} />;
   }
 
   if (view === "proof" && selectedTask) {
@@ -1784,16 +1784,32 @@ const quickChoice = (on: boolean, points = false): React.CSSProperties => ({
   fontWeight: on ? 600 : 400,
 });
 
+// One signature, then the same request once more. Only on `reauth_required`,
+// and only once: a loop would ask a person who declined to keep declining.
+async function retryAfterReauth(
+  res: Response,
+  send: () => Promise<Response>,
+  onReauth?: () => void | Promise<void>,
+): Promise<Response> {
+  if (res.status !== 403 || !onReauth) return res;
+  const peek = await res.clone().json().catch(() => ({} as Record<string, unknown>));
+  if (peek.code !== "reauth_required") return res;
+  await onReauth();
+  return send();
+}
+
 function QuickPost({
   userId,
   onDone,
   onCancel,
   onPaid,
+  onReauth,
 }: {
   userId: string | null;
   onDone: () => void;
   onCancel: () => void;
   onPaid: () => void;
+  onReauth?: () => void | Promise<void>;
 }) {
   const [ask, setAsk] = useState("");
   const [photo, setPhoto] = useState(false);
@@ -1841,7 +1857,7 @@ function QuickPost({
     setSubmitting(true);
     setError(null);
     try {
-      const res = await fetch("/api/tasks", {
+      const send = () => fetch("/api/tasks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1856,6 +1872,9 @@ function QuickPost({
           rewardType: "points",
         }),
       });
+      // Posting is bound to the session (POST /api/tasks). `reauth_required`
+      // means the session is gone, not that the favour is bad.
+      const res = await retryAfterReauth(await send(), send, onReauth);
       if (!res.ok) {
         // The server's refusal is the honest one (one a day, own words, gibberish).
         const data = await res.json().catch(() => ({} as Record<string, unknown>));
@@ -2012,10 +2031,12 @@ function PostTask({
   campaignId,
   quickStartTemplate,
   paid = false,
+  onReauth,
 }: {
   userId: string | null;
   onDone: () => void;
   onCancel: () => void;
+  onReauth?: () => void | Promise<void>;
   campaignId?: string;
   /** Opened from "Set up a paid favour": USDC only, no points toggle. */
   paid?: boolean;
@@ -2157,7 +2178,7 @@ function PostTask({
     }
 
     try {
-      const res = await fetch("/api/tasks", {
+      const send = () => fetch("/api/tasks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -2175,6 +2196,7 @@ function PostTask({
           campaignId,
         }),
       });
+      const res = await retryAfterReauth(await send(), send, onReauth);
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
         hapticError();
