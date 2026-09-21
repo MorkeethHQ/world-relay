@@ -962,7 +962,7 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
     // Campaign posts and the paid wizard keep the full flow. Everything else is
     // the one-screen points favour.
     if (!postCampaignId && !postPaid) {
-      return <QuickPost userId={userId} onDone={() => leave(true)} onCancel={() => leave(false)} onPaid={() => setPostPaid(true)} />;
+      return <QuickPost userId={userId} onDone={() => leave(true)} onCancel={() => leave(false)} onPaid={() => { setPostQuickTemplate(null); setPostPaid(true); }} />;
     }
     return <PostTask userId={userId} paid={postPaid} campaignId={postCampaignId ?? undefined} quickStartTemplate={postQuickTemplate ?? undefined} onDone={() => leave(true)} onCancel={() => leave(false)} />;
   }
@@ -1917,7 +1917,7 @@ function QuickPost({
           <p className="text-[10px] font-semibold text-amber-700 tracking-wide uppercase">Points favour &middot; live</p>
           <p className="text-[22px] font-bold text-gray-900 leading-[1.2] tracking-tight break-words">{trimmed}</p>
           <p className="text-[14px] text-gray-500">
-            Anyone can answer it now. Each accepted {photo ? "photo" : "answer"} earns {points} pts, paid by FAVOUR, not by you.
+            Anyone can answer it now. The first accepted {photo ? "photo" : "answer"} earns {points} pts, paid by FAVOUR, not by you.
           </p>
         </div>
         <div className="px-6" style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 24px)" }}>
@@ -1986,7 +1986,7 @@ function QuickPost({
         </div>
 
         <div>
-          <p className="text-[12px] text-gray-400 mb-2">Points for each accepted {photo ? "photo" : "answer"}</p>
+          <p className="text-[12px] text-gray-400 mb-2">Points for the accepted {photo ? "photo" : "answer"}</p>
           <div className="flex gap-2">
             {QUICK_POINTS.map((amt) => (
               <button
@@ -2070,11 +2070,13 @@ function PostTask({
   // claimant accepts (demand-gated custody).
   const [rewardType, setRewardType] = useState<"usdc" | "points" | "usdc-v2">(paid ? "usdc-v2" : "points");
   const [v2Rail, setV2Rail] = useState<{ maxUsd: number | null; disclosure: string } | null>(null);
+  const [v2Checked, setV2Checked] = useState(false);
   useEffect(() => {
     fetch("/api/escrow-v2")
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => { if (d?.enabled) setV2Rail({ maxUsd: d.maxUsd ?? null, disclosure: d.disclosure || "" }); })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setV2Checked(true));
   }, []);
   const [category, setCategory] = useState<"photo" | "delivery" | "check-in" | "custom" | "feedback" | "review" | "social" | "errand">("review");
   const [submitting, setSubmitting] = useState(false);
@@ -2106,7 +2108,7 @@ function PostTask({
     if (quickStartTemplate == null || quickStartTemplate < 0 || quickStartTemplate >= POST_TEMPLATES.length) return;
     const t = POST_TEMPLATES[quickStartTemplate];
     setSelectedTemplate(quickStartTemplate);
-    setBounty(t.bounty);
+    setBounty(paid ? "" : t.bounty);
     setCategory(t.category);
     setLocationMode("online");
     setLocation("Online");
@@ -2233,7 +2235,9 @@ function PostTask({
   const isInWorld = isMiniKit();
   const isValid = description && location && bounty && parseFloat(bounty) >= (rewardType === "points" ? 1 : 0.5)
     // Server enforces the same cap; mirroring it here just saves a round trip.
-    && !(rewardType === "usdc-v2" && v2Rail?.maxUsd != null && parseFloat(bounty) > v2Rail.maxUsd);
+    && !(rewardType === "usdc-v2" && v2Rail?.maxUsd != null && parseFloat(bounty) > v2Rail.maxUsd)
+    // A paid favour cannot post until the server has said the rail is open.
+    && !(paid && !v2Rail);
   const canDescribe = description.trim().length >= MIN_DESCRIPTION_LENGTH && !!location.trim();
 
   // Reward-shaped object so RewardBadge / reward.ts stay the single source of truth
@@ -2362,9 +2366,9 @@ function PostTask({
                   <div><dt className="font-semibold text-gray-900">Funding</dt><dd className="text-gray-500">Nothing is charged now. When someone accepts, you fund the escrow from your World wallet.</dd></div>
                   <div><dt className="font-semibold text-gray-900">Who can post</dt><dd className="text-gray-500">A wallet signed in through World App. One person completes it.</dd></div>
                   <div><dt className="font-semibold text-gray-900">Evidence</dt><dd className="text-gray-500">The person who does it submits a photo or answer against your description.</dd></div>
-                  <div><dt className="font-semibold text-gray-900">Payout</dt><dd className="text-gray-500">{v2Rail?.disclosure || "Loading the escrow terms."}</dd></div>
+                  <div><dt className="font-semibold text-gray-900">Payout</dt><dd className="text-gray-500">{v2Rail?.disclosure || (v2Checked ? "Not available." : "Loading the escrow terms.")}</dd></div>
                 </dl>
-                {!v2Rail && <p className="mt-3 text-[13px] text-warning-700">Paid favours are not open right now. Post a points favour instead.</p>}
+                {v2Checked && !v2Rail && <p className="mt-3 text-[13px] text-warning-700">Paid favours are not open right now. Post a points favour instead.</p>}
               </div>
             )}
             {!paid && CUSTODY_RETIRED && v2Rail && (
@@ -2437,7 +2441,7 @@ function PostTask({
                   </button>
                 ))}
                 <div className="flex-1 flex items-center gap-1 bg-white border border-gray-200 rounded-xl px-3 py-4 min-h-[52px]">
-                  {rewardType === "usdc" && <span className="text-sm text-gray-400">$</span>}
+                  {rewardType !== "points" && <span className="text-sm text-gray-400">$</span>}
                   <input
                     type="number"
                     placeholder="Other"
@@ -2633,7 +2637,8 @@ function SubmitProof({
   // A points favour is a quick ask: one answer or one photo, one Submit, the
   // exact points back. The checklist, tier badge and "proof" wording stay on
   // paid favours, where the evidence decides whether real money moves.
-  const quick = task.rewardType === "points" && !isFunded(task);
+  // Campaign tasks keep the full screen: their rules differ (no human appeal).
+  const quick = task.rewardType === "points" && !isFunded(task) && !task.campaignId;
   const [proofNote, setProofNote] = useState("");
   const [images, setImages] = useState<{ base64: string; preview: string; isVideo: boolean }[]>([]);
   const [submitting, setSubmitting] = useState(false);
