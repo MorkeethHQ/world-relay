@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { hapticTap, hapticSuccess, hapticError } from "@/lib/minikit-helpers";
 import { CategoryIcon } from "@/components/CategoryIcon";
 
-type JuryCard = {
+export type JuryCard = {
   cardId: string;
   proofImageUrl: string;
   proofNote: string | null;
@@ -22,6 +22,7 @@ export function JuryMode({
   userId,
   onClose,
   onReauth,
+  initialCards,
 }: {
   userId: string | null;
   onClose: () => void;
@@ -31,9 +32,14 @@ export function JuryMode({
   // looks exactly like success is the worst shape available, so the verdict now
   // repairs the session once and says so when it cannot.
   onReauth?: () => void | Promise<void>;
+  // The deck the feed already issued for its "Review a proof" preview
+  // (2026-09-21). GET /api/jury ISSUES cards and stores each answer server-side,
+  // so fetching again on open would issue a second deck for one visit. When given,
+  // these exact cards are judged and no second deck is issued.
+  initialCards?: JuryCard[];
 }) {
-  const [cards, setCards] = useState<JuryCard[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [cards, setCards] = useState<JuryCard[]>(initialCards ?? []);
+  const [loading, setLoading] = useState(!(initialCards && initialCards.length > 0));
   const [flash, setFlash] = useState<Flash>(null);
   const [session, setSession] = useState({ judged: 0, correct: 0, points: 0 });
   const [dx, setDx] = useState(0);
@@ -49,13 +55,14 @@ export function JuryMode({
   const [needsAuth, setNeedsAuth] = useState(false);
 
   useEffect(() => {
+    if (initialCards && initialCards.length > 0) return;
     const url = `/api/jury${userId ? `?address=${encodeURIComponent(userId)}` : ""}`;
     fetch(url)
       .then((r) => r.json())
       .then((d) => setCards(d.cards || []))
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [userId]);
+  }, [userId, initialCards]);
 
   useEffect(() => {
     try {

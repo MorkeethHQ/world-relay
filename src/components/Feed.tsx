@@ -50,7 +50,7 @@ import {
   POLL_INSERT_AFTER,
   POLL_CARDS_MAX,
 } from "@/lib/board-rank";
-import { JuryMode } from "@/components/JuryMode";
+import { JuryMode, type JuryCard } from "@/components/JuryMode";
 import { DailyMissionCard, DailyMissionDoneCard } from "@/components/MissionCard";
 import type { Contribution } from "@/lib/completions";
 import { PENDING_MISSION_KEY } from "@/components/Onboarding";
@@ -729,6 +729,24 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
   }, [userId, contribRefresh]);
   const completedIds = useMemo(() => new Set(contributions.map((c) => c.taskId)), [contributions]);
 
+  // REVIEW SUPPLY IN THE FEED (FAVOUR-FEED-CONTRIBUTIONS-2026-09-21). Real proofs
+  // people submitted and that are waiting for a verdict, from the same deck REAL OR
+  // NOT judges. Nothing here is seeded or invented: an empty deck renders nothing.
+  // Issued ONCE per board visit and handed to JuryMode, because GET /api/jury
+  // issues cards and stores their answers; fetching again on open would issue a
+  // second deck for one visit.
+  const [reviewDeck, setReviewDeck] = useState<JuryCard[]>([]);
+  const [reviewDeckKey, setReviewDeckKey] = useState(0);
+  useEffect(() => {
+    if (!userId || !/^0x[0-9a-fA-F]{40}$/.test(userId)) { setReviewDeck([]); return; }
+    let live = true;
+    fetch(`/api/jury?address=${encodeURIComponent(userId)}`, { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (live) setReviewDeck(Array.isArray(d?.cards) ? d.cards : []); })
+      .catch(() => {});
+    return () => { live = false; };
+  }, [userId, reviewDeckKey]);
+
   const dailyMission = useMemo(() => {
     if (tab !== "available") return null;
     return pickDailyMission(tasks, new Date().toISOString().slice(0, 10), userId);
@@ -948,7 +966,9 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
   }
 
   if (view === "jury") {
-    return <JuryMode userId={userId} onClose={() => setView("board")} onReauth={onReauth} />;
+    // The deck shown in the feed is judged as-is. On close, a fresh deck is issued
+    // for the next preview, since judged cards are consumed.
+    return <JuryMode userId={userId} onClose={() => { setView("board"); setReviewDeckKey((n) => n + 1); }} onReauth={onReauth} initialCards={reviewDeck} />;
   }
 
   if (view === "post") {
@@ -1021,6 +1041,26 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
           task={dailyMission}
           proofs={missionProofs}
           onStart={() => startFavour(dailyMission)}
+        />
+      )}
+
+      {/* WRITE A FAVOUR, right here. The one-line composer is the main path to
+          posting; the full page stays for what this cannot do (a place, USDC). */}
+      {tab === "available" && !loading && userId && (
+        <FeedComposer
+          userId={userId}
+          onReauth={onReauth}
+          onPosted={() => fetchTasks()}
+          onMore={() => { hapticTap(); setPostCampaignId(null); setView("post"); }}
+        />
+      )}
+
+      {/* REVIEW A PROOF, EARN POINTS. Only real proofs waiting for a verdict. */}
+      {tab === "available" && !loading && reviewDeck.length > 0 && (
+        <ReviewProofCard
+          card={reviewDeck[0]}
+          waiting={reviewDeck.length}
+          onReview={() => { hapticTap(); setView("jury"); }}
         />
       )}
 
@@ -1694,8 +1734,11 @@ function TaskCard({
             ) : isStale ? (
               <span className="text-[10px] font-bold uppercase tracking-wide text-gray-400 bg-gray-100 rounded px-1.5 py-0.5 shrink-0">Open a while</span>
             ) : null}
+            {/* The agent's NAME, not a generic chip (2026-09-21): an ask is only as
+                trustworthy as knowing who is asking, and "OpenClaw asked" already
+                says so on the mission card. Falls back to "Agent" when unnamed. */}
             {isAgentTask && (
-              <span className="text-[10px] font-bold uppercase tracking-wide text-gray-500 bg-gray-100 rounded px-1.5 py-0.5 shrink-0">Agent</span>
+              <span className="text-[11px] font-semibold text-gray-600 bg-gray-100 rounded px-1.5 py-0.5 shrink-0 truncate max-w-[120px]">{task.agent?.name ? `${task.agent.name} asked` : "Agent"}</span>
             )}
             <span className="text-xs text-gray-400 truncate max-w-[140px]">{task.location}</span>
             {distance !== null && (
@@ -1829,6 +1872,185 @@ async function retryAfterReauth(
   if (peek.code !== "reauth_required") return res;
   await onReauth();
   return send();
+}
+
+// THE FEED COMPOSER (FAVOUR-FEED-CONTRIBUTIONS-2026-09-21). One line at the top
+// of Favours: type an ask, post it. Defaults are the common case (anyone can
+// answer, online, 5 points); the answer/photo and points choices appear once
+// typing starts. Everything the server refuses is shown verbatim, because the
+// server's refusal is the honest one (one free points favour a day, own words,
+// no gibberish). Posting is bound to the caller's session by POST /api/tasks
+// (PR 13), so a lapsed session re-authenticates once and the same ask is resent.
+function FeedComposer({
+  userId,
+  onReauth,
+  onPosted,
+  onMore,
+}: {
+  userId: string;
+  onReauth?: () => void | Promise<void>;
+  onPosted: () => void;
+  onMore: () => void;
+}) {
+  const [ask, setAsk] = useState("");
+  const [photo, setPhoto] = useState(false);
+  const [points, setPoints] = useState("5");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [posted, setPosted] = useState<string | null>(null);
+
+  const trimmed = ask.trim();
+  const open = trimmed.length > 0;
+  const unedited = isTemplateCopy(trimmed);
+  const canPost = trimmed.length >= MIN_DESCRIPTION_LENGTH && !unedited && !submitting;
+
+  const post = async () => {
+    if (!canPost) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const send = () => fetch("/api/tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          poster: userId,
+          category: photo ? "photo" : "custom",
+          description: trimmed,
+          location: "Online",
+          lat: null,
+          lng: null,
+          bountyUsdc: Number(points),
+          deadlineHours: 24,
+          rewardType: "points",
+        }),
+      });
+      const res = await retryAfterReauth(await send(), send, onReauth);
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({} as Record<string, unknown>));
+        hapticError();
+        setError(typeof data.error === "string" ? data.error : "Could not post it. Nothing was saved. Try again.");
+        return;
+      }
+      hapticSuccess();
+      setPosted(trimmed);
+      setAsk("");
+      onPosted();
+    } catch {
+      hapticError();
+      setError("Network error. Nothing was saved. Try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (posted) {
+    return (
+      <div className="mx-6 mt-4 rounded-2xl border border-gray-200 bg-white px-4 py-3" role="status">
+        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-success-600">Posted · live on the board</p>
+        <p className="text-[14px] font-medium text-gray-900 mt-1 line-clamp-2 break-words">{posted}</p>
+        <button type="button" onClick={() => setPosted(null)} className="mt-1 min-h-[40px] text-[13px] font-semibold text-gray-900">Ask another</button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mx-6 mt-4 rounded-2xl border border-gray-200 bg-white px-4 py-3">
+      <label htmlFor="feed-composer" className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-900">Ask for a favour</label>
+      <div className="flex items-center gap-2 mt-1">
+        <input
+          id="feed-composer"
+          type="text"
+          value={ask}
+          onChange={(e) => { setAsk(e.target.value); setError(null); }}
+          onKeyDown={(e) => { if (e.key === "Enter") post(); }}
+          maxLength={280}
+          placeholder="Ask anyone for something quick"
+          className="flex-1 min-w-0 min-h-[44px] bg-transparent text-[15px] text-gray-900 placeholder:text-gray-400 focus:outline-none"
+        />
+        <button
+          type="button"
+          onClick={post}
+          disabled={!canPost}
+          className="shrink-0 min-h-[40px] px-4 rounded-full bg-gray-900 text-white text-[13px] font-semibold disabled:opacity-25 active:scale-95 transition-transform"
+        >
+          {submitting ? "Posting" : "Post"}
+        </button>
+      </div>
+      {open && (
+        <div className="mt-2 flex flex-col gap-2">
+          {unedited && <p className="text-[12px] text-amber-700">Make it yours: change a few words first.</p>}
+          {!unedited && trimmed.length < MIN_DESCRIPTION_LENGTH && (
+            <p className="text-[12px] text-gray-400">A few more words so people know what counts as done.</p>
+          )}
+          <div className="flex gap-2">
+            {[{ k: false, label: "An answer" }, { k: true, label: "A photo" }].map((o) => (
+              <button
+                key={o.label}
+                type="button"
+                onClick={() => { hapticSelection(); setPhoto(o.k); }}
+                aria-pressed={photo === o.k}
+                className={`flex-1 min-h-[40px] rounded-xl text-[13px] ${photo === o.k ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-700"}`}
+              >
+                {o.label}
+              </button>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            {QUICK_POINTS.map((amt) => (
+              <button
+                key={amt}
+                type="button"
+                onClick={() => { hapticSelection(); setPoints(amt); }}
+                aria-pressed={points === amt}
+                className={`flex-1 min-h-[40px] rounded-xl text-[13px] tabular-nums ${points === amt ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-700"}`}
+              >
+                {amt} pts
+              </button>
+            ))}
+          </div>
+          <p className="text-[12px] text-gray-400">Points are paid by FAVOUR, not by you. One free points favour a day.</p>
+          <button type="button" onClick={onMore} className="self-start min-h-[40px] text-[13px] text-gray-500">At a specific place, or for USDC</button>
+        </div>
+      )}
+      {error && <p role="alert" className="mt-2 text-[13px] text-error-700">{error}</p>}
+    </div>
+  );
+}
+
+// REVIEW A PROOF (FAVOUR-FEED-CONTRIBUTIONS-2026-09-21). The first real proof in
+// the deck and how many are waiting. The image is the opaque card image served by
+// the jury route, so the preview reveals nothing the game would not.
+function ReviewProofCard({
+  card,
+  waiting,
+  onReview,
+}: {
+  card: JuryCard;
+  waiting: number;
+  onReview: () => void;
+}) {
+  return (
+    <div className="mx-6 mt-4 rounded-2xl border border-gray-200 bg-white overflow-hidden">
+      <div className="p-4 pb-3 flex items-start gap-3">
+        <div className="flex-1 min-w-0">
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-900">Review a proof, earn points</p>
+          <p className="text-[14px] font-medium leading-snug text-gray-900 mt-1 line-clamp-2 break-words">{card.description}</p>
+        </div>
+        <span className="shrink-0 text-[12px] font-bold text-gray-900 bg-gray-100 rounded-full px-2.5 py-1">{waiting} waiting</span>
+      </div>
+      <img src={card.proofImageUrl} alt="A submitted proof" loading="lazy" className="w-full h-40 object-cover bg-gray-100" />
+      <div className="p-4 pt-3">
+        <p className="text-[12px] text-gray-500">Does this proof match what was asked? A correct call earns points.</p>
+        <button
+          type="button"
+          onClick={onReview}
+          className="mt-3 w-full min-h-[44px] rounded-full bg-gray-900 text-white text-[14px] font-semibold active:scale-[0.99]"
+        >
+          Review a proof
+        </button>
+      </div>
+    </div>
+  );
 }
 
 function QuickPost({
