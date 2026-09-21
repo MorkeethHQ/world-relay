@@ -51,6 +51,8 @@ import {
   POLL_CARDS_MAX,
 } from "@/lib/board-rank";
 import { JuryMode } from "@/components/JuryMode";
+import { DailyMissionCard } from "@/components/MissionCard";
+import { PENDING_MISSION_KEY } from "@/components/Onboarding";
 
 // Fire-and-forget telemetry. The event name must be in CLIENT_EVENTS in
 // /api/track, which is an allowlist because that route is public.
@@ -138,62 +140,6 @@ function StarterFavourBanner({
 // pickProofStrip excludes dev_/demo_/e2e_ identities for the same reason.
 // It renders nothing at all when there are no real proofs, rather than degrading
 // into decoration.
-function DailyMissionCard({
-  task,
-  proofs,
-  onStart,
-}: {
-  task: Task;
-  proofs: Task[];
-  onStart: () => void;
-}) {
-  const needsPhoto = tierRequiresPhoto(task.category);
-  return (
-    <div className="mx-6 mt-4 rounded-3xl border border-gray-900 bg-white overflow-hidden animate-[fadeSlideIn_0.4s_ease-out]">
-      <div className="px-5 pt-4 pb-3">
-        <div className="flex items-center justify-between">
-          <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-900">Today&apos;s mission</span>
-          <span className="text-[13px] font-bold text-gray-900">{rewardLabel(task)}</span>
-        </div>
-        {/* break-words is required by the viewport-containment guard: a mission is
-            supplied text and a long unbroken string would push the card wider than
-            a 390 px phone. */}
-        <p className="text-[20px] font-bold leading-snug tracking-tight text-gray-900 mt-2 break-words">{task.description}</p>
-        <p className="text-[12px] text-gray-400 mt-2">
-          {task.agent?.name ? `${task.agent.name} asked` : "Asked on the board"} · {task.location} ·{" "}
-          {needsPhoto ? "photo proof" : "a few words"}
-        </p>
-      </div>
-
-      {proofs.length > 0 && (
-        <div className="px-5 pb-1">
-          <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1">
-            {proofs.map((p) => (
-              <img
-                key={p.id}
-                src={p.proofImageUrl!}
-                alt=""
-                aria-hidden
-                loading="lazy"
-                className="w-[72px] h-[72px] rounded-xl object-cover bg-gray-100 shrink-0"
-              />
-            ))}
-          </div>
-          <p className="text-[11px] text-gray-400">
-            {proofs.length} real proofs from favours people already finished
-          </p>
-        </div>
-      )}
-
-      <div className="px-5 pt-3 pb-5">
-        <Button fullWidth variant="primary" size="lg" onClick={onStart}>
-          Do today&apos;s mission
-        </Button>
-      </div>
-    </div>
-  );
-}
-
 function EmptyBoardTeach({ onPost }: { onPost: () => void }) {
   return (
     <div className="flex flex-col gap-4 px-6 py-8 animate-[fadeSlideIn_0.4s_ease-out]">
@@ -812,6 +758,23 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
     setShowFirstRunCoach(false);
     openProof(task);
   }, [openProof]);
+
+  // A signed-out visitor who tapped the mission teaser has now agreed to the
+  // terms and signed in. Open that favour once, if it is still open today.
+  // Read and cleared on first load, so it can never fire twice.
+  const pendingMissionChecked = useRef(false);
+  useEffect(() => {
+    if (pendingMissionChecked.current || loading || !userId) return;
+    pendingMissionChecked.current = true;
+    let pending: { id?: string; date?: string } | null = null;
+    try {
+      pending = JSON.parse(localStorage.getItem(PENDING_MISSION_KEY) || "null");
+      localStorage.removeItem(PENDING_MISSION_KEY);
+    } catch {}
+    if (!pending?.id || pending.date !== new Date().toISOString().slice(0, 10)) return;
+    const task = tasks.find((t) => t.id === pending!.id && t.status === "open" && t.rewardType === "points" && t.poster !== userId);
+    if (task) startFavour(task);
+  }, [loading, userId, tasks, startFavour]);
 
   // Freshness for returning users: remember when this device last saw the board,
   // then flag open favours posted since then so a returning user immediately sees
