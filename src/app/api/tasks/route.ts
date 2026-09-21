@@ -195,8 +195,12 @@ export async function POST(req: NextRequest) {
     // One free points task per poster per 24h. The old copy here told users to
     // "fund the task with USDC" to lift the cap — with custody retired that is
     // an offer the app can no longer honour, so it does not get made.
+    // Compared without case, as the session match is: a wallet address in
+    // another case is the same wallet, and === let it post again (2026-09-21).
+    // Stored posters keep their spelling; escrow-v2 compares them exactly.
+    const posterKey = String(poster).toLowerCase();
     const recentPoints = (await listTasks()).filter(
-      (t) => t.poster === poster && t.rewardType === "points" && Date.now() - new Date(t.createdAt).getTime() < 86_400_000
+      (t) => String(t.poster).toLowerCase() === posterKey && t.rewardType === "points" && Date.now() - new Date(t.createdAt).getTime() < 86_400_000
     );
     if (recentPoints.length >= 1) {
       return NextResponse.json({ error: "You can post one favour a day. Come back tomorrow." }, { status: 429 });

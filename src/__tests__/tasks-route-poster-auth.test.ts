@@ -141,6 +141,33 @@ describe("points favour: the poster is the session's wallet", () => {
   });
 });
 
+describe("one points favour a day, per wallet, whatever the letter case", () => {
+  // The session match is case-insensitive, so the throttle must be too. Before
+  // 2026-09-21 it compared with ===, and a wallet could post again the same day
+  // by sending its own address in another case.
+  const upper = A.replace("aa", "AA");
+
+  it("a wallet that posted today cannot post again by changing the case of its address", async () => {
+    existing = [{ poster: A, rewardType: "points", createdAt: new Date().toISOString() }];
+    const res = await POST(req(points(upper), cookieFor(A)));
+    expect(res.status).toBe(429);
+    expect(created).toHaveLength(0);
+  });
+
+  it("the same holds when the earlier post was stored in the other case", async () => {
+    existing = [{ poster: upper, rewardType: "points", createdAt: new Date().toISOString() }];
+    const res = await POST(req(points(A), cookieFor(A)));
+    expect(res.status).toBe(429);
+    expect(created).toHaveLength(0);
+  });
+
+  it("another wallet's post today does not throttle this one", async () => {
+    existing = [{ poster: B, rewardType: "points", createdAt: new Date().toISOString() }];
+    const res = await POST(req(points(A), cookieFor(A)));
+    expect(res.status).toBe(201);
+  });
+});
+
 describe("paid favour (usdc-v2) cannot be listed in another wallet's name", () => {
   beforeEach(() => {
     process.env.ESCROW_V2_ENABLED = "1";
