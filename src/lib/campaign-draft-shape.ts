@@ -17,7 +17,11 @@ export type CampaignDraft = {
   // "draft": private to the company, nothing on the board.
   // "published": its pieces are live POINTS favours anyone can join. The pool is
   // still only proposed; there is no funded state in this type on purpose.
-  status: "draft" | "published";
+  // "publishing": publish started and not every piece exists yet. Resumable: a
+  // retry creates only the missing pieces. The pieces already made keep their
+  // campaign identity (2026-09-21 fix: a failure on piece 2 of 3 used to leave
+  // unlabelled pieces and burn the day's publish, with no way to finish).
+  status: "draft" | "publishing" | "published";
   company: string;
   brief: string;
   pieces: Array<{ kind: PieceKind; count: number }>;
@@ -39,7 +43,7 @@ export type CampaignDraft = {
 export type PublicCompanyCampaign = Pick<
   CampaignDraft,
   "id" | "company" | "brief" | "pieces" | "rewardPerPiecePoints" | "proposedPoolUsdc" | "reviewRule" | "publishedAt" | "pieceTaskIds"
-> & { status: "published" };
+> & { status: "publishing" | "published" };
 
 export type CampaignResult = {
   taskId: string;

@@ -215,13 +215,16 @@ export function CampaignDraftForm({ onSaved, onCancel, onReauth }: {
   );
 }
 
-export function CampaignDraftList({ drafts, onDone, justSaved, onPublished, onOpen, onReauth }: {
+export function CampaignDraftList({ drafts, onDone, justSaved, onPublished, onOpen, onReauth, onChanged }: {
   drafts: CampaignDraft[];
   onDone: () => void;
   justSaved?: string | null;
   onPublished: (c: PublicCompanyCampaign) => void;
   onOpen: (id: string) => void;
   onReauth?: () => void | Promise<void>;
+  // Refetch after a failed publish, so a part-published campaign shows as such
+  // and offers "Finish publishing".
+  onChanged?: () => void;
 }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -236,7 +239,7 @@ export function CampaignDraftList({ drafts, onDone, justSaved, onPublished, onOp
         if (peek.code === "reauth_required") { await onReauth(); res = await send(); }
       }
       const data = await res.json().catch(() => ({} as Record<string, unknown>));
-      if (!res.ok) { setError(typeof data.error === "string" ? data.error : "Could not publish. Nothing changed."); return; }
+      if (!res.ok) { setError(typeof data.error === "string" ? data.error : "Could not publish. Nothing changed."); onChanged?.(); return; }
       onPublished(data.campaign as PublicCompanyCampaign);
     } catch {
       setError("Network error. Nothing changed. Try again.");
@@ -257,8 +260,8 @@ export function CampaignDraftList({ drafts, onDone, justSaved, onPublished, onOp
             <div key={d.id} className={`rounded-2xl bg-white border ${d.id === justSaved ? "border-gray-900" : "border-gray-200"} p-4`}>
               <div className="flex items-start justify-between gap-3">
                 <p className="flex-1 min-w-0 text-[15px] font-semibold text-gray-900 line-clamp-2 break-words">{d.company}</p>
-                <span className={`shrink-0 text-[11px] font-bold uppercase tracking-wide rounded-full px-2.5 py-1 ${d.status === "published" ? "text-success-700 bg-success-100" : "text-gray-600 bg-gray-100"}`}>
-                  {d.status === "published" ? "Live · points" : "Draft"}
+                <span className={`shrink-0 text-[11px] font-bold uppercase tracking-wide rounded-full px-2.5 py-1 ${d.status === "published" ? "text-success-700 bg-success-100" : d.status === "publishing" ? "text-warning-700 bg-warning-100" : "text-gray-600 bg-gray-100"}`}>
+                  {d.status === "published" ? "Live · points" : d.status === "publishing" ? "Part published" : "Draft"}
                 </span>
               </div>
               <p className="text-[13px] text-gray-600 mt-1 line-clamp-3 break-words">{d.brief}</p>
@@ -268,11 +271,18 @@ export function CampaignDraftList({ drafts, onDone, justSaved, onPublished, onOp
               <p className="mt-2 text-[12px] text-gray-500">
                 Proposed pool {d.proposedPoolUsdc} USDC · <span className="font-semibold text-gray-700">not funded</span> · reviewed by {d.reviewRule === "ai_and_jury" ? "AI check + human judges" : "AI check"}
               </p>
-              {d.status === "draft" ? (
-                <button type="button" onClick={() => publish(d.id)} disabled={busy === d.id}
-                  className="mt-3 w-full min-h-[44px] rounded-full bg-gray-900 text-white text-[14px] font-semibold disabled:opacity-40">
-                  {busy === d.id ? "Publishing" : `Publish ${total} pieces as points favours`}
-                </button>
+              {d.status !== "published" ? (
+                <>
+                  {d.status === "publishing" && (
+                    <p className="mt-2 text-[12px] text-warning-700">
+                      {Object.keys(d.pieceTaskIds ?? {}).length} of {d.pieces.length} kinds of piece are live. Finish publishing to add the rest; nothing is added twice.
+                    </p>
+                  )}
+                  <button type="button" onClick={() => publish(d.id)} disabled={busy === d.id}
+                    className="mt-3 w-full min-h-[44px] rounded-full bg-gray-900 text-white text-[14px] font-semibold disabled:opacity-40">
+                    {busy === d.id ? "Publishing" : d.status === "publishing" ? "Finish publishing" : `Publish ${total} pieces as points favours`}
+                  </button>
+                </>
               ) : (
                 <button type="button" onClick={() => onOpen(d.id)} className="mt-3 w-full min-h-[44px] rounded-full border border-gray-900 text-gray-900 text-[14px] font-semibold">
                   Open campaign
@@ -339,7 +349,7 @@ export function CompanyCampaignView({ id, tasks, completedIds, onJoin, onBack }:
       {c && (
         <div className="px-6 pt-5 pb-8 flex flex-col gap-4">
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-900">Company campaign · points only</p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-900">Company campaign · points only{c.status === "publishing" ? " · still publishing" : ""}</p>
             <p className="text-[15px] text-gray-800 mt-1 leading-snug break-words">{c.brief}</p>
             <p className="text-[12px] text-gray-500 mt-2">
               Proposed pool {c.proposedPoolUsdc} USDC · <span className="font-semibold text-gray-700">not funded</span>. Accepted pieces earn {c.rewardPerPiecePoints} points. Reviewed by {c.reviewRule === "ai_and_jury" ? "an AI check, then human judges" : "an AI check"}.
