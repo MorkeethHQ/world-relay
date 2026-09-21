@@ -245,3 +245,14 @@ describe("the example card is an explainer, never a campaign", () => {
     expect(src).not.toMatch(/"Launch a campaign"/);
   });
 });
+
+describe("publishing cannot put filler on the board", () => {
+  it("a keyboard-mash brief is refused at the plan, before anything is saved", () => {
+    const junk = validateDraftInput({ ...EXAMPLE, brief: "asdfghjkl asdfghjkl asdfghjkl qwertyuiop" });
+    expect(junk.ok).toBe(false);
+  });
+  it("a real brief passes, and a one-word company name is fine", () => {
+    expect(validateDraftInput(EXAMPLE).ok).toBe(true);
+    expect(validateDraftInput({ ...EXAMPLE, company: "Acme" }).ok).toBe(true);
+  });
+});

@@ -32,6 +32,7 @@ export const DRAFTS_PER_OWNER_MAX = 10;
 import { PIECE_KINDS, PIECE_LABEL, type PieceKind, type ReviewRule, type CampaignDraft, type PublicCompanyCampaign, type CampaignResult } from "./campaign-draft-shape";
 export { PIECE_KINDS, PIECE_LABEL, type PieceKind, type ReviewRule, type CampaignDraft, type PublicCompanyCampaign, type CampaignResult } from "./campaign-draft-shape";
 import type { Task, TaskCategory } from "./types";
+import { gibberishReason } from "./post-quality";
 
 type Result = { ok: true; draft: Omit<CampaignDraft, "id" | "owner" | "createdAt"> } | { ok: false; error: string };
 
@@ -47,6 +48,12 @@ export function validateDraftInput(body: unknown): Result {
   const brief = text(b.brief, 500);
   if (company.length < 2) return { ok: false, error: "Add the company name." };
   if (brief.length < 20) return { ok: false, error: "Say what you want made, in a sentence or two." };
+  // The same quality gate POST /api/tasks applies to a favour's text. Publishing
+  // creates tasks directly, so without this a keyboard-mash brief would become
+  // three filler cards on the board, the exact supply Oscar ruled against on
+  // 2026-09-16. Checked on the plan, so it is refused before anything is saved.
+  const junk = gibberishReason(brief);
+  if (junk) return { ok: false, error: junk };
 
   const rawPieces = Array.isArray(b.pieces) ? b.pieces : [];
   const pieces: CampaignDraft["pieces"] = [];
