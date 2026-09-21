@@ -51,6 +51,7 @@ import {
   REPLENISH_MAX_PER_RUN,
   RECYCLE_MAX_SHARE,
   REPLENISH_MAX_PER_DAY,
+  REPLENISH_TARGET_OPEN,
   FALLBACK_FAVOURS,
   validateFavourSpec,
   countOpenVisible,
@@ -58,6 +59,7 @@ import {
   planReplenish,
   generateFavourSpecs,
   normaliseDescription,
+  isNearDuplicate,
   runReplenish,
   replenishEnabled,
   isBoardBelowFloor,
@@ -80,7 +82,9 @@ function makeTask(overrides: Partial<Task>): Task {
     poster: "agent:dropscout",
     claimant: null,
     category: "photo",
-    description: `Photo something interesting number ${seq} and tell the story behind it.`,
+    // Distinct content words per fixture, so fixtures are not near-duplicates of
+    // each other under the 2026-09-21 no-repeat rule (isNearDuplicate).
+    description: `Tell us about the w${seq}ax w${seq}bx w${seq}cx near w${seq}dx today.`,
     location: "Anywhere",
     lat: null,
     lng: null,
@@ -123,7 +127,10 @@ async function persist(task: Task): Promise<void> {
 function expiredCandidate(overrides: Partial<Task> = {}): Task {
   return makeTask({
     status: "expired",
-    deadline: new Date(NOW - 2 * DAY).toISOString(),
+    // Off the board for longer than NO_REPEAT_DAYS (14), inside the 30-day recycle
+    // window: the only kind of expired favour that may come back (2026-09-21).
+    deadline: new Date(NOW - 16 * DAY).toISOString(),
+    createdAt: new Date(NOW - 23 * DAY).toISOString(),
     ...overrides,
   });
 }
@@ -240,8 +247,8 @@ describe("recycleCandidates — what earns a second run", () => {
 });
 
 describe("planReplenish — the decision", () => {
-  it("is a no-op at or above the floor", () => {
-    const tasks = Array.from({ length: BOARD_MIN_OPEN }, () => makeTask({}));
+  it("is a no-op at or above the target", () => {
+    const tasks = Array.from({ length: REPLENISH_TARGET_OPEN }, () => makeTask({}));
     const plan = planReplenish({ tasks, recycledRecently: new Set(), usedToday: 0, now: NOW });
     expect(plan.budget).toBe(0);
     expect(plan.recycle).toEqual([]);
@@ -255,7 +262,7 @@ describe("planReplenish — the decision", () => {
       ...Array.from({ length: 4 }, () => expiredCandidate()),
     ];
     const plan = planReplenish({ tasks, recycledRecently: new Set(), usedToday: 0, now: NOW });
-    expect(plan.deficit).toBe(BOARD_MIN_OPEN - 2);
+    expect(plan.deficit).toBe(REPLENISH_TARGET_OPEN - 2);
     expect(plan.budget).toBe(REPLENISH_MAX_PER_RUN);
     // R8: 4 candidates were available but recycle is capped at half the run, so
     // the other half is fresh supply. Before the cap this was 4 recycled / 2
@@ -278,7 +285,7 @@ describe("planReplenish — the decision", () => {
 
   it("R8: a one-slot run stays on recycle rather than forcing a model call", () => {
     const tasks = [
-      ...Array.from({ length: BOARD_MIN_OPEN - 1 }, () => makeTask({})),
+      ...Array.from({ length: REPLENISH_TARGET_OPEN - 1 }, () => makeTask({})),
       expiredCandidate(),
     ];
     const plan = planReplenish({ tasks, recycledRecently: new Set(), usedToday: 0, now: NOW });
@@ -308,10 +315,14 @@ describe("planReplenish — the decision", () => {
     const cooled = expiredCandidate();
     const dupOfOpen = expiredCandidate({ description: "Photo your street at golden hour and name the light." });
     const open = makeTask({ description: "Photo your street at golden hour and name the light." });
+    // A near-duplicate of the open one, reworded: also skipped (2026-09-21).
+    const nearDup = expiredCandidate({ description: "Photograph your street at golden hour, and name that light." });
+    // Expired only 3 days ago: still inside NO_REPEAT_DAYS, so it may not return yet.
+    const tooRecent = expiredCandidate({ deadline: new Date(NOW - 3 * DAY).toISOString() });
     const fresh = expiredCandidate();
 
     const plan = planReplenish({
-      tasks: [open, cooled, dupOfOpen, fresh],
+      tasks: [open, cooled, dupOfOpen, nearDup, tooRecent, fresh],
       recycledRecently: new Set([normaliseDescription(cooled.description)]),
       usedToday: 0,
       now: NOW,
@@ -333,7 +344,7 @@ describe("generateFavourSpecs — no key means the pool, deduped", () => {
 });
 
 describe("runReplenish — end to end against the mock store", () => {
-  it("refills a starved board with points-only tasks and stops at the floor", async () => {
+  it("refills a starved board with points-only tasks, one run at a time, up to the target", async () => {
     // The measured Jul-28 shape in miniature: 2 open, expired unfilled backlog.
     await persist(makeTask({}));
     await persist(makeTask({}));
@@ -342,7 +353,7 @@ describe("runReplenish — end to end against the mock store", () => {
 
     const receipt = await runReplenish(NOW);
     expect(receipt.openVisible).toBe(2);
-    expect(receipt.deficit).toBe(BOARD_MIN_OPEN - 2);
+    expect(receipt.deficit).toBe(REPLENISH_TARGET_OPEN - 2);
     expect(receipt.recycled).toHaveLength(3);
     expect(receipt.generated).toHaveLength(REPLENISH_MAX_PER_RUN - 3);
     expect(receipt.generatedByModel).toBe(0); // no key → pool
@@ -362,11 +373,16 @@ describe("runReplenish — end to end against the mock store", () => {
       expect(new Date(t.deadline).getTime()).toBeGreaterThan(NOW);
     }
 
-    // Board is now at the floor; a second tick must be a no-op.
+    // Below the target of 15, a second tick keeps topping up, and every new ask is
+    // still not a near-duplicate of anything already created.
     const second = await runReplenish(NOW);
-    expect(second.recycled).toEqual([]);
-    expect(second.generated).toEqual([]);
-    expect(second.reason).toBe("board at or above floor");
+    const made = [...second.recycled, ...second.generated];
+    expect(made.length).toBeGreaterThan(0);
+    const all = await listTasks();
+    const createdDescs = all.filter((t) => [...receipt.recycled, ...receipt.generated, ...made].includes(t.id)).map((t) => t.description);
+    for (let i = 0; i < createdDescs.length; i++) {
+      expect(isNearDuplicate(createdDescs[i], createdDescs.filter((_, j) => j !== i))).toBe(false);
+    }
   });
 
   it("a recycled favour goes on cooldown and is not recycled twice", async () => {
@@ -392,28 +408,26 @@ describe("runReplenish — end to end against the mock store", () => {
     }
   });
 
-  it("never exceeds the daily cap across runs", async () => {
-    const r1 = await runReplenish(NOW); // empty board → creates 6
-    expect(r1.recycled.length + r1.generated.length).toBe(REPLENISH_MAX_PER_RUN);
-
-    // Expire everything the first run created, so the board is starved again.
-    const all = await listTasks();
-    for (const t of all) {
-      await persist({ ...t, status: "expired", deadline: new Date(NOW - HOUR).toISOString(), poster: "0xuser" });
+  it("across repeated runs: never over the daily cap, never a repeat or near-repeat", async () => {
+    // Run until a run creates nothing. The pool is finite and the no-repeat memory
+    // is 14 days, so without a model key this stops when the distinct supply is
+    // spent; it must never reuse an ask to keep going.
+    let total = 0;
+    for (let i = 0; i < 10; i++) {
+      const r = await runReplenish(NOW);
+      const n = r.recycled.length + r.generated.length;
+      total += n;
+      if (n === 0) break;
+      const all = await listTasks();
+      for (const t of all.filter((x) => x.status === "open")) {
+        await persist({ ...t, status: "expired", deadline: new Date(NOW - HOUR).toISOString() });
+      }
     }
-
-    const r2 = await runReplenish(NOW); // creates 6 more → hits 12
-    expect(r2.recycled.length + r2.generated.length).toBe(REPLENISH_MAX_PER_DAY - REPLENISH_MAX_PER_RUN);
-
-    const all2 = await listTasks();
-    for (const t of all2.filter((x) => x.status === "open")) {
-      await persist({ ...t, status: "expired", deadline: new Date(NOW - HOUR).toISOString(), poster: "0xuser" });
+    expect(total).toBeLessThanOrEqual(REPLENISH_MAX_PER_DAY);
+    const descs = (await listTasks()).map((t) => t.description);
+    for (let i = 0; i < descs.length; i++) {
+      expect(isNearDuplicate(descs[i], descs.filter((_, j) => j !== i)), descs[i]).toBe(false);
     }
-
-    const r3 = await runReplenish(NOW);
-    expect(r3.recycled).toEqual([]);
-    expect(r3.generated).toEqual([]);
-    expect(r3.reason).toBe("daily replenish cap reached");
   });
 });
 
@@ -488,15 +502,13 @@ describe("R6 amended: the replenish engine is off, and off is explicit", () => {
     expect(replenishEnabled()).toBe(true);
   });
 
-  it("no longer runs on a schedule: vercel.json has no replenish-board cron", () => {
-    // Off means both halves. Removing the gate without removing the schedule
-    // leaves a job that wakes twice a day to do nothing, which reads as broken.
+  it("runs hourly again (2026-09-21, Oscar: 'we need to have infinite ones'), and only ONE schedule", () => {
+    // Re-enabled with the quality gate. One hourly entry: a second entry would
+    // double the runs, and the per-run and per-day caps are sized for one.
     const vercel = JSON.parse(readFileSyncForCrons(joinForCrons(process.cwd(), "vercel.json"), "utf8"));
-    const paths = (vercel.crons ?? []).map((c: { path: string }) => c.path);
-    expect(paths).not.toContain("/api/cron/replenish-board");
-    // The counterpart that REMOVES supply is untouched, so the board can still
-    // expire items even though nothing refills them automatically.
-    expect(paths).toContain("/api/cron/expire-tasks");
+    const entries = (vercel.crons as Array<{ path: string; schedule: string }>).filter((c) => c.path === "/api/cron/replenish-board");
+    expect(entries).toHaveLength(1);
+    expect(entries[0].schedule).toMatch(/^\d+ \* \* \* \*$/);
   });
 });
 
