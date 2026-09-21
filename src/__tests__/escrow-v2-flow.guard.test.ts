@@ -117,7 +117,9 @@ vi.mock("@/lib/rate-limit", () => ({
   rateLimit: async () => ({ ok: true }),
   getClientIp: () => "127.0.0.1",
 }));
-vi.mock("@/lib/session", () => ({ ownershipError: () => null }));
+// Identity at POST /api/tasks is pinned by tasks-route-poster-auth.test.ts,
+// including the usdc-v2 cases. Here it passes so these cases reach the v2 branch.
+vi.mock("@/lib/session", () => ({ ownershipError: () => null, ownerRefusal: () => null }));
 const recordCompletion = vi.fn(async () => ({}));
 vi.mock("@/lib/reputation", () => ({
   recordCompletion: (...a: unknown[]) => (recordCompletion as (...x: unknown[]) => unknown)(...a),

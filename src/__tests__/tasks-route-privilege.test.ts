@@ -37,6 +37,7 @@ vi.mock("@/lib/proof-of-favour", () => ({ recordFavourPosted: async () => {} }))
 vi.mock("@/lib/track", () => ({ trackEvent: async () => {} }));
 
 import { POST } from "@/app/api/tasks/route";
+import { issueSessionToken, SESSION_COOKIE } from "@/lib/session";
 
 const OWNER = "0x1101158041fd96f21cbcbb0e752a9a2303e6d70e";
 const SECRET = "test-seed-secret";
@@ -115,9 +116,13 @@ describe("Claim 1: the exemption requires auth once enforced", () => {
     expect(res.status).toBe(400);
   });
 
-  it("ENFORCED: the owner address still posts freely", async () => {
+  // Since 2026-09-21 the owner exemption needs the owner's own session: the
+  // address is a body string, and POST /api/tasks now binds it to the cookie
+  // (tasks-route-poster-auth.test.ts). The exemption itself is unchanged.
+  it("ENFORCED: the owner address, signed in, still posts freely", async () => {
+    process.env.SESSION_SECRET = "test-session-secret";
     existing = [{ poster: OWNER, rewardType: "points", createdAt: new Date().toISOString() }];
-    const res = await POST(req(points(OWNER)));
+    const res = await POST(req(points(OWNER), { cookie: `${SESSION_COOKIE}=${issueSessionToken(OWNER, Date.now())}` }));
     expect(res.status).toBe(201);
   });
 });
