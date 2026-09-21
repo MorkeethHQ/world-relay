@@ -16,8 +16,9 @@ export async function GET(req: NextRequest) {
   const tasks = await listTasks();
   // `practice: true` when this judge has ruled on every live proof: the deck is a
   // replay of real, verified proofs that earns no points (lib/jury.ts).
-  const { cards, practice } = await issueJuryDeckWithMode(tasks, judge, () => crypto.randomUUID());
-  return NextResponse.json({ cards, practice });
+  // `waiting` counts REAL proofs waiting for this judge; decoys never count.
+  const { cards, practice, waiting } = await issueJuryDeckWithMode(tasks, judge, () => crypto.randomUUID());
+  return NextResponse.json({ cards, practice, waiting });
 }
 
 // POST /api/jury { address, cardId, verdict: "match" | "not" }

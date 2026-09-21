@@ -1,6 +1,8 @@
 import type { Task } from "./types";
 import { getRedis } from "./redis";
 import { awardPoints } from "./proof-of-favour";
+import { DECOYS } from "./decoys";
+import { gibberishReason } from "./post-quality";
 
 // REAL OR NOT — the peer jury game (decision-log 2026-07-05 night).
 // One-tap/swipe verdicts on proofs: "does this photo actually match this
@@ -22,7 +24,9 @@ export const CARD_TTL_SECONDS = 2 * 3600;
 
 export type JuryCard = {
   cardId: string;
-  proofImageUrl: string; // opaque: /api/jury/card/{cardId}/image
+  // opaque: /api/jury/card/{cardId}/image. null for a TEXT card: a real text proof,
+  // or an AI-made decoy. Both kinds exist so a missing photo gives nothing away.
+  proofImageUrl: string | null;
   proofNote: string | null;
   description: string;
   category: string;
@@ -45,6 +49,9 @@ export type CardAnswer = {
   // same known answer by construction, but they pay NO points and do not count
   // toward the judge's stats, so an endless game cannot be farmed.
   practice?: boolean;
+  // An AI-made DECOY (lib/decoys.ts): not a task, correct call always "Not".
+  // Never sent to the client before the call; revealed in the verdict.
+  decoy?: boolean;
 };
 
 function hash(s: string): number {
@@ -55,11 +62,25 @@ function hash(s: string): number {
 
 // Judgeable pool: completed, AI-passed, has a proof image, and the judge was
 // neither side of it (you don't grade your own homework).
+// Text proofs join the pool (2026-09-21) so that a text card is not a tell: once
+// AI-made decoys exist, and decoys are text, a deck of only photos would make "no
+// photo" mean "fake". A real text proof must be readable to be a fair card: 20 to 400
+// characters, and neither the favour nor the note failing the same gibberish check
+// POST /api/tasks applies. Photo proofs are unchanged.
+export const TEXT_PROOF_MIN = 20;
+export const TEXT_PROOF_MAX = 400;
+
+function readableTextProof(t: Task): boolean {
+  const note = (t.proofNote || "").trim();
+  if (note.length < TEXT_PROOF_MIN || note.length > TEXT_PROOF_MAX) return false;
+  return !gibberishReason(t.description) && !gibberishReason(note);
+}
+
 export function juryPool(tasks: Task[], judge: string | null): Task[] {
   return tasks.filter(
     (t) =>
       t.status === "completed" &&
-      !!t.proofImageUrl &&
+      (!!t.proofImageUrl || readableTextProof(t)) &&
       t.verificationResult?.verdict === "pass" &&
       (!judge || (t.claimant !== judge && t.poster !== judge))
   );
@@ -71,10 +92,10 @@ export function composeDeck(
   tasks: Task[],
   judge: string | null,
   count = JURY_DECK_SIZE
-): Array<{ answer: CardAnswer; content: Omit<JuryCard, "cardId" | "proofImageUrl"> }> {
+): Array<{ answer: CardAnswer; content: Omit<JuryCard, "cardId" | "proofImageUrl">; hasImage: boolean }> {
   const pool = juryPool(tasks, judge);
   if (pool.length < 2) return [];
-  const out: Array<{ answer: CardAnswer; content: Omit<JuryCard, "cardId" | "proofImageUrl"> }> = [];
+  const out: Array<{ answer: CardAnswer; content: Omit<JuryCard, "cardId" | "proofImageUrl">; hasImage: boolean }> = [];
   for (let i = 0; i < pool.length; i++) {
     const t = pool[i];
     const mismatch = hash(t.id) % 2 === 1;
@@ -83,6 +104,7 @@ export function composeDeck(
     out.push({
       answer: { judge, proofTaskId: t.id, descTaskId: descTask.id, isMatch: t.id === descTask.id },
       content: { proofNote: t.proofNote, description: descTask.description, category: descTask.category, location: descTask.location },
+      hasImage: !!t.proofImageUrl,
     });
   }
   out.sort((a, b) => hash(a.answer.proofTaskId) - hash(b.answer.proofTaskId));
@@ -104,41 +126,69 @@ export async function issueJuryDeck(
 // already-verified proofs is dealt again as practice: nothing is generated or
 // invented, the pairing and the hidden answer are built exactly as for a live card,
 // and the answer is marked practice so recordJuryVerdict pays nothing for it.
+// AT MOST this many AI-made decoys in one deck. Each decoy's right answer is "Not",
+// so each one skews the deck's base rate; at 2 in 12, "Not" is right about 7 in 12.
+export const DECOYS_PER_DECK = 2;
+
 export async function issueJuryDeckWithMode(
   tasks: Task[],
   judge: string | null,
   randomId: () => string
-): Promise<{ cards: JuryCard[]; practice: boolean }> {
+): Promise<{ cards: JuryCard[]; practice: boolean; waiting: number }> {
   const redis = getRedis();
   // Exclude proofs this judge has already ruled on. Dedup is by TASK, not by
   // cardId: every deck mints fresh cardIds for the same proofs, so a per-cardId
   // guard alone let the same favour come back forever. jury:judged:{judge} is
-  // the set of proofTaskIds already judged (written in recordJuryVerdict).
+  // the set of proofTaskIds already judged (written in recordJuryVerdict). Decoys
+  // use their own `decoy:` id here, so a judged decoy is not dealt live again.
   let pool = tasks;
+  let seen = new Set<string>();
   if (redis && judge) {
     const judged = await redis.smembers(`jury:judged:${judge.toLowerCase()}`).catch(() => [] as string[]);
     if (judged && judged.length) {
-      const seen = new Set(judged.map(String));
+      seen = new Set(judged.map(String));
       pool = tasks.filter((t) => !seen.has(t.id));
     }
   }
   let composed = composeDeck(pool, judge);
   let practice = false;
+  // How many REAL proofs are waiting for this judge. Decoys never count, so no
+  // public number (the feed's "N waiting") can include one.
+  const waiting = composed.length > 0 ? juryPool(pool, judge).length : 0;
   if (composed.length === 0 && judge) {
     // Live deck used up: deal a practice round from the full real pool.
     composed = composeDeck(tasks, judge);
     practice = composed.length > 0;
   }
-  const cards: JuryCard[] = [];
-  for (const { answer, content } of composed) {
-    const cardId = randomId();
-    const stored: CardAnswer = practice ? { ...answer, practice: true } : answer;
-    if (redis) {
-      await redis.set(`jury:card:${cardId}`, JSON.stringify(stored), { ex: CARD_TTL_SECONDS }).catch(() => {});
-    }
-    cards.push({ cardId, proofImageUrl: `/api/jury/card/${cardId}/image`, ...content });
+  // A deck is never decoys alone: with no real card to deal, nothing is dealt.
+  if (composed.length === 0) return { cards: [], practice: false, waiting: 0 };
+
+  type Slot = { answer: CardAnswer; content: Omit<JuryCard, "cardId" | "proofImageUrl">; hasImage: boolean };
+  const slots: Slot[] = composed.map((c) => ({ ...c, answer: practice ? { ...c.answer, practice: true } : c.answer }));
+
+  // Splice in up to DECOYS_PER_DECK decoys: unjudged ones in a live round; any in
+  // practice, where they pay nothing anyway. Positions are hashed so they are not
+  // always in the same place.
+  const decoyPool = practice ? DECOYS : DECOYS.filter((d) => !seen.has(d.id));
+  const picks = [...decoyPool].sort((a, b) => hash(a.id + (judge ?? "")) - hash(b.id + (judge ?? ""))).slice(0, DECOYS_PER_DECK);
+  for (const d of picks) {
+    const at = hash(d.id + String(slots.length)) % (slots.length + 1);
+    slots.splice(at, 0, {
+      answer: { judge, proofTaskId: d.id, descTaskId: d.id, isMatch: false, decoy: true, ...(practice ? { practice: true } : {}) },
+      content: { proofNote: d.proofNote, description: d.description, category: d.category, location: "Anywhere" },
+      hasImage: false,
+    });
   }
-  return { cards, practice };
+
+  const cards: JuryCard[] = [];
+  for (const { answer, content, hasImage } of slots) {
+    const cardId = randomId();
+    if (redis) {
+      await redis.set(`jury:card:${cardId}`, JSON.stringify(answer), { ex: CARD_TTL_SECONDS }).catch(() => {});
+    }
+    cards.push({ cardId, proofImageUrl: hasImage ? `/api/jury/card/${cardId}/image` : null, ...content });
+  }
+  return { cards, practice, waiting };
 }
 
 // Shared with lib/jury-appeal.ts so appeal cards live in the same opaque
@@ -164,6 +214,8 @@ export type JuryVerdictResult = {
   judged: number;
   correctTotal: number;
   practice?: boolean;
+  // Revealed only AFTER the call: this card was an AI-made decoy.
+  decoy?: boolean;
 };
 
 // Resolves the answer SERVER-SIDE from the stored card. Rejects unknown cards
@@ -192,7 +244,7 @@ export async function recordJuryVerdict(
     const statsKey = `jury:stats:${judge.toLowerCase()}`;
     const judged = Number((await redis.hget(statsKey, "judged")) || 0);
     const correctTotal = Number((await redis.hget(statsKey, "correct")) || 0);
-    return { correct: saidMatch === answer.isMatch, isMatch: answer.isMatch, pointsAwarded: 0, judged, correctTotal, practice: true };
+    return { correct: saidMatch === answer.isMatch, isMatch: answer.isMatch, pointsAwarded: 0, judged, correctTotal, practice: true, ...(answer.decoy ? { decoy: true } : {}) };
   }
   // Record the underlying proof as judged so future decks never resurface it
   // (a proof is judged once per human, regardless of how many cards wrap it).
@@ -216,5 +268,5 @@ export async function recordJuryVerdict(
     }
   }
 
-  return { correct, isMatch: answer.isMatch, pointsAwarded, judged, correctTotal };
+  return { correct, isMatch: answer.isMatch, pointsAwarded, judged, correctTotal, ...(answer.decoy ? { decoy: true } : {}) };
 }

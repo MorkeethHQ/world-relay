@@ -45,8 +45,10 @@ describe("the feed composer posts through the existing rules, not around them", 
 });
 
 describe("review supply is real proofs only", () => {
-  it("the review card renders only when the real deck has cards", () => {
-    expect(feed).toMatch(/reviewDeck\.length > 0 && \(\s*<ReviewProofCard/);
+  it("the review card renders only when real proofs are waiting, counted by the server", () => {
+    expect(feed).toMatch(/reviewDeck\.length > 0 && reviewWaiting > 0 && pickProofStrip\(tasks\)\[0\] && \(\s*<ReviewProofCard/);
+    expect(feed).toMatch(/waiting=\{reviewWaiting\}/);
+    expect(feed).not.toMatch(/waiting=\{reviewDeck\.length\}/);
   });
 
   it("the deck comes from the jury route, the same source REAL OR NOT judges", () => {
@@ -58,8 +60,9 @@ describe("review supply is real proofs only", () => {
     expect(jury).toMatch(/if \(initialCards && initialCards\.length > 0\) return;/);
   });
 
-  it("the preview image is the opaque card image, which reveals nothing the game would not", () => {
-    expect(body(feed, "ReviewProofCard")).toMatch(/src=\{card\.proofImageUrl\}/);
+  it("the preview is a REAL finished proof from the strip, never a card from the deck (which may be a decoy)", () => {
+    expect(feed).toMatch(/proof=\{pickProofStrip\(tasks\)\[0\]\}/);
+    expect(body(feed, "ReviewProofCard")).not.toMatch(/card\./);
   });
 });
 

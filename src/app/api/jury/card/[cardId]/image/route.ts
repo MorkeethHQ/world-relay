@@ -10,6 +10,9 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ car
   const { cardId } = await params;
   const answer = await getCardAnswer(cardId);
   if (!answer) return new NextResponse("Not found", { status: 404 });
+  // A decoy is text only and is not a task: there is no image, and there is no
+  // task to look up. Answered like any card with no photo.
+  if (answer.decoy || answer.proofTaskId.startsWith("decoy:")) return new NextResponse("No proof image", { status: 404 });
   const task = await getTask(answer.proofTaskId);
   const src = task?.proofImages?.[0] ?? task?.proofImageUrl ?? null;
   if (!src) return new NextResponse("No proof image", { status: 404 });

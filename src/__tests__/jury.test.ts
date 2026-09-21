@@ -106,8 +106,9 @@ describe("deck building", () => {
       const s = JSON.stringify(card);
       expect(s).not.toMatch(/isMatch/);
       expect(s).not.toMatch(/proofTaskId|descTaskId/);
-      // image url references the opaque cardId, never a task id
-      expect(card.proofImageUrl).toBe(`/api/jury/card/${card.cardId}/image`);
+      // image url references the opaque cardId, never a task id. A TEXT card
+      // (a real text proof, or an AI-made decoy since 2026-09-21) has no image.
+      if (card.proofImageUrl !== null) expect(card.proofImageUrl).toBe(`/api/jury/card/${card.cardId}/image`);
     }
   });
 });

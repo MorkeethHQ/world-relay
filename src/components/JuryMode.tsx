@@ -6,14 +6,15 @@ import { CategoryIcon } from "@/components/CategoryIcon";
 
 export type JuryCard = {
   cardId: string;
-  proofImageUrl: string;
+  // null for a TEXT card: a real text proof, or an AI-made decoy.
+  proofImageUrl: string | null;
   proofNote: string | null;
   description: string;
   category: string;
   location: string;
 };
 
-type Flash = { correct: boolean; isMatch: boolean; points: number } | null;
+type Flash = { correct: boolean; isMatch: boolean; points: number; decoy?: boolean } | null;
 
 // REAL OR NOT — swipe right if the photo proves THIS favour, left if it
 // doesn't. Full-screen immersive deck; verdicts are final; correct calls pay
@@ -89,7 +90,7 @@ export function JuryMode({
   // Warm the NEXT proof image while the current card is on top, so advancing
   // never waits on a network fetch (the main source of the swipe lag).
   useEffect(() => {
-    const next = cards[1]?.proofImageUrl;
+    const next = cards[1]?.proofImageUrl ?? null;
     if (next && typeof window !== "undefined") {
       const img = new window.Image();
       img.src = next;
@@ -139,17 +140,18 @@ export function JuryMode({
         }
         return res.ok ? res.json() : null;
       })()
-        .then((result: { correct: boolean; isMatch: boolean; pointsAwarded: number; practice?: boolean } | null) => {
+        .then((result: { correct: boolean; isMatch: boolean; pointsAwarded: number; practice?: boolean; decoy?: boolean } | null) => {
           if (!result) return;
           setNeedsAuth(false);
           if (result.correct) hapticSuccess(); else hapticError();
-          setFlash({ correct: result.correct, isMatch: result.isMatch, points: result.pointsAwarded });
+          setFlash({ correct: result.correct, isMatch: result.isMatch, points: result.pointsAwarded, decoy: !!result.decoy });
           setSession((s) => ({
             judged: s.judged + 1,
             correct: s.correct + (result.correct ? 1 : 0),
             points: s.points + result.pointsAwarded,
           }));
-          setTimeout(() => setFlash(null), 800);
+          // A decoy reveal stays up longer: it is the moment the game is for.
+          setTimeout(() => setFlash(null), result.decoy ? 1600 : 800);
         })
         .catch(() => {});
     }
@@ -209,6 +211,9 @@ export function JuryMode({
           )}
         </div>
       )}
+
+      {/* Said up front, not only at the reveal: some cards are fakes on purpose. */}
+      <p className="px-5 pb-2 text-[12px] text-gray-500">Some cards are AI-made decoys. Call them Not.</p>
 
       {practice && (
         <div className="mx-5 mb-2 rounded-2xl bg-gray-100 px-4 py-2.5" role="status">
@@ -333,8 +338,17 @@ export function JuryMode({
               </div>
               {/* The proof */}
               <div className="flex-1 relative bg-gray-100 min-h-0">
-                <img src={card.proofImageUrl} alt="Proof" className="absolute inset-0 w-full h-full object-cover" draggable={false} />
-                {card.proofNote && (
+                {card.proofImageUrl ? (
+                  <img src={card.proofImageUrl} alt="Proof" className="absolute inset-0 w-full h-full object-cover" draggable={false} />
+                ) : (
+                  // A TEXT card: the answer IS the proof, so it is the card's body,
+                  // not a caption over a photo. Real text proofs and AI-made decoys
+                  // share this layout, so the format gives nothing away.
+                  <div className="absolute inset-0 flex items-center px-6">
+                    <p className="text-[19px] leading-snug font-medium text-gray-900 break-words">&ldquo;{card.proofNote}&rdquo;</p>
+                  </div>
+                )}
+                {card.proofImageUrl && card.proofNote && (
                   <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-black/80 to-transparent px-4 pt-8 pb-3">
                     <p className="text-[12px] text-white/90 line-clamp-2">&ldquo;{card.proofNote}&rdquo;</p>
                   </div>
@@ -354,6 +368,7 @@ export function JuryMode({
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                 <div className={`px-6 py-4 rounded-2xl text-center ${flash.correct ? "bg-green-500" : "bg-red-500"}`}>
                   <p className="text-white font-black text-xl">{flash.correct ? "Called it" : flash.isMatch ? "It matched" : "Wrong favour"}</p>
+                  {flash.decoy && <p className="text-white text-[13px] font-semibold mt-1">AI-made decoy</p>}
                   {flash.points > 0 && <p className="text-white/90 text-sm font-semibold">+{flash.points} pt</p>}
                 </div>
               </div>
@@ -368,7 +383,7 @@ export function JuryMode({
           <button onClick={() => vote(false)} aria-label="Doesn't match" className="w-16 h-16 rounded-full bg-white border-2 border-red-200 shadow-sm flex items-center justify-center active:scale-90 transition-transform">
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="3" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
           </button>
-          <p className="text-[11px] text-gray-400 max-w-[90px] text-center leading-tight">Does the photo prove this favour?</p>
+          <p className="text-[11px] text-gray-400 max-w-[90px] text-center leading-tight">{card?.proofImageUrl === null ? "Does this answer prove this favour?" : "Does the photo prove this favour?"}</p>
           <button onClick={() => vote(true)} aria-label="Matches" className="w-16 h-16 rounded-full bg-white border-2 border-green-200 shadow-sm flex items-center justify-center active:scale-90 transition-transform">
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
           </button>

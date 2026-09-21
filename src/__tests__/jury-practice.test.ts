@@ -23,7 +23,7 @@ vi.mock("@/lib/redis", () => ({ getRedis: () => fakeRedis }));
 const awarded: any[] = [];
 vi.mock("@/lib/proof-of-favour", () => ({ awardPoints: async (...a: any[]) => { awarded.push(a); } }));
 
-import { issueJuryDeckWithMode, recordJuryVerdict } from "@/lib/jury";
+import { issueJuryDeckWithMode, recordJuryVerdict, getCardAnswer } from "@/lib/jury";
 
 const JUDGE = "0xcccccccccccccccccccccccccccccccccccccccc";
 function proof(id: string, desc: string) {
@@ -60,9 +60,14 @@ describe("after every live proof is judged, the game keeps going on real proofs"
     const next = await issueJuryDeckWithMode(TASKS, JUDGE, rid);
     expect(next.practice).toBe(true);
     expect(next.cards.length).toBeGreaterThan(0);
-    // Every practice card shows a real proof from the pool: nothing invented.
+    // Every practice card that is not a labelled AI-made decoy shows a real proof
+    // from the pool. Decoys (lib/decoys.ts, 2026-09-21) are the only invented cards,
+    // and they are marked server-side and revealed after the call.
     const realDescs = new Set(TASKS.map((t) => t.description));
-    for (const c of next.cards) expect(realDescs.has(c.description)).toBe(true);
+    for (const c of next.cards) {
+      const a = await getCardAnswer(c.cardId);
+      if (!a?.decoy) expect(realDescs.has(c.description)).toBe(true);
+    }
     // And a third deck still deals: playable for ever.
     const third = await issueJuryDeckWithMode(TASKS, JUDGE, rid);
     expect(third.practice).toBe(true);
