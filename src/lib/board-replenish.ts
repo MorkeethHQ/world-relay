@@ -3,6 +3,7 @@ import type { Task, TaskCategory } from "./types";
 import { getRedis } from "./redis";
 import { createTask, listTasks } from "./store";
 import { isFunded } from "./reward";
+import { isCompanyPiece } from "./board-rank";
 import { MAX_TASK_POINTS } from "./proof-of-favour";
 import { getAgent } from "./agents";
 import { trackEvent } from "./track";
@@ -273,6 +274,8 @@ export function countOpenVisible(tasks: Task[], now: number = Date.now()): numbe
     (t) =>
       t.status === "open" &&
       new Date(t.deadline).getTime() > now &&
+      // R15: company pieces are not favours, so they never fill the favour target.
+      !isCompanyPiece(t) &&
       (t.rewardType === "points" || isFunded(t)),
   ).length;
 }
