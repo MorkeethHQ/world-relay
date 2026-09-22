@@ -45,7 +45,12 @@ export async function POST(req: NextRequest) {
     const balance = safeNumber(body?.data?.balance);
     if (needed !== undefined) data.needed = needed;
     if (balance !== undefined) data.balance = balance;
-    trackEvent(event, data).catch(() => {});
+    // AWAITED (2026-09-22). This used to fire and forget, then answer. On Vercel a
+    // function can be frozen as soon as it has answered, so the write was lost: two
+    // production walks at 07:18Z and 07:23Z sent 13 funnel events, every POST got
+    // 200 in the function log, and not one reached events:daily. A beacon that
+    // answers before it records is a counter that says yes and counts nothing.
+    await trackEvent(event, data).catch(() => {});
     return NextResponse.json({ ok: true });
   }
 
@@ -58,8 +63,8 @@ export async function POST(req: NextRequest) {
   }
 
   // Reach: count this open (deduped per device) even for anonymous visitors.
-  if (typeof cid === "string" && cid) trackReach(cid).catch(() => {});
+  if (typeof cid === "string" && cid) await trackReach(cid).catch(() => {});
   if (!page) return NextResponse.json({ ok: true });
-  trackEvent("page_view", { page }).catch(() => {});
+  await trackEvent("page_view", { page }).catch(() => {});
   return NextResponse.json({ ok: true });
 }
