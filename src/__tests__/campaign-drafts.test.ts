@@ -30,9 +30,10 @@ vi.mock("@/lib/rate-limit", () => ({ rateLimit: async () => ({ ok: true }), getC
 
 import { getCampaign, getCampaigns } from "@/lib/campaigns";
 import { recordCampaignCompletion, tryUnlockPayout } from "@/lib/campaign-unlock";
-import { validateDraftInput, saveDraft, draftCanPayUsdc, DRAFT_PREFIX, publishDraft, getPublishedCampaign, listPublishedCampaigns, briefWords, MIN_BRIEF_WORDS } from "@/lib/campaign-drafts";
+import { validateDraftInput, saveDraft, draftCanPayUsdc, DRAFT_PREFIX, publishDraft, getPublishedCampaign, listPublishedCampaigns, briefWords, MIN_BRIEF_WORDS, setCampaignProduct, pieceDescription } from "@/lib/campaign-drafts";
 import { GET as COMPANY_GET } from "@/app/api/campaigns/company/[id]/route";
 import { POST as DRAFT_POST, GET as DRAFT_GET } from "@/app/api/campaigns/drafts/route";
+import { POST as PRODUCT_POST } from "@/app/api/campaigns/drafts/[id]/product/route";
 import { issueSessionToken, SESSION_COOKIE } from "@/lib/session";
 
 const COMPANY = "0xcccccccccccccccccccccccccccccccccccccccc";
@@ -43,6 +44,7 @@ const EXAMPLE = {
   company: "Example company",
   brief: "Short honest pieces about our new oat latte, made by real customers who tried it this week and can say what they actually thought of it.",
   productUrl: "https://example.com/oat-latte",
+  productName: "Oat latte",
   pieces: [{ kind: "ugc", count: 5 }, { kind: "article", count: 2 }, { kind: "review", count: 10 }],
   rewardPerPiecePoints: 10,
   proposedPoolUsdc: 200,
@@ -440,5 +442,66 @@ describe("the company door: a real brief, a product link, unverified until check
     const { execSync } = await import("node:child_process");
     const hits = execSync("grep -rl companyCheckedAt src/app || true", { encoding: "utf8" }).trim();
     expect(hits).toBe("");
+  });
+});
+
+
+// THE PRODUCT (2026-09-22, from Grok's walk). A participant on "An honest review"
+// could not tell WHAT to review. A campaign names its product and links it; one
+// that does not is shown as such and its pieces are not offered.
+describe("a campaign names its product", () => {
+  const created: any[] = [];
+  const createTask = async (input: any) => { created.push(input); return { id: `task-${created.length}` }; };
+  beforeEach(() => { created.length = 0; });
+  const legacy = (id: string, status = "published") => store.set(`${DRAFT_PREFIX}${id}`, JSON.stringify({ id, status, company: "Filipino Lokal", brief: "Honest content about Filipino local products and small businesses.", pieces: [{ kind: "review", count: 10 }], rewardPerPiecePoints: 10, proposedPoolUsdc: 200, reviewRule: "ai", owner: COMPANY, createdAt: new Date().toISOString(), publishedAt: new Date().toISOString(), pieceTaskIds: { review: "t-r" } }));
+
+  it("a new plan without a product name is refused", () => {
+    const r = validateDraftInput({ ...EXAMPLE, productName: "" });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.error).toMatch(/Name the product/);
+    expect(validateDraftInput({ ...EXAMPLE, productName: "!!" }).ok).toBe(false);
+  });
+  it("the product name reaches the public campaign and every new piece", async () => {
+    const draft = await aSavedDraft();
+    await publishDraft(COMPANY, draft.id, Date.now(), createTask);
+    const pub = await getPublishedCampaign(draft.id);
+    expect(pub?.productName).toBe("Oat latte");
+    expect(pub?.productUrl).toBe("https://example.com/oat-latte");
+    for (const t of created) expect(t.description).toMatch(/ about Oat latte\. /);
+  });
+  it("a live campaign from before the rule has no product, and nothing is invented for it", async () => {
+    legacy("draft_fl");
+    const pub = await getPublishedCampaign("draft_fl");
+    expect(pub?.productName).toBeUndefined();
+    expect(pub?.productUrl).toBeUndefined();
+  });
+  it("its owner can name the product once; no one else can", async () => {
+    legacy("draft_fl2");
+    expect(await setCampaignProduct(OTHER, "draft_fl2", { productName: "Ube jam", productUrl: "https://example.com/ube" })).toMatchObject({ ok: false, status: 404 });
+    expect(await setCampaignProduct(COMPANY, "draft_fl2", { productName: "", productUrl: "https://example.com/ube" })).toMatchObject({ ok: false, status: 400 });
+    expect(await setCampaignProduct(COMPANY, "draft_fl2", { productName: "Ube jam", productUrl: "not a link" })).toMatchObject({ ok: false, status: 400 });
+    const ok = await setCampaignProduct(COMPANY, "draft_fl2", { productName: "Ube jam", productUrl: "example.com/ube" });
+    expect(ok.ok).toBe(true);
+    expect((await getPublishedCampaign("draft_fl2"))?.productName).toBe("Ube jam");
+    expect(await setCampaignProduct(COMPANY, "draft_fl2", { productName: "Something else", productUrl: "https://example.com/x" })).toMatchObject({ ok: false, status: 409 });
+  });
+  it("the product route is session only: no cookie is refused, another wallet gets 404", async () => {
+    legacy("draft_fl3");
+    const call = (cookieFor?: string) => PRODUCT_POST(new Request("http://localhost/api/campaigns/drafts/draft_fl3/product", {
+      method: "POST",
+      headers: { "content-type": "application/json", ...(cookieFor ? { cookie: `${SESSION_COOKIE}=${issueSessionToken(cookieFor, Date.now())}` } : {}) },
+      body: JSON.stringify({ productName: "Ube jam", productUrl: "https://example.com/ube" }),
+    }) as any, { params: Promise.resolve({ id: "draft_fl3" }) });
+    expect((await call()).status).toBe(403);
+    expect((await call(OTHER)).status).toBe(404);
+    expect((await call(COMPANY)).status).toBe(200);
+    expect((await getPublishedCampaign("draft_fl3"))?.productName).toBe("Ube jam");
+  });
+  it("a private draft gets its product in the form, not here", async () => {
+    legacy("draft_private", "draft");
+    expect(await setCampaignProduct(COMPANY, "draft_private", { productName: "Ube jam", productUrl: "https://example.com/ube" })).toMatchObject({ ok: false, status: 409 });
+  });
+  it("an older piece description is unchanged when there is no product", () => {
+    expect(pieceDescription("Acme", "brief", "review")).toBe("Acme campaign · An honest review. brief Try it and write an honest review, the real verdict. Send the link or the text.");
   });
 });

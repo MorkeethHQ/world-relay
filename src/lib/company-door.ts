@@ -3,7 +3,7 @@
 // signed-out first screen and the board, so both pick the same campaign.
 import type { Task } from "./types";
 import type { PublicCompanyCampaign } from "./campaign-draft-shape";
-import { PIECE_KINDS } from "./campaign-draft-shape";
+import { PIECE_KINDS, hasProduct } from "./campaign-draft-shape";
 
 // Pieces of this campaign a person can still do: the task exists, is open, has
 // room, and this person has not delivered it.
@@ -21,13 +21,17 @@ export function openPiecesOf(c: PublicCompanyCampaign, tasks: Task[], completedI
 }
 
 // The campaign "Do a piece and earn" opens: a checked company first, then the
-// longest-running campaign, among those with a piece open. Null when none is open.
+// longest-running campaign, among those that name their product and have a piece
+// open. Null when none is open.
 export function pickCampaignToDo(
   campaigns: PublicCompanyCampaign[],
   tasks: Task[],
   completedIds: Set<string> = new Set(),
 ): { campaign: PublicCompanyCampaign; openPieces: number; totalOpen: number } | null {
+  // A campaign that has not named its product is not offered: a participant
+  // cannot tell what to make a piece about (Grok's walk, 22 Sep).
   const open = campaigns
+    .filter((c) => hasProduct(c))
     .map((c) => ({ c, n: openPiecesOf(c, tasks, completedIds) }))
     .filter((x) => x.n > 0)
     .sort((a, b) =>

@@ -55,11 +55,28 @@ export function productUrlOrNull(v: unknown): string | null {
   if (!/^[a-z0-9-]+(\.[a-z0-9-]+)+$/i.test(u.hostname)) return null;
   return u.toString();
 }
+// THE PRODUCT (2026-09-22, from Grok's walk): a participant on "An honest review"
+// could not tell WHAT to review. The kind of work was clear; the object was not.
+// A campaign now names its product and links it, and a campaign without both is
+// shown as such and not offered as a piece to do. Never filled in for a company.
+export function productNameOrNull(v: unknown): string | null {
+  if (typeof v !== "string") return null;
+  const t = v.replace(/\s+/g, " ").trim();
+  if (t.length < 2 || t.length > 80) return null;
+  if (!/\p{L}/u.test(t)) return null;
+  return t;
+}
+export function hasProduct(c: { productName?: string | null; productUrl?: string | null }): boolean {
+  return !!productNameOrNull(c.productName) && !!productUrlOrNull(c.productUrl);
+}
+export const NO_PRODUCT_YET = "This company hasn't named a product yet";
+
 // Why a draft may not be published yet, or null. One rule for the form, the
 // server's save and the server's publish.
-export function publishGateReason(d: { brief: string; productUrl?: string | null }): string | null {
+export function publishGateReason(d: { brief: string; productUrl?: string | null; productName?: string | null }): string | null {
   const n = briefWords(d.brief);
   if (n < MIN_BRIEF_WORDS) return `Describe what you want made in at least ${MIN_BRIEF_WORDS} words. This brief has ${n}.`;
+  if (!productNameOrNull(d.productName)) return "Name the product people will make a piece about.";
   if (!productUrlOrNull(d.productUrl)) return "Add a link to your product, so people know what they are making a piece about.";
   return null;
 }
@@ -86,6 +103,8 @@ export type CampaignDraft = {
   // A link to the product. Required to publish since 2026-09-22 (T3). The three
   // campaigns published before that have none and stay live, unverified.
   productUrl?: string;
+  // The product's name, shown on every piece (2026-09-22). Required to publish.
+  productName?: string;
   // Set ONLY by Oscar, by hand, through scripts/mark-company-checked.mjs. No API
   // route writes it and validateDraftInput never copies it from a body.
   companyCheckedAt?: string;
@@ -100,7 +119,7 @@ export type CampaignDraft = {
 // the company is named by the name it chose.
 export type PublicCompanyCampaign = Pick<
   CampaignDraft,
-  "id" | "company" | "brief" | "pieces" | "rewardPerPiecePoints" | "proposedPoolUsdc" | "reviewRule" | "publishedAt" | "pieceTaskIds" | "productUrl"
+  "id" | "company" | "brief" | "pieces" | "rewardPerPiecePoints" | "proposedPoolUsdc" | "reviewRule" | "publishedAt" | "pieceTaskIds" | "productUrl" | "productName"
 > & { status: "publishing" | "published"; companyChecked: boolean };
 
 export type CampaignResult = {

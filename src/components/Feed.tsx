@@ -51,7 +51,7 @@ import {
   POLL_CARDS_MAX,
 } from "@/lib/board-rank";
 import { JuryMode, type JuryCard } from "@/components/JuryMode";
-import { EarnCard, ForCompaniesView, CompanyTrust, CampaignDraftForm, CampaignDraftList, CompanyCampaignCard, CompanyCampaignView } from "@/components/CompanyCampaign";
+import { EarnCard, ForCompaniesView, CompanyTrust, ProductLine, CampaignDraftForm, CampaignDraftList, CompanyCampaignCard, CompanyCampaignView } from "@/components/CompanyCampaign";
 import { pickCampaignToDo } from "@/lib/company-door";
 import type { CampaignDraft, PublicCompanyCampaign, PieceKind } from "@/lib/campaign-draft-shape";
 import { PIECE_LABEL, PIECE_ASK, PIECE_PROOF_HINT, PIECE_KINDS } from "@/lib/campaign-draft-shape";
@@ -3248,6 +3248,7 @@ function SubmitProof({
                     <div>
                       <p className="text-[11px] font-semibold text-gray-500 tracking-wide uppercase">{pieceCampaign.company} &middot; company campaign &middot; {rewardLabel(task)}</p>
                       <CompanyTrust c={pieceCampaign} className="mt-1.5" />
+                      <ProductLine c={pieceCampaign} className="mt-2" />
                       <p className="text-[24px] font-bold text-gray-900 leading-[1.15] tracking-tight mt-1.5 break-words">{PIECE_LABEL[pieceKind]}</p>
                       <p className="text-[16px] font-medium text-gray-900 leading-snug mt-2 break-words">{PIECE_ASK[pieceKind]}</p>
                     </div>

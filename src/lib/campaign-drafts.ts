@@ -29,8 +29,8 @@ export const DRAFT_INDEX_PREFIX = "campaign:drafts:";
 export const DRAFT_ID_PREFIX = "draft_";
 export const DRAFTS_PER_OWNER_MAX = 10;
 
-import { PIECE_KINDS, PIECE_LABEL, PIECE_ASK, MAX_PIECES_PER_KIND, MAX_PIECES_TOTAL, productUrlOrNull, publishGateReason, type PieceKind, type ReviewRule, type CampaignDraft, type PublicCompanyCampaign, type CampaignResult } from "./campaign-draft-shape";
-export { PIECE_KINDS, PIECE_LABEL, MAX_PIECES_PER_KIND, MAX_PIECES_TOTAL, MIN_BRIEF_WORDS, briefWords, productUrlOrNull, publishGateReason, type PieceKind, type ReviewRule, type CampaignDraft, type PublicCompanyCampaign, type CampaignResult } from "./campaign-draft-shape";
+import { PIECE_KINDS, PIECE_LABEL, PIECE_ASK, MAX_PIECES_PER_KIND, MAX_PIECES_TOTAL, productUrlOrNull, productNameOrNull, hasProduct, publishGateReason, type PieceKind, type ReviewRule, type CampaignDraft, type PublicCompanyCampaign, type CampaignResult } from "./campaign-draft-shape";
+export { PIECE_KINDS, PIECE_LABEL, MAX_PIECES_PER_KIND, MAX_PIECES_TOTAL, MIN_BRIEF_WORDS, briefWords, productUrlOrNull, productNameOrNull, hasProduct, publishGateReason, type PieceKind, type ReviewRule, type CampaignDraft, type PublicCompanyCampaign, type CampaignResult } from "./campaign-draft-shape";
 import type { Task, TaskCategory } from "./types";
 import { gibberishReason } from "./post-quality";
 
@@ -57,7 +57,8 @@ export function validateDraftInput(body: unknown): Result {
   // The company door (T3): a real brief and a product link, checked at save so
   // the form says so at once, and again at publish for drafts saved before.
   const productUrl = productUrlOrNull(b.productUrl);
-  const gate = publishGateReason({ brief, productUrl });
+  const productName = productNameOrNull(b.productName);
+  const gate = publishGateReason({ brief, productUrl, productName });
   if (gate) return { ok: false, error: gate };
 
   const rawPieces = Array.isArray(b.pieces) ? b.pieces : [];
@@ -104,6 +105,7 @@ export function validateDraftInput(body: unknown): Result {
       proposedPoolUsdc: Math.round(pool * 100) / 100,
       reviewRule,
       productUrl: productUrl!,
+      productName: productName!,
     },
   };
 }
@@ -192,8 +194,9 @@ const KIND_CATEGORY: Record<PieceKind, TaskCategory> = {
 // show it on its own line.
 const KIND_ASK = PIECE_ASK;
 
-export function pieceDescription(company: string, brief: string, kind: PieceKind): string {
-  return `${company} campaign · ${PIECE_LABEL[kind]}. ${brief} ${KIND_ASK[kind]}`;
+export function pieceDescription(company: string, brief: string, kind: PieceKind, productName?: string): string {
+  const about = productName ? ` about ${productName}` : "";
+  return `${company} campaign · ${PIECE_LABEL[kind]}${about}. ${brief} ${KIND_ASK[kind]}`;
 }
 
 type CreateTaskFn = (input: {
@@ -287,7 +290,7 @@ export async function publishDraft(
         task = await createTask({
           poster: addr,
           category: KIND_CATEGORY[p.kind],
-          description: pieceDescription(draft.company, draft.brief, p.kind),
+          description: pieceDescription(draft.company, draft.brief, p.kind, draft.productName),
           location: "Online",
           bountyUsdc: draft.rewardPerPiecePoints,
           deadlineHours: PIECE_DEADLINE_HOURS,
@@ -328,9 +331,35 @@ function toPublic(d: CampaignDraft & { status: "publishing" | "published" }): Pu
     publishedAt: d.publishedAt,
     pieceTaskIds: d.pieceTaskIds,
     productUrl: d.productUrl,
+    productName: d.productName,
     status: d.status,
     companyChecked: typeof d.companyCheckedAt === "string" && d.companyCheckedAt.length > 0,
   };
+}
+
+// A company that published before the product rule names its product here, once.
+// Owner only, and only while the campaign has none: changing the product after
+// people have done pieces about it would change what they did the work for. Both
+// fields are the company's own words; nothing is filled in for it.
+export async function setCampaignProduct(
+  owner: string,
+  id: string,
+  body: unknown,
+): Promise<{ ok: true; campaign: PublicCompanyCampaign } | { ok: false; error: string; status: number }> {
+  const redis = getRedis();
+  if (!redis) return { ok: false, error: "Campaigns cannot be changed right now.", status: 503 };
+  const d = await loadDraft(id);
+  if (!d || d.owner !== owner.toLowerCase()) return { ok: false, error: "No such campaign.", status: 404 };
+  if (d.status !== "published" && d.status !== "publishing") return { ok: false, error: "Add the product to the draft before you publish it.", status: 409 };
+  if (hasProduct(d)) return { ok: false, error: "This campaign already names its product.", status: 409 };
+  const b = (body && typeof body === "object" ? body : {}) as Record<string, unknown>;
+  const productName = productNameOrNull(b.productName);
+  if (!productName) return { ok: false, error: "Name the product people will make a piece about.", status: 400 };
+  const productUrl = productUrlOrNull(b.productUrl);
+  if (!productUrl) return { ok: false, error: "Add a link to your product, so people know what they are making a piece about.", status: 400 };
+  const next = { ...d, productName, productUrl };
+  await redis.set(`${DRAFT_PREFIX}${id}`, JSON.stringify(next));
+  return { ok: true, campaign: toPublic(next as CampaignDraft & { status: "publishing" | "published" }) };
 }
 
 // Resolves a campaign whose pieces exist on the board: fully published, or part way

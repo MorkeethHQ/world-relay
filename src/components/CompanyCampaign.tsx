@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import type { CampaignDraft, PieceKind, PublicCompanyCampaign, CampaignResult } from "@/lib/campaign-draft-shape";
 import type { Task } from "@/lib/types";
-import { PIECE_LABEL, MAX_PIECES_PER_KIND, MAX_PIECES_TOTAL, MIN_BRIEF_WORDS, briefWords, productUrlOrNull } from "@/lib/campaign-draft-shape";
+import { PIECE_LABEL, MAX_PIECES_PER_KIND, MAX_PIECES_TOTAL, MIN_BRIEF_WORDS, briefWords, productUrlOrNull, productNameOrNull, hasProduct, NO_PRODUCT_YET } from "@/lib/campaign-draft-shape";
 import { productHost } from "@/lib/company-door";
 
 // THE COMPANY JOURNEY (FAVOUR-COMPANY-JOURNEY-2026-09-21). Oscar's ruling: the
@@ -65,6 +65,23 @@ export function EarnCard({ openPieces, onDo, onForCompanies }: {
         </button>
       </div>
     </>
+  );
+}
+
+// WHAT the piece is about (2026-09-22). The product's name, linked, or a plain
+// statement that the company has not named one. Never filled in for a company.
+export function ProductLine({ c, className = "" }: { c: Pick<PublicCompanyCampaign, "productName" | "productUrl">; className?: string }) {
+  if (!hasProduct(c)) {
+    return <p className={`text-[13px] text-gray-500 ${className}`}>{NO_PRODUCT_YET}.</p>;
+  }
+  return (
+    <p className={`text-[14px] text-gray-900 break-words ${className}`}>
+      <span className="text-gray-500">Product: </span>
+      <a href={c.productUrl} target="_blank" rel="noopener noreferrer nofollow ugc" className="font-semibold underline underline-offset-2">
+        {c.productName}
+      </a>
+      <span className="text-gray-500"> · {productHost(c.productUrl)}</span>
+    </p>
   );
 }
 
@@ -176,6 +193,7 @@ export function CampaignDraftForm({ onSaved, onCancel, onReauth }: {
   const [company, setCompany] = useState("");
   const [brief, setBrief] = useState("");
   const [productUrl, setProductUrl] = useState("");
+  const [productName, setProductName] = useState("");
   const [counts, setCounts] = useState<Record<PieceKind, number>>({ ugc: 5, article: 2, review: 10 });
   const [reward, setReward] = useState(10);
   const [pool, setPool] = useState("200");
@@ -189,6 +207,7 @@ export function CampaignDraftForm({ onSaved, onCancel, onReauth }: {
     const body = JSON.stringify({
       company,
       brief,
+      productName,
       productUrl,
       pieces: (Object.keys(counts) as PieceKind[]).filter((k) => counts[k] > 0).map((k) => ({ kind: k, count: counts[k] })),
       rewardPerPiecePoints: reward,
@@ -242,6 +261,10 @@ export function CampaignDraftForm({ onSaved, onCancel, onReauth }: {
           <p className={`text-[12px] mt-1 tabular-nums ${briefWords(brief) >= MIN_BRIEF_WORDS ? "text-gray-500" : "text-gray-400"}`}>
             {briefWords(brief)} of at least {MIN_BRIEF_WORDS} words
           </p>
+        </div>
+        <div>
+          <label htmlFor="c-product" className="text-[12px] text-gray-400">Product name</label>
+          <input id="c-product" className={inputCls} value={productName} onChange={(e) => setProductName(e.target.value)} maxLength={80} placeholder="The product people will make pieces about" />
         </div>
         <div>
           <label htmlFor="c-link" className="text-[12px] text-gray-400">Link to your product</label>
@@ -305,6 +328,46 @@ export function CampaignDraftForm({ onSaved, onCancel, onReauth }: {
           {saving ? "Saving" : "Save draft"}
         </button>
       </div>
+    </div>
+  );
+}
+
+// A company that published before the product rule names its product, once.
+function AddProductForm({ id, onReauth, onSaved }: { id: string; onReauth?: () => void | Promise<void>; onSaved: () => void }) {
+  const [name, setName] = useState("");
+  const [link, setLink] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const save = async () => {
+    setBusy(true); setError(null);
+    const body = JSON.stringify({ productName: name, productUrl: link });
+    const send = () => fetch(`/api/campaigns/drafts/${encodeURIComponent(id)}/product`, { method: "POST", headers: { "Content-Type": "application/json" }, body });
+    try {
+      let res = await send();
+      if (res.status === 403 && onReauth) {
+        const peek = await res.clone().json().catch(() => ({} as Record<string, unknown>));
+        if (peek.code === "reauth_required") { await onReauth(); res = await send(); }
+      }
+      const data = await res.json().catch(() => ({} as Record<string, unknown>));
+      if (!res.ok) { setError(typeof data.error === "string" ? data.error : "Could not save. Nothing changed."); return; }
+      onSaved();
+    } catch {
+      setError("Network error. Nothing changed. Try again.");
+    } finally {
+      setBusy(false);
+    }
+  };
+  const ready = !!productNameOrNull(name) && !!productUrlOrNull(link);
+  return (
+    <div className="mt-3 rounded-xl bg-warning-100/50 border border-warning-200 p-3 flex flex-col gap-2">
+      <p className="text-[13px] text-gray-900 font-semibold">Name your product</p>
+      <p className="text-[12px] text-gray-600">People cannot tell what to make a piece about, so your pieces are not offered until you add it. You can set it once.</p>
+      <input aria-label="Product name" className={inputCls} value={name} onChange={(e) => setName(e.target.value)} maxLength={80} placeholder="Product name" />
+      <input aria-label="Link to your product" className={inputCls} type="url" inputMode="url" autoCapitalize="none" autoCorrect="off" value={link} onChange={(e) => setLink(e.target.value)} maxLength={300} placeholder="https://yourcompany.com/product" />
+      {error && <p role="alert" className="text-[13px] text-error-700">{error}</p>}
+      <button type="button" onClick={save} disabled={!ready || busy} className="w-full min-h-[44px] rounded-full bg-gray-900 text-white text-[14px] font-semibold disabled:opacity-40">
+        {busy ? "Saving" : "Save product"}
+      </button>
     </div>
   );
 }
@@ -378,9 +441,12 @@ export function CampaignDraftList({ drafts, onDone, justSaved, onPublished, onOp
                   </button>
                 </>
               ) : (
-                <button type="button" onClick={() => onOpen(d.id)} className="mt-3 w-full min-h-[44px] rounded-full border border-gray-900 text-gray-900 text-[14px] font-semibold">
-                  Open campaign
-                </button>
+                <>
+                  {!hasProduct(d) && <AddProductForm id={d.id} onReauth={onReauth} onSaved={() => onChanged?.()} />}
+                  <button type="button" onClick={() => onOpen(d.id)} className="mt-3 w-full min-h-[44px] rounded-full border border-gray-900 text-gray-900 text-[14px] font-semibold">
+                    Open campaign
+                  </button>
+                </>
               )}
             </div>
           );
@@ -405,6 +471,7 @@ export function CompanyCampaignCard({ c, onOpen }: { c: PublicCompanyCampaign; o
           <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-900">Company campaign</p>
           <p className="text-[16px] font-bold text-gray-900 mt-1 line-clamp-1 break-words">{c.company}</p>
           <CompanyTrust c={c} className="mt-1" />
+          <ProductLine c={c} className="mt-1" />
         </div>
         <span className="shrink-0 text-[12px] font-bold text-gray-900 bg-gray-100 rounded-full px-2.5 py-1">{c.rewardPerPiecePoints} pts / piece</span>
       </div>
@@ -446,12 +513,8 @@ export function CompanyCampaignView({ id, tasks, completedIds, onJoin, onBack }:
           <div>
             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-900">Company campaign · points only{c.status === "publishing" ? " · still publishing" : ""}</p>
             <CompanyTrust c={c} className="mt-2" />
+            <ProductLine c={c} className="mt-2" />
             <p className="text-[15px] text-gray-800 mt-2 leading-snug break-words">{c.brief}</p>
-            {productHost(c.productUrl) && (
-              <a href={c.productUrl} target="_blank" rel="noopener noreferrer nofollow ugc" className="inline-block mt-2 text-[13px] font-semibold text-gray-900 underline underline-offset-2 break-all">
-                Product: {productHost(c.productUrl)}
-              </a>
-            )}
             {!c.companyChecked && (
               <p className="text-[12px] text-gray-500 mt-2">Anyone with World App can publish a campaign. FAVOUR has not checked this company yet.</p>
             )}
@@ -465,7 +528,9 @@ export function CompanyCampaignView({ id, tasks, completedIds, onJoin, onBack }:
               const taskId = c.pieceTaskIds?.[p.kind];
               const task = taskId ? tasks.find((t) => t.id === taskId) : undefined;
               const done = !!taskId && completedIds.has(taskId);
-              const open = !!task && task.status === "open" && !done;
+              // No product named: the piece is not offered, because nobody can tell
+              // what to make it about.
+              const open = hasProduct(c) && !!task && task.status === "open" && !done;
               const left = task ? Math.max(0, (task.maxCompletions || p.count) - (task.completionCount || 0)) : 0;
               return (
                 <div key={p.kind} className="rounded-2xl bg-white border border-gray-200 p-4">
@@ -473,7 +538,7 @@ export function CompanyCampaignView({ id, tasks, completedIds, onJoin, onBack }:
                     <p className="flex-1 min-w-0 text-[14px] font-semibold text-gray-900">{PIECE_LABEL[p.kind]}</p>
                     <span className="shrink-0 text-[12px] font-bold text-gray-900 bg-gray-100 rounded-full px-2.5 py-1">{c.rewardPerPiecePoints} pts</span>
                   </div>
-                  <p className="text-[12px] text-gray-500 mt-1">{done ? "You delivered this piece. It is in History." : open ? `${left} of ${p.count} still wanted` : "Not open right now"}</p>
+                  <p className="text-[12px] text-gray-500 mt-1">{done ? "You delivered this piece. It is in History." : open ? `${left} of ${p.count} still wanted` : !hasProduct(c) ? "Offered once the company names its product" : "Not open right now"}</p>
                   {open && task && (
                     <button type="button" onClick={() => onJoin(task)} className="mt-3 w-full min-h-[44px] rounded-full bg-gray-900 text-white text-[14px] font-semibold">
                       Join this piece
