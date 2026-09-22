@@ -15,11 +15,26 @@
 // NO PAYLOAD. These are sent with no data at all, and /api/track keeps only two
 // numeric fields for any event, so no wallet address, username or other identifier
 // can ride along even by mistake. The counts are per day, never per person.
+//
+// WHICH BUTTON, added 2026-09-22. On 21 Sep, 4 people signed in and 0 started the
+// mission, and the four steps above could not say why: step 0 offers several ways
+// in, and only one queues the mission. A production walk showed the mission path
+// works end to end, so the 4 came in some other way. One tap event per step-0 way
+// in means the next drop-off is read, not guessed:
+//
+//   mission_tapped         "Do today's mission"
+//   get_started_tapped     the tour button ("How FAVOUR works", or "Get started")
+//   for_companies_tapped   "For companies"
+//   piece_tapped           "Do a piece and earn"
 export const FUNNEL_EVENTS = [
   "mission_viewed",
   "terms_accepted",
   "sign_in_completed",
   "mission_started",
+  "mission_tapped",
+  "get_started_tapped",
+  "for_companies_tapped",
+  "piece_tapped",
 ] as const;
 
 export type FunnelEvent = (typeof FUNNEL_EVENTS)[number];

@@ -189,6 +189,7 @@ export function Onboarding({
   }, [step, mission]);
 
   const startPiece = (campaignId: string) => {
+    trackFunnelEvent("piece_tapped");
     try { localStorage.setItem(PENDING_PIECE_KEY, campaignId); } catch {}
     setPendingMission(true);
     setStep(2);
@@ -204,11 +205,22 @@ export function Onboarding({
   // looking at it. The terms step is unchanged and still comes first.
   const startMission = () => {
     if (!mission) return;
+    trackFunnelEvent("mission_tapped");
     try {
       localStorage.setItem(PENDING_MISSION_KEY, JSON.stringify({ id: mission.id, date: new Date().toISOString().slice(0, 10) }));
     } catch {}
     setPendingMission(true);
     setStep(2);
+  };
+
+  // End of the tour: queue today's mission exactly as step 0 does, then leave
+  // onboarding. The Feed picks the queue up and fires mission_started.
+  const finishWithMission = () => {
+    if (!mission) { onComplete(); return; }
+    try {
+      localStorage.setItem(PENDING_MISSION_KEY, JSON.stringify({ id: mission.id, date: new Date().toISOString().slice(0, 10) }));
+    } catch {}
+    onComplete();
   };
 
   // When the existing MiniKit sign-in succeeds, the parent flips authed=true.
@@ -324,11 +336,11 @@ export function Onboarding({
                 <EarnCard
                   openPieces={pieceToDo.totalOpen}
                   onDo={() => startPiece(pieceToDo.campaign.id)}
-                  onForCompanies={() => setForCompanies((v) => !v)}
+                  onForCompanies={() => { if (!forCompanies) trackFunnelEvent("for_companies_tapped"); setForCompanies((v) => !v); }}
                 />
               ) : (
                 <div className="mx-6 flex justify-end">
-                  <button type="button" onClick={() => setForCompanies((v) => !v)} className="min-h-[40px] px-1 text-[13px] text-gray-500">For companies</button>
+                  <button type="button" onClick={() => { if (!forCompanies) trackFunnelEvent("for_companies_tapped"); setForCompanies((v) => !v); }} className="min-h-[40px] px-1 text-[13px] text-gray-500">For companies</button>
                 </div>
               )}
               {forCompanies && <CompanyVisionCard onLaunch={startLaunch} launchLabel="Plan a campaign" />}
@@ -493,16 +505,30 @@ export function Onboarding({
             )}
           </div>
         ) : step === 0 && mission ? (
-          <button type="button" onClick={next} className="w-full min-h-[44px] text-[14px] font-medium text-gray-500">
+          <button type="button" onClick={() => { trackFunnelEvent("get_started_tapped"); next(); }} className="w-full min-h-[44px] text-[14px] font-medium text-gray-500">
             How FAVOUR works
           </button>
+        ) : step === 4 && mission ? (
+          // THE LEAK, fixed 2026-09-22. The tour ("How FAVOUR works") used to end
+          // here on "See open favours" with nothing queued, so a person who signed
+          // in that way never met the mission they had just looked at: 4 sign-ins
+          // on 21 Sep, 0 missions started. The mission is now the main action at
+          // the end of the tour too, through the same queue as step 0.
+          <div className="flex flex-col gap-2">
+            <Button onClick={finishWithMission} fullWidth variant="primary" size="lg">
+              Do today&apos;s mission
+            </Button>
+            <button type="button" onClick={onComplete} className="w-full min-h-[44px] text-[14px] font-medium text-gray-500">
+              See open favours
+            </button>
+          </div>
         ) : step === 4 ? (
           <Button onClick={onComplete} fullWidth variant="primary" size="lg">
             See open favours
           </Button>
         ) : (
           <Button
-            onClick={step === 2 ? acceptTermsAndContinue : next}
+            onClick={step === 2 ? acceptTermsAndContinue : step === 0 ? () => { trackFunnelEvent("get_started_tapped"); next(); } : next}
             fullWidth
             variant="primary"
             size="lg"
