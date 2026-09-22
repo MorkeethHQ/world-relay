@@ -1148,9 +1148,6 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
         </div>
       )}
 
-      {tab === "available" && !loading && companyCampaigns.map((c) => (
-        <CompanyCampaignCard key={c.id} c={c} onOpen={() => { hapticTap(); setCompanyCampaignId(c.id); setView("company"); }} />
-      ))}
 
       {/* THE DAILY MISSION leads the screen. Everything else on this tab is below
           it, including creation, which is the small "+ New" in the header. */}
@@ -1191,6 +1188,13 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
           onReview={() => { hapticTap(); setView("jury"); }}
         />
       )}
+
+      {/* The live campaigns, each labelled with its company's trust. Below today's
+          mission and review, so the first screen is the earn card, then the
+          mission (T3, 2026-09-22: three cards used to push the mission down). */}
+      {tab === "available" && !loading && companyCampaigns.map((c) => (
+        <CompanyCampaignCard key={c.id} c={c} onOpen={() => { hapticTap(); setCompanyCampaignId(c.id); setView("company"); }} />
+      ))}
 
       {/* Daily poll — after favours for first-time users so it doesn't hijack the loop */}
       {tab === "available" && !loading && !showFirstRunCoach && (
