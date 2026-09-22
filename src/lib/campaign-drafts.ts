@@ -29,8 +29,8 @@ export const DRAFT_INDEX_PREFIX = "campaign:drafts:";
 export const DRAFT_ID_PREFIX = "draft_";
 export const DRAFTS_PER_OWNER_MAX = 10;
 
-import { PIECE_KINDS, PIECE_LABEL, PIECE_ASK, MAX_PIECES_PER_KIND, MAX_PIECES_TOTAL, type PieceKind, type ReviewRule, type CampaignDraft, type PublicCompanyCampaign, type CampaignResult } from "./campaign-draft-shape";
-export { PIECE_KINDS, PIECE_LABEL, MAX_PIECES_PER_KIND, MAX_PIECES_TOTAL, type PieceKind, type ReviewRule, type CampaignDraft, type PublicCompanyCampaign, type CampaignResult } from "./campaign-draft-shape";
+import { PIECE_KINDS, PIECE_LABEL, PIECE_ASK, MAX_PIECES_PER_KIND, MAX_PIECES_TOTAL, productUrlOrNull, publishGateReason, type PieceKind, type ReviewRule, type CampaignDraft, type PublicCompanyCampaign, type CampaignResult } from "./campaign-draft-shape";
+export { PIECE_KINDS, PIECE_LABEL, MAX_PIECES_PER_KIND, MAX_PIECES_TOTAL, MIN_BRIEF_WORDS, briefWords, productUrlOrNull, publishGateReason, type PieceKind, type ReviewRule, type CampaignDraft, type PublicCompanyCampaign, type CampaignResult } from "./campaign-draft-shape";
 import type { Task, TaskCategory } from "./types";
 import { gibberishReason } from "./post-quality";
 
@@ -54,6 +54,11 @@ export function validateDraftInput(body: unknown): Result {
   // 2026-09-16. Checked on the plan, so it is refused before anything is saved.
   const junk = gibberishReason(brief);
   if (junk) return { ok: false, error: junk };
+  // The company door (T3): a real brief and a product link, checked at save so
+  // the form says so at once, and again at publish for drafts saved before.
+  const productUrl = productUrlOrNull(b.productUrl);
+  const gate = publishGateReason({ brief, productUrl });
+  if (gate) return { ok: false, error: gate };
 
   const rawPieces = Array.isArray(b.pieces) ? b.pieces : [];
   const pieces: CampaignDraft["pieces"] = [];
@@ -98,6 +103,7 @@ export function validateDraftInput(body: unknown): Result {
       rewardPerPiecePoints: reward,
       proposedPoolUsdc: Math.round(pool * 100) / 100,
       reviewRule,
+      productUrl: productUrl!,
     },
   };
 }
@@ -243,6 +249,13 @@ export async function publishDraft(
   // Not found and not yours answer the same, so a draft id reveals nothing.
   if (!first || first.owner !== addr) return { ok: false, error: "No such draft.", status: 404 };
   if (first.status === "published") return { ok: false, error: "This campaign is already published.", status: 409 };
+  // A draft saved before the company door opened may lack the link or the words.
+  // A campaign already part way through publishing is let finish: its pieces are
+  // on the board and must keep their campaign identity.
+  if (first.status === "draft") {
+    const gate = publishGateReason(first);
+    if (gate) return { ok: false, error: gate, status: 422 };
+  }
 
   const lockKey = `${PUBLISH_LOCK_PREFIX}${id}`;
   const locked = await redis.set(lockKey, "1", { nx: true, px: 60_000 });
@@ -314,7 +327,9 @@ function toPublic(d: CampaignDraft & { status: "publishing" | "published" }): Pu
     reviewRule: d.reviewRule,
     publishedAt: d.publishedAt,
     pieceTaskIds: d.pieceTaskIds,
+    productUrl: d.productUrl,
     status: d.status,
+    companyChecked: typeof d.companyCheckedAt === "string" && d.companyCheckedAt.length > 0,
   };
 }
 

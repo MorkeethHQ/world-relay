@@ -8,7 +8,9 @@ import {
 } from "@worldcoin/mini-apps-ui-kit-react";
 import { WorldAppHandoff } from "@/components/WorldAppHandoff";
 import { DailyMissionCard } from "@/components/MissionCard";
-import { CompanyVisionCard } from "@/components/CompanyCampaign";
+import { CompanyVisionCard, EarnCard } from "@/components/CompanyCampaign";
+import { pickCampaignToDo } from "@/lib/company-door";
+import type { PublicCompanyCampaign } from "@/lib/campaign-draft-shape";
 import { pickDailyMission, pickProofStrip } from "@/lib/board-rank";
 import type { Task } from "@/lib/types";
 import { trackFunnelEvent, trackMissionViewedOncePerDay } from "@/lib/funnel-events";
@@ -19,6 +21,8 @@ export const PENDING_MISSION_KEY = "favour_pending_mission";
 // Same idea for "Launch a campaign" (FAVOUR-COMPANY-JOURNEY-2026-09-21): a company
 // that taps it signed out goes through terms and sign-in, then lands on the form.
 export const PENDING_LAUNCH_KEY = "favour_pending_launch";
+// "Do a piece and earn" tapped signed out: the campaign id to open after sign-in.
+export const PENDING_PIECE_KEY = "favour_pending_piece";
 
 /*
  * Onboarding
@@ -160,11 +164,17 @@ export function Onboarding({
   // the plain intro below.
   const [mission, setMission] = useState<Task | null>(null);
   const [proofs, setProofs] = useState<Task[]>([]);
+  const [pieceToDo, setPieceToDo] = useState<ReturnType<typeof pickCampaignToDo>>(null);
+  const [forCompanies, setForCompanies] = useState(false);
   useEffect(() => {
-    fetch("/api/tasks")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
+    Promise.all([
+      fetch("/api/tasks").then((r) => (r.ok ? r.json() : null)),
+      fetch("/api/campaigns/company").then((r) => (r.ok ? r.json() : null)).catch(() => null),
+    ])
+      .then(([d, cc]) => {
         const tasks: Task[] = Array.isArray(d?.tasks) ? d.tasks : [];
+        const campaigns: PublicCompanyCampaign[] = Array.isArray(cc?.campaigns) ? cc.campaigns : [];
+        setPieceToDo(pickCampaignToDo(campaigns, tasks));
         const m = pickDailyMission(tasks, new Date().toISOString().slice(0, 10), null);
         setMission(m);
         if (m) setProofs(pickProofStrip(tasks));
@@ -177,6 +187,12 @@ export function Onboarding({
   useEffect(() => {
     if (step === 0 && mission) trackMissionViewedOncePerDay();
   }, [step, mission]);
+
+  const startPiece = (campaignId: string) => {
+    try { localStorage.setItem(PENDING_PIECE_KEY, campaignId); } catch {}
+    setPendingMission(true);
+    setStep(2);
+  };
 
   const startLaunch = () => {
     try { localStorage.setItem(PENDING_LAUNCH_KEY, "1"); } catch {}
@@ -304,7 +320,18 @@ export function Onboarding({
               <p className="text-[14px] text-gray-500 mt-1">Small asks from real people. Look first. You sign in when you do one.</p>
             </div>
             <div className="-mt-1">
-              <CompanyVisionCard onLaunch={startLaunch} launchLabel="Plan a campaign" />
+              {pieceToDo ? (
+                <EarnCard
+                  openPieces={pieceToDo.totalOpen}
+                  onDo={() => startPiece(pieceToDo.campaign.id)}
+                  onForCompanies={() => setForCompanies((v) => !v)}
+                />
+              ) : (
+                <div className="mx-6 flex justify-end">
+                  <button type="button" onClick={() => setForCompanies((v) => !v)} className="min-h-[40px] px-1 text-[13px] text-gray-500">For companies</button>
+                </div>
+              )}
+              {forCompanies && <CompanyVisionCard onLaunch={startLaunch} launchLabel="Plan a campaign" />}
             </div>
             <DailyMissionCard task={mission} proofs={proofs} onStart={startMission} />
           </div>

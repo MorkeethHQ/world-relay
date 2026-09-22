@@ -30,7 +30,7 @@ vi.mock("@/lib/rate-limit", () => ({ rateLimit: async () => ({ ok: true }), getC
 
 import { getCampaign, getCampaigns } from "@/lib/campaigns";
 import { recordCampaignCompletion, tryUnlockPayout } from "@/lib/campaign-unlock";
-import { validateDraftInput, saveDraft, draftCanPayUsdc, DRAFT_PREFIX, publishDraft, getPublishedCampaign, listPublishedCampaigns } from "@/lib/campaign-drafts";
+import { validateDraftInput, saveDraft, draftCanPayUsdc, DRAFT_PREFIX, publishDraft, getPublishedCampaign, listPublishedCampaigns, briefWords, MIN_BRIEF_WORDS } from "@/lib/campaign-drafts";
 import { GET as COMPANY_GET } from "@/app/api/campaigns/company/[id]/route";
 import { POST as DRAFT_POST, GET as DRAFT_GET } from "@/app/api/campaigns/drafts/route";
 import { issueSessionToken, SESSION_COOKIE } from "@/lib/session";
@@ -41,7 +41,8 @@ const PARTICIPANT = "0x3333333333333333333333333333333333333333";
 
 const EXAMPLE = {
   company: "Example company",
-  brief: "Short honest pieces about our new oat latte, made by real customers.",
+  brief: "Short honest pieces about our new oat latte, made by real customers who tried it this week and can say what they actually thought of it.",
+  productUrl: "https://example.com/oat-latte",
   pieces: [{ kind: "ugc", count: 5 }, { kind: "article", count: 2 }, { kind: "review", count: 10 }],
   rewardPerPiecePoints: 10,
   proposedPoolUsdc: 200,
@@ -356,5 +357,88 @@ describe("the piece cap while the pool is only proposed: 10 of a kind, 20 in tot
   it("the form offers nothing the server will refuse", () => {
     const src = require("fs").readFileSync(require("path").join(__dirname, "../components/CompanyCampaign.tsx"), "utf8");
     expect(src).toMatch(/disabled=\{counts\[k\] >= MAX_PIECES_PER_KIND \|\| totalPieces >= MAX_PIECES_TOTAL\}/);
+  });
+});
+
+
+// THE COMPANY DOOR (T3, 2026-09-22). Two wallets published campaigns with briefs
+// like "just want to make money". Publishing now needs a 20-word brief and a
+// product link, and every campaign reads "Unverified company" until Oscar has
+// checked it by hand. Points only: none of this touches a money path.
+describe("the company door: a real brief, a product link, unverified until checked", () => {
+  const created: any[] = [];
+  const createTask = async (input: any) => { created.push(input); return { id: `task-${created.length}` }; };
+  beforeEach(() => { created.length = 0; });
+  const words = (n: number) => Array.from({ length: n }, (_, i) => ["honest", "short", "clips", "about", "our", "coffee", "made", "by", "real", "customers"][i % 10]).join(" ");
+
+  it("the fixture brief is long enough, so the other tests test what they say", () => {
+    expect(briefWords(EXAMPLE.brief)).toBeGreaterThanOrEqual(MIN_BRIEF_WORDS);
+  });
+  it("19 words is refused, 20 is accepted", () => {
+    const r19 = validateDraftInput({ ...EXAMPLE, brief: words(19) });
+    expect(r19.ok).toBe(false);
+    if (!r19.ok) expect(r19.error).toMatch(/at least 20 words/);
+    expect(validateDraftInput({ ...EXAMPLE, brief: words(20) }).ok).toBe(true);
+  });
+  it("the two real briefs that prompted this are refused", () => {
+    expect(validateDraftInput({ ...EXAMPLE, brief: "just want to make money" }).ok).toBe(false);
+    expect(validateDraftInput({ ...EXAMPLE, brief: "Make short video about product" }).ok).toBe(false);
+  });
+  it("a missing or unusable product link is refused", () => {
+    for (const productUrl of [undefined, "", "not a link", "javascript:alert(1)", "ftp://example.com/x", "https://localhost/x", "https://user:pw@example.com", "x".repeat(301)]) {
+      const r = validateDraftInput({ ...EXAMPLE, productUrl });
+      expect(r.ok, String(productUrl)).toBe(false);
+    }
+  });
+  it("a bare domain is accepted and stored as an https link", () => {
+    const r = validateDraftInput({ ...EXAMPLE, productUrl: "filipinolokal.com" });
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.draft.productUrl).toBe("https://filipinolokal.com/");
+  });
+  it("a body cannot mark its own company checked", async () => {
+    const v = validateDraftInput({ ...EXAMPLE, companyCheckedAt: "2026-09-22T00:00:00Z", companyChecked: true });
+    expect(v.ok).toBe(true);
+    if (!v.ok) return;
+    expect(v.draft).not.toHaveProperty("companyCheckedAt");
+    const saved = await saveDraft(COMPANY, v.draft, Date.now(), () => "self-check");
+    if (!saved.ok) throw new Error(saved.error);
+    await publishDraft(COMPANY, saved.draft.id, Date.now(), createTask);
+    expect((await getPublishedCampaign(saved.draft.id))?.companyChecked).toBe(false);
+  });
+  it("a draft saved before the door opened cannot publish until it has both, and nothing is created", async () => {
+    const id = "draft_legacy";
+    store.set(`${DRAFT_PREFIX}${id}`, JSON.stringify({ id, status: "draft", company: "Old", brief: "just want to make money", pieces: [{ kind: "ugc", count: 2 }], rewardPerPiecePoints: 5, proposedPoolUsdc: 0, reviewRule: "ai", owner: COMPANY, createdAt: new Date().toISOString() }));
+    expect(await publishDraft(COMPANY, id, Date.now(), createTask)).toMatchObject({ ok: false, status: 422 });
+    expect(created).toHaveLength(0);
+  });
+  it("a campaign already part way through publishing may still finish, so its live pieces keep their name", async () => {
+    const id = "draft_halfway";
+    store.set(`${DRAFT_PREFIX}${id}`, JSON.stringify({ id, status: "publishing", company: "Old", brief: "short", pieces: [{ kind: "ugc", count: 2 }, { kind: "review", count: 3 }], rewardPerPiecePoints: 5, proposedPoolUsdc: 0, reviewRule: "ai", owner: COMPANY, createdAt: new Date().toISOString(), pieceTaskIds: { ugc: "task-old" } }));
+    const out = await publishDraft(COMPANY, id, Date.now(), createTask);
+    expect(out.ok).toBe(true);
+    expect(created).toHaveLength(1);
+    expect(created[0].rewardType).toBe("points");
+  });
+  it("the three live campaigns, which have no link and no check, read as unverified and stay live", async () => {
+    const id = "draft_live_before";
+    store.set(`${DRAFT_PREFIX}${id}`, JSON.stringify({ id, status: "published", company: "kcz", brief: "just want to make money", pieces: [{ kind: "ugc", count: 2 }], rewardPerPiecePoints: 5, proposedPoolUsdc: 0, reviewRule: "ai", owner: COMPANY, createdAt: new Date().toISOString(), publishedAt: new Date().toISOString(), pieceTaskIds: { ugc: "t1" } }));
+    sets.set("campaign:company:published", new Set([id]));
+    const list = await listPublishedCampaigns();
+    expect(list.map((c) => c.id)).toContain(id);
+    expect(list.find((c) => c.id === id)?.companyChecked).toBe(false);
+  });
+  it("only a stored companyCheckedAt, which only Oscar's script writes, reads as checked", async () => {
+    const draft = await aSavedDraft();
+    await publishDraft(COMPANY, draft.id, Date.now(), createTask);
+    const key = `${DRAFT_PREFIX}${draft.id}`;
+    const raw = store.get(key);
+    const d = typeof raw === "string" ? JSON.parse(raw) : raw;
+    store.set(key, JSON.stringify({ ...d, companyCheckedAt: "2026-09-22T10:00:00Z" }));
+    expect((await getPublishedCampaign(draft.id))?.companyChecked).toBe(true);
+  });
+  it("no API route writes companyCheckedAt", async () => {
+    const { execSync } = await import("node:child_process");
+    const hits = execSync("grep -rl companyCheckedAt src/app || true", { encoding: "utf8" }).trim();
+    expect(hits).toBe("");
   });
 });

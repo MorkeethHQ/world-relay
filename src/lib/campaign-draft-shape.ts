@@ -34,6 +34,36 @@ export const MAX_PIECES_TOTAL = 20;
 
 export type ReviewRule = "ai" | "ai_and_jury";
 
+// THE COMPANY DOOR (T3, 2026-09-22). Any World App wallet may publish, and two
+// wallets published campaigns with briefs like "just want to make money". So a
+// publish needs a real brief (20 words) and a link to the product, and every
+// campaign reads "Unverified company" until Oscar has checked it by hand
+// (scripts/mark-company-checked.mjs). Nothing here touches money.
+export const MIN_BRIEF_WORDS = 20;
+export function briefWords(brief: string): number {
+  return brief.trim().split(/\s+/).filter(Boolean).length;
+}
+// An http(s) link with a real host name. Returns the normalised URL or null.
+export function productUrlOrNull(v: unknown): string | null {
+  if (typeof v !== "string") return null;
+  const raw = v.trim();
+  if (raw.length === 0 || raw.length > 300) return null;
+  let u: URL;
+  try { u = new URL(/^https?:\/\//i.test(raw) ? raw : `https://${raw}`); } catch { return null; }
+  if (u.protocol !== "https:" && u.protocol !== "http:") return null;
+  if (u.username || u.password) return null;
+  if (!/^[a-z0-9-]+(\.[a-z0-9-]+)+$/i.test(u.hostname)) return null;
+  return u.toString();
+}
+// Why a draft may not be published yet, or null. One rule for the form, the
+// server's save and the server's publish.
+export function publishGateReason(d: { brief: string; productUrl?: string | null }): string | null {
+  const n = briefWords(d.brief);
+  if (n < MIN_BRIEF_WORDS) return `Describe what you want made in at least ${MIN_BRIEF_WORDS} words. This brief has ${n}.`;
+  if (!productUrlOrNull(d.productUrl)) return "Add a link to your product, so people know what they are making a piece about.";
+  return null;
+}
+
 export type CampaignDraft = {
   id: string;
   // "draft": private to the company, nothing on the board.
@@ -53,6 +83,12 @@ export type CampaignDraft = {
   // A PROPOSAL in USDC. Display only. Never a pot, never a balance.
   proposedPoolUsdc: number;
   reviewRule: ReviewRule;
+  // A link to the product. Required to publish since 2026-09-22 (T3). The three
+  // campaigns published before that have none and stay live, unverified.
+  productUrl?: string;
+  // Set ONLY by Oscar, by hand, through scripts/mark-company-checked.mjs. No API
+  // route writes it and validateDraftInput never copies it from a body.
+  companyCheckedAt?: string;
   owner: string; // lowercased wallet from the session, never from the body
   createdAt: string;
   publishedAt?: string;
@@ -64,8 +100,8 @@ export type CampaignDraft = {
 // the company is named by the name it chose.
 export type PublicCompanyCampaign = Pick<
   CampaignDraft,
-  "id" | "company" | "brief" | "pieces" | "rewardPerPiecePoints" | "proposedPoolUsdc" | "reviewRule" | "publishedAt" | "pieceTaskIds"
-> & { status: "publishing" | "published" };
+  "id" | "company" | "brief" | "pieces" | "rewardPerPiecePoints" | "proposedPoolUsdc" | "reviewRule" | "publishedAt" | "pieceTaskIds" | "productUrl"
+> & { status: "publishing" | "published"; companyChecked: boolean };
 
 export type CampaignResult = {
   taskId: string;

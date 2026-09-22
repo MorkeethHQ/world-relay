@@ -51,10 +51,11 @@ import {
   POLL_CARDS_MAX,
 } from "@/lib/board-rank";
 import { JuryMode, type JuryCard } from "@/components/JuryMode";
-import { CompanyVisionCard, CampaignDraftForm, CampaignDraftList, CompanyCampaignCard, CompanyCampaignView } from "@/components/CompanyCampaign";
+import { EarnCard, ForCompaniesView, CompanyTrust, CampaignDraftForm, CampaignDraftList, CompanyCampaignCard, CompanyCampaignView } from "@/components/CompanyCampaign";
+import { pickCampaignToDo } from "@/lib/company-door";
 import type { CampaignDraft, PublicCompanyCampaign, PieceKind } from "@/lib/campaign-draft-shape";
 import { PIECE_LABEL, PIECE_ASK, PIECE_PROOF_HINT, PIECE_KINDS } from "@/lib/campaign-draft-shape";
-import { PENDING_LAUNCH_KEY } from "@/components/Onboarding";
+import { PENDING_LAUNCH_KEY, PENDING_PIECE_KEY } from "@/components/Onboarding";
 import { DailyMissionCard, DailyMissionDoneCard } from "@/components/MissionCard";
 import type { Contribution } from "@/lib/completions";
 import { PENDING_MISSION_KEY } from "@/components/Onboarding";
@@ -418,7 +419,7 @@ const RELAY_BOT_ADDRESS = "0x1101158041fd96f21cbcbb0e752a9a2303e6d70e";
 
 export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId: string | null; verificationLevel?: string | null; onLogout?: () => void; onReauth?: () => void }) {
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [view, setView] = useState<"board" | "post" | "proof" | "detail" | "campaign" | "jury" | "launch" | "drafts" | "company">("board");
+  const [view, setView] = useState<"board" | "post" | "proof" | "detail" | "campaign" | "jury" | "launch" | "drafts" | "company" | "companies">("board");
   const [companyCampaignId, setCompanyCampaignId] = useState<string | null>(null);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [tab, setTab] = useState<Tab>("available");
@@ -752,6 +753,7 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
   // REAL published company campaigns (points only). Only what a company actually
   // published; the explanatory example card is never one of these.
   const [companyCampaigns, setCompanyCampaigns] = useState<PublicCompanyCampaign[]>([]);
+  const pieceToDo = useMemo(() => pickCampaignToDo(companyCampaigns, tasks, completedIds), [companyCampaigns, tasks, completedIds]);
   useEffect(() => {
     let live = true;
     fetch("/api/campaigns/company", { cache: "no-store" })
@@ -769,6 +771,13 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
       if (localStorage.getItem(PENDING_LAUNCH_KEY)) {
         localStorage.removeItem(PENDING_LAUNCH_KEY);
         setView("launch");
+      }
+      // The same for "Do a piece and earn": land on the campaign they picked.
+      const piece = localStorage.getItem(PENDING_PIECE_KEY);
+      if (piece) {
+        localStorage.removeItem(PENDING_PIECE_KEY);
+        setCompanyCampaignId(piece);
+        setView("company");
       }
     } catch {}
   }, [userId]);
@@ -1040,6 +1049,16 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
       />
     );
   }
+  if (view === "companies") {
+    return (
+      <ForCompaniesView
+        onBack={() => setView("board")}
+        onLaunch={() => { hapticTap(); setView("launch"); }}
+        drafts={drafts.length}
+        onSeeDrafts={() => { hapticTap(); setJustSavedDraft(null); setView("drafts"); }}
+      />
+    );
+  }
   if (view === "company" && companyCampaignId) {
     return (
       <CompanyCampaignView
@@ -1113,15 +1132,20 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
         className="flex-1 flex flex-col"
       >
 
-      {/* THE VISION comes first (FAVOUR-COMPANY-JOURNEY-2026-09-21): a company
-          launches a favour campaign. An example, labelled as one and not funded.
-          Today's mission stays, below it. */}
-      {tab === "available" && !loading && (
-        <CompanyVisionCard
-          onLaunch={() => { hapticTap(); setView("launch"); }}
-          drafts={drafts.length}
-          onSeeDrafts={() => { hapticTap(); setJustSavedDraft(null); setView("drafts"); }}
+      {/* THE MAIN ACTION (T3, 2026-09-22): do a piece for a company and earn.
+          The company path, the example and "Plan a campaign", is behind the
+          quieter "For companies" link. Shown only while a piece is open. */}
+      {tab === "available" && !loading && pieceToDo && (
+        <EarnCard
+          openPieces={pieceToDo.totalOpen}
+          onDo={() => { hapticTap(); setCompanyCampaignId(pieceToDo.campaign.id); setView("company"); }}
+          onForCompanies={() => { hapticTap(); setView("companies"); }}
         />
+      )}
+      {tab === "available" && !loading && !pieceToDo && (
+        <div className="mx-6 mt-2 flex justify-end">
+          <button type="button" onClick={() => { hapticTap(); setView("companies"); }} className="min-h-[40px] px-1 text-[13px] text-gray-500">For companies</button>
+        </div>
       )}
 
       {tab === "available" && !loading && companyCampaigns.map((c) => (
@@ -3218,6 +3242,7 @@ function SubmitProof({
                   <div className="flex flex-col gap-3">
                     <div>
                       <p className="text-[11px] font-semibold text-gray-500 tracking-wide uppercase">{pieceCampaign.company} &middot; company campaign &middot; {rewardLabel(task)}</p>
+                      <CompanyTrust c={pieceCampaign} className="mt-1.5" />
                       <p className="text-[24px] font-bold text-gray-900 leading-[1.15] tracking-tight mt-1.5 break-words">{PIECE_LABEL[pieceKind]}</p>
                       <p className="text-[16px] font-medium text-gray-900 leading-snug mt-2 break-words">{PIECE_ASK[pieceKind]}</p>
                     </div>
