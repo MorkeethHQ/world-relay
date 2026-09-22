@@ -3033,7 +3033,7 @@ function SubmitProof({
     : null;
   const [images, setImages] = useState<{ base64: string; preview: string; isVideo: boolean }[]>([]);
   const [submitting, setSubmitting] = useState(false);
-  const [result, setResult] = useState<{ verdict: string; reasoning: string; locationVerified?: boolean; distanceKm?: number; escrowReleaseTxHash?: string | null; nextAction?: string | null; pointsAwarded?: number | null; streakBonus?: number } | null>(null);
+  const [result, setResult] = useState<{ verdict: string; reasoning: string; locationVerified?: boolean; distanceKm?: number; escrowReleaseTxHash?: string | null; nextAction?: string | null; pointsAwarded?: number | null; streakBonus?: number; tip?: string | null } | null>(null);
   const [proofCoords, setProofCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [preCheck, setPreCheck] = useState<{ assessment: string; likely: "pass" | "marginal" | "retake" } | null>(null);
   const [preChecking, setPreChecking] = useState(false);
@@ -3197,6 +3197,7 @@ function SubmitProof({
       setResult({
         verdict: String(v.verdict || "fail"),
         reasoning: String(v.reasoning || "No reasoning provided"),
+        tip: typeof data.personTip === "string" ? data.personTip : null,
         locationVerified: data.locationVerified,
         distanceKm: data.distanceKm,
         escrowReleaseTxHash: data.escrowReleaseTxHash || null,
@@ -3610,7 +3611,14 @@ function SubmitProof({
                   : (result.verdict === "pass" ? "VERIFIED" : result.verdict === "flag" ? "FLAGGED" : result.verdict === "error" ? "TRY AGAIN" : "REJECTED")}
               </span>
             </div>
-            <p className="text-xs text-gray-500 leading-relaxed">{String(result.reasoning)}</p>
+            {/* A fail shows the person's tip, in plain words, not the judge-facing
+                reasoning, which talks ABOUT them ("the claimant") and can read as
+                a put-down (2026-09-22). */}
+            {result.verdict === "fail" && result.tip ? (
+              <p className="text-[15px] text-gray-900 leading-snug">{result.tip}</p>
+            ) : (
+              <p className="text-xs text-gray-500 leading-relaxed">{String(result.reasoning)}</p>
+            )}
             {result.locationVerified !== undefined && result.locationVerified !== null && !isRemoteLocation(task.location) && (
               <div className="flex items-center gap-1.5 mt-2">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={result.locationVerified ? "#4ade80" : "#f59e0b"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -3722,7 +3730,9 @@ function SubmitProof({
             )}
             {result.verdict === "fail" && (
               <div className="mt-2 flex flex-col gap-2">
-                {quick && !tierRequiresPhoto(task.category) ? (
+                {result.tip ? (
+                  <p className="text-xs text-gray-500">No points were added. You can try again.</p>
+                ) : quick && !tierRequiresPhoto(task.category) ? (
                   <p className="text-xs text-gray-500">No points were added. Answer the question directly and try again.</p>
                 ) : (
                   <>

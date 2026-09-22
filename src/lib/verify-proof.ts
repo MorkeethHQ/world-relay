@@ -1,10 +1,15 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { AGENT_REGISTRY } from "./agents";
+import { cleanTip } from "./proof-tip";
+export { cleanTip, personTip } from "./proof-tip";
 
 export type VerificationResult = {
   verdict: "pass" | "flag" | "fail";
   reasoning: string;
   confidence: number;
+  // To the PERSON, not the judge (2026-09-22). One short, kind sentence on what
+  // would make the proof pass. Display only: no verdict, credit or payout reads it.
+  tip?: string;
 };
 
 export type ModelResult = {
@@ -12,6 +17,7 @@ export type ModelResult = {
   verdict: "pass" | "flag" | "fail";
   confidence: number;
   reasoning: string;
+  tip?: string;
 };
 
 export type ConsensusResult = {
@@ -20,6 +26,7 @@ export type ConsensusResult = {
   reasoning: string;
   models: ModelResult[];
   consensusMethod: "majority" | "unanimous";
+  tip?: string;
 };
 
 const SYSTEM_PROMPT = `You are a proof verification agent for RELAY, a real-world task network.
@@ -39,7 +46,7 @@ For PHOTO proofs, actively scrutinize the image before trusting it. FAIL or FLAG
 5. LOW-EFFORT or REUSED content: blank, black, generic filler, or images that look pulled from the internet.
 
 Only PASS a photo when it is a genuine, task-relevant photo that a real person plausibly captured. Real phone photos are messy, slightly blurry, or badly framed, and that is fine. But when you are unsure about authenticity or relevance, choose "flag", not "pass". When you are confident it is fake, generated, stock, a screenshot of a screen, or unrelated, choose "fail".
-Screenshots of social media posts ARE valid proof for SOCIAL tasks specifically.
+Screenshots of social media posts ARE valid proof for SOCIAL tasks specifically, and so is a link to the post. Ask for what the task itself asks for.
 
 For TEXT proofs (no photos):
 - Does the response address the task?
@@ -50,7 +57,8 @@ Respond with JSON only:
 {
   "verdict": "pass" | "flag" | "fail",
   "reasoning": "One sentence explaining your decision",
-  "confidence": 0.0-1.0
+  "confidence": 0.0-1.0,
+  "tip": "For fail or flag only: one short sentence TO the person, in the second person, saying what would make it pass. Kind and plain. Never quote or mock their answer. Empty string for pass."
 }
 
 - "pass": The proof genuinely demonstrates the task was completed
@@ -79,7 +87,7 @@ const CATEGORY_HINTS: Record<string, string> = {
   "check-in": "This is a CHECK-IN task. The claimant was asked to confirm a status at a location. Look for real signs, current conditions, or timestamps. Reject AI-generated, stock, or screenshot images that do not show a genuine on-location capture.",
   custom: "",
   review: "This is a REVIEW task. The claimant was asked to share an honest opinion. Be LENIENT: any genuine personal opinion counts, and a short honest response is fine. Do not require photos unless the task explicitly asks for them.",
-  social: "This is a SOCIAL MEDIA task. The claimant should provide a screenshot of their published post. A screenshot of a real social media post (X/Instagram/TikTok) is expected and valid here. Verify it looks like a genuine post and is not obviously edited, fabricated, or AI-generated. Do not judge content quality, just that a real post was made.",
+  social: "This is a SOCIAL MEDIA task. The claimant should show their published post in the form the task asks for: usually a link to the post in their note, or a screenshot of it. Either is valid. A screenshot of a real social media post (X/Instagram/TikTok) is fine here. Verify it looks like a genuine post and is not obviously edited, fabricated, or AI-generated. Do not judge content quality, just that a real post was made. If the proof is missing, say what the task asks for (a link, if the task says link).",
   feedback: "This is a FEEDBACK task. Be VERY LENIENT. Any genuine response that addresses the question counts as a pass. Short answers are fine. The bar is: did they engage with the question at all? If yes, pass.",
   errand: "This is an ERRAND task. The claimant was asked to complete a physical task. Look for genuine photo evidence of the completed errand. Reject AI-generated, stock, or screenshot images, and anything unrelated to the errand.",
 };
@@ -136,7 +144,7 @@ export async function verifyProof(
 
   const response = await anthropic.messages.create({
     model: "claude-sonnet-4-6",
-    max_tokens: 256,
+    max_tokens: 384,
     system: systemPrompt,
     messages: [{ role: "user", content: userContent }],
   });
@@ -150,6 +158,7 @@ export async function verifyProof(
       verdict: parsed.verdict,
       reasoning: parsed.reasoning,
       confidence: parsed.confidence,
+      tip: cleanTip(parsed.tip),
     };
   } catch {
     return {
@@ -204,7 +213,7 @@ async function callClaude(
     const response = await anthropic.messages.create(
       {
         model: "claude-sonnet-4-6",
-        max_tokens: 256,
+        max_tokens: 384,
         system: systemPrompt,
         messages: [{ role: "user", content: userContent }],
       },
@@ -219,6 +228,7 @@ async function callClaude(
       verdict: parsed.verdict,
       confidence: parsed.confidence,
       reasoning: parsed.reasoning,
+      tip: cleanTip(parsed.tip),
     };
   } finally {
     clearTimeout(timeout);
@@ -265,7 +275,7 @@ async function callOpenRouter(
       },
       body: JSON.stringify({
         model,
-        max_tokens: 256,
+        max_tokens: 384,
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content },
@@ -287,6 +297,7 @@ async function callOpenRouter(
       verdict: parsed.verdict,
       confidence: parsed.confidence,
       reasoning: parsed.reasoning,
+      tip: cleanTip(parsed.tip),
     };
   } finally {
     clearTimeout(timeout);
@@ -346,6 +357,8 @@ function aggregateResults(results: ModelResult[], lenient = false): ConsensusRes
     reasoning: combinedReasoning,
     models: results,
     consensusMethod: isUnanimous ? "unanimous" : "majority",
+    // The person's tip comes from a model that reached the final verdict.
+    tip: toCount.find((r) => r.verdict === majorityVerdict && cleanTip(r.tip))?.tip,
   };
 }
 

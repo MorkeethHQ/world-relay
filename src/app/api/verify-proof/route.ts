@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTask, submitProof, completeTask, setAttestationHash, setFollowUp, spawnRecurringTask, markSettled, markSettlementPending } from "@/lib/store";
 import { verifyProof, verifyProofConsensus, verifyProofStub } from "@/lib/verify-proof";
+import { personTip } from "@/lib/proof-tip";
 import type { ConsensusResult } from "@/lib/verify-proof";
 import { postProofSubmitted, postVerificationResult, postFollowUpQuestion, postSettlementConfirmation, syncAndProcessMessages } from "@/lib/xmtp";
 import { generateFollowUpQuestion } from "@/lib/ai-chat";
@@ -321,7 +322,7 @@ export async function POST(req: NextRequest) {
   const moneyAtStake = taskIsFunded || (unlockCampaign && claimantLevel === "orb");
   const useConsensus = useRealVerification && !!process.env.OPENROUTER_API_KEY && moneyAtStake;
 
-  let result: { verdict: "pass" | "flag" | "fail"; reasoning: string; confidence: number; models?: Array<{ name: string; verdict: "pass" | "flag" | "fail"; confidence: number; reasoning: string }>; consensusMethod?: "majority" | "unanimous" };
+  let result: { verdict: "pass" | "flag" | "fail"; reasoning: string; confidence: number; tip?: string; models?: Array<{ name: string; verdict: "pass" | "flag" | "fail"; confidence: number; reasoning: string }>; consensusMethod?: "majority" | "unanimous" };
   let consensusResult: ConsensusResult | null = null;
   try {
     if (useConsensus) {
@@ -330,6 +331,7 @@ export async function POST(req: NextRequest) {
         verdict: consensusResult.verdict,
         reasoning: consensusResult.reasoning,
         confidence: consensusResult.confidence,
+        tip: consensusResult.tip,
         models: consensusResult.models,
         consensusMethod: consensusResult.consensusMethod,
       };
@@ -442,7 +444,8 @@ export async function POST(req: NextRequest) {
         userId: task.claimant,
         type: "proof_rejected",
         title: "Proof not accepted",
-        body: `Your submission for "${task.description.slice(0, 40)}..." didn't pass. Try again with better proof.`,
+        // The AI's own tip in plain words, not a generic line (2026-09-22).
+        body: `Not accepted yet: "${task.description.slice(0, 40)}...". ${personTip(result, task.category)} You can try again.`,
         taskId,
       }).catch(console.error);
     }
@@ -723,6 +726,8 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     taskId,
     verification: result,
+    // What the person reads when it did not pass (null on a pass).
+    personTip: personTip(result, task.category),
     consensus: consensusResult
       ? {
           models: consensusResult.models,

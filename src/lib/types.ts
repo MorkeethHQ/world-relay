@@ -22,6 +22,7 @@ export type VerificationResult = {
   confidence: number;
   models?: ModelVerdict[];
   consensusMethod?: "majority" | "unanimous";
+  tip?: string; // to the person, display only (lib/verify-proof personTip)
 };
 
 export type AgentInfo = {
