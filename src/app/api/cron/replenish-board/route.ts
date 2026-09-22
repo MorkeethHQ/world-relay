@@ -45,5 +45,12 @@ export async function GET(req: NextRequest) {
   }
 
   const receipt = await runReplenish();
+  // One line in the function log per run: counts and the fallback reason. On
+  // 22 Sep a run filled from the pool and the reason was readable only from the
+  // events log, which a reviewer cannot reach. No ids, no key material.
+  console.info(
+    `[replenish] openBefore=${receipt.openVisible} deficit=${receipt.deficit} recycled=${receipt.recycled.length} ` +
+      `generated=${receipt.generated.length} fromModel=${receipt.generatedByModel} reason=${JSON.stringify(receipt.reason ?? null)}`,
+  );
   return NextResponse.json(receipt);
 }
