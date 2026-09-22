@@ -448,7 +448,9 @@ Return ONLY a JSON array, no preamble, no code fence. Each element:
     const end = text.lastIndexOf("]");
     if (start === -1 || end <= start) {
       const taken = new Set<string>();
-      return { specs: fromPool(count, taken), generated: 0, reason: "no JSON array in response" };
+      // Say what came back instead, so the next reader does not have to guess.
+      const shape = `stop=${res.stop_reason} blocks=${res.content.map((b) => b.type).join(",")} text=${JSON.stringify(text.slice(0, 120))}`;
+      return { specs: fromPool(count, taken), generated: 0, reason: `no JSON array in response (${shape})` };
     }
 
     const parsed: unknown = JSON.parse(text.slice(start, end + 1));
