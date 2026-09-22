@@ -361,10 +361,81 @@ export function planReplenish(input: {
 // lib/daily-generator: junk in, pool out, board never starves on a model.
 // ---------------------------------------------------------------------------
 
+// THE FAVOUR LIST COMES BACK AS A TOOL CALL (2026-09-22). At 07:03Z a reply with
+// the new key held no JSON array, so the run added nothing. The model is now asked
+// to call post_favours, a tool whose input schema IS the list, with tool_choice
+// forcing that call. A plain-text array is still read, as a fallback.
+export const FAVOUR_TOOL_NAME = "post_favours";
+const FAVOUR_AGENT_IDS = ["dropscout", "freshmap", "queuepulse", "openclaw", "hermes"] as const;
+export const FAVOUR_TOOL = {
+  name: FAVOUR_TOOL_NAME,
+  description: "Post the favours you wrote. Call this exactly once, with every favour in the favours array.",
+  input_schema: {
+    type: "object" as const,
+    properties: {
+      favours: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            description: { type: "string", description: "The ask, one or two sentences, 20 to 160 characters." },
+            category: { type: "string", enum: ["feedback", "custom", "review", "social", "photo", "check-in"] },
+            points: { type: "integer", minimum: 10, maximum: MAX_TASK_POINTS },
+            deadlineHours: { type: "integer", minimum: 24, maximum: 336 },
+            maxCompletions: { type: "integer", minimum: 1, maximum: 100 },
+            agentId: { type: "string", enum: [...FAVOUR_AGENT_IDS] },
+            location: { type: "string", enum: ["Anywhere", "Any city"] },
+          },
+          required: ["description", "category", "points", "deadlineHours", "maxCompletions", "agentId", "location"],
+        },
+      },
+    },
+    required: ["favours"],
+  },
+};
+
+type ReplyLike = { stop_reason?: string | null; content: Array<{ type: string; text?: string; name?: string; input?: unknown }> };
+
+// The favour list from a reply, or null when there is none to read. Order: the
+// forced tool call, then a JSON array in the text (fences and prose around it are
+// tolerated). An empty list is a list, not a failure.
+export function extractFavourArray(res: ReplyLike): unknown[] | null {
+  for (const b of res.content) {
+    if (b.type !== "tool_use" || b.name !== FAVOUR_TOOL_NAME) continue;
+    const input = b.input as { favours?: unknown } | unknown[] | null;
+    if (Array.isArray(input)) return input;
+    if (input && typeof input === "object" && Array.isArray((input as { favours?: unknown }).favours)) {
+      return (input as { favours: unknown[] }).favours;
+    }
+  }
+  const text = res.content.filter((b) => b.type === "text").map((b) => b.text ?? "").join("\n");
+  const start = text.indexOf("[");
+  const end = text.lastIndexOf("]");
+  if (start === -1 || end <= start) return null;
+  try {
+    const parsed: unknown = JSON.parse(text.slice(start, end + 1));
+    return Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+// What came back, for the log, when no list could be read. No key material.
+export function describeReply(res: ReplyLike): string {
+  const text = res.content.filter((b) => b.type === "text").map((b) => b.text ?? "").join(" ");
+  return `stop=${res.stop_reason ?? "?"} blocks=${res.content.map((b) => b.type).join(",") || "none"} text=${JSON.stringify(text.slice(0, 120))}`;
+}
+
 export async function generateFavourSpecs(
   count: number,
   avoidDescriptions: Set<string>,
-  opts: { recent?: string[]; allowModel?: boolean } = {},
+  opts: {
+    recent?: string[];
+    allowModel?: boolean;
+    // Claims one call against the daily cap; false means no call is left. Asked
+    // before EVERY call, the retry included, so a retry can never pass the cap.
+    takeModelCall?: () => Promise<boolean>;
+  } = {},
 ): Promise<{ specs: FavourSpec[]; generated: number; reason?: string }> {
   // Everything a new ask must not repeat, raw, for the near-duplicate check.
   const recent = opts.recent ?? [];
@@ -400,7 +471,7 @@ export async function generateFavourSpecs(
     return { specs: fromPool(count, taken), generated: 0, reason: "no ANTHROPIC_API_KEY" };
   }
 
-  const agentBriefs = ["dropscout", "freshmap", "queuepulse", "openclaw", "hermes"]
+  const agentBriefs = [...FAVOUR_AGENT_IDS]
     .map((id) => {
       const a = getAgent(id);
       return a ? `- ${id}: ${a.personality ?? a.name}` : null;
@@ -427,7 +498,7 @@ HARD RULES:
 Each favour is posted by one of these agents (pick the best fit — they are AI agents that cannot leave a screen, so their curiosity about the physical world is genuine):
 ${agentBriefs}
 
-Return ONLY a JSON array, no preamble, no code fence. Each element:
+Post the favours by calling the ${FAVOUR_TOOL_NAME} tool exactly once, with all of them in its favours array. Each element:
 {"description": "...", "category": "feedback"|"custom"|"review"|"social"|"photo"|"check-in", "points": 10-${MAX_TASK_POINTS}, "deadlineHours": 24-336, "maxCompletions": 1-100, "agentId": "...", "location": "Anywhere"|"Any city"}`;
 
   const user = `Write ${count * 2} favours, spread across kinds: an opinion, a local tip, a quick fact from where you are, and a "show us" photo. No two alike. Do NOT reuse or lightly reword any of these:\n${[...new Set([...avoidDescriptions, ...recent.map(normaliseDescription)])]
@@ -435,28 +506,50 @@ Return ONLY a JSON array, no preamble, no code fence. Each element:
     .map((d) => `- ${d}`)
     .join("\n")}`;
 
+  const takeCall = opts.takeModelCall ?? (async () => true);
   try {
     const anthropic = new Anthropic({ apiKey: key });
-    const res = await anthropic.messages.create({
-      model: MODEL,
-      max_tokens: 1500,
-      system,
-      messages: [{ role: "user", content: user }],
-    });
-    const text = res.content.find((b) => b.type === "text")?.text ?? "";
-    const start = text.indexOf("[");
-    const end = text.lastIndexOf("]");
-    if (start === -1 || end <= start) {
-      const taken = new Set<string>();
-      // Say what came back instead, so the next reader does not have to guess.
-      const shape = `stop=${res.stop_reason} blocks=${res.content.map((b) => b.type).join(",")} text=${JSON.stringify(text.slice(0, 120))}`;
-      return { specs: fromPool(count, taken), generated: 0, reason: `no JSON array in response (${shape})` };
+    const ask = async (content: string) =>
+      (await anthropic.messages.create({
+        model: MODEL,
+        max_tokens: 2000,
+        system,
+        tools: [FAVOUR_TOOL],
+        tool_choice: { type: "tool", name: FAVOUR_TOOL_NAME },
+        messages: [{ role: "user", content }],
+      })) as unknown as ReplyLike;
+
+    if (!(await takeCall())) {
+      return { specs: fromPool(count, new Set<string>()), generated: 0, reason: "daily model-call cap reached; pool only" };
+    }
+    let res = await ask(user);
+    let parsed = extractFavourArray(res);
+    let retried = "";
+    // ONE retry, stricter, and only while the daily cap has a call left.
+    if (parsed === null) {
+      const first = describeReply(res);
+      if (await takeCall()) {
+        res = await ask(
+          `${user}\n\nYour last reply could not be read (${first}). Reply with a single ${FAVOUR_TOOL_NAME} call and nothing else. ` +
+            `Put exactly ${count * 2} favours in its favours array. Keep every description under 160 characters.`,
+        );
+        parsed = extractFavourArray(res);
+        retried = `first reply unreadable (${first}); retried`;
+      } else {
+        retried = `first reply unreadable (${first}); no call left to retry`;
+      }
+    }
+    if (parsed === null) {
+      return {
+        specs: fromPool(count, new Set<string>()),
+        generated: 0,
+        reason: `no favour list in response (${describeReply(res)})${retried ? `; ${retried}` : ""}`,
+      };
     }
 
-    const parsed: unknown = JSON.parse(text.slice(start, end + 1));
     const specs: FavourSpec[] = [];
     const taken = new Set<string>();
-    if (Array.isArray(parsed)) {
+    {
       for (const raw of parsed) {
         if (specs.length >= count * 2) break;
         const spec = validateFavourSpec(raw);
@@ -471,7 +564,9 @@ Return ONLY a JSON array, no preamble, no code fence. Each element:
     }
     const generated = Math.min(specs.length, count);
     if (specs.length < count) specs.push(...fromPool(count - specs.length, taken));
-    return { specs, generated, reason: generated < count ? "model output partially rejected, pool topped up" : undefined };
+    const partial = generated < count ? "model output partially rejected, pool topped up" : undefined;
+    const why = [retried, partial].filter(Boolean).join("; ");
+    return { specs, generated, reason: why || undefined };
   } catch (err) {
     const taken = new Set<string>();
     return { specs: fromPool(count, taken), generated: 0, reason: `generation failed: ${(err as Error).message}` };
@@ -568,12 +663,16 @@ export async function runReplenish(now: number = Date.now()): Promise<ReplenishR
     const modelKey = `replenish:model:${dayBucket(now)}`;
     const modelCalls = redis ? Number((await redis.get(modelKey)) || 0) : 0;
     const allowModel = modelCalls < MODEL_CALLS_PER_DAY;
-    if (redis && allowModel && process.env.ANTHROPIC_API_KEY) {
-      await redis.incr(modelKey);
+    // Every call is counted when it is made, the retry included, and none is made
+    // once the day's count reaches the cap.
+    const takeModelCall = async (): Promise<boolean> => {
+      if (!redis) return true;
+      const n = await redis.incr(modelKey);
       await redis.expire(modelKey, 2 * 86_400);
-    }
+      return n <= MODEL_CALLS_PER_DAY;
+    };
     const recent = [...recentDescriptions(tasks, now), ...plan.recycle.map((t) => t.description)];
-    const gen = await generateFavourSpecs(plan.generateCount, avoid, { recent, allowModel });
+    const gen = await generateFavourSpecs(plan.generateCount, avoid, { recent, allowModel, takeModelCall });
     const chosen = balanceKinds(gen.specs, tasks.filter((t) => t.status === "open"), plan.generateCount);
     generatedByModel = Math.min(gen.generated, chosen.length);
     reason = gen.reason;
