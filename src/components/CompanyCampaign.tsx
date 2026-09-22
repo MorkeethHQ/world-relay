@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react";
 import type { CampaignDraft, PieceKind, PublicCompanyCampaign, CampaignResult } from "@/lib/campaign-draft-shape";
 import type { Task } from "@/lib/types";
-import { PIECE_LABEL, MAX_PIECES_PER_KIND, MAX_PIECES_TOTAL } from "@/lib/campaign-draft-shape";
+import { PIECE_LABEL, MAX_PIECES_PER_KIND, MAX_PIECES_TOTAL, MIN_BRIEF_WORDS, briefWords, productUrlOrNull } from "@/lib/campaign-draft-shape";
+import { productHost } from "@/lib/company-door";
 
 // THE COMPANY JOURNEY (FAVOUR-COMPANY-JOURNEY-2026-09-21). Oscar's ruling: the
 // first screen shows the vision. A company launches a favour campaign, people do
@@ -28,6 +29,71 @@ const STEPS = [
   "Accepted work earns the reward. Points while the pool is proposed. USDC only from a funded pool, and only for Orb-verified people.",
   "Everyone sees the piece, its status and the reward in History, and comes back for the next one.",
 ];
+
+// THE MAIN ACTION on the first screen (T3, 2026-09-22): do a piece for a company
+// and earn points. The company path is behind the quieter "For companies" below it.
+export function EarnCard({ openPieces, onDo, onForCompanies }: {
+  openPieces: number;
+  onDo: () => void;
+  onForCompanies: () => void;
+}) {
+  return (
+    <>
+      <section className="mx-6 mt-4 rounded-3xl bg-gray-950 text-white overflow-hidden" aria-label="Do a piece and earn">
+        <div className="px-5 pt-4 pb-4">
+          <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/60">Company pieces · points</span>
+          <p className="text-[20px] font-bold leading-snug tracking-tight mt-2">
+            Make a short clip, an article or an honest review for a company. Accepted work earns points.
+          </p>
+          <p className="mt-2 text-[13px] text-white/70">{openPieces} {openPieces === 1 ? "piece" : "pieces"} open now. An AI checks every proof.</p>
+          <button
+            type="button"
+            onClick={onDo}
+            className="mt-4 w-full min-h-[48px] rounded-full bg-white text-gray-900 text-[15px] font-semibold active:scale-[0.99]"
+          >
+            Do a piece and earn
+          </button>
+        </div>
+      </section>
+      <div className="mx-6 mt-1 flex justify-end">
+        <button type="button" onClick={onForCompanies} className="min-h-[40px] px-1 text-[13px] text-gray-500">
+          For companies
+        </button>
+      </div>
+    </>
+  );
+}
+
+// Every campaign reads "Unverified company" until Oscar has checked it by hand
+// (scripts/mark-company-checked.mjs). Any World App wallet can publish one.
+export function CompanyTrust({ c, className = "" }: { c: Pick<PublicCompanyCampaign, "companyChecked">; className?: string }) {
+  return c.companyChecked ? (
+    <span className={`inline-flex items-center text-[11px] font-semibold text-success-700 bg-success-100 rounded-full px-2 py-0.5 ${className}`}>Checked company</span>
+  ) : (
+    <span className={`inline-flex items-center text-[11px] font-semibold text-warning-700 bg-warning-100 rounded-full px-2 py-0.5 ${className}`}>Unverified company</span>
+  );
+}
+
+// The page behind "For companies": the example, and the way to plan a campaign.
+export function ForCompaniesView({ onBack, onLaunch, drafts, onSeeDrafts }: {
+  onBack: () => void;
+  onLaunch: () => void;
+  drafts: number;
+  onSeeDrafts: () => void;
+}) {
+  return (
+    <div className="flex flex-col min-h-[calc(100vh-5rem)] max-w-lg mx-auto w-full bg-gray-50">
+      <div className="sticky top-0 z-10 bg-white border-b border-gray-100 px-6 py-3 flex items-center gap-3">
+        <button type="button" onClick={onBack} className="min-h-[40px] text-[14px] text-gray-500">Back</button>
+        <p className="flex-1 text-[15px] font-semibold text-gray-900">For companies</p>
+      </div>
+      <CompanyVisionCard onLaunch={onLaunch} drafts={drafts} onSeeDrafts={onSeeDrafts} />
+      <p className="px-6 pt-4 pb-8 text-[13px] text-gray-500 leading-snug">
+        To publish you need a brief of at least {MIN_BRIEF_WORDS} words and a link to your product. Your campaign shows as an unverified company until FAVOUR has checked it. Pieces pay points only.
+      </p>
+    </div>
+  );
+}
 
 // "Plan a campaign", not "Launch": the form saves a PRIVATE draft (Oscar,
 // 2026-09-21 product check). Publishing is a separate, explicit step, and funding
@@ -105,6 +171,7 @@ export function CampaignDraftForm({ onSaved, onCancel, onReauth }: {
 }) {
   const [company, setCompany] = useState("");
   const [brief, setBrief] = useState("");
+  const [productUrl, setProductUrl] = useState("");
   const [counts, setCounts] = useState<Record<PieceKind, number>>({ ugc: 5, article: 2, review: 10 });
   const [reward, setReward] = useState(10);
   const [pool, setPool] = useState("200");
@@ -118,6 +185,7 @@ export function CampaignDraftForm({ onSaved, onCancel, onReauth }: {
     const body = JSON.stringify({
       company,
       brief,
+      productUrl,
       pieces: (Object.keys(counts) as PieceKind[]).filter((k) => counts[k] > 0).map((k) => ({ kind: k, count: counts[k] })),
       rewardPerPiecePoints: reward,
       proposedPoolUsdc: Number(pool),
@@ -167,6 +235,16 @@ export function CampaignDraftForm({ onSaved, onCancel, onReauth }: {
         <div>
           <label htmlFor="c-brief" className="text-[12px] text-gray-400">What you want made</label>
           <textarea id="c-brief" className={inputCls} rows={3} value={brief} onChange={(e) => setBrief(e.target.value)} maxLength={500} placeholder="Short honest pieces about our new product, made by real customers." />
+          <p className={`text-[12px] mt-1 tabular-nums ${briefWords(brief) >= MIN_BRIEF_WORDS ? "text-gray-500" : "text-gray-400"}`}>
+            {briefWords(brief)} of at least {MIN_BRIEF_WORDS} words
+          </p>
+        </div>
+        <div>
+          <label htmlFor="c-link" className="text-[12px] text-gray-400">Link to your product</label>
+          <input id="c-link" className={inputCls} type="url" inputMode="url" autoCapitalize="none" autoCorrect="off" value={productUrl} onChange={(e) => setProductUrl(e.target.value)} maxLength={300} placeholder="https://yourcompany.com/product" />
+          {productUrl.trim() !== "" && !productUrlOrNull(productUrl) && (
+            <p className="text-[12px] mt-1 text-error-700">This does not look like a web link.</p>
+          )}
         </div>
         <div>
           <div className="flex items-baseline justify-between mb-2">
@@ -322,6 +400,7 @@ export function CompanyCampaignCard({ c, onOpen }: { c: PublicCompanyCampaign; o
         <div className="flex-1 min-w-0">
           <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-900">Company campaign</p>
           <p className="text-[16px] font-bold text-gray-900 mt-1 line-clamp-1 break-words">{c.company}</p>
+          <CompanyTrust c={c} className="mt-1" />
         </div>
         <span className="shrink-0 text-[12px] font-bold text-gray-900 bg-gray-100 rounded-full px-2.5 py-1">{c.rewardPerPiecePoints} pts / piece</span>
       </div>
@@ -362,7 +441,16 @@ export function CompanyCampaignView({ id, tasks, completedIds, onJoin, onBack }:
         <div className="px-6 pt-5 pb-8 flex flex-col gap-4">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-900">Company campaign · points only{c.status === "publishing" ? " · still publishing" : ""}</p>
-            <p className="text-[15px] text-gray-800 mt-1 leading-snug break-words">{c.brief}</p>
+            <CompanyTrust c={c} className="mt-2" />
+            <p className="text-[15px] text-gray-800 mt-2 leading-snug break-words">{c.brief}</p>
+            {productHost(c.productUrl) && (
+              <a href={c.productUrl} target="_blank" rel="noopener noreferrer nofollow ugc" className="inline-block mt-2 text-[13px] font-semibold text-gray-900 underline underline-offset-2 break-all">
+                Product: {productHost(c.productUrl)}
+              </a>
+            )}
+            {!c.companyChecked && (
+              <p className="text-[12px] text-gray-500 mt-2">Anyone with World App can publish a campaign. FAVOUR has not checked this company yet.</p>
+            )}
             <p className="text-[12px] text-gray-500 mt-2">
               Proposed pool {c.proposedPoolUsdc} USDC · <span className="font-semibold text-gray-700">not funded</span>. Accepted pieces earn {c.rewardPerPiecePoints} points. Reviewed by {c.reviewRule === "ai_and_jury" ? "an AI check. Human judges can clear a flagged photo proof" : "an AI check"}.
             </p>
