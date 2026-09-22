@@ -1,10 +1,10 @@
 import { describe, it, expect, vi } from "vitest";
 
 // THE BEACON MUST RECORD BEFORE IT ANSWERS (2026-09-22). /api/track used to fire
-// trackEvent and answer at once. On Vercel the function may be frozen as soon as it
-// answers, so the write was lost: two production walks sent 13 funnel events, all
-// 200 in the function log, and none reached events:daily. This test holds each
-// write open and checks the route has not answered while it is still pending.
+// trackEvent and answer at once. On Vercel the function may be frozen once it has
+// answered, so an unawaited write is not guaranteed to finish. (No loss was
+// observed: an apparent one was the retention report's 10-minute cache.) This test
+// holds each write open and checks the route has not answered while it is pending.
 
 let release: (() => void) | null = null;
 const writes: string[] = [];

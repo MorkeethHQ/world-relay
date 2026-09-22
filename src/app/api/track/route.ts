@@ -46,10 +46,10 @@ export async function POST(req: NextRequest) {
     if (needed !== undefined) data.needed = needed;
     if (balance !== undefined) data.balance = balance;
     // AWAITED (2026-09-22). This used to fire and forget, then answer. On Vercel a
-    // function can be frozen as soon as it has answered, so the write was lost: two
-    // production walks at 07:18Z and 07:23Z sent 13 funnel events, every POST got
-    // 200 in the function log, and not one reached events:daily. A beacon that
-    // answers before it records is a counter that says yes and counts nothing.
+    // function may be frozen once it has answered, so an unawaited write is not
+    // guaranteed to finish. No loss was actually observed: an apparent loss on
+    // 22 Sep was /api/stats/retention serving its 10-minute cache (cache:retention).
+    // Awaiting costs a few ms and removes the risk.
     await trackEvent(event, data).catch(() => {});
     return NextResponse.json({ ok: true });
   }
