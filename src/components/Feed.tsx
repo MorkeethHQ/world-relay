@@ -3231,7 +3231,7 @@ function SubmitProof({
                     <div className="rounded-2xl bg-gray-100 px-4 py-3">
                       <p className="text-[12px] font-semibold text-gray-900">What happens next</p>
                       <ul className="mt-1 flex flex-col gap-1 text-[13px] text-gray-700 leading-snug">
-                        <li>{pieceCampaign.reviewRule === "ai_and_jury" ? "An AI checks your proof, then human judges look at it." : "An AI checks your proof."}</li>
+                        <li>{pieceCampaign.reviewRule === "ai_and_jury" ? "An AI checks your proof. If it flags a photo proof, human judges can clear it." : "An AI checks your proof."}</li>
                         <li>Accepted: <span className="font-semibold text-gray-900">+{pieceCampaign.rewardPerPiecePoints} points</span>, shown in History under {pieceCampaign.company}. Rejected: you see why.</li>
                         <li>This pays points only. The {pieceCampaign.proposedPoolUsdc} USDC pool is proposed, not funded.</li>
                       </ul>
