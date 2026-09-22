@@ -8,7 +8,7 @@ import { pickCampaignToDo, openPiecesOf, productHost } from "@/lib/company-door"
 const camp = (id: string, publishedAt: string, companyChecked = false, ids: Record<string, string> = { ugc: `${id}-u` }) => ({
   id, company: id, brief: "b", pieces: [{ kind: "ugc" as const, count: 5 }, { kind: "review" as const, count: 3 }],
   rewardPerPiecePoints: 5, proposedPoolUsdc: 0, reviewRule: "ai" as const, publishedAt, pieceTaskIds: ids,
-  status: "published" as const, companyChecked,
+  status: "published" as const, companyChecked, productName: `${id} product`, productUrl: `https://example.com/${id}`,
 });
 const task = (id: string, status = "open", maxCompletions = 5, completionCount = 0) => ({ id, status, maxCompletions, completionCount }) as any;
 
@@ -68,5 +68,29 @@ describe("the board's order after the company door", () => {
     expect(earn).toBeGreaterThan(0);
     expect(mission).toBeGreaterThan(earn);
     expect(cards).toBeGreaterThan(mission);
+  });
+});
+
+
+describe("a campaign that has not named its product is not offered", () => {
+  it("'Do a piece and earn' skips it, even when it is the longest-running", () => {
+    const tasks = [task("old-u"), task("new-u")];
+    const old = { ...camp("old", "2026-09-20"), productName: undefined, productUrl: undefined };
+    expect(pickCampaignToDo([old, camp("new", "2026-09-22")], tasks)?.campaign.id).toBe("new");
+    expect(pickCampaignToDo([old], tasks)).toBeNull();
+  });
+  it("a name without a link, or a link without a name, is not a product", () => {
+    const tasks = [task("a-u")];
+    expect(pickCampaignToDo([{ ...camp("a", "2026-09-20"), productUrl: undefined }], tasks)).toBeNull();
+    expect(pickCampaignToDo([{ ...camp("a", "2026-09-20"), productName: undefined }], tasks)).toBeNull();
+  });
+  it("every campaign surface shows the product, or says there is none", () => {
+    const cc = readFileSync("src/components/CompanyCampaign.tsx", "utf8");
+    const feed = readFileSync("src/components/Feed.tsx", "utf8");
+    const shape = readFileSync("src/lib/campaign-draft-shape.ts", "utf8");
+    expect(shape).toMatch(/NO_PRODUCT_YET = "This company hasn't named a product yet"/);
+    expect((cc.match(/<ProductLine c=\{c\}/g) ?? []).length).toBe(2); // card and campaign page
+    expect(feed).toMatch(/<ProductLine c=\{pieceCampaign\}/); // proof step
+    expect(cc).toMatch(/const open = hasProduct\(c\) && /); // no Join without a product
   });
 });
