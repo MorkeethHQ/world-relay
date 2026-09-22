@@ -2,8 +2,8 @@ import { describe, it, expect, vi } from "vitest";
 
 // THE BEACON MUST RECORD BEFORE IT ANSWERS (2026-09-22). /api/track used to fire
 // trackEvent and answer at once. On Vercel the function may be frozen once it has
-// answered, so an unawaited write is not guaranteed to finish. (No loss was
-// observed: an apparent one was the retention report's 10-minute cache.) This test
+// answered, so an unawaited write is not guaranteed to finish. (Observed: two walks
+// each sent mission_started before the await, and 1 was counted.) This test
 // holds each write open and checks the route has not answered while it is pending.
 
 let release: (() => void) | null = null;

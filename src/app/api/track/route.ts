@@ -47,9 +47,10 @@ export async function POST(req: NextRequest) {
     if (balance !== undefined) data.balance = balance;
     // AWAITED (2026-09-22). This used to fire and forget, then answer. On Vercel a
     // function may be frozen once it has answered, so an unawaited write is not
-    // guaranteed to finish. No loss was actually observed: an apparent loss on
-    // 22 Sep was /api/stats/retention serving its 10-minute cache (cache:retention).
-    // Awaiting costs a few ms and removes the risk.
+    // guaranteed to finish. Observed on 22 Sep: two production walks (07:18Z and
+    // 07:23Z, before this await) each sent mission_started, and the fresh report
+    // (07:42Z, after its 10-minute cache expired) counted 1. Earlier reads showed
+    // none at all, but that part was the cache (cache:retention), not loss.
     await trackEvent(event, data).catch(() => {});
     return NextResponse.json({ ok: true });
   }
