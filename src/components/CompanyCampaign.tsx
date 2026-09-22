@@ -24,7 +24,7 @@ const STEPS = [
   "A company proposes a campaign and a pool.",
   "People pick a piece of work: a clip, an article, a review.",
   "They send proof: a link, a photo or a note.",
-  "It is reviewed: an AI check, then human judges where it applies.",
+  "It is reviewed: an AI checks every proof. Human judges can clear a flagged photo proof.",
   "Accepted work earns the reward. Points while the pool is proposed. USDC only from a funded pool, and only for Orb-verified people.",
   "Everyone sees the piece, its status and the reward in History, and comes back for the next one.",
 ];
@@ -207,7 +207,7 @@ export function CampaignDraftForm({ onSaved, onCancel, onReauth }: {
         <div>
           <p className="text-[12px] text-gray-400 mb-2">How work is reviewed</p>
           <div className="flex gap-2">
-            {([["ai", "AI check"], ["ai_and_jury", "AI check + human judges"]] as const).map(([k, label]) => (
+            {([["ai", "AI check"], ["ai_and_jury", "AI check, judges on flagged photos"]] as const).map(([k, label]) => (
               <button key={k} type="button" aria-pressed={reviewRule === k} onClick={() => setReviewRule(k)}
                 className={`flex-1 min-h-[44px] rounded-xl text-[13px] ${reviewRule === k ? "bg-gray-900 text-white" : "bg-white border border-gray-200 text-gray-700"}`}>
                 {label}
@@ -281,7 +281,7 @@ export function CampaignDraftList({ drafts, onDone, justSaved, onPublished, onOp
                 {d.pieces.map((p) => <li key={p.kind}>{PIECE_LABEL[p.kind]} · {p.count} wanted · {d.rewardPerPiecePoints} pts each</li>)}
               </ul>
               <p className="mt-2 text-[12px] text-gray-500">
-                Proposed pool {d.proposedPoolUsdc} USDC · <span className="font-semibold text-gray-700">not funded</span> · reviewed by {d.reviewRule === "ai_and_jury" ? "AI check + human judges" : "AI check"}
+                Proposed pool {d.proposedPoolUsdc} USDC · <span className="font-semibold text-gray-700">not funded</span> · reviewed by {d.reviewRule === "ai_and_jury" ? "AI check, human judges on flagged photos" : "AI check"}
               </p>
               {d.status !== "published" ? (
                 <>
@@ -364,7 +364,7 @@ export function CompanyCampaignView({ id, tasks, completedIds, onJoin, onBack }:
             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-900">Company campaign · points only{c.status === "publishing" ? " · still publishing" : ""}</p>
             <p className="text-[15px] text-gray-800 mt-1 leading-snug break-words">{c.brief}</p>
             <p className="text-[12px] text-gray-500 mt-2">
-              Proposed pool {c.proposedPoolUsdc} USDC · <span className="font-semibold text-gray-700">not funded</span>. Accepted pieces earn {c.rewardPerPiecePoints} points. Reviewed by {c.reviewRule === "ai_and_jury" ? "an AI check, then human judges" : "an AI check"}.
+              Proposed pool {c.proposedPoolUsdc} USDC · <span className="font-semibold text-gray-700">not funded</span>. Accepted pieces earn {c.rewardPerPiecePoints} points. Reviewed by {c.reviewRule === "ai_and_jury" ? "an AI check. Human judges can clear a flagged photo proof" : "an AI check"}.
             </p>
           </div>
           <section aria-label="Pieces you can join" className="flex flex-col gap-2.5">
