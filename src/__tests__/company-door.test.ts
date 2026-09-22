@@ -58,3 +58,15 @@ describe("the first screen leads with doing, not with planning", () => {
     expect(cc).toMatch(/rel="noopener noreferrer nofollow ugc"/);
   });
 });
+
+describe("the board's order after the company door", () => {
+  const feed = readFileSync("src/components/Feed.tsx", "utf8");
+  it("today's mission comes before the list of campaign cards", () => {
+    const mission = feed.indexOf("<DailyMissionCard");
+    const cards = feed.indexOf("<CompanyCampaignCard key");
+    const earn = feed.indexOf("<EarnCard");
+    expect(earn).toBeGreaterThan(0);
+    expect(mission).toBeGreaterThan(earn);
+    expect(cards).toBeGreaterThan(mission);
+  });
+});

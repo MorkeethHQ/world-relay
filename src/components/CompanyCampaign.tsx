@@ -46,13 +46,17 @@ export function EarnCard({ openPieces, onDo, onForCompanies }: {
             Make a short clip, an article or an honest review for a company. Accepted work earns points.
           </p>
           <p className="mt-2 text-[13px] text-white/70">{openPieces} {openPieces === 1 ? "piece" : "pieces"} open now. An AI checks every proof.</p>
-          <button
-            type="button"
-            onClick={onDo}
-            className="mt-4 w-full min-h-[48px] rounded-full bg-white text-gray-900 text-[15px] font-semibold active:scale-[0.99]"
-          >
-            Do a piece and earn
-          </button>
+          {/* Spacing on a wrapper: the World UI kit's unlayered button reset drops
+              a margin class set on the button itself. */}
+          <div className="pt-4">
+            <button
+              type="button"
+              onClick={onDo}
+              className="w-full min-h-[48px] rounded-full bg-white text-gray-900 text-[15px] font-semibold active:scale-[0.99]"
+            >
+              Do a piece and earn
+            </button>
+          </div>
         </div>
       </section>
       <div className="mx-6 mt-1 flex justify-end">
