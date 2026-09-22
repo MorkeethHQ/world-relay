@@ -107,6 +107,11 @@ const TRACKED_EVENTS = [
   "terms_accepted",
   "sign_in_completed",
   "mission_started",
+  // Which step-0 button a first visit used (2026-09-22).
+  "mission_tapped",
+  "get_started_tapped",
+  "for_companies_tapped",
+  "piece_tapped",
 ] as const;
 
 export async function computeRetention(

@@ -129,9 +129,9 @@ describe("the allowlist holds against a hostile caller", () => {
 // The names come from one module that both the client and this route read, so a
 // step cannot be fired by the client and silently dropped here.
 describe("the first-visit funnel is recorded", () => {
-  const STEPS = ["mission_viewed", "terms_accepted", "sign_in_completed", "mission_started"];
+  const STEPS = ["mission_viewed", "terms_accepted", "sign_in_completed", "mission_started", "mission_tapped", "get_started_tapped", "for_companies_tapped", "piece_tapped"];
 
-  it("each of the four steps is accepted and counted under its own name", async () => {
+  it("each funnel step and step-0 tap is accepted and counted under its own name", async () => {
     for (const event of STEPS) {
       const res = await POST(post({ event }));
       expect(res.status, event).toBe(200);
