@@ -1,6 +1,27 @@
+import { after } from "next/server";
 import { getRedis } from "./redis";
 
-export async function trackVisitor(address: string): Promise<void> {
+// EVERY TRACKED WRITE OUTLIVES THE RESPONSE (2026-09-22). About 20 API routes call
+// trackEvent(...).catch(() => {}) without awaiting it, then answer. On Vercel a
+// function may be frozen once it has answered, so such a write can be lost:
+// observed on 22 Sep, when two walks each sent mission_started before /api/track
+// awaited it and the fresh report counted 1. One fix here instead of 20 edits:
+// each write is handed to Next's after(), which keeps the function alive until it
+// settles. Outside a request (scripts, tests) after() throws, and the write simply
+// runs as before. The returned promise is the same, so awaiting callers still wait.
+function outliveResponse<T>(work: Promise<T>): Promise<T> {
+  try {
+    after(() => work.then(() => undefined, () => undefined));
+  } catch {
+    // Not inside a request scope: nothing to keep alive.
+  }
+  return work;
+}
+
+export function trackVisitor(address: string): Promise<void> {
+  return outliveResponse(writeVisitor(address));
+}
+async function writeVisitor(address: string): Promise<void> {
   const redis = getRedis();
   if (!redis) return;
   const today = new Date().toISOString().slice(0, 10);
@@ -16,7 +37,10 @@ export async function trackVisitor(address: string): Promise<void> {
 // portal counts as "users" — our visitors:all only captured people who reached
 // sign-in, missing everyone who opened and bounced. Keyed by client id (not
 // wallet), so it counts real distinct opens with no sign-in dependency.
-export async function trackReach(clientId: string): Promise<void> {
+export function trackReach(clientId: string): Promise<void> {
+  return outliveResponse(writeReach(clientId));
+}
+async function writeReach(clientId: string): Promise<void> {
   const redis = getRedis();
   if (!redis || !clientId || clientId.length > 64) return;
   const today = new Date().toISOString().slice(0, 10);
@@ -27,7 +51,13 @@ export async function trackReach(clientId: string): Promise<void> {
   ]);
 }
 
-export async function trackEvent(
+export function trackEvent(
+  event: string,
+  data?: Record<string, string | number | boolean>,
+): Promise<void> {
+  return outliveResponse(writeEvent(event, data));
+}
+async function writeEvent(
   event: string,
   data?: Record<string, string | number | boolean>,
 ): Promise<void> {
