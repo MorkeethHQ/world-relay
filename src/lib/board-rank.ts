@@ -36,10 +36,18 @@ export function haversineKm(lat1: number, lng1: number, lat2: number, lng2: numb
 // on-chain escrow. (category === "feedback" used to bypass the funded check, which
 // let unfunded USDC question-tasks crowd the board.) Claimed tasks show only to
 // their claimant.
+// R15: a company campaign piece is not a favour. It is reached through the earn
+// card and the campaign cards, which label the company's trust. Only an OPEN piece
+// is kept off the favour list; a piece someone has claimed still shows to them.
+export function isCompanyPiece(t: Pick<Task, "companyCampaignId">): boolean {
+  return typeof t.companyCampaignId === "string" && t.companyCampaignId.length > 0;
+}
+
 export function isBoardVisible(t: Task, userId: string | null, now: number): boolean {
   if (t.status === "expired" || t.status === "cancelled") return false;
   if (t.status === "open") {
     if (new Date(t.deadline).getTime() < now) return false;
+    if (isCompanyPiece(t)) return false;
     // A points task must actually reward something: a 0-value points task shows a
     // "0 pts" badge and reads as broken/empty inventory, so keep it off the board.
     if (t.rewardType === "points") return t.bountyUsdc > 0;

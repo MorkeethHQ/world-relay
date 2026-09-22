@@ -177,6 +177,17 @@ recur silently.
   did this", so a placeholder in it would be fabricated evidence of use, which
   CLAUDE.md forbids outright.
 
+- **R15 — A company campaign piece is not a favour (added Sep 22, 2026).**
+  `isCompanyPiece` (a task with `companyCampaignId`). An open piece is kept off
+  the favour list, the starter pick and the daily mission (`isBoardVisible`), and
+  it does not count toward the refill target (`countOpenVisible`). Pieces are
+  reached through the "Do a piece and earn" card and the campaign cards, which
+  show whether the company is checked. Measured on production on 22 Sep: 9 of 21
+  open tasks were pieces from three campaigns, so they filled the refill target
+  with work that was not favours, held the generator at zero, and put
+  9 unlabelled rows such as "kcz sdn,bhd campaign · just want to make money" at
+  the top of the favour list. A piece someone has claimed still shows to them.
+
 ## Where each rule is enforced
 
 - **Server (`GET /api/tasks` via `orderBoardForApi`):** R5 tier order + R1 feedback

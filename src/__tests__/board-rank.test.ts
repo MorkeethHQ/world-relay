@@ -341,3 +341,26 @@ describe("pickProofStrip more", () => {
     expect(pickProofStrip([task({ status: "completed", proofImageUrl: null })])).toEqual([]);
   });
 });
+
+describe("R15: a company campaign piece is not a favour", () => {
+  const NOW15 = Date.parse("2026-09-22T12:00:00Z");
+  const base = { status: "open", deadline: "2026-09-29T00:00:00Z", rewardType: "points", bountyUsdc: 5, createdAt: "2026-09-21T00:00:00Z", maxCompletions: 5, completionCount: 0 } as any;
+  it("an open piece is off the favour list; a plain favour is on it", async () => {
+    const { isBoardVisible, isCompanyPiece } = await import("@/lib/board-rank");
+    expect(isBoardVisible({ ...base, id: "f" }, null, NOW15)).toBe(true);
+    expect(isBoardVisible({ ...base, id: "p", companyCampaignId: "draft_x" }, null, NOW15)).toBe(false);
+    expect(isCompanyPiece({ companyCampaignId: "" } as any)).toBe(false);
+  });
+  it("a piece the person claimed still shows to them", async () => {
+    const { isBoardVisible } = await import("@/lib/board-rank");
+    expect(isBoardVisible({ ...base, id: "p", status: "claimed", claimant: "0xa", companyCampaignId: "draft_x" }, "0xa", NOW15)).toBe(true);
+  });
+  it("pieces do not fill the refill target", async () => {
+    const { countOpenVisible } = await import("@/lib/board-replenish");
+    const tasks = [
+      ...Array.from({ length: 12 }, (_, i) => ({ ...base, id: `f${i}` })),
+      ...Array.from({ length: 9 }, (_, i) => ({ ...base, id: `p${i}`, companyCampaignId: "draft_x" })),
+    ];
+    expect(countOpenVisible(tasks, NOW15)).toBe(12);
+  });
+});
