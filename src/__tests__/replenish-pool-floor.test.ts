@@ -12,6 +12,7 @@ import {
   FALLBACK_FAVOURS,
   NO_REPEAT_DAYS,
   REPLENISH_MAX_PER_DAY,
+  REPLENISH_TARGET_OPEN,
   balanceKinds,
   countOpenVisible,
   generateFavourSpecs,
@@ -85,7 +86,42 @@ async function runOnce(tasks: Task[], now: number, usedToday: number): Promise<n
   return chosen.length;
 }
 
+// 60 days of hourly runs. `claimsPerDay` open favours are taken off the open
+// board each day (production keeps a multi-completion favour in "claimed"),
+// which the counter no longer sees, so the engine must refill them.
+async function simulate(claimsPerDay: number) {
+  const tasks: Task[] = [];
+  let usedToday = 0;
+  const lows: string[] = [];
+  let atTarget = 0;
+  let runs = 0;
+  for (let h = 0; h < 60 * 24; h++) {
+    const now = START + h * HOUR;
+    if (h % 24 === 0) usedToday = 0;
+    if (claimsPerDay > 0 && h % Math.floor(24 / claimsPerDay) === 0) {
+      const open = tasks.find((t) => t.status === "open");
+      if (open) open.status = "claimed";
+    }
+    usedToday += await runOnce(tasks, now, usedToday);
+    const open = countOpenVisible(tasks, now + 1);
+    if (h >= 24) {
+      runs += 1;
+      if (open >= REPLENISH_TARGET_OPEN) atTarget += 1;
+      if (open < BOARD_MIN_OPEN) lows.push(`${new Date(now).toISOString()} open=${open}`);
+    }
+  }
+  return { tasks, lows, atTarget, runs };
+}
+
 describe("STALL 2026-09-26: the pool holds the floor with the model off", () => {
+  // Measured limit: 66 pool favours hold this at 2 claims a day and fail at 3
+  // (405 of 1416 hours below the floor). Above that, the model is the engine.
+  it("with 2 favours claimed a day, the board never drops below the floor and sits at the target 95% of hours", async () => {
+    const { lows, atTarget, runs } = await simulate(2);
+    expect(lows.slice(0, 5), `${lows.length} hourly runs below the floor`).toEqual([]);
+    expect(atTarget / runs).toBeGreaterThanOrEqual(0.95);
+  });
+
   it("keeps the visible board at or above BOARD_MIN_OPEN for 60 days of hourly runs, after day 1", async () => {
     const tasks: Task[] = [];
     let usedToday = 0;
@@ -134,8 +170,13 @@ describe("STALL 2026-09-26: the pool holds the floor with the model off", () => 
     });
     // Leave one visible, as production had.
     for (const t of tasks.slice(1)) t.status = "expired";
-    const gen = await generateFavourSpecs(6, new Set(), { recent: recentDescriptions(tasks, now), allowModel: false });
-    expect(gen.specs.length).toBe(6);
+    const plan = planReplenish({ tasks, recycledRecently: new Set(), usedToday: 0, now, recycle: false });
+    expect(plan.generateCount).toBe(6);
+    const gen = await generateFavourSpecs(plan.generateCount, new Set(), { recent: recentDescriptions(tasks, now), allowModel: false });
+    const chosen = balanceKinds(gen.specs, tasks.filter((t) => t.status === "open"), plan.generateCount);
+    expect(chosen.length).toBe(6);
+    const blocked = tasks.map((t) => t.description);
+    for (const c of chosen) expect(isNearDuplicate(c.description, blocked), c.description).toBe(false);
   });
 
   it("every pool favour is valid, unique, and not a near-duplicate of another", () => {
