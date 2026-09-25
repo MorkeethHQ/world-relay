@@ -188,6 +188,46 @@ recur silently.
   9 unlabelled rows such as "kcz sdn,bhd campaign · just want to make money" at
   the top of the favour list. A piece someone has claimed still shows to them.
 
+- **R16, only a real, doable, checked item may lead (added Sep 25, 2026).**
+  A stranger test on 25 Sep found the first card a new visitor saw was
+  "kcz sdn,bhd · just want to make money": an unverified company, a 5-word brief,
+  no product, so no piece could be joined. Trust died in 12 seconds. The cause was
+  in `Feed.tsx`: every published campaign rendered as a full card above the
+  favours, newest first, with no rule at all.
+  **Campaigns.** `canLeadCampaign` (`src/lib/company-door.ts`): a campaign card may
+  sit above the favour list, or be the "Do a piece and earn" card, only if it is
+  not hidden, the company is checked by hand (`companyChecked`), it passes today's
+  publish gate (20-word brief, product name and link), its brief and name are not
+  a money pitch (`looksLikeSpam`), and the viewer can do one of its pieces now.
+  `rankCampaignCards` returns `lead` (above the favours) and `rest` (below the
+  favour list, under "More company campaigns", still labelled with trust).
+  Demoted, never dropped. `pickCampaignToDo` offers only a campaign that may lead,
+  so an unverified company is never the signed-out first screen's main action.
+  **Favours.** `leadWithDoable` (`src/lib/board-rank.ts`): the first favour card is
+  one this viewer can do (open with room, not their own post, not already
+  delivered by them, not a money pitch), or their own claim. Only that card moves;
+  the rest keep their order. A money pitch is left out of the default list
+  (unless it is the viewer's own), and the starter card and the daily mission
+  skip it too. The one allowed non-doable lead: a board whose only cards are the
+  viewer's own posts, which only that viewer sees. A hidden piece does not count
+  as an open piece of its campaign. An open favour with no room left is not board-visible.
+  **Moderation.** `hiddenAt` on a task or a campaign is the operator's hidden
+  state. Only `scripts/hide-item.mjs` writes it (dry run by default, `--apply`,
+  `--undo`); no API route does, and a guard test pins that. A hidden task leaves
+  every public read: `GET /api/tasks` (`isPublicTask`), `/api/tasks/search`,
+  `/api/agent/tasks`; `/api/tasks/[id]` and `/api/agent/tasks/[id]` answer 404,
+  and the task page's link preview drops its text (`isHiddenTask`; route test
+  `hidden-routes.test.ts`). The script itself is tested against a fake KV in
+  `hide-item-script.test.ts`. It also leaves the board, the starter card and
+  the daily mission. A hidden campaign leaves
+  `GET /api/campaigns/company`, its detail route answers 404, and its piece tasks
+  are hidden with it. `getPublishedCampaign` still resolves it, so a proof already
+  in flight keeps its label. Hiding is never deleting.
+  **Not done.** Favour poster verification is not part of R16: the task record
+  carries no poster verification level, and every open favour on 25 Sep was
+  posted by a house agent. Test: `src/__tests__/lead-card.test.ts`, whose fixtures
+  are the three campaigns production served that day.
+
 ## Where each rule is enforced
 
 - **Server (`GET /api/tasks` via `orderBoardForApi`):** R5 tier order + R1 feedback

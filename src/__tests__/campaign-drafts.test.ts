@@ -429,6 +429,23 @@ describe("the company door: a real brief, a product link, unverified until check
     expect(list.map((c) => c.id)).toContain(id);
     expect(list.find((c) => c.id === id)?.companyChecked).toBe(false);
   });
+  it("R16: an operator-hidden campaign leaves the public list but still resolves by id", async () => {
+    const id = "draft_hidden_spam";
+    store.set(`${DRAFT_PREFIX}${id}`, JSON.stringify({ id, status: "published", company: "kcz", brief: "just want to make money", pieces: [{ kind: "ugc", count: 2 }], rewardPerPiecePoints: 5, proposedPoolUsdc: 0, reviewRule: "ai", owner: COMPANY, createdAt: new Date().toISOString(), publishedAt: new Date().toISOString(), pieceTaskIds: { ugc: "t9" }, hiddenAt: "2026-09-25T12:00:00Z" }));
+    sets.set("campaign:company:published", new Set([id]));
+    expect((await listPublishedCampaigns()).map((c) => c.id)).not.toContain(id);
+    // Still stored and still resolvable, so a proof already in flight keeps its label.
+    expect((await getPublishedCampaign(id))?.hidden).toBe(true);
+    const { GET } = await import("@/app/api/campaigns/company/[id]/route");
+    const { NextRequest } = await import("next/server");
+    const res = await GET(new NextRequest(`http://x/api/campaigns/company/${id}`), { params: Promise.resolve({ id }) });
+    expect(res.status).toBe(404);
+  });
+  it("a body cannot hide or unhide a campaign", () => {
+    const v = validateDraftInput({ ...EXAMPLE, hiddenAt: "2026-09-25T00:00:00Z", hidden: true });
+    expect(v.ok).toBe(true);
+    if (v.ok) { expect(v.draft).not.toHaveProperty("hiddenAt"); expect(v.draft).not.toHaveProperty("hidden"); }
+  });
   it("only a stored companyCheckedAt, which only Oscar's script writes, reads as checked", async () => {
     const draft = await aSavedDraft();
     await publishDraft(COMPANY, draft.id, Date.now(), createTask);

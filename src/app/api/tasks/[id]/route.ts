@@ -3,7 +3,7 @@ import { getTask, setOnChainId } from "@/lib/store";
 import { getAgent } from "@/lib/agents";
 import { getRedis } from "@/lib/redis";
 import { isEscrowTaskFunded } from "@/lib/escrow";
-import { toApiTask } from "@/lib/task-serializer";
+import { toApiTask, isHiddenTask } from "@/lib/task-serializer";
 import { CUSTODY_RETIRED } from "@/lib/custody";
 
 /** Return full task detail, omitting only internal keys like claimCode. */
@@ -19,7 +19,9 @@ export async function GET(
   const { id } = await params;
   const task = await getTask(id);
 
-  if (!task) {
+  // R16: an operator-hidden task answers 404, the same as one that does not
+  // exist. It is still stored; hiding is never deleting.
+  if (!task || isHiddenTask(task)) {
     return NextResponse.json({ error: "Task not found" }, { status: 404 });
   }
 

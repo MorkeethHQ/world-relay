@@ -104,4 +104,10 @@ export type Task = {
   maxCompletions: number;
   completionCount: number;
   createdAt: string;
+  // MODERATION (R16, 2026-09-25). Set ONLY by the operator, by hand, through
+  // scripts/hide-item.mjs. No API route writes it. A hidden task stays in the
+  // store as history and leaves every public surface (isPublicTask). Hiding is
+  // never deleting.
+  hiddenAt?: string | null;
+  hiddenReason?: string | null;
 };

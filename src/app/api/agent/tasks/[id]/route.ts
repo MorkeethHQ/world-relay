@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isHiddenTask } from "@/lib/task-serializer";
 import { getTask, cancelTask } from "@/lib/store";
 import { broadcastEvent } from "@/lib/sse";
 import { checkAgentAuth } from "@/lib/api-keys";
@@ -15,7 +16,8 @@ export async function GET(
   const { id } = await params;
   const task = await getTask(id);
 
-  if (!task) {
+  // R16: an operator-hidden task answers 404 here too.
+  if (!task || isHiddenTask(task)) {
     return NextResponse.json({ error: "Task not found" }, { status: 404 });
   }
 

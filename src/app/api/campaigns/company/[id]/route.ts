@@ -7,7 +7,9 @@ import { getPublishedCampaign, listCampaignResults } from "@/lib/campaign-drafts
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const campaign = await getPublishedCampaign(id);
-  if (!campaign) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  // R16: an operator-hidden campaign answers 404 publicly, like a draft. It stays
+  // stored, and verify-proof still resolves it for a proof already in flight.
+  if (!campaign || campaign.hidden) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json(
     { campaign, results: await listCampaignResults(id) },
     { headers: { "Cache-Control": "public, s-maxage=10, stale-while-revalidate=20" } },

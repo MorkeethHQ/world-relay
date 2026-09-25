@@ -46,13 +46,14 @@ import {
   haversineKm,
   pickStarterFavour,
   pickDailyMission,
+  leadWithDoable,
   pickProofStrip,
   POLL_INSERT_AFTER,
   POLL_CARDS_MAX,
 } from "@/lib/board-rank";
 import { JuryMode, type JuryCard } from "@/components/JuryMode";
 import { EarnCard, ForCompaniesView, CompanyTrust, ProductLine, CampaignDraftForm, CampaignDraftList, CompanyCampaignCard, CompanyCampaignView } from "@/components/CompanyCampaign";
-import { pickCampaignToDo } from "@/lib/company-door";
+import { pickCampaignToDo, rankCampaignCards } from "@/lib/company-door";
 import type { CampaignDraft, PublicCompanyCampaign, PieceKind } from "@/lib/campaign-draft-shape";
 import { PIECE_LABEL, PIECE_ASK, PIECE_PROOF_HINT, PIECE_KINDS } from "@/lib/campaign-draft-shape";
 import { PENDING_LAUNCH_KEY, PENDING_PIECE_KEY } from "@/components/Onboarding";
@@ -754,6 +755,9 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
   // published; the explanatory example card is never one of these.
   const [companyCampaigns, setCompanyCampaigns] = useState<PublicCompanyCampaign[]>([]);
   const pieceToDo = useMemo(() => pickCampaignToDo(companyCampaigns, tasks, completedIds), [companyCampaigns, tasks, completedIds]);
+  // R16 (BOARD-RULES.md): only a campaign that may lead sits above the favours.
+  // Every other campaign that is not hidden goes below the list, still labelled.
+  const campaignCards = useMemo(() => rankCampaignCards(companyCampaigns, tasks, completedIds), [companyCampaigns, tasks, completedIds]);
   useEffect(() => {
     let live = true;
     fetch("/api/campaigns/company", { cache: "no-store" })
@@ -843,14 +847,19 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
     // next action, and a second suggestion underneath it is a second decision to
     // make before doing anything.
     if (dailyMission) return null;
-    return pickStarterFavour(tasks, userId);
-  }, [showFirstRunCoach, tab, tasks, userId, dailyMission]);
+    return pickStarterFavour(tasks, userId, Date.now(), completedIds);
+  }, [showFirstRunCoach, tab, tasks, userId, dailyMission, completedIds]);
 
   const boardTasks = useMemo(() => {
     const lead = starterFavour ?? dailyMission;
     // A favour this person already passed is not an active choice for them.
-    return filtered.filter((t) => !completedIds.has(t.id) && (!lead || t.id !== lead.id));
-  }, [filtered, starterFavour, dailyMission, completedIds]);
+    // R16: the first card is one this viewer can actually do.
+    return leadWithDoable(
+      filtered.filter((t) => !completedIds.has(t.id) && (!lead || t.id !== lead.id)),
+      userId,
+      completedIds,
+    );
+  }, [filtered, starterFavour, dailyMission, completedIds, userId]);
 
   const openProof = useCallback((task: Task) => {
     hapticTap();
@@ -1192,7 +1201,7 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
       {/* The live campaigns, each labelled with its company's trust. Below today's
           mission and review, so the first screen is the earn card, then the
           mission (T3, 2026-09-22: three cards used to push the mission down). */}
-      {tab === "available" && !loading && companyCampaigns.map((c) => (
+      {tab === "available" && !loading && campaignCards.lead.map((c) => (
         <CompanyCampaignCard key={c.id} c={c} onOpen={() => { hapticTap(); setCompanyCampaignId(c.id); setView("company"); }} />
       ))}
 
@@ -1580,6 +1589,17 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
               <div className="px-6 pt-2 pb-4">
                 <DailyFavour userId={userId} onReauth={onReauth} />
               </div>
+            )}
+            {/* R16: campaigns that may not lead (unchecked company, thin brief, no
+                product, nothing open) sit below the favours, labelled. Demoted,
+                never dropped; only the operator's hidden state removes one. */}
+            {tab === "available" && campaignCards.rest.length > 0 && (
+              <section aria-label="More company campaigns" className="flex flex-col gap-2.5 pb-4">
+                <p className="pt-4 text-[12px] font-semibold text-gray-500">More company campaigns</p>
+                {campaignCards.rest.map((c) => (
+                  <CompanyCampaignCard key={c.id} c={c} onOpen={() => { hapticTap(); setCompanyCampaignId(c.id); setView("company"); }} />
+                ))}
+              </section>
             )}
           </div>
         )}
