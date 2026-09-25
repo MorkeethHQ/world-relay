@@ -847,8 +847,8 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
     // next action, and a second suggestion underneath it is a second decision to
     // make before doing anything.
     if (dailyMission) return null;
-    return pickStarterFavour(tasks, userId);
-  }, [showFirstRunCoach, tab, tasks, userId, dailyMission]);
+    return pickStarterFavour(tasks, userId, Date.now(), completedIds);
+  }, [showFirstRunCoach, tab, tasks, userId, dailyMission, completedIds]);
 
   const boardTasks = useMemo(() => {
     const lead = starterFavour ?? dailyMission;

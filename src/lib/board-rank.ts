@@ -220,7 +220,12 @@ function isRemoteLocation(loc?: string | null): boolean {
 }
 
 // Best open favour for a first-time user: online, text-friendly, points-only.
-export function pickStarterFavour(tasks: Task[], userId: string | null, now = Date.now()): Task | null {
+export function pickStarterFavour(
+  tasks: Task[],
+  userId: string | null,
+  now = Date.now(),
+  completedIds: Set<string> = new Set(),
+): Task | null {
   const candidates = tasks.filter(
     (t) =>
       isBoardVisible(t, userId, now) &&
@@ -228,8 +233,9 @@ export function pickStarterFavour(tasks: Task[], userId: string | null, now = Da
       t.poster !== userId &&
       t.rewardType === "points" &&
       t.bountyUsdc > 0 &&
-      // R16: the starter card leads the screen, so it obeys the lead rule.
-      !looksLikeSpam(t.description),
+      // R16: the starter card leads the screen, so it obeys the lead rule: not a
+      // money pitch, and not one this viewer already delivered.
+      canLeadFavour(t, userId, completedIds),
   );
   if (candidates.length === 0) return null;
 

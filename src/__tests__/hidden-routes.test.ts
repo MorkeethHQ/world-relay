@@ -17,8 +17,10 @@ const base = {
 const HIDDEN = { ...base, id: "hid", poster: "0xbb7e4f130f38aaaaaaaaaaaaaaaaaaaaaaaaaaaa", description: "just want to make money", hiddenAt: "2026-09-25T12:00:00Z", hiddenReason: "spam" };
 const SHOWN = { ...base, id: "ok", poster: "agent:openclaw", description: "What is the smallest thing that made your day better today?" };
 
+const HIDDEN_AGENT: Array<Record<string, unknown>> = [];
+vi.mock("@/lib/agent-analytics", () => ({ getAgentAnalytics: async () => [] }));
 vi.mock("@/lib/store", () => ({
-  listTasks: async () => [HIDDEN, SHOWN],
+  listTasks: async () => [HIDDEN, SHOWN, ...HIDDEN_AGENT],
   getTask: async (id: string) => [HIDDEN, SHOWN].find((t) => t.id === id),
   createTask: async () => null,
   setOnChainId: async () => {},
@@ -63,5 +65,26 @@ describe("R16: the remaining hidden-task reads", () => {
     const { generateMetadata } = await import("@/app/task/[id]/layout");
     const meta = await generateMetadata({ params: Promise.resolve({ id: "hid" }) });
     expect(JSON.stringify(meta)).not.toContain("make money");
+  });
+});
+
+describe("R16: public pages", () => {
+  it("the agent page never renders a hidden task's text", async () => {
+    HIDDEN_AGENT.push({ ...HIDDEN, id: "hid2", poster: "agent:openclaw", description: "hidden agent pitch to make money" });
+    const Page = (await import("@/app/agent/[id]/page")).default;
+    const tree = await Page({ params: Promise.resolve({ id: "openclaw" }) } as never);
+    // Collect every string in the element tree (props and children).
+    const seen = new Set<unknown>();
+    const strings: string[] = [];
+    const walk = (v: unknown): void => {
+      if (typeof v === "string") { strings.push(v); return; }
+      if (!v || typeof v !== "object" || seen.has(v)) return;
+      seen.add(v);
+      for (const x of Array.isArray(v) ? v : Object.values(v as Record<string, unknown>)) walk(x);
+    };
+    walk(tree);
+    const text = strings.join(" ");
+    expect(text).toContain("What is the smallest thing");
+    expect(text).not.toContain("hidden agent pitch");
   });
 });

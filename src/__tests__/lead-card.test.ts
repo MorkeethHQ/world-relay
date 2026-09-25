@@ -154,6 +154,14 @@ describe("R16: the first favour card is one the viewer can do", () => {
     expect(canLeadCampaign(GOOD, [task({ id: "good-u", companyCampaignId: GOOD.id })])).toBe(true);
   });
 
+  it("the starter card never offers a favour the viewer already delivered", () => {
+    const done = task({ description: "Rate this app honestly", maxCompletions: 100, completionCount: 4 });
+    const other = task({ description: "Tell us honestly about your street" });
+    expect(pickStarterFavour([done], "0xme", NOW, new Set([done.id]))).toBeNull();
+    expect(pickStarterFavour([done, other], "0xme", NOW, new Set([done.id]))?.id).toBe(other.id);
+    expect(readFileSync("src/components/Feed.tsx", "utf8")).toMatch(/pickStarterFavour\(tasks, userId, Date\.now\(\), completedIds\)/);
+  });
+
   it("the starter card and the daily mission obey the spam rule too", () => {
     const pitch = task({ description: "Tell us honestly how to make money right now where you are" });
     expect(pickStarterFavour([pitch], null, NOW)).toBeNull();

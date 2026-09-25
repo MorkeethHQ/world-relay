@@ -4,6 +4,7 @@ import { TopBar, Button, Typography, Spinner, CircularIcon } from "@worldcoin/mi
 import { AGENT_REGISTRY } from "@/lib/agents";
 import { getAgentAnalytics } from "@/lib/agent-analytics";
 import { listTasks } from "@/lib/store";
+import { isHiddenTask } from "@/lib/task-serializer";
 import { rewardAmountLabel } from "@/lib/reward";
 import type { TaskStatus } from "@/lib/types";
 
@@ -54,8 +55,9 @@ export default async function AgentProfilePage({ params }: { params: Promise<{ i
   const stats = analyticsArr[0] || null;
 
   // Filter tasks posted by this agent
+  // R16: operator-hidden tasks never render on a public page.
   const agentTasks = allTasks.filter(
-    (t) => t.agent?.id === id || t.poster === `agent_${id}` || t.poster === `agent:${id}`
+    (t) => !isHiddenTask(t) && (t.agent?.id === id || t.poster === `agent_${id}` || t.poster === `agent:${id}`)
   );
   const recentTasks = agentTasks.slice(0, 10);
 

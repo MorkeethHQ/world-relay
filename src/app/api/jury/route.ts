@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { listTasks } from "@/lib/store";
+import { isHiddenTask } from "@/lib/task-serializer";
 import { issueJuryDeckWithMode, recordJuryVerdict } from "@/lib/jury";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { trackEvent } from "@/lib/track";
@@ -13,7 +14,8 @@ const WALLET_RE = /^0x[0-9a-fA-F]{40}$/;
 export async function GET(req: NextRequest) {
   const address = new URL(req.url).searchParams.get("address");
   const judge = address && WALLET_RE.test(address) ? address : null;
-  const tasks = await listTasks();
+  // R16: a hidden task's proof is never dealt into a public deck.
+  const tasks = (await listTasks()).filter((t) => !isHiddenTask(t));
   // `practice: true` when this judge has ruled on every live proof: the deck is a
   // replay of real, verified proofs that earns no points (lib/jury.ts).
   // `waiting` counts REAL proofs waiting for this judge; decoys never count.
