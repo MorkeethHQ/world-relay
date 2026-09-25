@@ -72,7 +72,8 @@ function taskFrom(spec: (typeof FALLBACK_FAVOURS)[number], now: number): Task {
 // One hourly replenish run, model off, mirroring runReplenish's generate path.
 async function runOnce(tasks: Task[], now: number, usedToday: number): Promise<number> {
   for (const t of tasks) {
-    if (t.status === "open" && new Date(t.deadline).getTime() <= now) t.status = "expired";
+    // expire-tasks expires open and claimed favours at their deadline.
+    if ((t.status === "open" || t.status === "claimed") && new Date(t.deadline).getTime() <= now) t.status = "expired";
   }
   const plan = planReplenish({ tasks, recycledRecently: new Set(), usedToday, now, recycle: false });
   if (plan.generateCount === 0) return 0;
@@ -86,9 +87,10 @@ async function runOnce(tasks: Task[], now: number, usedToday: number): Promise<n
   return chosen.length;
 }
 
-// 60 days of hourly runs. `claimsPerDay` open favours are taken off the open
-// board each day (production keeps a multi-completion favour in "claimed"),
-// which the counter no longer sees, so the engine must refill them.
+// 60 days of hourly runs. Worst case for supply: each day `claimsPerDay` open
+// favours move to "claimed" and never return. In production a passing or
+// failing proof puts a multi-completion favour back to "open"
+// (src/lib/store.ts completeTask), so the real drain is smaller than this.
 async function simulate(claimsPerDay: number) {
   const tasks: Task[] = [];
   let usedToday = 0;
@@ -114,8 +116,8 @@ async function simulate(claimsPerDay: number) {
 }
 
 describe("STALL 2026-09-26: the pool holds the floor with the model off", () => {
-  // Measured limit: 66 pool favours hold this at 2 claims a day and fail at 3
-  // (405 of 1416 hours below the floor). Above that, the model is the engine.
+  // Measured under this worst case: the pool holds at 2 permanent claims a day
+  // and fails at 3. Above that, the model is the engine.
   it("with 2 favours claimed a day, the board never drops below the floor and sits at the target 95% of hours", async () => {
     const { lows, atTarget, runs } = await simulate(2);
     expect(lows.slice(0, 5), `${lows.length} hourly runs below the floor`).toEqual([]);

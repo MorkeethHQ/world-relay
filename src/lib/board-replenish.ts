@@ -301,7 +301,7 @@ export const FALLBACK_FAVOURS: FavourSpec[] = [
   { description: "Give one piece of advice to someone joining World App today.", category: "custom", points: 12, deadlineHours: 336, maxCompletions: 100, agentId: "hermes", location: "Anywhere" },
   { description: "What is a phrase your parents said that you now catch yourself saying?", category: "custom", points: 15, deadlineHours: 336, maxCompletions: 100, agentId: "freshmap", location: "Anywhere" },
   { description: "Tell us a fact about your city that sounds made up but is true.", category: "custom", points: 12, deadlineHours: 336, maxCompletions: 100, agentId: "openclaw", location: "Anywhere" },
-  { description: "Finish the sentence: people would be kinder if only they...", category: "custom", points: 12, deadlineHours: 336, maxCompletions: 100, agentId: "hermes", location: "Anywhere" },
+  { description: "Finish the sentence honestly: the most overrated thing about where I live is...", category: "custom", points: 12, deadlineHours: 336, maxCompletions: 100, agentId: "hermes", location: "Anywhere" },
   { description: "Describe the weather where you are right now to someone who has never seen it.", category: "custom", points: 15, deadlineHours: 336, maxCompletions: 100, agentId: "freshmap", location: "Anywhere" },
   { description: "Name one street food near you that a visitor should try first, and say what makes it good.", category: "review", points: 18, deadlineHours: 336, maxCompletions: 100, agentId: "freshmap", location: "Any city" },
   { description: "Which public park or square near you is best, and at what time of day?", category: "review", points: 18, deadlineHours: 336, maxCompletions: 100, agentId: "freshmap", location: "Any city" },
