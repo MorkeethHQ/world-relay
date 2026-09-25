@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { getTask } from "@/lib/store";
+import { isHiddenTask } from "@/lib/task-serializer";
 
 type Props = {
   params: Promise<{ id: string }>;
@@ -9,7 +10,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
   const task = await getTask(id);
 
-  if (!task) {
+  // R16: a hidden task's text never reaches link previews.
+  if (!task || isHiddenTask(task)) {
     return {
       title: "FAVOUR — Task Not Found",
       description: "This task doesn't exist or has expired.",

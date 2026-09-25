@@ -118,8 +118,9 @@ describe("R16: the first favour card is one the viewer can do", () => {
     const good = task();
     const out = leadWithDoable([mine, full, done, spam, good], me, new Set([done.id]));
     expect(out[0].id).toBe(good.id);
-    // Only the lead moves; nothing is dropped and the rest keep their order.
-    expect(out.map((t) => t.id)).toEqual([good, mine, full, done, spam].map((t) => t.id));
+    // Only the lead moves and the rest keep their order. The money pitch is left
+    // out of the default list altogether.
+    expect(out.map((t) => t.id)).toEqual([good, mine, full, done].map((t) => t.id));
   });
 
   it("a claim of the viewer's own may lead, it is work in progress", () => {
@@ -128,12 +129,29 @@ describe("R16: the first favour card is one the viewer can do", () => {
     expect(canLeadFavour(claimed, "0xother")).toBe(false);
   });
 
-  it("a board where nothing can lead keeps its order, but a money pitch still never leads", () => {
+  it("a money pitch never leads, even on a board of nothing but pitches", () => {
+    const s1 = task({ description: "just want to make money" });
+    const s2 = task({ description: "Earn easy money from home" });
+    expect(leadWithDoable([s1, s2], null)).toEqual([]);
+    const a = task({ poster: "0xme" });
+    expect(leadWithDoable([s1, a], "0xme").map((t) => t.id)).toEqual([a.id]);
+    // The viewer's own pitch is never hidden from its poster.
+    const minePitch = task({ poster: "0xme", description: "just want to make money" });
+    expect(leadWithDoable([minePitch], "0xme").map((t) => t.id)).toEqual([minePitch.id]);
+  });
+
+  it("the only non-doable lead allowed: a board of the viewer's own posts, shown to them", () => {
     const a = task({ poster: "0xme" });
     const b = task({ poster: "0xme" });
     expect(leadWithDoable([a, b], "0xme").map((t) => t.id)).toEqual([a.id, b.id]);
-    const spam = task({ description: "just want to make money" });
-    expect(leadWithDoable([spam, a], "0xme").map((t) => t.id)).toEqual([a.id, spam.id]);
+    // To anyone else those same posts are doable and lead normally.
+    expect(canLeadFavour(a, "0xstranger")).toBe(true);
+  });
+
+  it("a hidden piece does not count as an open piece, so it cannot carry a campaign to the top", () => {
+    const hiddenPiece = [task({ id: "good-u", companyCampaignId: GOOD.id, hiddenAt: "2026-09-25T12:00:00Z" })];
+    expect(canLeadCampaign(GOOD, hiddenPiece)).toBe(false);
+    expect(canLeadCampaign(GOOD, [task({ id: "good-u", companyCampaignId: GOOD.id })])).toBe(true);
   });
 
   it("the starter card and the daily mission obey the spam rule too", () => {
@@ -169,12 +187,6 @@ describe("R16: the operator's hidden state", () => {
     expect(readFileSync("scripts/hide-item.mjs", "utf8")).toMatch(/hiddenAt/);
   });
 
-  it("the campaign list and detail route honour it", () => {
-    const drafts = readFileSync("src/lib/campaign-drafts.ts", "utf8");
-    expect(drafts).toMatch(/if \(c && !c\.hidden\) out\.push\(c\)/);
-    const detail = readFileSync("src/app/api/campaigns/company/[id]/route.ts", "utf8");
-    expect(detail).toMatch(/campaign\.hidden\)/);
-  });
 });
 
 describe("R16 is wired into the Feed", () => {

@@ -388,12 +388,19 @@ export function canLeadFavour(t: Task, userId: string | null, completedIds: Set<
   return (t.completionCount ?? 0) < Math.max(1, t.maxCompletions ?? 1);
 }
 
+// A money pitch is not a favour, so the DEFAULT board list leaves it out, unless it
+// is the viewer's own post or claim (their own items are never hidden from them).
+// It stays in GET /api/tasks for other tabs and integrations; the operator's
+// hidden state is what removes it everywhere.
+//
+// The one case where the first card is not doable: every remaining card is the
+// viewer's OWN post. That board is shown to its poster only, never to a stranger,
+// and hiding a person's own posts from them would be worse. Ruled 2026-09-25.
 export function leadWithDoable(tasks: Task[], userId: string | null, completedIds: Set<string> = new Set()): Task[] {
-  if (tasks.length === 0 || canLeadFavour(tasks[0], userId, completedIds)) return tasks;
-  const i = tasks.findIndex((t) => canLeadFavour(t, userId, completedIds));
-  if (i > 0) return [tasks[i], ...tasks.slice(0, i), ...tasks.slice(i + 1)];
-  // Nothing on the board is doable by this viewer (for example, only their own
-  // posts). A money pitch still never leads: it goes to the end, order kept.
-  const clean = tasks.filter((t) => !looksLikeSpam(t.description));
-  return clean.concat(tasks.filter((t) => looksLikeSpam(t.description)));
+  const isMine = (t: Task) => !!userId && (t.poster === userId || t.claimant === userId);
+  const list = tasks.filter((t) => isMine(t) || !looksLikeSpam(t.description));
+  if (list.length === 0 || canLeadFavour(list[0], userId, completedIds)) return list;
+  const i = list.findIndex((t) => canLeadFavour(t, userId, completedIds));
+  if (i > 0) return [list[i], ...list.slice(0, i), ...list.slice(i + 1)];
+  return list;
 }

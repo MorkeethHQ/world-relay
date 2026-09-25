@@ -5,6 +5,7 @@ import type { Task } from "./types";
 import type { PublicCompanyCampaign } from "./campaign-draft-shape";
 import { PIECE_KINDS, publishGateReason } from "./campaign-draft-shape";
 import { looksLikeSpam } from "./board-rank";
+import { isHiddenTask } from "./task-serializer";
 
 // Pieces of this campaign a person can still do: the task exists, is open, has
 // room, and this person has not delivered it.
@@ -14,7 +15,8 @@ export function openPiecesOf(c: PublicCompanyCampaign, tasks: Task[], completedI
     const id = c.pieceTaskIds?.[k];
     if (!id || completedIds.has(id)) continue;
     const t = tasks.find((x) => x.id === id);
-    if (!t || t.status !== "open") continue;
+    // R16: a hidden piece is not a piece anyone can do.
+    if (!t || t.status !== "open" || isHiddenTask(t)) continue;
     const want = c.pieces.find((p) => p.kind === k)?.count ?? 0;
     n += Math.max(0, (t.maxCompletions || want) - (t.completionCount || 0));
   }

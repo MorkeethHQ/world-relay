@@ -52,3 +52,16 @@ describe("R16: no public read returns an operator-hidden task", () => {
     expect(shown.status).toBe(200);
   });
 });
+
+describe("R16: the remaining hidden-task reads", () => {
+  it("GET /api/agent/tasks/[id] answers 404", async () => {
+    const { GET } = await import("@/app/api/agent/tasks/[id]/route");
+    const res = await GET(new NextRequest("http://x/api/agent/tasks/hid"), { params: Promise.resolve({ id: "hid" }) });
+    expect(res.status).toBe(404);
+  });
+  it("the task page's link preview never carries a hidden task's text", async () => {
+    const { generateMetadata } = await import("@/app/task/[id]/layout");
+    const meta = await generateMetadata({ params: Promise.resolve({ id: "hid" }) });
+    expect(JSON.stringify(meta)).not.toContain("make money");
+  });
+});
