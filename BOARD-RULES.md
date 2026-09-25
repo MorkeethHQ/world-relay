@@ -206,11 +206,15 @@ recur silently.
   **Favours.** `leadWithDoable` (`src/lib/board-rank.ts`): the first favour card is
   one this viewer can do (open with room, not their own post, not already
   delivered by them, not a money pitch), or their own claim. Only that card moves;
-  the rest keep their order. An open favour with no room left is not board-visible.
+  the rest keep their order. When no card qualifies, a money pitch still goes to
+  the end. The starter card and the daily mission skip money pitches too. An open favour with no room left is not board-visible.
   **Moderation.** `hiddenAt` on a task or a campaign is the operator's hidden
   state. Only `scripts/hide-item.mjs` writes it (dry run by default, `--apply`,
   `--undo`); no API route does, and a guard test pins that. A hidden task leaves
-  `GET /api/tasks` (`isPublicTask`) and the board. A hidden campaign leaves
+  every public read: `GET /api/tasks` (`isPublicTask`), `/api/tasks/search`,
+  `/api/agent/tasks`, and `/api/tasks/[id]` answers 404 (`isHiddenTask`; route
+  test `hidden-routes.test.ts`). It also leaves the board, the starter card and
+  the daily mission. A hidden campaign leaves
   `GET /api/campaigns/company`, its detail route answers 404, and its piece tasks
   are hidden with it. `getPublishedCampaign` still resolves it, so a proof already
   in flight keeps its label. Hiding is never deleting.

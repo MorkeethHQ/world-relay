@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import type { Task } from "@/lib/types";
 import type { PublicCompanyCampaign } from "@/lib/campaign-draft-shape";
 import { rankCampaignCards, canLeadCampaign, pickCampaignToDo } from "@/lib/company-door";
-import { isBoardVisible, canLeadFavour, leadWithDoable, looksLikeSpam, orderBoardForApi } from "@/lib/board-rank";
+import { isBoardVisible, canLeadFavour, leadWithDoable, looksLikeSpam, orderBoardForApi, pickStarterFavour, pickDailyMission } from "@/lib/board-rank";
 import { isPublicTask } from "@/lib/task-serializer";
 
 // R16, WHAT MAY LEAD THE BOARD (2026-09-25). A stranger test found the first card a
@@ -128,10 +128,21 @@ describe("R16: the first favour card is one the viewer can do", () => {
     expect(canLeadFavour(claimed, "0xother")).toBe(false);
   });
 
-  it("a board where nothing can lead is left in its order", () => {
+  it("a board where nothing can lead keeps its order, but a money pitch still never leads", () => {
     const a = task({ poster: "0xme" });
     const b = task({ poster: "0xme" });
     expect(leadWithDoable([a, b], "0xme").map((t) => t.id)).toEqual([a.id, b.id]);
+    const spam = task({ description: "just want to make money" });
+    expect(leadWithDoable([spam, a], "0xme").map((t) => t.id)).toEqual([a.id, spam.id]);
+  });
+
+  it("the starter card and the daily mission obey the spam rule too", () => {
+    const pitch = task({ description: "Tell us honestly how to make money right now where you are" });
+    expect(pickStarterFavour([pitch], null, NOW)).toBeNull();
+    expect(pickDailyMission([pitch], "2026-09-25", null, NOW)).toBeNull();
+    const ok = task({ description: "Tell us honestly what it sounds like right now where you are" });
+    expect(pickStarterFavour([ok], null, NOW)?.id).toBe(ok.id);
+    expect(pickDailyMission([ok], "2026-09-25", null, NOW)?.id).toBe(ok.id);
   });
 
   it("a favour with no room left is not on offer", () => {

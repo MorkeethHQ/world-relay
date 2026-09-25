@@ -50,6 +50,10 @@ if ((kind !== "task" && kind !== "campaign") || !id) {
 }
 
 // Read, change one field pair, write back. Nothing else in the record changes.
+// Not atomic: a proof verified between the GET and the SET would be overwritten
+// by the older copy. Hide a task that is not mid-proof, or re-run after checking.
+// A campaign hide is idempotent: if it stops part way, run it again and every
+// piece task gets the stamp.
 async function setHidden(key, label) {
   const d = parse(await cmd("GET", key));
   if (!d) { console.error(`No ${label} at ${key}`); return null; }

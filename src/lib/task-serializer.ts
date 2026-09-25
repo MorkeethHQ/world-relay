@@ -39,9 +39,13 @@ export function toApiTasks(tasks: Task[]): Task[] {
 // agent-door favour invisible to the humans meant to close it (2026-09-03:
 // 0 of 182 live tasks carried the prefix, so nothing resurfaces).
 const TEST_IDENTITY = /^(dev_|demo_|e2e_)|ATTACKER/;
+// R16: the operator's hidden state (scripts/hide-item.mjs). The task stays
+// stored; every public read (list, search, agent list, detail) leaves it out.
+export function isHiddenTask(t: Pick<Task, "hiddenAt">): boolean {
+  return typeof t.hiddenAt === "string" && t.hiddenAt.length > 0;
+}
+
 export function isPublicTask(t: Task): boolean {
-  // R16: an operator-hidden task (scripts/hide-item.mjs) stays stored, off every
-  // public list.
-  if (typeof t.hiddenAt === "string" && t.hiddenAt.length > 0) return false;
+  if (isHiddenTask(t)) return false;
   return !TEST_IDENTITY.test(t.poster || "") && !TEST_IDENTITY.test(t.claimant || "");
 }

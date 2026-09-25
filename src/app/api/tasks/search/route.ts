@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { listTasks } from "@/lib/store";
 import { isRealMoney } from "@/lib/reward";
-import { toApiTasks } from "@/lib/task-serializer";
+import { toApiTasks, isHiddenTask } from "@/lib/task-serializer";
 import type { Task, TaskCategory, TaskStatus } from "@/lib/types";
 
 const VALID_CATEGORIES: TaskCategory[] = ["photo", "delivery", "check-in", "custom", "feedback"];
@@ -42,7 +42,8 @@ export async function GET(req: NextRequest) {
   }
 
   // Fetch all tasks
-  let tasks = await listTasks();
+  // R16: operator-hidden tasks never leave through search.
+  let tasks = (await listTasks()).filter((t) => !isHiddenTask(t));
 
   // Apply filters
   const effectiveStatus = status ?? "open";

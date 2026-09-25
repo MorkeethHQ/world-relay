@@ -7,7 +7,7 @@ import { broadcastEvent } from "@/lib/sse";
 import { createEscrowTaskWithKey, isEscrowTaskFunded } from "@/lib/escrow";
 import { getRedis } from "@/lib/redis";
 import { checkAgentAuth } from "@/lib/api-keys";
-import { toApiTask } from "@/lib/task-serializer";
+import { toApiTask, isHiddenTask } from "@/lib/task-serializer";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { sanitizeInput } from "@/lib/sanitize";
 import { CUSTODY_RETIRED } from "@/lib/custody";
@@ -51,7 +51,8 @@ export async function GET(req: NextRequest) {
   const limit = Math.min(Math.max(Number(url.searchParams.get("limit")) || 50, 1), 200);
   const offset = Math.max(Number(url.searchParams.get("offset")) || 0, 0);
 
-  const allTasks = await listTasks();
+  // R16: operator-hidden tasks are not offered to agents either.
+  const allTasks = (await listTasks()).filter((t) => !isHiddenTask(t));
 
   // Filter by status
   let filtered = allTasks;

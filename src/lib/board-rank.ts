@@ -1,5 +1,6 @@
 import type { Task } from "./types";
 import { isRealMoney } from "./reward";
+import { isHiddenTask } from "./task-serializer";
 import { getFeaturedCampaign } from "./campaigns";
 
 // SINGLE SOURCE OF TRUTH for what shows on the board and in what order.
@@ -43,9 +44,7 @@ export function isCompanyPiece(t: Pick<Task, "companyCampaignId">): boolean {
   return typeof t.companyCampaignId === "string" && t.companyCampaignId.length > 0;
 }
 
-export function isHidden(t: Pick<Task, "hiddenAt">): boolean {
-  return typeof t.hiddenAt === "string" && t.hiddenAt.length > 0;
-}
+export const isHidden = isHiddenTask;
 
 // R16: text that reads as a money pitch rather than a favour. Deliberately
 // narrow, matched on the phrases seen live ("just want to make money"), because a
@@ -228,7 +227,9 @@ export function pickStarterFavour(tasks: Task[], userId: string | null, now = Da
       t.status === "open" &&
       t.poster !== userId &&
       t.rewardType === "points" &&
-      t.bountyUsdc > 0,
+      t.bountyUsdc > 0 &&
+      // R16: the starter card leads the screen, so it obeys the lead rule.
+      !looksLikeSpam(t.description),
   );
   if (candidates.length === 0) return null;
 
@@ -338,7 +339,8 @@ export function pickDailyMission(
       !(userId && t.claimant === userId) &&
       t.rewardType === "points" &&
       t.bountyUsdc > 0 &&
-      isMissionCandidate(t),
+      isMissionCandidate(t) &&
+      !looksLikeSpam(t.description),
   );
   if (candidates.length === 0) return null;
 
@@ -389,6 +391,9 @@ export function canLeadFavour(t: Task, userId: string | null, completedIds: Set<
 export function leadWithDoable(tasks: Task[], userId: string | null, completedIds: Set<string> = new Set()): Task[] {
   if (tasks.length === 0 || canLeadFavour(tasks[0], userId, completedIds)) return tasks;
   const i = tasks.findIndex((t) => canLeadFavour(t, userId, completedIds));
-  if (i <= 0) return tasks;
-  return [tasks[i], ...tasks.slice(0, i), ...tasks.slice(i + 1)];
+  if (i > 0) return [tasks[i], ...tasks.slice(0, i), ...tasks.slice(i + 1)];
+  // Nothing on the board is doable by this viewer (for example, only their own
+  // posts). A money pitch still never leads: it goes to the end, order kept.
+  const clean = tasks.filter((t) => !looksLikeSpam(t.description));
+  return clean.concat(tasks.filter((t) => looksLikeSpam(t.description)));
 }
