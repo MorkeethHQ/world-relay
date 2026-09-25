@@ -40,5 +40,8 @@ export function toApiTasks(tasks: Task[]): Task[] {
 // 0 of 182 live tasks carried the prefix, so nothing resurfaces).
 const TEST_IDENTITY = /^(dev_|demo_|e2e_)|ATTACKER/;
 export function isPublicTask(t: Task): boolean {
+  // R16: an operator-hidden task (scripts/hide-item.mjs) stays stored, off every
+  // public list.
+  if (typeof t.hiddenAt === "string" && t.hiddenAt.length > 0) return false;
   return !TEST_IDENTITY.test(t.poster || "") && !TEST_IDENTITY.test(t.claimant || "");
 }

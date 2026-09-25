@@ -108,6 +108,11 @@ export type CampaignDraft = {
   // Set ONLY by Oscar, by hand, through scripts/mark-company-checked.mjs. No API
   // route writes it and validateDraftInput never copies it from a body.
   companyCheckedAt?: string;
+  // MODERATION (R16, 2026-09-25). Set ONLY by the operator through
+  // scripts/hide-item.mjs. A hidden campaign stays stored and still resolves by id
+  // for proofs already in flight, and it is left out of every public list.
+  hiddenAt?: string;
+  hiddenReason?: string;
   owner: string; // lowercased wallet from the session, never from the body
   createdAt: string;
   publishedAt?: string;
@@ -120,7 +125,7 @@ export type CampaignDraft = {
 export type PublicCompanyCampaign = Pick<
   CampaignDraft,
   "id" | "company" | "brief" | "pieces" | "rewardPerPiecePoints" | "proposedPoolUsdc" | "reviewRule" | "publishedAt" | "pieceTaskIds" | "productUrl" | "productName"
-> & { status: "publishing" | "published"; companyChecked: boolean };
+> & { status: "publishing" | "published"; companyChecked: boolean; hidden?: boolean };
 
 export type CampaignResult = {
   taskId: string;

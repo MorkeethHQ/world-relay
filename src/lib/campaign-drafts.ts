@@ -334,6 +334,7 @@ function toPublic(d: CampaignDraft & { status: "publishing" | "published" }): Pu
     productName: d.productName,
     status: d.status,
     companyChecked: typeof d.companyCheckedAt === "string" && d.companyCheckedAt.length > 0,
+    hidden: typeof d.hiddenAt === "string" && d.hiddenAt.length > 0,
   };
 }
 
@@ -379,7 +380,8 @@ export async function listPublishedCampaigns(limit = 10): Promise<PublicCompanyC
   const out: PublicCompanyCampaign[] = [];
   for (const id of ids) {
     const c = await getPublishedCampaign(id);
-    if (c) out.push(c);
+    // R16: an operator-hidden campaign is never listed. It is not deleted.
+    if (c && !c.hidden) out.push(c);
   }
   return out.sort((a, b) => (b.publishedAt ?? "").localeCompare(a.publishedAt ?? "")).slice(0, limit);
 }

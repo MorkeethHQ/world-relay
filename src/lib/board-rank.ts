@@ -43,11 +43,29 @@ export function isCompanyPiece(t: Pick<Task, "companyCampaignId">): boolean {
   return typeof t.companyCampaignId === "string" && t.companyCampaignId.length > 0;
 }
 
+export function isHidden(t: Pick<Task, "hiddenAt">): boolean {
+  return typeof t.hiddenAt === "string" && t.hiddenAt.length > 0;
+}
+
+// R16: text that reads as a money pitch rather than a favour. Deliberately
+// narrow, matched on the phrases seen live ("just want to make money"), because a
+// broad filter that demotes honest favours is worse than one that misses.
+const SPAM_RE = /\b(make|making|earn|earning)\s+(easy\s+|quick\s+|fast\s+|free\s+)?money\b|\bget\s+rich\b|\bguaranteed\s+(income|profit|returns?)\b|\bdouble\s+your\s+(money|crypto)\b/i;
+export function looksLikeSpam(text: string | null | undefined): boolean {
+  return !!text && SPAM_RE.test(text);
+}
+
 export function isBoardVisible(t: Task, userId: string | null, now: number): boolean {
   if (t.status === "expired" || t.status === "cancelled") return false;
+  // R16: operator-hidden (scripts/hide-item.mjs) never shows, not even to its
+  // claimant. The record is kept; hiding is never deleting.
+  if (isHidden(t)) return false;
   if (t.status === "open") {
     if (new Date(t.deadline).getTime() < now) return false;
     if (isCompanyPiece(t)) return false;
+    // R16: a favour with no room left cannot be done by anyone, so it is not
+    // on offer.
+    if ((t.completionCount ?? 0) >= Math.max(1, t.maxCompletions ?? 1)) return false;
     // A points task must actually reward something: a 0-value points task shows a
     // "0 pts" badge and reads as broken/empty inventory, so keep it off the board.
     if (t.rewardType === "points") return t.bountyUsdc > 0;
@@ -351,4 +369,26 @@ export function pickProofStrip(tasks: Task[], max = PROOF_STRIP_MAX): Task[] {
     )
     .sort((a, b) => new Date(b.deadline).getTime() - new Date(a.deadline).getTime())
     .slice(0, max);
+}
+
+// R16, THE FIRST FAVOUR CARD (2026-09-25). The first card of the favour list must
+// be one this viewer can actually do: open, not their own post, not already
+// delivered by them, and not a money pitch. A claim of their own also qualifies,
+// because it is work in progress. If the ranked first card fails, the first card
+// that passes moves to the front and everything else keeps its order. Nothing is
+// dropped. When no card passes, the order is left alone.
+export function canLeadFavour(t: Task, userId: string | null, completedIds: Set<string> = new Set()): boolean {
+  if (isHidden(t) || looksLikeSpam(t.description)) return false;
+  if (t.status === "claimed") return !!userId && t.claimant === userId;
+  if (t.status !== "open") return false;
+  if (userId && t.poster === userId) return false;
+  if (completedIds.has(t.id)) return false;
+  return (t.completionCount ?? 0) < Math.max(1, t.maxCompletions ?? 1);
+}
+
+export function leadWithDoable(tasks: Task[], userId: string | null, completedIds: Set<string> = new Set()): Task[] {
+  if (tasks.length === 0 || canLeadFavour(tasks[0], userId, completedIds)) return tasks;
+  const i = tasks.findIndex((t) => canLeadFavour(t, userId, completedIds));
+  if (i <= 0) return tasks;
+  return [tasks[i], ...tasks.slice(0, i), ...tasks.slice(i + 1)];
 }
