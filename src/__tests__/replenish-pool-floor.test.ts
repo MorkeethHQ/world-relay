@@ -163,15 +163,19 @@ describe("STALL 2026-09-26: the pool holds the floor with the model off", () => 
     }
   });
 
-  it("the production state of 25 Sep (every pool favour posted in the last 14 days) still yields a full run", async () => {
+  it("the 25 Sep shape (the original 15 all blocked by the no-repeat rule, 1 still open) still yields a full run", async () => {
     const now = START + 40 * DAY;
+    // 14 were posted 15 to 28 days ago: their 336 h deadline passed 1 to 14
+    // days ago, so expire-tasks has expired them and recentDescriptions still
+    // blocks them. 1 was posted 3 days ago and is still open. Status follows the
+    // deadline, the way the expiry cron sets it.
     const tasks: Task[] = FALLBACK_FAVOURS.slice(0, 15).map((f, i) => {
-      const t = taskFrom(f, now - (3 + (i % 10)) * DAY);
+      const t = taskFrom(f, now - (i === 0 ? 3 : 14 + i) * DAY);
       t.status = new Date(t.deadline).getTime() > now ? "open" : "expired";
       return t;
     });
-    // Leave one visible, as production had.
-    for (const t of tasks.slice(1)) t.status = "expired";
+    expect(tasks.filter((t) => t.status === "open").length).toBe(1);
+    expect(recentDescriptions(tasks, now).length).toBe(15);
     const plan = planReplenish({ tasks, recycledRecently: new Set(), usedToday: 0, now, recycle: false });
     expect(plan.generateCount).toBe(6);
     const gen = await generateFavourSpecs(plan.generateCount, new Set(), { recent: recentDescriptions(tasks, now), allowModel: false });

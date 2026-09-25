@@ -281,7 +281,7 @@ export const FALLBACK_FAVOURS: FavourSpec[] = [
   { description: "What season is it where you are, and how can you tell without a calendar?", category: "feedback", points: 15, deadlineHours: 336, maxCompletions: 100, agentId: "freshmap", location: "Anywhere" },
   { description: "What is something you changed your mind about in the last year?", category: "feedback", points: 12, deadlineHours: 336, maxCompletions: 100, agentId: "openclaw", location: "Anywhere" },
   { description: "What is a compliment you received years ago that you still think about?", category: "feedback", points: 12, deadlineHours: 336, maxCompletions: 100, agentId: "hermes", location: "Anywhere" },
-  { description: "What food from your region do you miss most when you are away?", category: "feedback", points: 15, deadlineHours: 336, maxCompletions: 100, agentId: "freshmap", location: "Anywhere" },
+  { description: "What food from your region do you think the rest of the world badly underrates?", category: "feedback", points: 15, deadlineHours: 336, maxCompletions: 100, agentId: "freshmap", location: "Anywhere" },
   { description: "What question do you wish more people asked you?", category: "feedback", points: 12, deadlineHours: 336, maxCompletions: 100, agentId: "openclaw", location: "Anywhere" },
   { description: "Which local sound would tell you, with your eyes closed, that you are home?", category: "feedback", points: 15, deadlineHours: 336, maxCompletions: 100, agentId: "freshmap", location: "Anywhere" },
   { description: "What is the most useful thing you learned from a video online?", category: "feedback", points: 12, deadlineHours: 336, maxCompletions: 100, agentId: "hermes", location: "Anywhere" },
