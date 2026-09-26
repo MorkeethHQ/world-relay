@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import type { CampaignDraft, PieceKind, PublicCompanyCampaign, CampaignResult } from "@/lib/campaign-draft-shape";
 import type { Task } from "@/lib/types";
 import { PIECE_LABEL, MAX_PIECES_PER_KIND, MAX_PIECES_TOTAL, MIN_BRIEF_WORDS, briefWords, productUrlOrNull, productNameOrNull, hasProduct, NO_PRODUCT_YET } from "@/lib/campaign-draft-shape";
+import { PLATFORM_FEE_BPS, type CampaignFunding } from "@/lib/campaign-funding-shape";
 import { productHost } from "@/lib/company-door";
 
 // THE COMPANY JOURNEY (FAVOUR-COMPANY-JOURNEY-2026-09-21). Oscar's ruling: the
@@ -483,6 +484,10 @@ export function CompanyCampaignCard({ c, onOpen }: { c: PublicCompanyCampaign; o
 
 const VERDICT_LABEL: Record<CampaignResult["verdict"], string> = { pass: "Accepted", fail: "Rejected", flag: "In review" };
 
+function shortTx(hash: string): string {
+  return hash.length > 20 ? `${hash.slice(0, 10)}…${hash.slice(-8)}` : hash;
+}
+
 export function CompanyCampaignView({ id, tasks, completedIds, onJoin, onBack }: {
   id: string;
   tasks: Task[];
@@ -490,7 +495,7 @@ export function CompanyCampaignView({ id, tasks, completedIds, onJoin, onBack }:
   onJoin: (t: Task) => void;
   onBack: () => void;
 }) {
-  const [data, setData] = useState<{ campaign: PublicCompanyCampaign; results: CampaignResult[] } | null>(null);
+  const [data, setData] = useState<{ campaign: PublicCompanyCampaign; results: CampaignResult[]; funding?: CampaignFunding | null } | null>(null);
   const [missing, setMissing] = useState(false);
   useEffect(() => {
     let live = true;
@@ -501,6 +506,7 @@ export function CompanyCampaignView({ id, tasks, completedIds, onJoin, onBack }:
     return () => { live = false; };
   }, [id]);
   const c = data?.campaign;
+  const funding = data?.funding ?? null;
   return (
     <div className="flex flex-col min-h-[calc(100vh-5rem)] max-w-lg mx-auto w-full bg-gray-50">
       <div className="sticky top-0 z-10 bg-white border-b border-gray-100 px-6 py-3 flex items-center gap-3">
@@ -519,9 +525,35 @@ export function CompanyCampaignView({ id, tasks, completedIds, onJoin, onBack }:
               <p className="text-[12px] text-gray-500 mt-2">Anyone with World App can publish a campaign. FAVOUR has not checked this company yet.</p>
             )}
             <p className="text-[12px] text-gray-500 mt-2">
-              Proposed pool {c.proposedPoolUsdc} USDC · <span className="font-semibold text-gray-700">not funded</span>. Accepted pieces earn {c.rewardPerPiecePoints} points. Reviewed by {c.reviewRule === "ai_and_jury" ? "an AI check. Human judges can clear a flagged photo proof" : "an AI check"}.
+              Proposed pool {c.proposedPoolUsdc} USDC · <span className="font-semibold text-gray-700">{funding?.status === "paid" ? "funded" : "not funded"}</span>. Accepted pieces earn {c.rewardPerPiecePoints} points. Reviewed by {c.reviewRule === "ai_and_jury" ? "an AI check. Human judges can clear a flagged photo proof" : "an AI check"}.
             </p>
           </div>
+          {funding && (
+            <section aria-label="Fund this pool" className="rounded-2xl bg-white border border-gray-200 p-4 flex flex-col gap-1.5">
+              <h2 className="text-[13px] font-semibold text-gray-900">Fund this pool</h2>
+              <p className="text-[13px] text-gray-800">
+                Pool {funding.poolUsdc} USDC + {PLATFORM_FEE_BPS / 100}% FAVOUR fee {funding.feeUsdc} USDC = {funding.totalUsdc} USDC
+              </p>
+              {!funding.open && <p className="text-[13px] text-gray-500">Funding opens soon.</p>}
+              {funding.open && funding.status === "unpaid" && (
+                <>
+                  <p className="text-[13px] text-gray-800 break-all">Send USDC on World Chain to {funding.address}</p>
+                  <p className="text-[13px] text-gray-800">Reference: {funding.reference}</p>
+                  <p className="text-[13px] text-gray-800">Status: unpaid</p>
+                  <p className="text-[12px] text-gray-500">After FAVOUR confirms the transfer on World Chain, this campaign shows as funded.</p>
+                </>
+              )}
+              {funding.status === "paid" && funding.paidTxHash && (
+                <p className="text-[13px] text-gray-900">
+                  <span className="font-semibold">Funded</span>
+                  {" "}
+                  <a href={`https://worldscan.org/tx/${funding.paidTxHash}`} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 break-all">
+                    {shortTx(funding.paidTxHash)}
+                  </a>
+                </p>
+              )}
+            </section>
+          )}
           <section aria-label="Pieces you can join" className="flex flex-col gap-2.5">
             <h2 className="text-[13px] font-semibold text-gray-900">Pick a piece</h2>
             {c.pieces.map((p) => {
