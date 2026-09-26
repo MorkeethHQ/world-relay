@@ -395,11 +395,42 @@ export function kindOfTask(c: Pick<CampaignDraft, "pieceTaskIds">, taskId: strin
 // The company sees what was accepted and what was rejected, and why. Written by
 // verify-proof for pieces of a published company campaign. The participant is
 // shortened: the company needs to see the work was reviewed, not who they are.
-export async function recordCampaignResult(companyCampaignId: string, r: CampaignResult): Promise<void> {
+//
+// Since 2026-09-27 every result carries an `id`, and the participant's FULL address
+// is kept in a private hash (campaign:company:result-address:<campaignId>) that no
+// public route returns. The company accepts a piece for payment by result id, and
+// the payout ledger (campaign-payouts.ts) looks the address up there.
+export const RESULT_ADDRESS_PREFIX = "campaign:company:result-address:";
+
+export async function recordCampaignResult(
+  companyCampaignId: string,
+  r: CampaignResult,
+  participantAddress?: string | null,
+): Promise<void> {
   const redis = getRedis();
   if (!redis) return;
-  await redis.lpush(`${RESULTS_PREFIX}${companyCampaignId}`, JSON.stringify(r));
+  const id = r.id || `res_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+  const row: CampaignResult = { ...r, id };
+  await redis.lpush(`${RESULTS_PREFIX}${companyCampaignId}`, JSON.stringify(row));
   await redis.ltrim(`${RESULTS_PREFIX}${companyCampaignId}`, 0, RESULTS_MAX - 1);
+  if (participantAddress && /^0x[0-9a-fA-F]{40}$/.test(participantAddress)) {
+    await redis.hset(`${RESULT_ADDRESS_PREFIX}${companyCampaignId}`, { [id]: participantAddress.toLowerCase() }).catch(() => 0);
+  }
+}
+
+// Server only: the full address behind a reviewed result. Never returned publicly.
+export async function getResultAddress(companyCampaignId: string, resultId: string): Promise<string | null> {
+  const redis = getRedis();
+  if (!redis) return null;
+  const v = await redis.hget(`${RESULT_ADDRESS_PREFIX}${companyCampaignId}`, resultId).catch(() => null);
+  return typeof v === "string" && /^0x[0-9a-fA-F]{40}$/.test(v) ? v : null;
+}
+
+// Is this wallet the company that owns the campaign? Reads the stored draft, which
+// carries the owner; the public shape strips it on purpose.
+export async function isCampaignOwner(id: string, address: string): Promise<boolean> {
+  const d = await loadDraft(id);
+  return !!d && typeof address === "string" && d.owner === address.toLowerCase();
 }
 
 export async function listCampaignResults(companyCampaignId: string, limit = 30): Promise<CampaignResult[]> {

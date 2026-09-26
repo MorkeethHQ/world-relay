@@ -9,10 +9,20 @@ async function sendNotification(
   const apiKey = process.env.WORLD_NOTIFICATION_API_KEY;
   const appId = process.env.NEXT_PUBLIC_WORLD_APP_ID;
 
-  if (!apiKey || !appId) return false;
-
   const validAddresses = walletAddresses.filter((a) => a.startsWith("0x"));
   if (validAddresses.length === 0) return false;
+
+  // LOG-ONLY MODE (2026-09-27). Outside production, with no World API key or
+  // with NOTIFY_MODE=log, a push is written to the server log and NOT sent. The
+  // local journey can then show that each party was notified without a real
+  // push leaving the machine. Production never takes this branch.
+  const logOnly = process.env.NODE_ENV !== "production" && (!apiKey || process.env.NOTIFY_MODE === "log");
+  if (logOnly) {
+    console.log(`[Notify] LOG-ONLY, not sent | to=${validAddresses.join(",")} | title=${JSON.stringify(title.slice(0, 30))} | message=${JSON.stringify(message.slice(0, 200))}${path ? ` | path=${path}` : ""}`);
+    return false;
+  }
+
+  if (!apiKey || !appId) return false;
 
   try {
     const res = await fetch(NOTIFICATION_API, {
@@ -83,6 +93,30 @@ export async function notifyPaymentReleased(claimantAddress: string, bountyUsdc:
     `$${bountyUsdc} USDC sent to your wallet on World Chain.`,
     "/"
   );
+}
+
+// The company accepted a piece (campaign-payouts.ts). The message states the
+// payment state honestly: pending and why, or failed and why. Never "paid".
+export async function notifyPieceAccepted(
+  participantAddress: string,
+  company: string,
+  amountUsdc: number,
+  status: "pending" | "failed",
+  reason: string,
+): Promise<void> {
+  await sendNotification(
+    [participantAddress],
+    status === "failed" ? "Payment failed" : "Piece accepted",
+    status === "failed"
+      ? `${company} accepted your piece, but the pool cannot cover ${amountUsdc} USDC (${reason.replace("_", " ")}).`
+      : `${company} accepted your piece. ${amountUsdc} USDC pending (${reason.replace("_", " ")}).`,
+    "/"
+  );
+}
+
+// An operator recorded the transfer (scripts/mark-piece-paid.mjs).
+export async function notifyPiecePaid(participantAddress: string, amountUsdc: number): Promise<void> {
+  await sendNotification([participantAddress], "Paid", `${amountUsdc} USDC for your accepted piece was sent on World Chain.`, "/");
 }
 
 export async function notifyFlagged(posterAddress: string, taskDescription: string): Promise<void> {

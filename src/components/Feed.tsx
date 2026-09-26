@@ -1076,6 +1076,8 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
         completedIds={completedIds}
         onJoin={(t) => startFavour(t)}
         onBack={() => setView("board")}
+        viewer={userId}
+        onReauth={onReauth}
       />
     );
   }

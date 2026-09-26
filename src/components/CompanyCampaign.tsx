@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import type { CampaignDraft, PieceKind, PublicCompanyCampaign, CampaignResult } from "@/lib/campaign-draft-shape";
 import type { Task } from "@/lib/types";
 import { PIECE_LABEL, MAX_PIECES_PER_KIND, MAX_PIECES_TOTAL, MIN_BRIEF_WORDS, briefWords, productUrlOrNull, productNameOrNull, hasProduct, NO_PRODUCT_YET } from "@/lib/campaign-draft-shape";
+import { PLATFORM_FEE_BPS, type CampaignFunding } from "@/lib/campaign-funding-shape";
+import { PAYOUT_STATUS_LABEL, PAYOUT_REASON_LABEL, type PiecePayout } from "@/lib/campaign-payouts-shape";
 import { productHost } from "@/lib/company-door";
 
 // THE COMPANY JOURNEY (FAVOUR-COMPANY-JOURNEY-2026-09-21). Oscar's ruling: the
@@ -26,7 +28,7 @@ const STEPS = [
   "People pick a piece of work: a clip, an article, a review.",
   "They send proof: a link, a photo or a note.",
   "It is reviewed: an AI checks every proof. Human judges can clear a flagged photo proof.",
-  "Accepted work earns the reward. Points while the pool is proposed. USDC only from a funded pool, and only for Orb-verified people.",
+  "Accepted work earns points. Funding the pool is a separate step, and it does not change what a piece pays yet.",
   "Everyone sees the piece, its status and the reward in History, and comes back for the next one.",
 ];
 
@@ -476,22 +478,36 @@ export function CompanyCampaignCard({ c, onOpen }: { c: PublicCompanyCampaign; o
         <span className="shrink-0 text-[12px] font-bold text-gray-900 bg-gray-100 rounded-full px-2.5 py-1">{c.rewardPerPiecePoints} pts / piece</span>
       </div>
       <p className="text-[13px] text-gray-600 mt-1 line-clamp-2 break-words">{c.brief}</p>
-      <p className="text-[12px] text-gray-500 mt-2">{total} pieces · proposed pool {c.proposedPoolUsdc} USDC, not funded · points only</p>
+      <p className="text-[12px] text-gray-500 mt-2">{total} pieces · proposed pool {c.proposedPoolUsdc} USDC · points only</p>
     </button>
   );
 }
 
 const VERDICT_LABEL: Record<CampaignResult["verdict"], string> = { pass: "Accepted", fail: "Rejected", flag: "In review" };
 
-export function CompanyCampaignView({ id, tasks, completedIds, onJoin, onBack }: {
+function shortTx(hash: string): string {
+  return hash.length > 20 ? `${hash.slice(0, 10)}…${hash.slice(-8)}` : hash;
+}
+
+export function CompanyCampaignView({ id, tasks, completedIds, onJoin, onBack, viewer, onReauth }: {
   id: string;
   tasks: Task[];
   completedIds: Set<string>;
   onJoin: (t: Task) => void;
   onBack: () => void;
+  // The signed-in wallet, so the company sees its own Accept buttons. The server
+  // decides ownership; this only decides whether to draw the button.
+  viewer?: string | null;
+  onReauth?: () => void | Promise<void>;
 }) {
-  const [data, setData] = useState<{ campaign: PublicCompanyCampaign; results: CampaignResult[] } | null>(null);
+  const [data, setData] = useState<{ campaign: PublicCompanyCampaign; results: CampaignResult[]; funding?: CampaignFunding | null; payouts?: PiecePayout[] } | null>(null);
   const [missing, setMissing] = useState(false);
+  const [accepting, setAccepting] = useState<string | null>(null);
+  const [acceptError, setAcceptError] = useState<string | null>(null);
+  // Drawn only for a wallet viewer; the server answers 404 to anyone but the owner,
+  // so a wrong guess costs one tap and shows the refusal.
+  const [isOwner, setIsOwner] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
   useEffect(() => {
     let live = true;
     fetch(`/api/campaigns/company/${encodeURIComponent(id)}`, { cache: "no-store" })
@@ -499,8 +515,39 @@ export function CompanyCampaignView({ id, tasks, completedIds, onJoin, onBack }:
       .then((d) => { if (!live) return; if (d?.campaign) setData(d); else setMissing(true); })
       .catch(() => { if (live) setMissing(true); });
     return () => { live = false; };
-  }, [id]);
+  }, [id, refreshKey]);
+  useEffect(() => {
+    // Owner check: the company's own drafts list includes this campaign.
+    let live = true;
+    if (!viewer || !/^0x[0-9a-fA-F]{40}$/.test(viewer)) { setIsOwner(false); return; }
+    fetch("/api/campaigns/drafts", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (live) setIsOwner(Array.isArray(d?.drafts) && d.drafts.some((x: { id: string }) => x.id === id)); })
+      .catch(() => { if (live) setIsOwner(false); });
+    return () => { live = false; };
+  }, [id, viewer]);
   const c = data?.campaign;
+  const funding = data?.funding ?? null;
+  const payouts = data?.payouts ?? [];
+  const payoutFor = (r: CampaignResult) => (r.id ? payouts.find((p) => p.id === r.id) : undefined);
+  const accept = async (resultId: string) => {
+    setAccepting(resultId);
+    setAcceptError(null);
+    try {
+      const res = await fetch(`/api/campaigns/company/${encodeURIComponent(id)}/accept`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ resultId }) });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (j?.code === "reauth_required" && onReauth) await onReauth();
+        setAcceptError(j?.error || "Could not accept this piece.");
+        return;
+      }
+      setRefreshKey((n) => n + 1);
+    } catch {
+      setAcceptError("Could not accept this piece.");
+    } finally {
+      setAccepting(null);
+    }
+  };
   return (
     <div className="flex flex-col min-h-[calc(100vh-5rem)] max-w-lg mx-auto w-full bg-gray-50">
       <div className="sticky top-0 z-10 bg-white border-b border-gray-100 px-6 py-3 flex items-center gap-3">
@@ -519,9 +566,35 @@ export function CompanyCampaignView({ id, tasks, completedIds, onJoin, onBack }:
               <p className="text-[12px] text-gray-500 mt-2">Anyone with World App can publish a campaign. FAVOUR has not checked this company yet.</p>
             )}
             <p className="text-[12px] text-gray-500 mt-2">
-              Proposed pool {c.proposedPoolUsdc} USDC · <span className="font-semibold text-gray-700">not funded</span>. Accepted pieces earn {c.rewardPerPiecePoints} points. Reviewed by {c.reviewRule === "ai_and_jury" ? "an AI check. Human judges can clear a flagged photo proof" : "an AI check"}.
+              Proposed pool {c.proposedPoolUsdc} USDC · <span className="font-semibold text-gray-700">{funding?.status === "paid" ? "funded" : "not funded"}</span>. Accepted pieces earn {c.rewardPerPiecePoints} points. Reviewed by {c.reviewRule === "ai_and_jury" ? "an AI check. Human judges can clear a flagged photo proof" : "an AI check"}.
             </p>
           </div>
+          {funding && (
+            <section aria-label="Fund this pool" className="rounded-2xl bg-white border border-gray-200 p-4 flex flex-col gap-1.5">
+              <h2 className="text-[13px] font-semibold text-gray-900">Fund this pool</h2>
+              <p className="text-[13px] text-gray-800">
+                Pool {funding.poolUsdc} USDC + {PLATFORM_FEE_BPS / 100}% FAVOUR fee {funding.feeUsdc} USDC = {funding.totalUsdc} USDC
+              </p>
+              {!funding.open && <p className="text-[13px] text-gray-500">Funding opens soon.</p>}
+              {funding.open && funding.status === "unpaid" && (
+                <>
+                  <p className="text-[13px] text-gray-800 break-all">Send USDC on World Chain to {funding.address}</p>
+                  <p className="text-[13px] text-gray-800">Reference: {funding.reference}</p>
+                  <p className="text-[13px] text-gray-800">Status: unpaid</p>
+                  <p className="text-[12px] text-gray-500">After FAVOUR confirms the transfer on World Chain, this campaign shows as funded.</p>
+                </>
+              )}
+              {funding.status === "paid" && funding.paidTxHash && (
+                <p className="text-[13px] text-gray-900">
+                  <span className="font-semibold">Funded</span>
+                  {" "}
+                  <a href={`https://worldscan.org/tx/${funding.paidTxHash}`} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 break-all">
+                    {shortTx(funding.paidTxHash)}
+                  </a>
+                </p>
+              )}
+            </section>
+          )}
           <section aria-label="Pieces you can join" className="flex flex-col gap-2.5">
             <h2 className="text-[13px] font-semibold text-gray-900">Pick a piece</h2>
             {c.pieces.map((p) => {
@@ -553,17 +626,43 @@ export function CompanyCampaignView({ id, tasks, completedIds, onJoin, onBack }:
             {data!.results.length === 0 ? (
               <p className="text-[13px] text-gray-500">Nothing reviewed yet.</p>
             ) : (
-              data!.results.map((r) => (
-                <div key={`${r.taskId}-${r.at}`} className="rounded-xl bg-white border border-gray-200 px-4 py-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <span className={`text-[12px] font-bold ${r.verdict === "pass" ? "text-success-700" : r.verdict === "fail" ? "text-error-700" : "text-gray-600"}`}>{VERDICT_LABEL[r.verdict]}</span>
-                    <span className="text-[12px] text-gray-400">{r.kind ? PIECE_LABEL[r.kind] : "Piece"} · {r.participant}</span>
+              data!.results.map((r) => {
+                const p = payoutFor(r);
+                return (
+                  <div key={r.id ?? `${r.taskId}-${r.at}`} className="rounded-xl bg-white border border-gray-200 px-4 py-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className={`text-[12px] font-bold ${r.verdict === "pass" ? "text-success-700" : r.verdict === "fail" ? "text-error-700" : "text-gray-600"}`}>{VERDICT_LABEL[r.verdict]}</span>
+                      <span className="text-[12px] text-gray-400">{r.kind ? PIECE_LABEL[r.kind] : "Piece"} · {r.participant}</span>
+                    </div>
+                    <p className="text-[13px] text-gray-700 mt-1 line-clamp-3 break-words">{r.reason}</p>
+                    {p && (
+                      <p className="text-[12px] mt-2" data-payout-status={p.status}>
+                        <span className={`font-semibold ${p.status === "paid" ? "text-success-700" : p.status === "failed" ? "text-error-700" : "text-gray-900"}`}>{PAYOUT_STATUS_LABEL[p.status]}</span>
+                        <span className="text-gray-500"> · {p.amountUsdc} USDC{p.reason ? `. ${PAYOUT_REASON_LABEL[p.reason]}` : p.paidTxHash ? ` · ${shortTx(p.paidTxHash)}` : ""}{p.test ? " · test record" : ""}</span>
+                      </p>
+                    )}
+                    {!p && isOwner && r.verdict === "pass" && r.id && (
+                      <button type="button" disabled={accepting === r.id} onClick={() => accept(r.id!)} className="mt-3 w-full min-h-[44px] rounded-full bg-gray-900 text-white text-[14px] font-semibold disabled:opacity-60">
+                        {accepting === r.id ? "Accepting…" : "Accept for payment"}
+                      </button>
+                    )}
+                    {!p && isOwner && r.verdict === "pass" && !r.id && (
+                      <p className="text-[12px] text-gray-500 mt-2">Reviewed before payments existed. It cannot be accepted for payment.</p>
+                    )}
                   </div>
-                  <p className="text-[13px] text-gray-700 mt-1 line-clamp-3 break-words">{r.reason}</p>
-                </div>
-              ))
+                );
+              })
             )}
+            {acceptError && <p className="text-[13px] text-error-700" role="alert">{acceptError}</p>}
           </section>
+          {payouts.length > 0 && (
+            <section aria-label="Payments" className="flex flex-col gap-2">
+              <h2 className="text-[13px] font-semibold text-gray-900">Payments</h2>
+              <p className="text-[12px] text-gray-500">
+                {payouts.filter((p) => p.status !== "failed").reduce((n, p) => n + p.amountUsdc, 0)} of {funding?.poolUsdc ?? c.proposedPoolUsdc} USDC committed · {payouts.filter((p) => p.status === "paid").length} paid · {payouts.filter((p) => p.status === "pending").length} pending · {payouts.filter((p) => p.status === "failed").length} failed
+              </p>
+            </section>
+          )}
         </div>
       )}
     </div>

@@ -5,6 +5,7 @@ import type { Task } from "@/lib/types";
 import { rewardAmountLabel } from "@/lib/reward";
 import type { Contribution } from "@/lib/completions";
 import { getCampaign } from "@/lib/campaigns";
+import { PAYOUT_STATUS_LABEL, PAYOUT_REASON_LABEL, type PiecePayout } from "@/lib/campaign-payouts-shape";
 
 // History as a first-class page: proof the platform is alive. Platform totals
 // live here now, NOT on the profile (Oscar Jul 5: profile felt like an admin
@@ -71,6 +72,9 @@ export default function HistoryPage() {
   // The signed-in person's own results, from the session. Empty when signed out.
   // This is where "See your proof" on a done mission lands.
   const [mine, setMine] = useState<Contribution[]>([]);
+  // The person's piece payments (2026-09-27): pending, paid or failed, with the
+  // reason. Session only, like contributions.
+  const [payouts, setPayouts] = useState<PiecePayout[]>([]);
   // The page shows a first screenful and grows on request. At 390 px the full
   // 60-result list measured 10,819 px even after clamping, which is a wall to scroll
   // rather than a record to read.
@@ -83,6 +87,10 @@ export default function HistoryPage() {
       fetch("/api/me/contributions", { cache: "no-store" })
         .then((r) => (r.ok ? r.json() : null))
         .then((d) => setMine(Array.isArray(d?.contributions) ? d.contributions : []))
+        .catch(() => {}),
+      fetch("/api/me/payouts", { cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d) => setPayouts(Array.isArray(d?.payouts) ? d.payouts : []))
         .catch(() => {}),
     ]).finally(() => setLoading(false));
   }, []);
@@ -110,6 +118,24 @@ export default function HistoryPage() {
             <p className="text-[11px] text-white/50 mt-1">people reached</p>
           </div>
         </div>
+
+        {payouts.length > 0 && (
+          <section className="flex flex-col gap-2.5" aria-label="Your payments">
+            <h2 className="text-[13px] font-semibold text-gray-900">Your payments</h2>
+            {payouts.map((p) => (
+              <div key={p.id} className="rounded-2xl bg-white border border-gray-200 px-4 py-3" data-payout-status={p.status}>
+                <div className="flex items-center justify-between gap-3">
+                  <span className={`text-[13px] font-bold ${p.status === "paid" ? "text-success-700" : p.status === "failed" ? "text-error-700" : "text-gray-900"}`}>{PAYOUT_STATUS_LABEL[p.status]}</span>
+                  <span className="text-[13px] font-semibold text-gray-900">{p.amountUsdc} USDC</span>
+                </div>
+                <p className="text-[12px] text-gray-500 mt-1 break-words">
+                  {p.reason ? PAYOUT_REASON_LABEL[p.reason] : p.paidTxHash ? `Tx ${p.paidTxHash.slice(0, 10)}…${p.paidTxHash.slice(-6)}` : ""}
+                  {` · Accepted ${timeAgo(p.acceptedAt)}`}{p.test ? " · test record" : ""}
+                </p>
+              </div>
+            ))}
+          </section>
+        )}
 
         {mine.length > 0 && (
           <section className="flex flex-col gap-2.5" aria-label="Your results">
