@@ -123,6 +123,49 @@ export async function acceptCampaignPiece(
     return { ok: true, payout: withLiveReason(existing, funding?.status === "paid"), created: false };
   }
 
+  // THE POOL CAP IS HELD UNDER A PER-CAMPAIGN LOCK (Codex review, 2026-09-27).
+  // HSETNX alone makes one record per result; it does not stop two accepts of two
+  // DIFFERENT results reading the same committed total and both writing pending,
+  // which would promise 30 of a 20 USDC pool. So the read-compute-write below
+  // runs under one lock per campaign, the way publishDraft does. A caller that
+  // cannot get the lock after a few short waits is told to try again; nothing is
+  // written for it.
+  const lockKey = `${PAYOUT_LOCK_PREFIX}${campaignId}`;
+  let locked: unknown = null;
+  for (let attempt = 0; attempt < 8 && !locked; attempt++) {
+    locked = await redis.set(lockKey, "1", { nx: true, px: 10_000 });
+    if (!locked) await new Promise((r) => setTimeout(r, 25 * (attempt + 1)));
+  }
+  if (!locked) return { ok: false, error: "Another acceptance is being recorded. Try again in a moment.", status: 409 };
+  try {
+    return await acceptUnderLock(owner, campaignId, resultId, campaign, result, address, now, env);
+  } finally {
+    await redis.del(lockKey).catch(() => 0);
+  }
+}
+
+export const PAYOUT_LOCK_PREFIX = "campaign:payout:lock:";
+
+async function acceptUnderLock(
+  owner: string,
+  campaignId: string,
+  resultId: string,
+  campaign: NonNullable<Awaited<ReturnType<typeof getPublishedCampaign>>>,
+  result: Awaited<ReturnType<typeof listCampaignResults>>[number],
+  address: string,
+  now: number,
+  env: Env,
+): Promise<AcceptOutcome> {
+  const redis = getRedis();
+  if (!redis) return { ok: false, error: "Payments cannot be recorded right now.", status: 503 };
+  const key = `${PAYOUT_PREFIX}${campaignId}`;
+  // Re-read under the lock: the record may have been written while we waited.
+  const raced0 = parse(await redis.hget(key, resultId).catch(() => null));
+  if (raced0) {
+    const funding = await getCampaignFunding(campaignId, env);
+    return { ok: true, payout: withLiveReason(raced0, funding?.status === "paid"), created: false };
+  }
+
   const totalPieces = campaign.pieces.reduce((n, p) => n + p.count, 0);
   const amountUsdc = piecePayoutUsdc(campaign.proposedPoolUsdc, totalPieces);
   const funding = await getCampaignFunding(campaignId, env);
@@ -222,6 +265,12 @@ export async function markPiecePaid(
   const p = parse(await redis.hget(key, resultId).catch(() => null));
   if (!p) return { ok: false, error: "No such payout." };
   if (p.status === "paid") return { ok: false, error: "This piece is already paid." };
+  // A piece the pool could not cover is never paid from it (Codex review,
+  // 2026-09-27): that would put the paid total above the pool. Only a pending
+  // record, or a failed transfer being retried, may be marked paid.
+  if (p.status === "failed" && p.reason === "pool_exhausted") {
+    return { ok: false, error: "This piece failed because the pool is exhausted. It cannot be paid from this pool." };
+  }
   const added = await redis.sadd(`${PAYOUT_PREFIX}txs`, txHash.toLowerCase());
   if (Number(added) !== 1) return { ok: false, error: "This transaction is already used for a payout." };
   const paid: PiecePayout = { ...p, status: "paid", reason: undefined, paidAt: new Date(now).toISOString(), paidTxHash: txHash };

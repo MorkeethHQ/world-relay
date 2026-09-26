@@ -48,6 +48,10 @@ const key = `campaign:payout:${campaignId}`;
 const payout = parse(await cmd("hget", key, resultId));
 if (!payout) { console.error("No such payout."); process.exit(1); }
 if (payout.status === "paid") { console.error("This piece is already paid."); process.exit(1); }
+if (!FAILED && payout.status === "failed" && payout.reason === "pool_exhausted") {
+  console.error("This piece failed because the pool is exhausted. It cannot be paid from this pool.");
+  process.exit(1);
+}
 
 console.log(`Pool funded: tx ${funding.txHash}, ${funding.amountUsdc} USDC.`);
 console.log(`Payout ${resultId}: ${payout.amountUsdc} USDC to ${payout.participant}, status ${payout.status}${payout.reason ? ` (${payout.reason})` : ""}${payout.test ? ", TEST record" : ""}.`);

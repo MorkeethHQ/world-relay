@@ -166,6 +166,39 @@ describe("the company accepts a piece: pending, and why", () => {
   });
 });
 
+describe("the pool cap holds under concurrent accepts (Codex review 2026-09-27)", () => {
+  it("two accepts of two different results at once never commit more than the pool", async () => {
+    seedCampaign({ pieces: [{ kind: "review", count: 1 }], proposedPoolUsdc: 10 });
+    const a = await passed(PERSON);
+    const b = await passed(PERSON2);
+    const [ra, rb] = await Promise.all([
+      acceptCampaignPiece(COMPANY, ID, a, NOW, closed),
+      acceptCampaignPiece(COMPANY, ID, b, NOW, closed),
+    ]);
+    const all = await listCampaignPayouts(ID, closed);
+    expect(committedUsdc(all)).toBeLessThanOrEqual(10);
+    const pending = all.filter((p) => p.status === "pending");
+    expect(pending).toHaveLength(1);
+    const outcomes = [ra, rb].map((r) => (r.ok ? r.payout.status : `refused:${r.status}`)).sort();
+    // One pending; the other either failed pool_exhausted or was told to retry.
+    expect(outcomes[0] === "failed" || outcomes[0] === "refused:409").toBe(true);
+    expect(outcomes[1]).toBe("pending");
+  });
+  it("a pool_exhausted record can never be marked paid", async () => {
+    seedCampaign({ pieces: [{ kind: "review", count: 1 }], proposedPoolUsdc: 10 });
+    const a = await passed(PERSON);
+    const b = await passed(PERSON2);
+    await acceptCampaignPiece(COMPANY, ID, a, NOW, closed);
+    const second = await acceptCampaignPiece(COMPANY, ID, b, NOW, closed);
+    expect(second.ok && second.payout.reason === "pool_exhausted").toBe(true);
+    await markCampaignPaid(ID, TEST_TX, 11, NOW, open);
+    const paid = await markPiecePaid(ID, b, "0x" + "c".repeat(64), NOW, open);
+    expect(paid.ok).toBe(false);
+    if (!paid.ok) expect(paid.error).toContain("exhausted");
+    expect((await listCampaignPayouts(ID, open)).find((p) => p.id === b)?.status).toBe("failed");
+  });
+});
+
 describe("paid is an operator act, never a route", () => {
   it("markPiecePaid refuses while the pool is not funded, then records paid with the hash", async () => {
     const rid = await passed(PERSON);
