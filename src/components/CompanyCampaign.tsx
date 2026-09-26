@@ -27,7 +27,7 @@ const STEPS = [
   "People pick a piece of work: a clip, an article, a review.",
   "They send proof: a link, a photo or a note.",
   "It is reviewed: an AI checks every proof. Human judges can clear a flagged photo proof.",
-  "Accepted work earns the reward. Points while the pool is proposed. USDC only from a funded pool, and only for Orb-verified people.",
+  "Accepted work earns points. Funding the pool is a separate step, and it does not change what a piece pays yet.",
   "Everyone sees the piece, its status and the reward in History, and comes back for the next one.",
 ];
 
@@ -477,7 +477,7 @@ export function CompanyCampaignCard({ c, onOpen }: { c: PublicCompanyCampaign; o
         <span className="shrink-0 text-[12px] font-bold text-gray-900 bg-gray-100 rounded-full px-2.5 py-1">{c.rewardPerPiecePoints} pts / piece</span>
       </div>
       <p className="text-[13px] text-gray-600 mt-1 line-clamp-2 break-words">{c.brief}</p>
-      <p className="text-[12px] text-gray-500 mt-2">{total} pieces · proposed pool {c.proposedPoolUsdc} USDC, not funded · points only</p>
+      <p className="text-[12px] text-gray-500 mt-2">{total} pieces · proposed pool {c.proposedPoolUsdc} USDC · points only</p>
     </button>
   );
 }

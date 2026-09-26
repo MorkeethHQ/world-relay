@@ -174,6 +174,8 @@ describe("no route can mark a pool paid", () => {
     expect(src).toContain("FAVOUR_POOL_ADDRESS");
     expect(src).toContain("campaign:funding:");
     expect(src).toMatch(/SADD/);
+    // The script repeats the quote; it must use the same fee as the app.
+    expect(src).toMatch(new RegExp(`FEE_BPS = ${PLATFORM_FEE_BPS};`));
   });
 });
 
@@ -183,5 +185,6 @@ describe("copy says only what the code does", () => {
     expect(ui).toContain("Funding opens soon");
     expect(ui).toContain("After FAVOUR confirms the transfer on World Chain, this campaign shows as funded.");
     expect(ui).not.toMatch(/paid per (accepted )?piece|USDC per piece/i);
+    expect(ui).not.toMatch(/USDC only from a funded pool/);
   });
 });
