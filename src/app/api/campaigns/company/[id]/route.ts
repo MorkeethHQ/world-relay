@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPublishedCampaign, listCampaignResults } from "@/lib/campaign-drafts";
 import { getCampaignFunding } from "@/lib/campaign-funding";
+import { listCampaignPayouts } from "@/lib/campaign-payouts";
 
 // GET /api/campaigns/company/<id> — one published company campaign, its pieces, and
 // the reviewed work: accepted and rejected, with the reason. A draft id answers
@@ -12,7 +13,9 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   // stored, and verify-proof still resolves it for a proof already in flight.
   if (!campaign || campaign.hidden) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json(
-    { campaign, results: await listCampaignResults(id), funding: await getCampaignFunding(id) },
+    // payouts: the payment state of each piece the company accepted (pending, paid
+    // or failed, with the reason). Short addresses only, like results.
+    { campaign, results: await listCampaignResults(id), funding: await getCampaignFunding(id), payouts: await listCampaignPayouts(id) },
     { headers: { "Cache-Control": "public, s-maxage=10, stale-while-revalidate=20" } },
   );
 }

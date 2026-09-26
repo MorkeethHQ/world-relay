@@ -344,6 +344,10 @@ export async function POST(req: NextRequest) {
       // exhausting the AI rate limit. (verifyProofStub stays for local testing.)
       if (taskIsFunded || process.env.NODE_ENV === "production") {
         result = { verdict: "flag", reasoning: "AI verification unavailable - proof requires manual review.", confidence: 0 };
+      } else if (process.env.VERIFY_STUB_VERDICT === "pass" || process.env.VERIFY_STUB_VERDICT === "flag" || process.env.VERIFY_STUB_VERDICT === "fail") {
+        // Local walks only (this branch is already non-production): a fixed
+        // verdict so a journey can be driven end to end without a coin toss.
+        result = { verdict: process.env.VERIFY_STUB_VERDICT, reasoning: `Local stub verdict (VERIFY_STUB_VERDICT=${process.env.VERIFY_STUB_VERDICT}), not an AI check.`, confidence: 0.9 };
       } else {
         result = verifyProofStub(task.description, proofImages[0]);
       }
@@ -560,6 +564,9 @@ export async function POST(req: NextRequest) {
   // nothing here reads or writes money.
   const cc = task.companyCampaignId ? await getPublishedCampaign(task.companyCampaignId).catch(() => null) : null;
   if (task.companyCampaignId && task.claimant && (result.verdict === "fail" || (result.verdict === "pass" && creditAllowed))) {
+    // The full address rides along to a private key so the company can accept
+    // this piece for payment later (campaign-payouts.ts). The public row keeps
+    // only the short form.
     await recordCampaignResult(task.companyCampaignId, {
       taskId,
       kind: cc ? kindOfTask(cc, taskId) : null,
@@ -567,7 +574,7 @@ export async function POST(req: NextRequest) {
       reason: String(result.reasoning || "").split(" | ")[0].slice(0, 280),
       participant: shortAddress(task.claimant),
       at: new Date().toISOString(),
-    }).catch(console.error);
+    }, task.claimant).catch(console.error);
   }
 
   if (result.verdict === "pass" && task.claimant && creditAllowed) {

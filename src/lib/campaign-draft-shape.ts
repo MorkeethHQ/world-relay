@@ -128,6 +128,10 @@ export type PublicCompanyCampaign = Pick<
 > & { status: "publishing" | "published"; companyChecked: boolean; hidden?: boolean };
 
 export type CampaignResult = {
+  // Set since 2026-09-27. The handle the company uses to accept this piece for
+  // payment (POST /api/campaigns/company/<id>/accept). Results recorded before
+  // have none and cannot be accepted.
+  id?: string;
   taskId: string;
   kind: PieceKind | null;
   verdict: "pass" | "fail" | "flag";
