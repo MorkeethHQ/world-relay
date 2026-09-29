@@ -103,7 +103,12 @@ export async function POST(
   // sweep a whole seeded batch.
   const seedCap = await checkSeedCap(task, claimant);
   if (!seedCap.allowed) {
-    return NextResponse.json({ error: "Daily limit reached", message: seedCap.message }, { status: 403 });
+    return NextResponse.json({
+      error: seedCap.error,
+      code: seedCap.code,
+      message: seedCap.message,
+      nextAction: seedCap.nextAction ?? null,
+    }, { status: seedCap.status });
   }
 
   const updated = await claimTask(

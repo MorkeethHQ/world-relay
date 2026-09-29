@@ -137,6 +137,12 @@ mechanically blocks the easy-to-regress ones.
    the transfer; the payout tx hash is persisted BEFORE awaiting its receipt; `paid`
    flips only on a confirmed success receipt; unresolved broadcasts back off (never
    re-send); failures land in `unlock:retry`, drained by the reconcile cron.
+9. **A funded official allocation requires shared cap state.** The per-wallet funded
+   cap in `src/lib/seed-caps.ts` fails closed when Redis is missing or its read fails.
+   It returns `503 funded_cap_unavailable` and states that nothing was allocated.
+   A process-local fallback may keep points work usable in development, but it must
+   never authorize or count a funded placement because another process cannot see it.
+   The claim and direct-proof paths both preserve this response.
 
 ## Review method for any money/identity/reward change
 

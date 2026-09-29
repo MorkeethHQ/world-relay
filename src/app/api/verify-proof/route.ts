@@ -245,15 +245,19 @@ export async function POST(req: NextRequest) {
     // direct submission is the main acquisition path, not /claim.
     const seedCap = await checkSeedCap(task, submitter);
     if (!seedCap.allowed) {
-      // The churn moment: a motivated user told to stop. Now measurable.
-      trackEvent("cap_hit", { submitter: submitter || "" }).catch(() => {});
+      // A real cap hit is a user event. A shared-state outage is an operational
+      // failure and must not inflate that product metric.
+      if (seedCap.reason === "limit_reached") {
+        trackEvent("cap_hit", { submitter: submitter || "" }).catch(() => {});
+      }
       return NextResponse.json({
-        error: "Daily limit reached",
+        error: seedCap.error,
+        code: seedCap.code,
         message: seedCap.message,
         // The client turns this into a real button. Without it the most engaged
         // user in the app hits a wall with nowhere to go.
         nextAction: seedCap.nextAction ?? null,
-      }, { status: 403 });
+      }, { status: seedCap.status });
     }
     // Verification-tier gate for funded tasks. /claim enforces this, but direct
     // submission bypassed it — a wallet-level user could earn a $20 orb-only

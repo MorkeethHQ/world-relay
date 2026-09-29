@@ -4,23 +4,33 @@ import { checkSeedCap, recordSeededEarn, isSeededTask, SEEDED_FUNDED_DAILY_CAP,
 import { isTemplateCopy, MIN_DESCRIPTION_LENGTH, POST_TEMPLATES } from "@/lib/post-templates";
 import type { Task } from "@/lib/types";
 
-// Mock Redis with an in-memory implementation for tests
-const mockStore = new Map<string, string | number>();
+// Shared-state test double. Availability and read failures are explicit so the
+// money-path behavior is exercised, not inferred from a permanently green mock.
+const redisState = vi.hoisted(() => ({
+  available: true,
+  throwOnGet: false,
+  store: new Map<string, string | number>(),
+}));
 
 vi.mock("@/lib/redis", () => ({
-  getRedis: () => ({
-    get: async (key: string) => mockStore.get(key) ?? null,
+  getRedis: () => redisState.available ? ({
+    get: async (key: string) => {
+      if (redisState.throwOnGet) throw new Error("Redis unavailable");
+      return redisState.store.get(key) ?? null;
+    },
     incr: async (key: string) => {
-      const next = Number(mockStore.get(key) || 0) + 1;
-      mockStore.set(key, next);
+      const next = Number(redisState.store.get(key) || 0) + 1;
+      redisState.store.set(key, next);
       return next;
     },
     expire: async () => 1,
-  }),
+  }) : null,
 }));
 
 beforeEach(() => {
-  mockStore.clear();
+  redisState.available = true;
+  redisState.throwOnGet = false;
+  redisState.store.clear();
 });
 
 function makeTask(overrides: Partial<Task>): Task {
@@ -90,7 +100,7 @@ describe("seed caps", () => {
     }
     const blocked = await checkSeedCap(funded, WALLET);
     expect(blocked.allowed).toBe(false);
-    expect(blocked.message).toMatch(/tomorrow/i);
+    if (!blocked.allowed) expect(blocked.message).toMatch(/tomorrow/i);
   });
 
   it("tracks funded and points caps separately", async () => {
@@ -114,6 +124,53 @@ describe("seed caps", () => {
     const funded = makeTask({ onChainId: 26, escrowTxHash: "0xescrow", rewardType: "usdc" });
     await recordSeededEarn(funded, WALLET);
     expect((await checkSeedCap(funded, "0x9999999999999999999999999999999999999999")).allowed).toBe(true);
+  });
+
+  it("fails closed for a funded seeded allocation when shared state is absent", async () => {
+    redisState.available = false;
+    const funded = makeTask({ onChainId: 26, escrowTxHash: "0xescrow", rewardType: "usdc" });
+
+    const decision = await checkSeedCap(funded, WALLET);
+
+    expect(decision).toMatchObject({
+      allowed: false,
+      reason: "storage_unavailable",
+      status: 503,
+      code: "funded_cap_unavailable",
+    });
+    if (!decision.allowed) {
+      expect(decision.message).toMatch(/nothing was allocated/i);
+    }
+  });
+
+  it("fails closed for a funded seeded allocation when the shared read fails", async () => {
+    redisState.throwOnGet = true;
+    const funded = makeTask({ onChainId: 26, escrowTxHash: "0xescrow", rewardType: "usdc" });
+
+    const decision = await checkSeedCap(funded, WALLET);
+
+    expect(decision).toMatchObject({
+      allowed: false,
+      reason: "storage_unavailable",
+      status: 503,
+      code: "funded_cap_unavailable",
+    });
+  });
+
+  it("does not count a funded earn in process memory when shared state is absent", async () => {
+    redisState.available = false;
+    const funded = makeTask({ onChainId: 26, escrowTxHash: "0xescrow", rewardType: "usdc" });
+
+    await expect(recordSeededEarn(funded, WALLET)).rejects.toThrow(/shared Redis is required/i);
+    expect(redisState.store.size).toBe(0);
+  });
+
+  it("keeps non-funded seeded work available without shared state", async () => {
+    redisState.available = false;
+    const points = makeTask({});
+
+    expect(await checkSeedCap(points, WALLET)).toEqual({ allowed: true });
+    await expect(recordSeededEarn(points, WALLET)).resolves.toBeUndefined();
   });
 });
 
@@ -142,7 +199,9 @@ describe("template copy rejection", () => {
     for (let i = 0; i < SEEDED_POINTS_DAILY_CAP; i++) await recordSeededEarn(task, WALLET);
     const res = await checkSeedCap(task, WALLET);
     expect(res.allowed).toBe(false);
-    expect(res.nextAction, "a capped user needs somewhere to go").toBe("jury");
-    expect(res.message).toMatch(/judge/i);
-    expect(res.message, "still tell them when it resets").toMatch(/tomorrow/i);
+    if (!res.allowed) {
+      expect(res.nextAction, "a capped user needs somewhere to go").toBe("jury");
+      expect(res.message).toMatch(/judge/i);
+      expect(res.message, "still tell them when it resets").toMatch(/tomorrow/i);
+    }
   });
