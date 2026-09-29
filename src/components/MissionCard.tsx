@@ -1,9 +1,11 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import type { Task } from "@/lib/types";
 import { Button } from "@worldcoin/mini-apps-ui-kit-react";
-import { rewardAmountLabel } from "@/lib/reward";
 import { authorLabel } from "@/lib/authorship";
+import { TaskLaunchHeader } from "@/components/TaskLaunchHeader";
+import { taskMarketState } from "@/lib/task-market-state";
 
 // Today's mission card, shared by the board and the signed-out teaser in
 // onboarding (Oscar, 2026-09-21: a new visitor should meet the mission before
@@ -22,13 +24,17 @@ export function DailyMissionCard({
   onStart: () => void;
 }) {
   const needsPhoto = PHOTO_CATEGORIES.includes(task.category);
+  const [marketNow, setMarketNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = window.setInterval(() => setMarketNow(Date.now()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
+  const market = taskMarketState(task, marketNow);
   return (
-    <div className="mx-6 mt-4 rounded-3xl border border-gray-900 bg-white overflow-hidden animate-[fadeSlideIn_0.4s_ease-out]">
+    <div className="mx-6 mt-4 rounded-3xl border border-gray-900 bg-white overflow-hidden shadow-[0_10px_32px_rgba(17,24,39,0.10)] animate-[fadeSlideIn_0.4s_ease-out]">
+      <div className="bg-gray-950 px-4 py-2 text-[9px] font-extrabold uppercase tracking-[0.18em] text-white">Today&apos;s lead</div>
+      <TaskLaunchHeader task={task} now={marketNow} />
       <div className="px-5 pt-4 pb-3">
-        <div className="flex items-center justify-between">
-          <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-900">Today&apos;s mission</span>
-          <span className="text-[13px] font-bold text-gray-900">{rewardAmountLabel(task)}</span>
-        </div>
         {/* break-words is required by the viewport-containment guard: a mission is
             supplied text and a long unbroken string would push the card wider than
             a 390 px phone. */}
@@ -37,6 +43,10 @@ export function DailyMissionCard({
           {authorLabel(task) ?? "Asked on the board"} · {task.location} ·{" "}
           {needsPhoto ? "photo proof" : "a few words"}
         </p>
+        <div className="mt-4 flex items-center justify-between gap-3 rounded-xl bg-gray-50 px-3 py-3 text-[12px] font-bold text-gray-800">
+          <span>{market.deadlineLabel}</span>
+          <span>{market.slotsLabel}</span>
+        </div>
       </div>
 
       {proofs.length > 0 && (

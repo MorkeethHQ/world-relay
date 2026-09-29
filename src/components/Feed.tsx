@@ -62,6 +62,8 @@ import type { Contribution } from "@/lib/completions";
 import { PENDING_MISSION_KEY } from "@/components/Onboarding";
 import { trackFunnelEvent } from "@/lib/funnel-events";
 import { authorLabel } from "@/lib/authorship";
+import { TaskLaunchHeader } from "@/components/TaskLaunchHeader";
+import { taskMarketState } from "@/lib/task-market-state";
 
 // Fire-and-forget telemetry. The event name must be in CLIENT_EVENTS in
 // /api/track, which is an allowlist because that route is public.
@@ -1843,94 +1845,78 @@ function TaskCard({
 }) {
   const isOwnTask = task.poster === userId;
   const isClaimant = task.claimant === userId;
+  const [marketNow, setMarketNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = window.setInterval(() => setMarketNow(Date.now()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
+  const market = taskMarketState(task, marketNow);
   const distance = userLocation && task.lat && task.lng
     ? haversineKm(userLocation.lat, userLocation.lng, task.lat, task.lng)
     : null;
 
-  const hoursLeft = (new Date(task.deadline).getTime() - Date.now()) / 3600_000;
   const isAgentTask = !!(task.agent || task.poster?.startsWith("agent_"));
-  const taskAgeDays = (Date.now() - new Date(task.createdAt).getTime()) / (24 * 3600_000);
-  // Mirror board-rank.ts:isStale — an evergreen multi-completion task (campaign
-  // furniture) reopens without touching createdAt, so age says nothing about it
-  // being dead. Without this exemption every featured campaign card wrongly shows
-  // "Open a while" even though the ranker still treats it as alive.
-  const isStale = task.status === "open" && !task.claimant && (task.maxCompletions ?? 1) <= 1 && taskAgeDays >= 7;
-  // Funding + urgency signals for the browse card. isUnfundedMoney and endingSoon
-  // are mutually exclusive (one requires unfunded, the other funded), so at most
-  // one status chip shows per card. Green/urgency only ever attaches to real money.
-  const funded = isFunded(task);
-  const isUnfundedMoney = task.status === "open" && task.rewardType !== "points" && !funded;
-  const endingSoon = task.status === "open" && funded && hoursLeft > 0 && hoursLeft < 4;
 
   return (
     <div
       onClick={onTap}
-      className="rounded-2xl p-4 flex flex-col gap-3 cursor-pointer active:scale-[0.98] transition-all bg-white border border-gray-200"
+      className="overflow-hidden rounded-3xl cursor-pointer active:scale-[0.985] transition-all bg-white border border-gray-200 shadow-[0_8px_30px_rgba(17,24,39,0.06)]"
     >
-      <div className="flex items-start gap-3">
-        <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center text-gray-500 shrink-0 mt-0.5">
-          <CategoryIcon category={task.category} size={18} />
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-[15px] font-medium leading-snug break-words text-gray-900 line-clamp-2">{task.description}</p>
-          <div className="flex items-center flex-wrap gap-x-2 gap-y-1 mt-1.5">
-            {isNew && (
-              <span className="text-[12px] font-semibold text-gray-900 bg-gray-100 rounded-md px-2 py-1 shrink-0">New</span>
-            )}
-            {isUnfundedMoney ? (
-              // Escrow-v2 is demand-gated: unfunded-while-open is the design
-              // (poster funds when someone accepts), not a broken promise.
-              <span className="text-[12px] font-semibold text-warning-700 bg-warning-100 rounded-md px-2 py-1 shrink-0">{task.rewardType === "usdc-v2" ? "Funds on accept" : "Not funded"}</span>
-            ) : endingSoon ? (
-              <span className="text-[12px] font-semibold text-warning-700 bg-warning-100 rounded-md px-2 py-1 shrink-0">Ending soon</span>
-            ) : isStale ? (
-              <span className="text-[12px] font-semibold text-gray-400 bg-gray-100 rounded-md px-2 py-1 shrink-0">Open a while</span>
-            ) : null}
-            {/* The agent's NAME, not a generic chip (2026-09-21): an ask is only as
-                trustworthy as knowing who is asking, and "OpenClaw asked" already
-                says so on the mission card. Falls back to "Agent" when unnamed. */}
-            {isAgentTask && (
-              <span className="text-[12px] font-semibold text-gray-700 bg-gray-100 rounded-md px-2 py-1 shrink-0">{authorLabel(task) ?? "Agent"}</span>
-            )}
-            <span className="text-xs text-gray-400 truncate max-w-[140px]">{task.location}</span>
+      <TaskLaunchHeader task={task} now={marketNow} />
+
+      <div className="p-4">
+        <p className="text-[17px] font-bold leading-snug break-words text-gray-950 line-clamp-3">{task.description}</p>
+        <div className="mt-3 flex min-w-0 items-center gap-2 text-[12px] text-gray-500">
+          {isNew && <span className="shrink-0 rounded-full bg-gray-950 px-2 py-1 font-bold text-white">New</span>}
+          {isAgentTask && <span className="truncate font-semibold text-gray-700">{authorLabel(task) ?? "Agent"}</span>}
+          <span className="truncate">{task.location}</span>
             {distance !== null && (
               <>
                 <span className="text-xs text-gray-300">&middot;</span>
                 <span className="text-xs text-gray-500 font-medium">{formatDistance(distance)}</span>
               </>
             )}
-            <span className="text-xs text-gray-300">&middot;</span>
-            <span className="text-xs text-gray-400">{timeAgo(task.createdAt)}</span>
+        </div>
+
+        <div className="mt-4 grid grid-cols-3 overflow-hidden rounded-2xl border border-gray-200 bg-gray-50">
+          <div className="min-w-0 border-r border-gray-200 px-3 py-3">
+            <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-gray-400">Closes</p>
+            <p className={`mt-1 truncate text-[12px] font-bold ${market.isEndingSoon ? "text-orange-600" : "text-gray-900"}`}>{market.deadlineLabel}</p>
+          </div>
+          <div className="min-w-0 border-r border-gray-200 px-3 py-3">
+            <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-gray-400">Capacity</p>
+            <p className="mt-1 truncate text-[12px] font-bold text-gray-900">{market.slotsLabel}</p>
+          </div>
+          <div className="min-w-0 px-3 py-3">
+            <p className="text-[9px] font-bold uppercase tracking-[0.14em] text-gray-400">Opened</p>
+            <p className="mt-1 truncate text-[12px] font-bold text-gray-900">{market.ageLabel.replace("Opened ", "")}</p>
           </div>
         </div>
-        <div className="shrink-0 text-right">
-          <RewardBadge task={task} hero />
-        </div>
-      </div>
 
-      {task.status === "open" && userId && !isOwnTask && (
+      {task.status === "open" && !isOwnTask && (
         <button
           onClick={(e) => { e.stopPropagation(); onSubmitProof(); }}
-          className="w-full bg-gray-900 text-white text-[13px] font-semibold py-3 rounded-xl active:scale-[0.98] transition-transform min-h-[44px]"
+          className="mt-4 w-full bg-gray-950 text-white text-[14px] font-bold py-3 rounded-xl active:scale-[0.98] transition-transform min-h-[48px]"
         >
-          Start favour
+          {userId ? "Take this favour" : "View favour"} <span aria-hidden>→</span>
         </button>
       )}
 
       {task.status === "claimed" && isClaimant && (
         <button
           onClick={(e) => { e.stopPropagation(); onSubmitProof(); }}
-          className="w-full border border-gray-200 text-gray-900 text-[13px] font-semibold py-3 rounded-xl active:scale-[0.98] transition-transform min-h-[44px]"
+          className="mt-4 w-full border border-gray-300 text-gray-900 text-[14px] font-bold py-3 rounded-xl active:scale-[0.98] transition-transform min-h-[48px]"
         >
           Submit Proof
         </button>
       )}
 
       {isOwnTask && task.status === "open" && (
-        <div className="flex items-center gap-1.5">
-          <span className="text-[11px] text-gray-400">You posted</span>
+        <div className="mt-4 flex min-h-[44px] items-center justify-center rounded-xl bg-gray-100">
+          <span className="text-[12px] font-semibold text-gray-500">Your favour · view details</span>
         </div>
       )}
+      </div>
     </div>
   );
 }
