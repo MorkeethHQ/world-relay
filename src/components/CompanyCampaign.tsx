@@ -428,6 +428,9 @@ export function CampaignDraftList({ drafts, onDone, justSaved, onPublished, onOp
               <p className="mt-2 text-[12px] text-gray-500">
                 Proposed pool {d.proposedPoolUsdc} USDC · <span className="font-semibold text-gray-700">not funded</span> · reviewed by {d.reviewRule === "ai_and_jury" ? "AI check, human judges on flagged photos" : "AI check"}
               </p>
+              <a href={`/companies/${encodeURIComponent(d.id)}/review`} className="mt-3 flex min-h-[44px] items-center justify-center rounded-full border border-gray-300 px-4 text-[14px] font-semibold text-gray-900">
+                {d.status === "draft" ? "Set the decision question" : "Review evidence and decide"}
+              </a>
               {d.status !== "published" ? (
                 <>
                   {d.status === "publishing" && (
