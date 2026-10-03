@@ -1,6 +1,6 @@
 // Real Redis acceptance. Use an isolated Redis REST transport, never a live store:
 // FAVOUR_LOCAL_REDIS_TEST=1 KV_REST_API_URL=http://127.0.0.1:16480 KV_REST_API_TOKEN=local-loop-only npx vitest run src/lib/company-appeal.redis.test.ts
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, afterEach } from "vitest";
 import { randomUUID } from "crypto";
 import { getRedis } from "./redis";
 import type { Task } from "./types";
@@ -13,12 +13,20 @@ import { getProofOfFavour } from "./proof-of-favour";
 
 const enabled = process.env.FAVOUR_LOCAL_REDIS_TEST === "1";
 if (enabled && !/^http:\/\/(127\.0\.0\.1|localhost):/.test(process.env.KV_REST_API_URL || "")) throw new Error("Local Redis only");
+const indexedFixtures: string[] = [];
+afterEach(async () => {
+  if (!enabled) return;
+  // posterConfirm uses the real store and indexes its fixture. Keep subsequent
+  // local browser acceptance free of unit-test tasks without touching its data.
+  for (const id of indexedFixtures.splice(0)) await getRedis()!.srem("task_ids", id);
+});
 const wallet = () => `0x${randomUUID().replaceAll("-", "").padEnd(40, "0")}`;
 async function setup() {
   const redis = getRedis()!;
   const owner = wallet(), participant = wallet(), judges = [wallet(), wallet(), wallet()];
   const id = `test_${randomUUID()}`, cid = `draft_${randomUUID()}`;
-  const task = { id, companyCampaignId: cid, poster: owner, claimant: participant, status: "claimed", category: "photo", description: "Photograph the product label and explain the confusing ingredient.", location: "Anywhere", rewardType: "points", bountyUsdc: 7, onChainId: null, escrowTxHash: null, donOnChainId: null, donStakeTxHash: null, taskType: "standard", proofSubmissionId: randomUUID(), proofImageUrl: "https://example.test/proof.jpg", proofImages: ["https://example.test/proof.jpg"], proofNote: "The ingredient list is difficult to read under normal light.", verificationResult: { verdict: "flag", reasoning: "Photo needs review", confidence: 0 }, maxCompletions: 2, completionCount: 0 } as Task;
+  indexedFixtures.push(id);
+  const task = { id, createdAt: new Date().toISOString(), deadline: new Date(Date.now() + 86400000).toISOString(), companyCampaignId: cid, poster: owner, claimant: participant, status: "claimed", category: "photo", description: "Photograph the product label and explain the confusing ingredient.", location: "Anywhere", rewardType: "points", bountyUsdc: 7, onChainId: null, escrowTxHash: null, donOnChainId: null, donStakeTxHash: null, taskType: "standard", proofSubmissionId: randomUUID(), proofImageUrl: "https://example.test/proof.jpg", proofImages: ["https://example.test/proof.jpg"], proofNote: "The ingredient list is difficult to read under normal light.", verificationResult: { verdict: "flag", reasoning: "Photo needs review", confidence: 0 }, maxCompletions: 2, completionCount: 0 } as Task;
   const draft = { id: cid, company: "Local test company", owner, status: "published", reviewRule: "ai_and_jury", pieceTaskIds: { review: id } } as CampaignDraft;
   await redis.set(`task:${id}`, JSON.stringify(task)); await redis.set(`campaign:draft:${cid}`, JSON.stringify(draft));
   for (const j of judges) await redis.hset(`jury:stats:${j}`, { judged: 10, correct: 6 });
