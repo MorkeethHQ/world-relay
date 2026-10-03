@@ -195,6 +195,8 @@ export function JuryMode({
         </div>
       </div>
 
+      <a href="/jury/appeals" className="mx-5 mb-3 text-center text-sm font-semibold underline">Review flagged photos</a>
+
       {needsAuth && (
         <div className="mx-5 mb-2 rounded-2xl bg-gray-900 px-4 py-3 flex items-center gap-3" role="alert">
           <p className="flex-1 text-[12px] text-white leading-snug">

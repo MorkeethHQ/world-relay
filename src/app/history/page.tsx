@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import type { CompanyAppealHistory } from "@/lib/company-appeal-shape";
 import type { Task } from "@/lib/types";
 import { rewardAmountLabel } from "@/lib/reward";
 import type { Contribution } from "@/lib/completions";
@@ -70,14 +71,20 @@ export default function HistoryPage() {
   const [loading, setLoading] = useState(true);
   // The signed-in person's own results, from the session. Empty when signed out.
   // This is where "See your proof" on a done mission lands.
+  const [reviews, setReviews] = useState<CompanyAppealHistory[]>([]);
+  const [reviewError, setReviewError] = useState("");
   const [mine, setMine] = useState<Contribution[]>([]);
   // The page shows a first screenful and grows on request. At 390 px the full
   // 60-result list measured 10,819 px even after clamping, which is a wall to scroll
   // rather than a record to read.
   const [shown, setShown] = useState(PAGE);
+  const otherResults = mine.filter(c => !reviews.some(r => r.taskId === c.taskId && r.role === "contributor" && r.outcome === "cleared"));
 
   useEffect(() => {
     Promise.all([
+      fetch("/api/me/company-reviews", { cache: "no-store" }).then(async r => {
+        const d = await r.json(); if (!r.ok) throw new Error(d.error); setReviews(d.reviews || []);
+      }).catch(e => setReviewError(e.message || "Review history unavailable")),
       fetch("/api/history").then((r) => r.json()).then((d) => setTasks(d.tasks || [])),
       fetch("/api/stats").then((r) => r.json()).then(setStats).catch(() => {}),
       fetch("/api/me/contributions", { cache: "no-store" })
@@ -91,7 +98,7 @@ export default function HistoryPage() {
     <div className="min-h-screen bg-gray-50 max-w-lg mx-auto">
       <div className="sticky top-0 z-10 bg-white border-b border-gray-100 px-6 py-3">
         <h1 className="text-[18px] font-bold tracking-tight text-gray-900">History</h1>
-        <p className="text-[11px] text-gray-400 mt-0.5">Recently completed across FAVOUR</p>
+        <p className="text-[11px] text-gray-400 mt-0.5">Your work and completed favours</p>
       </div>
 
       <div className="px-6 py-4 pb-28 flex flex-col gap-4">
@@ -103,7 +110,7 @@ export default function HistoryPage() {
           </div>
           <div>
             <p className="text-[22px] font-bold leading-none">{Math.round(stats.volume?.pointsDistributed ?? 0)}</p>
-            <p className="text-[11px] text-white/50 mt-1">points earned</p>
+            <p className="text-[11px] text-white/50 mt-1">points · closed favours</p>
           </div>
           <div>
             <p className="text-[22px] font-bold leading-none">{stats.users?.reached ?? stats.users?.verified ?? 0}</p>
@@ -111,10 +118,28 @@ export default function HistoryPage() {
           </div>
         </div>
 
-        {mine.length > 0 && (
+        <p className="text-xs text-gray-500">Platform totals are cached. The points total covers closed favours only; contributions to ongoing campaigns appear below.</p>
+
+        {reviewError && <p role="alert" className="text-sm text-red-700">{reviewError}</p>}
+        {reviews.length > 0 && <section aria-label="Your company reviews" className="space-y-3">
+          <h2 className="font-semibold">Company work</h2>
+          {reviews.map(review => <article key={review.id} className="rounded-2xl border bg-white p-4 space-y-3">
+            <p className="text-xs text-gray-500">{review.company} · {review.role === "company" ? "Your campaign" : "Your contribution"}</p>
+            <h3 className="font-medium text-sm line-clamp-3">{review.description}</h3>
+            <p className="font-semibold text-sm">{review.outcome === "pending" ? `Awaiting human review · ${review.votes.length}/3 judges · no reward yet` : review.outcome === "superseded" ? "Proof replaced or withdrawn · no points from this review" : review.outcome === "cleared" ? `Accepted by human jury · ${review.points} points` : "Not accepted by human jury · no points"}</p>
+            <p className="text-sm whitespace-pre-wrap break-words">{review.note}</p>
+            <details className="text-sm"><summary className="cursor-pointer">AI flag and review reasons</summary>
+              <p className="pt-2 text-gray-500">AI: {review.aiReason}</p>
+              <ol className="list-decimal pl-5 space-y-2 mt-2">{review.votes.map((vote, i) => <li key={i}>{vote.real ? "Accept" : "Decline"}: {vote.reason}</li>)}</ol>
+            </details>
+            {review.role === "company" && <a className="block text-sm underline" href={`/companies/${review.campaignId}/review`}>Review evidence and decide</a>}
+          </article>)}
+        </section>}
+
+        {otherResults.length > 0 && (
           <section className="flex flex-col gap-2.5" aria-label="Your results">
             <h2 className="text-[13px] font-semibold text-gray-900">Yours</h2>
-            {mine.map((c) => (
+            {otherResults.map((c) => (
               <ResultCard
                 key={`${c.taskId}-${c.at}`}
                 description={c.description}
@@ -127,16 +152,17 @@ export default function HistoryPage() {
                 mine
               />
             ))}
-            <h2 className="text-[13px] font-semibold text-gray-900 mt-3">Across FAVOUR</h2>
+
           </section>
         )}
 
+        <h2 className="text-[13px] font-semibold text-gray-900">Fully completed favours across FAVOUR</h2>
         {loading ? (
           <div className="flex justify-center py-16">
             <div className="w-7 h-7 border-2 border-gray-200 border-t-gray-900 rounded-full animate-spin" />
           </div>
         ) : tasks.length === 0 ? (
-          <p className="text-sm text-gray-400 text-center py-16">No completed favours yet.</p>
+          <p className="text-sm text-gray-400 text-center py-16">No fully completed favours yet. Accepted pieces from ongoing campaigns are shown separately above.</p>
         ) : (
           <div className="flex flex-col gap-2.5">
             {tasks.slice(0, shown).map((task) => (

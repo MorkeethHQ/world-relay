@@ -81,15 +81,14 @@ describe("invariant guards", () => {
   it("Inv 4: points-spending routes enforce session ownership (anti-grief)", () => {
     // stake/appeal debit or award points off a body-supplied address. Without a
     // session gate anyone could spend or farm points as another wallet. These two
-    // still use ownershipError, which honours SESSION_ENFORCE, so the hole closes
-    // everywhere the day that flag flips.
+    // accept the stronger unconditional ownerRefusal gate as well.
     for (const route of [
       join("predictions", "[id]", "stake"),
       join("jury", "appeal"),
     ]) {
       const f = files.find((p) => p.endsWith(join(route, "route.ts")));
       expect(f, `${route}/route.ts not found`).toBeTruthy();
-      expect(read(f!), `${route} route must call ownershipError`).toMatch(/ownershipError\(/);
+      expect(read(f!), `${route} route must enforce ownership`).toMatch(/(?:ownershipError|ownerRefusal)\(/);
     }
   });
 

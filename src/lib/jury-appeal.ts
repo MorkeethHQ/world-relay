@@ -151,6 +151,7 @@ export async function recordAppealVote(
 ): Promise<AppealVoteResult | { error: string }> {
   const redis = getRedis();
   if (!redis) return { error: "Store unavailable" };
+  if (task.companyCampaignId) return { error: "Company proofs require a source-bound company review." };
   if (!isAppealable(task)) return { error: "This proof is not appealable" };
   const j = judge.toLowerCase();
   if (task.claimant?.toLowerCase() === j || task.poster?.toLowerCase() === j) {
@@ -228,10 +229,20 @@ export async function issueAppealDeck(
     pool = pool.filter((t) => !seen.has(t.id));
   }
   const out = [];
-  for (const t of pool.slice(0, count)) {
+  for (const t of pool) {
+    if (out.length >= count) break;
+    let companyAppealId: string | undefined;
+    let companyTally: { real: number; not: number } | undefined;
+    if (t.companyCampaignId) {
+      const { ensureCompanyAppeal } = await import("./company-appeal");
+      const review = await ensureCompanyAppeal(t);
+      if (!review || review.outcome !== "pending" || review.votes.some(v => v.judge === judge?.toLowerCase())) continue;
+      companyAppealId = review.id;
+      companyTally = { real: review.votes.filter(v => v.real).length, not: review.votes.filter(v => !v.real).length };
+    }
     const cardId = randomId();
-    await persistCardAnswer(cardId, { judge, proofTaskId: t.id, descTaskId: t.id, isMatch: true, appeal: true });
-    const tally = await getAppealTally(t.id);
+    await persistCardAnswer(cardId, { judge, proofTaskId: t.id, descTaskId: t.id, isMatch: true, appeal: true, ...(companyAppealId ? { companyAppealId } : {}) });
+    const tally = companyTally ?? await getAppealTally(t.id);
     out.push({
       cardId,
       proofImageUrl: `/api/jury/card/${cardId}/image`,

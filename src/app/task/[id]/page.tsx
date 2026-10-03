@@ -1269,6 +1269,8 @@ function DisputeActions({ task, onAction }: { task: Task; onAction: () => void }
       .catch(() => null);
   }, [task.id]);
 
+  if (task.companyCampaignId) return <div className="p-4 text-sm"><p>Company proofs follow the campaign review rule. Owners cannot approve their own campaign work.</p><Link href="/history" className="mt-2 inline-flex min-h-11 items-center underline">Follow the review in History</Link></div>;
+
   const handleConfirm = async (approved: boolean) => {
     setActing(approved ? "approve" : "reject");
     setResult(null);

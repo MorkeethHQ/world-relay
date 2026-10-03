@@ -128,6 +128,7 @@ export type PublicCompanyCampaign = Pick<
 > & { status: "publishing" | "published"; companyChecked: boolean; hidden?: boolean };
 
 export type CampaignResult = {
+  reviewMethod?: "human_jury";
   taskId: string;
   kind: PieceKind | null;
   verdict: "pass" | "fail" | "flag";

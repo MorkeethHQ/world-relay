@@ -1590,6 +1590,9 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
                 <DailyFavour userId={userId} onReauth={onReauth} />
               </div>
             )}
+
+          </div>
+        )}
             {/* R16: campaigns that may not lead (unchecked company, thin brief, no
                 product, nothing open) sit below the favours, labelled. Demoted,
                 never dropped; only the operator's hidden state removes one. */}
@@ -1601,8 +1604,6 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
                 ))}
               </section>
             )}
-          </div>
-        )}
       </div>
       )}
 
@@ -3728,6 +3729,7 @@ function SubmitProof({
             {result.verdict === "flag" && (
               <div className="mt-2">
                 <p className="text-xs text-yellow-600">{quick ? "No points yet. People check it by hand, and the points land if they clear it." : "Under review. You'll be notified of the result."}</p>
+                {pieceCampaign?.reviewRule === "ai_and_jury" && images.length > 0 && <a href="/history" className="mt-3 inline-flex min-h-11 items-center text-sm font-semibold underline">Follow the review in History</a>}
               </div>
             )}
             {/* A daily cap is not retryable — "Try Again" would fail identically
@@ -4278,7 +4280,7 @@ function TaskDetail({
         )}
 
         {/* AI Follow-up: claimant can respond and request re-evaluation */}
-        {hasFollowUp && isClaimant && (
+        {hasFollowUp && isClaimant && !currentTask.companyCampaignId && (
           <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4">
             <div className="flex items-center gap-2 mb-2">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#a855f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -4320,7 +4322,8 @@ function TaskDetail({
           </div>
         )}
 
-        {isFlagged && isPoster && (
+        {isFlagged && currentTask.companyCampaignId && <a href="/history" className="block min-h-11 text-sm underline">Company proofs follow the campaign review rule. See History.</a>}
+        {isFlagged && isPoster && !currentTask.companyCampaignId && (
           <div className="flex flex-col gap-2">
             <p className="text-xs text-yellow-600 text-center">This proof was flagged. Your call — or request mediation.</p>
             <div className="flex gap-2">

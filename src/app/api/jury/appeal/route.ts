@@ -1,10 +1,11 @@
+import { recordCompanyAppealVote } from "@/lib/company-appeal";
 import { NextRequest, NextResponse } from "next/server";
 import { listTasks, getTask } from "@/lib/store";
 import { getCardAnswer } from "@/lib/jury";
 import { issueAppealDeck, recordAppealVote, getJudgeStats, isQualifiedJudge } from "@/lib/jury-appeal";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { trackEvent } from "@/lib/track";
-import { ownershipError } from "@/lib/session";
+import { ownerRefusal, getAuthedAddress } from "@/lib/session";
 
 const WALLET_RE = /^0x[0-9a-fA-F]{40}$/;
 
@@ -16,10 +17,12 @@ const WALLET_RE = /^0x[0-9a-fA-F]{40}$/;
 // were flagged, including ones the verifier itself described as "a genuine
 // phone capture". See lib/jury-appeal.ts.
 export async function GET(req: NextRequest) {
-  const address = new URL(req.url).searchParams.get("address");
+  const address = getAuthedAddress(req, Date.now());
   const judge = address && WALLET_RE.test(address) ? address : null;
+  if (!judge) return NextResponse.json({ error: "Sign in to review flagged photos.", cards: [], yourCallCounts: false }, { status: 403 });
   const tasks = await listTasks();
-  const cards = await issueAppealDeck(tasks, judge, () => crypto.randomUUID());
+  const pool = new URL(req.url).searchParams.get("company") === "1" ? tasks.filter(t => !!t.companyCampaignId) : tasks;
+  const cards = await issueAppealDeck(pool, judge, () => crypto.randomUUID());
   const stats = judge ? await getJudgeStats(judge) : { judged: 0, correct: 0 };
   return NextResponse.json({
     cards,
@@ -27,7 +30,7 @@ export async function GET(req: NextRequest) {
     // call will not count rather than discovering it afterwards.
     yourCallCounts: judge ? isQualifiedJudge(stats) : false,
     yourRecord: stats,
-  });
+  }, { headers: { "Cache-Control": "private, no-store" } });
 }
 
 // POST /api/jury/appeal { address, cardId, verdict: "real" | "not" }
@@ -43,8 +46,8 @@ export async function POST(req: NextRequest) {
 
   // A cleared appeal moves points to the CLAIMANT, so the caller must prove the
   // wallet is theirs before their vote counts toward a quorum (Inv 4).
-  const ownErr = ownershipError(req, body.address, Date.now());
-  if (ownErr) return NextResponse.json({ error: ownErr }, { status: 403 });
+  const refusal = ownerRefusal(req, body.address, Date.now());
+  if (refusal) return NextResponse.json(refusal, { status: 403 });
 
   const answer = await getCardAnswer(body.cardId);
   if (!answer || !answer.appeal) return NextResponse.json({ error: "Card expired or was never issued" }, { status: 409 });
@@ -52,9 +55,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Not your card" }, { status: 409 });
   }
 
+  if (answer.companyAppealId) {
+    const result = await recordCompanyAppealVote(body.address, answer.companyAppealId, body.verdict === "real", body.reason);
+    return NextResponse.json(result, { status: "error" in result ? 409 : 200 });
+  }
   const task = await getTask(answer.proofTaskId);
   if (!task) return NextResponse.json({ error: "Proof no longer exists" }, { status: 409 });
 
+  if (task.companyCampaignId) return NextResponse.json({ error: "Load a current company review card." }, { status: 409 });
   const result = await recordAppealVote(body.address, task, body.verdict === "real");
   if ("error" in result) return NextResponse.json(result, { status: 409 });
   trackEvent("jury_appeal_vote", { counted: result.counted, outcome: result.outcome }).catch(() => {});
