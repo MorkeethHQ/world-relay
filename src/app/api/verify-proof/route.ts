@@ -1,3 +1,4 @@
+import { ensureCompanyAppeal } from "@/lib/company-appeal";
 import { recordCompanyEvidence } from "@/lib/company-review";
 import { NextRequest, NextResponse } from "next/server";
 import { getTask, submitProof, completeTask, setAttestationHash, setFollowUp, spawnRecurringTask, markSettled, markSettlementPending } from "@/lib/store";
@@ -450,6 +451,11 @@ export async function POST(req: NextRequest) {
         taskId,
       }).catch(console.error);
     }
+  }
+
+  if (result.verdict === "flag" && task.companyCampaignId) {
+    const flagged = await getTask(taskId);
+    if (flagged) await ensureCompanyAppeal(flagged);
   }
 
   notifyProofSubmitted(task.poster, task.description).catch(console.error);

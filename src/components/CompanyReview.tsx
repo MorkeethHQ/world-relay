@@ -59,12 +59,13 @@ export function CompanyReview({ id }: { id: string }) {
           {review.evidence.map(e => <article id={`evidence-${e.id}`} key={e.id} className="rounded-2xl border border-gray-200 bg-white p-4">
             <label className="flex cursor-pointer items-start gap-3 py-2">
               <input type="checkbox" checked={selected.includes(e.id)} onChange={event => { setSelected(old => event.target.checked ? [...old, e.id] : old.filter(x => x !== e.id)); setSaved(""); }} aria-label={`Use ${e.kind ? PIECE_LABEL[e.kind] : "piece"} from ${e.participant}`} className="mt-1 h-5 w-5 shrink-0 accent-gray-900" />
-              <span className="min-w-0"><span className="block text-sm font-semibold">{e.kind ? PIECE_LABEL[e.kind] : "Piece"} · {e.participant}</span><span className="mt-1 block text-xs text-gray-500">Verifier: {e.verdict === "pass" ? "accepted" : e.verdict === "fail" ? "rejected" : "in review"} · {new Date(e.at).toLocaleString()}</span></span>
+              <span className="min-w-0"><span className="block text-sm font-semibold">{e.kind ? PIECE_LABEL[e.kind] : "Piece"} · {e.participant}</span><span className="mt-1 block text-xs text-gray-500">{e.reviewMethod === "human_jury" ? "Human jury" : "Verifier"}: {e.verdict === "pass" ? "accepted" : e.verdict === "fail" ? "rejected" : "in review"} · {new Date(e.at).toLocaleString()}</span></span>
             </label>
             <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6">{e.note || "No written note accompanied this submission."}</p>
             {evidenceUrl(e.note.trim()) && <a href={evidenceUrl(e.note.trim())!} target="_blank" rel="noopener noreferrer nofollow" className="mt-2 inline-flex min-h-11 items-center text-sm font-semibold underline">Open submitted link ↗</a>}
             {e.images.map((url, i) => <a key={url} href={url} target="_blank" rel="noopener noreferrer nofollow" className="mt-2 flex min-h-11 items-center text-sm underline">Open proof image {i + 1} ↗</a>)}
             <p className="mt-3 border-t border-gray-100 pt-3 text-xs leading-5 text-gray-500">Review reason: {e.reason}</p>
+            {e.reviewReasons && <ol className="mt-2 list-decimal pl-5 text-xs text-gray-600 space-y-2">{e.reviewReasons.map((reason, i) => <li key={i}>{reason}</li>)}</ol>}
           </article>)}
         </section>
         <section>

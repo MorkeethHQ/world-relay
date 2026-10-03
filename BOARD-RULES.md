@@ -248,3 +248,5 @@ tasks are useful but must never be the first impression.
 
 Propose the new threshold or tier explicitly (rules, not vibes), update this doc,
 `board-rank.ts`, and `board-rank.test.ts` in the same commit.
+
+R16 rendering clarification (2026-10-03): unverified company cards remain below the favour list even when that list is empty. A company-only board must still expose its published campaigns; this does not make an unverified company eligible to lead.

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCardAnswer } from "@/lib/jury";
+import { getCompanyAppeal } from "@/lib/company-appeal";
+import { getAuthedAddress } from "@/lib/session";
 import { getTask } from "@/lib/store";
 
 // Serves a jury card's proof image WITHOUT revealing the underlying task id —
@@ -13,8 +15,10 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ car
   // A decoy is text only and is not a task: there is no image, and there is no
   // task to look up. Answered like any card with no photo.
   if (answer.decoy || answer.proofTaskId.startsWith("decoy:")) return new NextResponse("No proof image", { status: 404 });
-  const task = await getTask(answer.proofTaskId);
-  const src = task?.proofImages?.[0] ?? task?.proofImageUrl ?? null;
+  if (answer.companyAppealId && (!answer.judge || getAuthedAddress(_req, Date.now()) !== answer.judge.toLowerCase())) return new NextResponse("Not your review", { status: 403 });
+  const task = answer.companyAppealId ? null : await getTask(answer.proofTaskId);
+  const review = answer.companyAppealId ? await getCompanyAppeal(answer.companyAppealId) : null;
+  const src = review?.images[0] ?? task?.proofImages?.[0] ?? task?.proofImageUrl ?? null;
   if (!src) return new NextResponse("No proof image", { status: 404 });
   if (!src.startsWith("data:")) return NextResponse.redirect(src);
 

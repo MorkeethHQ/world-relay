@@ -67,10 +67,12 @@ export type Task = {
   bountyUsdc: number;
   deadline: string;
   status: TaskStatus;
+  proofSubmissionId?: string;
   proofImageUrl: string | null;
   proofImages: string[] | null;
   proofNote: string | null;
   verificationResult: VerificationResult | null;
+  humanReview?: { caseId: string; outcome: "cleared"; at: string };
   attestationTxHash: string | null;
   agent: AgentInfo | null;
   aiFollowUp: AiFollowUp | null;
