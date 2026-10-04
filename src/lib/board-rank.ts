@@ -224,6 +224,13 @@ export function curateBoard(ranked: Task[], userId: string | null, now: number =
   return placed.slice(0, BOARD_CAP).concat(placed.slice(BOARD_CAP).filter(isMine));
 }
 
+// The count beside the "Favours" heading. When the list shows every open favour
+// it reads "15 open". When R17 or a cap leaves some out it reads "8 of 15 open
+// shown", so the number never claims more than the list holds.
+export function boardCountLabel(shown: number, open: number): string {
+  return shown >= open ? `${open} open` : `${shown} of ${open} open shown`;
+}
+
 // Server-side enforcement of R1 + R5 in GET /api/tasks: open tasks come first in
 // board order (ranked anonymously — no user identity or location server-side),
 // with feedback overflow demoted; everything else (claimed/completed/cancelled)

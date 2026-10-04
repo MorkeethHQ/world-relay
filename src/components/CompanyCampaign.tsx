@@ -544,7 +544,7 @@ export function CompanyCampaignView({ id, tasks, completedIds, onJoin, onBack }:
                     <p className="flex-1 min-w-0 text-[14px] font-semibold text-gray-900">{PIECE_LABEL[p.kind]}</p>
                     <span className="shrink-0 text-[12px] font-bold text-gray-900 bg-gray-100 rounded-full px-2.5 py-1">{c.rewardPerPiecePoints} pts</span>
                   </div>
-                  <p className="text-[12px] text-gray-500 mt-1">{done ? "You delivered this piece. It is in History." : open ? `${left} of ${p.count} still wanted` : !hasProduct(c) ? "Offered once the company names its product" : "Not open right now"}</p>
+                  <p className="text-[12px] text-gray-500 mt-1">{done ? "You delivered this piece. It is in History." : campaignEnded(c, tasks) ? "Closed" : open ? `${left} of ${p.count} still wanted` : !hasProduct(c) ? "Offered once the company names its product" : "Not open right now"}</p>
                   {open && task && (
                     <button type="button" onClick={() => onJoin(task)} className="mt-3 w-full min-h-[44px] rounded-full bg-gray-900 text-white text-[14px] font-semibold">
                       Join this piece

@@ -42,6 +42,7 @@ import { PollsFeed, FeedPolls } from "@/components/Polls";
 import {
   isBoardVisible,
   isStale as isStaleFavour,
+  boardCountLabel,
   rankBoard,
   curateBoard,
   haversineKm,
@@ -1433,7 +1434,9 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
         {tab === "available" && !loading && (
           <div className="flex items-baseline justify-between pt-1 pb-3">
             <h2 className="text-[13px] font-bold text-gray-900 tracking-tight">Favours</h2>
-            <span className="text-[11px] text-gray-400">{tasks.filter(t => t.status === "open").length} open</span>
+            {/* R17: the list can be shorter than the open count (stale favours are
+                left out), so say how many are shown instead of implying all of them are. */}
+            <span className="text-[11px] text-gray-400">{boardCountLabel(filtered.length, tasks.filter(t => t.status === "open").length)}</span>
           </div>
         )}
         {/* Profile summary for "Mine" tab */}

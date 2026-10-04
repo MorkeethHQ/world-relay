@@ -11,6 +11,7 @@ import {
   POLL_CARDS_MAX,
   TIER,
   STALE_FILL_FLOOR,
+  boardCountLabel,
   isStale,
   isBoardVisible,
   pickDailyMission,
@@ -429,6 +430,14 @@ describe("R17: a favour nobody answered in a week leaves active discovery", () =
   it("the fill floor is the board floor, so the two rules cannot drift", async () => {
     const { BOARD_MIN_OPEN } = await import("@/lib/board-replenish");
     expect(STALE_FILL_FLOOR).toBe(BOARD_MIN_OPEN);
+  });
+
+  it("the heading count never claims more favours than the list shows", () => {
+    expect(boardCountLabel(15, 15)).toBe("15 open");
+    expect(boardCountLabel(8, 15)).toBe("8 of 15 open shown");
+    expect(boardCountLabel(16, 15)).toBe("15 open");
+    const src = readFileSync(join(process.cwd(), "src/components/Feed.tsx"), "utf8");
+    expect(src).toContain("boardCountLabel(filtered.length");
   });
 
   it("the card chip uses the same rule as the ranker (no hand copy in Feed)", () => {
