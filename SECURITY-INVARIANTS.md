@@ -129,6 +129,17 @@ mechanically blocks the easy-to-regress ones.
    (`isFunded`); only crediting takes the strict one. `reward.ts` says exactly
    this and it was still got wrong.
 6. **One escrow funds one payout.** Funded tasks are single-completion.
+   Enforced twice since 2026-10-05. At creation, `POST /api/tasks` refuses a money
+   favour with `maxCompletions` above 1. In the store, `isSinglePayout`
+   (`src/lib/store.ts`) makes every pass path complete a favour once when there is
+   money anywhere on the record (a reward that is not points, an escrow id, an
+   escrow hash, a Double or Nothing stake), whatever `maxCompletions` says. That
+   covers `completeTask`, the follow-up pass, poster approval and dispute
+   approval. Before, the creation check alone kept the reopen path away from
+   money, and the seed route or a hand edit could write a record that broke it.
+   A follow-up verdict and a dispute verdict apply only to a favour that is still
+   claimed, and their routes credit nothing when the store refuses the verdict.
+   Tests: the single payout block in `store.test.ts`, `late-pass-history.test.ts`.
 7. **Verification tier gates funded tasks only** (not points), on every claim path
    (`/claim` and the `verify-proof` direct-submit path).
 8. **Campaign cash unlocks only through the clean gate.** (`src/lib/campaign-unlock.ts`)

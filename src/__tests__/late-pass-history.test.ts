@@ -25,11 +25,17 @@ vi.mock("@/lib/redis", () => ({
 }));
 
 const model = vi.hoisted(() => ({
+  // Runs while the model double is "thinking": lets a test change the favour in
+  // that window, as the expiry cron could.
+  during: null as null | (() => void),
   followUp: { verdict: "pass" as "pass" | "flag" | "fail", reasoning: "City given.", confidence: 0.9 },
   dispute: { approved: true, reasoning: "The proof matches.", confidence: 0.8 },
 }));
 const rep = vi.hoisted(() => ({ recordCompletion: vi.fn(async () => ({})), recordFailure: vi.fn(async () => ({})) }));
-vi.mock("@/lib/ai-chat", () => ({ evaluateFollowUp: async () => model.followUp, mediateDispute: async () => model.dispute }));
+vi.mock("@/lib/ai-chat", () => ({
+  evaluateFollowUp: async () => { model.during?.(); return model.followUp; },
+  mediateDispute: async () => { model.during?.(); return model.dispute; },
+}));
 vi.mock("@/lib/reputation", () => rep);
 vi.mock("@/lib/messages", () => ({
   getMessages: async () => [
@@ -71,6 +77,7 @@ beforeEach(() => {
   kv.clear(); sets.clear(); lists.clear(); rep.recordCompletion.mockClear(); rep.recordFailure.mockClear();
   model.followUp = { verdict: "pass", reasoning: "City given.", confidence: 0.9 };
   model.dispute = { approved: true, reasoning: "The proof matches.", confidence: 0.8 };
+  model.during = null;
 });
 
 describe("a late pass writes the person's History row", () => {
@@ -144,6 +151,29 @@ describe("a late pass writes the person's History row", () => {
     const { latePassContribution } = await import("@/lib/completions");
     const money = latePassContribution({ id: "m", description: "d", bountyUsdc: 5, rewardType: "usdc-v2", proofImageUrl: null, proofNote: "n", campaignId: undefined, companyCampaignId: undefined }, 0);
     expect(money.points).toBe(0);
+  });
+
+  it("a follow-up answer on a favour that is no longer claimed is refused before the model, with no credit", async () => {
+    const id = await flagged();
+    await setFollowUp(id, "Which city are you in?", 0.7);
+    const raw = JSON.parse(kv.get(`task:${id}`)!);
+    kv.set(`task:${id}`, JSON.stringify({ ...raw, status: "expired" }));
+    const res = await call(followup, id);
+    expect(res.status).toBe(400);
+    expect(rep.recordCompletion).not.toHaveBeenCalled();
+    expect(await listContributions(ANA)).toHaveLength(0);
+    expect(JSON.parse(kv.get(`task:${id}`)!).status).toBe("expired");
+  });
+
+  it.each([["follow-up", followup], ["dispute", dispute]] as const)("%s: if the favour expires while the model is deciding, nothing is credited", async (name, handler) => {
+    const id = await flagged();
+    if (name === "follow-up") await setFollowUp(id, "Which city are you in?", 0.7);
+    model.during = () => { const raw = JSON.parse(kv.get(`task:${id}`)!); kv.set(`task:${id}`, JSON.stringify({ ...raw, status: "expired" })); };
+    const res = await call(handler, id, { poster: POSTER });
+    expect(res.status).toBe(409);
+    expect(rep.recordCompletion).not.toHaveBeenCalled();
+    expect(await listContributions(ANA)).toHaveLength(0);
+    expect(JSON.parse(kv.get(`task:${id}`)!).status).toBe("expired");
   });
 
   it("all three routes call the one helper", () => {

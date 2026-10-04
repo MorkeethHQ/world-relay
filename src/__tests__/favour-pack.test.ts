@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { validateFavourSpec, isNearDuplicate, FALLBACK_FAVOURS } from "@/lib/board-replenish";
 import { gibberishReason } from "@/lib/post-quality";
 import { looksLikeSpam, isMissionCandidate } from "@/lib/board-rank";
+import { personalDataAsk, safetyClauseProblem } from "@/lib/favour-safety";
 
 // THE DRAFT FAVOUR PACK (2026-10-05). A reviewed data file, NOT posted. This test
 // is what "reviewed" means: every row is loadable by the replenisher's own
@@ -11,7 +12,7 @@ import { looksLikeSpam, isMissionCandidate } from "@/lib/board-rank";
 // the fallback pool.
 const pack = JSON.parse(readFileSync("docs/drafts/favour-pack-2026-10-05.json", "utf8"));
 const live: string[] = JSON.parse(readFileSync("src/__tests__/fixtures/live-descriptions-2026-10-04.json", "utf8")).descriptions;
-type Row = { id: string; description: string; category: string; points: number; deadlineHours: number; maxCompletions: number; proofRequired: string; whoWouldWantIt: string; funding: string };
+type Row = { id: string; description: string; safety: string; category: string; points: number; deadlineHours: number; maxCompletions: number; proofRequired: string; whoWouldWantIt: string; funding: string };
 const rows: Row[] = pack.favours;
 
 describe("draft favour pack 2026-10-05", () => {
@@ -53,6 +54,28 @@ describe("draft favour pack 2026-10-05", () => {
       expect(r.funding, r.id).toBe("unfunded draft");
     }
     expect(pack._status).toContain("Not posted");
+  });
+
+  // Cold walk, 5 Oct: only `description` is posted. A safeguard written in the
+  // review notes never reaches the person. So every row carries its safety wording
+  // inside the posted text, and declares it in `safety` so this test can find it.
+  it("every row carries its safety wording inside the text that is posted", () => {
+    for (const r of rows) {
+      expect(typeof r.safety, r.id).toBe("string");
+      expect(r.description.includes(r.safety), `${r.id}: the safety clause must be part of the posted description`).toBe(true);
+      expect(safetyClauseProblem(r.safety), r.id).toBeNull();
+    }
+  });
+
+  it("no row asks for identity documents, contact details, a home or precise location, other people's faces, financial screens or account and network identifiers", () => {
+    for (const r of rows) {
+      const hit = personalDataAsk(r.description, r.safety);
+      expect(hit, `${r.id}: ${hit?.kind} ("${hit?.match}")`).toBeNull();
+    }
+  });
+
+  it("the three rows the cold walk called unsafe are gone", () => {
+    for (const id of ["street-conditions", "signal-check", "atm-working"]) expect(rows.some((r) => r.id === id), id).toBe(false);
   });
 
   it("is diverse: at least 5 categories, and feedback is not the majority", () => {

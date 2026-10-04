@@ -60,6 +60,11 @@ export async function POST(
   await postDisputeVerdict(id, verdict.approved, verdict.reasoning, task.bountyUsdc, verdict.confidence, task.rewardType);
 
   const updated = await posterConfirm(id, verdict.approved);
+  // The store refused the verdict (the favour changed while the model was
+  // mediating). Nothing was applied, so nothing may be credited or released.
+  if (!updated) {
+    return NextResponse.json({ error: "This favour changed while it was being mediated. Nothing was applied." }, { status: 409 });
+  }
 
   if (verdict.approved && task.claimant) {
     notifyVerified(task.claimant, task.bountyUsdc, task.rewardType).catch(console.error);

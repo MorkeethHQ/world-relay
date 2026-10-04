@@ -210,8 +210,12 @@ recur silently.
   viewer's own posts, which only that viewer sees. A hidden piece does not count
   as an open piece of its campaign. An open favour with no room left is not board-visible.
   **Moderation.** `hiddenAt` on a task or a campaign is the operator's hidden
-  state. Only `scripts/hide-item.mjs` writes it (dry run by default, `--apply`,
-  `--undo`); no API route does, and a guard test pins that. A hidden task leaves
+  state. Only `scripts/hide-item.mjs` writes it. Every command is a dry run until
+  `--apply`, and that includes `--undo` (since 5 Oct 2026: undo used to write at
+  once). A hide saves the prior record to `hide:backup:<key>` and writes by
+  compare-and-set, so it fails instead of overwriting a record that changed under
+  it. Undo restores the hidden state saved before the last hide, which may itself
+  be hidden; no API route does, and a guard test pins that. A hidden task leaves
   every public read: `GET /api/tasks` (`isPublicTask`), `/api/tasks/search`,
   `/api/agent/tasks`; `/api/tasks/[id]` and `/api/agent/tasks/[id]` answer 404,
   and the task page's link preview drops its text (`isHiddenTask`; route test

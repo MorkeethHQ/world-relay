@@ -98,7 +98,36 @@ export type ProofOfFavour = {
   lastActivityDate: string; // ISO date string (date only, for streak tracking)
   streakFreezes?: number; // LEGACY (purchase removed 2026-09-03): held freezes still absorb one missed day
   pointsHistory: Array<{ action: string; points: number; timestamp: string }>; // last 20 entries
+  // KEYED CREDITS (2026-10-05). A caller that may run the same credit twice (the
+  // re-check job after a crash) passes a `ref`. The ref is stored in this list in
+  // the SAME write as the points, so "was this credit applied" has one answer and
+  // a second call with the same ref changes nothing. Live routes pass no ref and
+  // behave exactly as before.
+  creditRefs?: string[];
 };
+
+export const CREDIT_REFS_MAX = 200;
+
+function hasRef(profile: Pick<ProofOfFavour, "creditRefs">, ref: string | undefined): boolean {
+  return !!ref && Array.isArray(profile.creditRefs) && profile.creditRefs.includes(ref);
+}
+function addRef(profile: Pick<ProofOfFavour, "creditRefs">, ref: string | undefined): void {
+  if (!ref) return;
+  profile.creditRefs = [...(profile.creditRefs ?? []), ref].slice(-CREDIT_REFS_MAX);
+}
+
+// STRICT read-back for a keyed credit: true only if the stored profile carries the
+// ref. Unlike getProofOfFavour it THROWS when the store cannot be read, because a
+// caller that is deciding whether to credit must never mistake "could not read"
+// for "not credited".
+export async function hasPointsCreditRef(address: string, ref: string): Promise<boolean> {
+  const redis = getRedis();
+  if (!redis) throw new Error("no store configured");
+  const raw = await redis.get(`${POF_PREFIX}${address}`);
+  if (!raw) return false;
+  const profile: ProofOfFavour = typeof raw === "string" ? JSON.parse(raw) : (raw as ProofOfFavour);
+  return hasRef(profile, ref);
+}
 
 // Streak freeze REMOVED 2026-09-03 (Oscar: streaks are fake gamification;
 // 22 freezes bought all-time). No purchase path remains. The optional
@@ -427,10 +456,12 @@ export async function recordFavourClaimed(address: string): Promise<ProofOfFavou
   });
 }
 
-export async function recordFavourAttempted(address: string): Promise<ProofOfFavour> {
+export async function recordFavourAttempted(address: string, ref?: string): Promise<ProofOfFavour> {
   return withWalletLock(address, async () => {
     const profile = await getProofOfFavour(address);
     if (!isRealWallet(address)) return profile;
+    if (hasRef(profile, ref)) return profile;
+    addRef(profile, ref);
     // Attempt is a stat, not a payout: the pass pays exactly the advertised task
     // price (see completionPointsFor), so the old flat attempt bonus is gone.
     profile.favoursAttempted += 1;
@@ -458,7 +489,8 @@ export async function recordFavourAttempted(address: string): Promise<ProofOfFav
 export async function recordFavourCompleted(
   address: string,
   streak: number,
-  completionPoints: number = SEASON_ECONOMY.FAVOUR_COMPLETED
+  completionPoints: number = SEASON_ECONOMY.FAVOUR_COMPLETED,
+  ref?: string,
 ): Promise<ProofOfFavour> {
   const completion = completionPoints;
   const streakBonus = streakBonusFor(streak);
@@ -467,6 +499,8 @@ export async function recordFavourCompleted(
   return withWalletLock(address, async () => {
     const profile = await getProofOfFavour(address);
     if (!isRealWallet(address)) return profile;
+    if (hasRef(profile, ref)) return profile;
+    addRef(profile, ref);
     profile.totalPoints += totalAwarded;
     profile.favoursCompleted += 1;
     profile.level = getLevel(profile.totalPoints);
