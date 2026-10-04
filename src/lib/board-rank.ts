@@ -11,6 +11,11 @@ import { getFeaturedCampaign } from "./campaigns";
 export const BOARD_CAP = 30;
 export const DUPLICATE_DESC_CAP = 2;
 export const STALE_AFTER_MS = 7 * 24 * 3600_000;
+// R17: stale favours leave the default list once this many fresh cards are on it.
+// Below that, stale cards fill the list up to this number so the board is never
+// emptied by the rule. Equal to BOARD_MIN_OPEN in board-replenish.ts (a test pins
+// the two together; the constant lives here because that file imports this one).
+export const STALE_FILL_FLOOR = 8;
 export const URGENT_DEADLINE_HOURS = 4;
 export const URGENT_FUNDED_BOUNTY_USDC = 15;
 // R1: at most this many feedback-category tasks among the first FEEDBACK_WINDOW
@@ -86,21 +91,28 @@ export const TIER = {
   FEATURED: 2, // the points journey (featured campaign) is the current funnel
   POINTS: 3, // other points tasks
   FEEDBACK: 4, // question/poll-type tasks come after actionable ones
-  STALE: 5, // open >7 days with no claim
+  STALE: 5, // R17: open >7 days, no claim, and no reply ever accepted
 } as const;
 
-// Staleness applies to SINGLE-completion tasks only: an evergreen
-// multi-completion task (campaign furniture, maxCompletions > 1) reopens after
-// every pass without touching createdAt, so age says nothing about it being
-// dead — without this exemption the featured welcome journey would sink to the
-// bottom tier 7 days after seeding.
+// R17 (2026-10-04): WHAT STALE MEANS. An open favour with no claimant that is
+// older than STALE_AFTER_MS, and either takes one reply, or takes many and has
+// never had one accepted.
+//
+// Before this rule every multi-reply favour was exempt, because house campaign
+// furniture reopens after each pass without touching createdAt, so its age says
+// nothing. That exemption was too wide. Measured on the live board on 4 Oct 2026:
+// all 15 open favours had maxCompletions 100, 9 of them were older than 7 days
+// with 0 accepted replies, and none could reach the STALE tier.
+//
+// A multi-reply favour now earns the exemption one of two ways: it has at least
+// one accepted reply (people do answer it), or it belongs to a house campaign
+// (campaignId), which has its own banner and its own end date.
 export function isStale(t: Task, now: number): boolean {
-  return (
-    t.status === "open" &&
-    !t.claimant &&
-    (t.maxCompletions ?? 1) <= 1 &&
-    now - new Date(t.createdAt).getTime() > STALE_AFTER_MS
-  );
+  if (t.status !== "open" || t.claimant) return false;
+  if (now - new Date(t.createdAt).getTime() <= STALE_AFTER_MS) return false;
+  if ((t.maxCompletions ?? 1) <= 1) return true;
+  if (t.campaignId) return false;
+  return (t.completionCount ?? 0) === 0;
 }
 
 export function boardTier(t: Task, userId: string | null, featuredCampaignId: string | null, now: number): number {
@@ -175,10 +187,16 @@ export function demoteFeedbackOverflow(ranked: Task[], isExempt: (t: Task) => bo
   return placed;
 }
 
-// Curation on top of the ranked list: duplicate-description collapse, the R1
-// feedback share cap, and the board cap. The user's own posts/claims are exempt
-// from every cap and never hidden.
-export function curateBoard(ranked: Task[], userId: string | null): Task[] {
+// Curation on top of the ranked list: duplicate-description collapse, the R17
+// stale rule, the R1 feedback share cap, and the board cap. The user's own
+// posts/claims are exempt from every cap and never hidden.
+//
+// R17: a stale favour is not in the default list while the list has
+// STALE_FILL_FLOOR fresh cards. With fewer, stale cards fill up to that number,
+// in rank order, after the fresh ones. Nothing is deleted or expired here: a
+// stale favour stays in GET /api/tasks, opens by its link, and goes to history
+// through the expiry cron as before.
+export function curateBoard(ranked: Task[], userId: string | null, now: number = Date.now()): Task[] {
   const isMine = (t: Task) => !!userId && (t.poster === userId || t.claimant === userId);
 
   const descCounts = new Map<string, number>();
@@ -191,7 +209,16 @@ export function curateBoard(ranked: Task[], userId: string | null): Task[] {
     return true;
   });
 
-  const placed = demoteFeedbackOverflow(deduped, isMine);
+  const freshCount = deduped.filter((t) => !isStale(t, now)).length;
+  let staleRoom = Math.max(0, STALE_FILL_FLOOR - freshCount);
+  const discoverable = deduped.filter((t) => {
+    if (isMine(t) || !isStale(t, now)) return true;
+    if (staleRoom === 0) return false;
+    staleRoom--;
+    return true;
+  });
+
+  const placed = demoteFeedbackOverflow(discoverable, isMine);
 
   if (placed.length <= BOARD_CAP) return placed;
   return placed.slice(0, BOARD_CAP).concat(placed.slice(BOARD_CAP).filter(isMine));

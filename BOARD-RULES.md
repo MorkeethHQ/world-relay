@@ -33,14 +33,12 @@ recur silently.
   absent = no cap; server-enforced in `/api/tasks` and `/api/escrow-v2`, config
   source `src/lib/escrow-v2.ts`).
 - **R4/R5 — Tier order.** my claims > funded USDC > featured campaign (the current
-  points-journey funnel) > other points > feedback > stale (>7 days unclaimed,
-  SINGLE-completion tasks only — evergreen multi-completion tasks reopen after
-  every pass and never rot by age).
+  points-journey funnel) > other points > feedback > stale (see R17 for what stale means).
   Within a tier: non-feedback before feedback (a campaign's question-tasks must
   not be its first cards), then urgent (deadline < 4h, or funded bounty ≥ $15 —
   points amounts are never urgent), then proximity, then newest.
-- **Curation.** Identical descriptions collapse past `DUPLICATE_DESC_CAP` (2); the
-  board caps at `BOARD_CAP` (30). The user's own posts/claims are never hidden by
+- **Curation.** Identical descriptions collapse past `DUPLICATE_DESC_CAP` (2); stale
+  favours leave the default list (R17); the board caps at `BOARD_CAP` (30). The user's own posts/claims are never hidden by
   any cap.
 - **R6 AMENDED Sep 16, 2026: the engine is OFF and the floor is a signal.**
   The paragraph below describes the engine as it was built and how it still
@@ -227,6 +225,31 @@ recur silently.
   carries no poster verification level, and every open favour on 25 Sep was
   posted by a house agent. Test: `src/__tests__/lead-card.test.ts`, whose fixtures
   are the three campaigns production served that day.
+
+- **R17, a favour nobody answered in a week leaves active discovery (added Oct 4, 2026).**
+  Measured on the live board on 4 Oct: 15 open favours, all with `maxCompletions`
+  100, 9 of them older than 7 days with 0 accepted replies. None could reach the
+  STALE tier, because `isStale` skipped every multi-reply favour. The "Open a
+  while" chip never showed either.
+  **Stale now means:** open, no claimant, older than `STALE_AFTER_MS` (7 days), and
+  either single-reply, or multi-reply with `completionCount` 0. A multi-reply
+  favour is exempt when it has at least one accepted reply, or when it belongs to
+  a house campaign (`campaignId`), which has its own banner and end date.
+  **What happens to a stale favour.** It ranks in the STALE tier (server and
+  client). On the client it is left out of the default list while the list has
+  `STALE_FILL_FLOOR` (8, equal to `BOARD_MIN_OPEN`) fresh cards. With fewer fresh
+  cards, stale ones fill the list up to 8, after the fresh ones. The viewer's own
+  posts are never hidden.
+  **What does not change.** Nothing is deleted, hidden or expired by this rule. A
+  stale favour stays in `GET /api/tasks`, opens by its link, can still be
+  answered, and reaches history through the expiry cron (14 days) as before.
+  `isBoardVisible` and `countOpenVisible` are unchanged, so the refill target and
+  the floor signal still count stale favours as open supply. Whether stale
+  supply should count toward the refill target is a separate decision.
+  The daily mission and the starter card still pick through `isBoardVisible`
+  only, so either may still pick a stale favour.
+  Code `isStale` and `curateBoard` in `src/lib/board-rank.ts`; the card chip in
+  `Feed.tsx` calls the same `isStale`. Test: the R17 block in `board-rank.test.ts`.
 
 ## Where each rule is enforced
 

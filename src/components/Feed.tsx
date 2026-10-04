@@ -41,6 +41,7 @@ import { CampaignPage, FeaturedCampaignBanner } from "@/components/CampaignPage"
 import { PollsFeed, FeedPolls } from "@/components/Polls";
 import {
   isBoardVisible,
+  isStale as isStaleFavour,
   rankBoard,
   curateBoard,
   haversineKm,
@@ -706,7 +707,7 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
     const now = Date.now();
     if (tab === "available") {
       const visible = tasks.filter((t) => isBoardVisible(t, userId, now));
-      return curateBoard(rankBoard(visible, { userId, userLocation, now }), userId);
+      return curateBoard(rankBoard(visible, { userId, userLocation, now }), userId, now);
     }
     return tasks.filter((t) => {
       if (t.status === "expired") return false;
@@ -1849,12 +1850,8 @@ function TaskCard({
 
   const hoursLeft = (new Date(task.deadline).getTime() - Date.now()) / 3600_000;
   const isAgentTask = !!(task.agent || task.poster?.startsWith("agent_"));
-  const taskAgeDays = (Date.now() - new Date(task.createdAt).getTime()) / (24 * 3600_000);
-  // Mirror board-rank.ts:isStale — an evergreen multi-completion task (campaign
-  // furniture) reopens without touching createdAt, so age says nothing about it
-  // being dead. Without this exemption every featured campaign card wrongly shows
-  // "Open a while" even though the ranker still treats it as alive.
-  const isStale = task.status === "open" && !task.claimant && (task.maxCompletions ?? 1) <= 1 && taskAgeDays >= 7;
+  // R17: the same rule the ranker uses (board-rank.ts isStale), not a hand copy.
+  const isStale = isStaleFavour(task, Date.now());
   // Funding + urgency signals for the browse card. isUnfundedMoney and endingSoon
   // are mutually exclusive (one requires unfunded, the other funded), so at most
   // one status chip shows per card. Green/urgency only ever attaches to real money.

@@ -10,6 +10,8 @@ import {
   POLL_INSERT_AFTER,
   POLL_CARDS_MAX,
   TIER,
+  STALE_FILL_FLOOR,
+  isStale,
   isBoardVisible,
   pickDailyMission,
   pickProofStrip,
@@ -114,11 +116,13 @@ describe("R5: tier order", () => {
     expect(ranked.map((t) => t.id)).toEqual([myClaim, money, featured, points, feedback, stale].map((t) => t.id));
   });
 
-  it("evergreen multi-completion tasks never go stale (the welcome journey must not self-bury)", () => {
+  it("campaign furniture and answered multi-reply favours never go stale (the welcome journey must not self-bury)", () => {
     const old = new Date(NOW - 30 * 24 * HOUR).toISOString();
-    const evergreen = task({ createdAt: old, maxCompletions: 1000 } as Partial<Task>);
+    const furniture = task({ createdAt: old, maxCompletions: 1000, campaignId: "first-favour" } as Partial<Task>);
+    const answered = task({ createdAt: old, maxCompletions: 100, completionCount: 3 } as Partial<Task>);
     const oneShot = task({ createdAt: old });
-    expect(boardTier(evergreen, null, null, NOW)).not.toBe(TIER.STALE);
+    expect(boardTier(furniture, null, null, NOW)).not.toBe(TIER.STALE);
+    expect(boardTier(answered, null, null, NOW)).not.toBe(TIER.STALE);
     expect(boardTier(oneShot, null, null, NOW)).toBe(TIER.STALE);
   });
 
@@ -148,7 +152,7 @@ describe("R1: feedback share cap", () => {
     const photos = Array.from({ length: 14 }, () => task());
     // Rank order puts photos (POINTS tier) before feedback anyway; force the
     // adversarial case by curating a feedback-first list directly.
-    const curated = curateBoard([...feedback, ...photos], null);
+    const curated = curateBoard([...feedback, ...photos], null, NOW);
     const window = curated.slice(0, FEEDBACK_WINDOW);
     expect(window.filter((t) => t.category === "feedback").length).toBeLessThanOrEqual(FEEDBACK_MAX_IN_WINDOW);
     // Nothing is dropped, only demoted.
@@ -157,7 +161,7 @@ describe("R1: feedback share cap", () => {
 
   it("a board that is ONLY feedback still shows tasks (cap demotes, never empties)", () => {
     const feedback = Array.from({ length: 5 }, () => task({ category: "feedback" }));
-    const curated = curateBoard(feedback, null);
+    const curated = curateBoard(feedback, null, NOW);
     expect(curated.length).toBe(5);
   });
 });
@@ -165,13 +169,13 @@ describe("R1: feedback share cap", () => {
 describe("curation: duplicates, board cap, own items", () => {
   it(`collapses identical descriptions past ${DUPLICATE_DESC_CAP}`, () => {
     const dupes = Array.from({ length: 4 }, () => task({ description: "Same template text" }));
-    expect(curateBoard(dupes, null).length).toBe(DUPLICATE_DESC_CAP);
+    expect(curateBoard(dupes, null, NOW).length).toBe(DUPLICATE_DESC_CAP);
   });
 
   it(`caps the board at ${BOARD_CAP} but never hides the user's own overflow`, () => {
     const many = Array.from({ length: 35 }, () => task());
     const mine = task({ poster: "me" });
-    const curated = curateBoard([...many, mine], "me");
+    const curated = curateBoard([...many, mine], "me", NOW);
     expect(curated.length).toBe(BOARD_CAP + 1);
     expect(curated.some((t) => t.id === mine.id)).toBe(true);
   });
@@ -362,5 +366,74 @@ describe("R15: a company campaign piece is not a favour", () => {
       ...Array.from({ length: 9 }, (_, i) => ({ ...base, id: `p${i}`, companyCampaignId: "draft_x" })),
     ];
     expect(countOpenVisible(tasks, NOW15)).toBe(12);
+  });
+});
+
+// R17 (2026-10-04). Fixture shape taken from the live board read on 4 Oct 2026:
+// 15 open favours, every one with maxCompletions 100, 9 of them older than 7 days
+// with 0 accepted replies. LOCAL FIXTURE, not live data.
+describe("R17: a favour nobody answered in a week leaves active discovery", () => {
+  const eightDays = new Date(NOW - 8 * 24 * HOUR).toISOString();
+  const unanswered = (o: Partial<Task> = {}) =>
+    task({ createdAt: eightDays, maxCompletions: 100, completionCount: 0, poster: "agent:hermes", ...o });
+
+  it("a multi-reply favour with 0 replies after 7 days is stale", () => {
+    expect(boardTier(unanswered(), null, null, NOW)).toBe(TIER.STALE);
+  });
+
+  it("one accepted reply keeps a multi-reply favour alive at any age", () => {
+    expect(boardTier(unanswered({ completionCount: 1 }), null, null, NOW)).toBe(TIER.POINTS);
+  });
+
+  it("house campaign furniture does not go stale by age", () => {
+    expect(boardTier(unanswered({ campaignId: "first-favour", maxCompletions: 1000 }), null, null, NOW)).not.toBe(TIER.STALE);
+  });
+
+  it("a week-old favour that is still inside 7 days is not stale", () => {
+    const sixDays = new Date(NOW - 6 * 24 * HOUR).toISOString();
+    expect(boardTier(unanswered({ createdAt: sixDays }), null, null, NOW)).toBe(TIER.POINTS);
+  });
+
+  it("with a full fresh board, stale favours are not in the default list", () => {
+    const fresh = Array.from({ length: STALE_FILL_FLOOR }, () => task());
+    const stale = Array.from({ length: 3 }, () => unanswered());
+    const ranked = rankBoard([...stale, ...fresh], { userId: null, userLocation: null, now: NOW });
+    const curated = curateBoard(ranked, null, NOW);
+    expect(curated.map((t) => t.id).sort()).toEqual(fresh.map((t) => t.id).sort());
+  });
+
+  it("the live shape: 6 fresh and 9 stale shows 8, fresh first, stale only as fill", () => {
+    const fresh = Array.from({ length: 6 }, () => task({ maxCompletions: 100 }));
+    const stale = Array.from({ length: 9 }, () => unanswered());
+    const ranked = rankBoard([...stale, ...fresh], { userId: null, userLocation: null, now: NOW });
+    const curated = curateBoard(ranked, null, NOW);
+    expect(curated.length).toBe(STALE_FILL_FLOOR);
+    expect(curated.slice(0, 6).map((t) => t.id).sort()).toEqual(fresh.map((t) => t.id).sort());
+    expect(curated.slice(6).every((t) => isStale(t, NOW))).toBe(true);
+  });
+
+  it("never hides a person's own stale post from them", () => {
+    const fresh = Array.from({ length: STALE_FILL_FLOOR }, () => task());
+    const mine = unanswered({ poster: "me" });
+    const ranked = rankBoard([mine, ...fresh], { userId: "me", userLocation: null, now: NOW });
+    expect(curateBoard(ranked, "me", NOW).some((t) => t.id === mine.id)).toBe(true);
+  });
+
+  it("stale favours stay in GET /api/tasks: the API reorders and never drops", () => {
+    const all = [unanswered(), unanswered(), task()];
+    const ordered = orderBoardForApi(all, NOW);
+    expect(ordered.length).toBe(3);
+    expect(isStale(ordered[2], NOW)).toBe(true);
+  });
+
+  it("the fill floor is the board floor, so the two rules cannot drift", async () => {
+    const { BOARD_MIN_OPEN } = await import("@/lib/board-replenish");
+    expect(STALE_FILL_FLOOR).toBe(BOARD_MIN_OPEN);
+  });
+
+  it("the card chip uses the same rule as the ranker (no hand copy in Feed)", () => {
+    const src = readFileSync(join(process.cwd(), "src/components/Feed.tsx"), "utf8");
+    expect(src).toContain("isStaleFavour(task, Date.now())");
+    expect(src).not.toMatch(/const isStale = task\.status === "open"/);
   });
 });
