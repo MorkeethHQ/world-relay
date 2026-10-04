@@ -10,6 +10,7 @@ import { recordCompletion, recordFailure } from "@/lib/reputation";
 import { fireWebhook } from "@/lib/webhooks";
 import { releaseEscrow } from "@/lib/escrow";
 import { broadcastEvent } from "@/lib/sse";
+import { recordLatePassHistory } from "@/lib/completions";
 
 export async function POST(
   req: NextRequest,
@@ -31,6 +32,13 @@ export async function POST(
   }
   const authErr = ownershipError(req, poster, Date.now());
   if (authErr) return NextResponse.json({ error: authErr }, { status: 403 });
+
+  // A flag can be decided once (2026-10-05). A single-reply favour keeps its
+  // "flag" verdict after it is approved, so a second mediation used to run the
+  // model again and credit the person again. Stop before the model call.
+  if (task.status !== "claimed") {
+    return NextResponse.json({ error: "This proof has already been decided" }, { status: 400 });
+  }
 
   const messages = await getMessages(id);
   const threadHistory = messages
@@ -54,6 +62,8 @@ export async function POST(
     notifyVerified(task.claimant, task.bountyUsdc, task.rewardType).catch(console.error);
     const disputeIsFunded = task.onChainId !== null || !!task.escrowTxHash;
     recordCompletion(task.claimant, task.bountyUsdc, verdict.confidence, undefined, disputeIsFunded).catch(console.error);
+    // The person's History row, from the snapshot taken before the verdict was applied.
+    if (updated) await recordLatePassHistory(task).catch(console.error);
 
     if (proofBase64Array) {
       const txHash = await postAttestation(

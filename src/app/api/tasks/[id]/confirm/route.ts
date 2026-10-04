@@ -6,6 +6,7 @@ import { fireWebhook } from "@/lib/webhooks";
 import { notifyVerified } from "@/lib/notifications";
 import { addNotification } from "@/lib/notifications-store";
 import { recordCompletion } from "@/lib/reputation";
+import { recordLatePassHistory } from "@/lib/completions";
 
 export async function POST(
   req: NextRequest,
@@ -60,6 +61,8 @@ export async function POST(
         // points task — never credit it as USDC.
         false
       ).catch(console.error);
+      // The person's History row, from the snapshot taken before the approval.
+      await recordLatePassHistory(task).catch(console.error);
       notifyVerified(task.claimant, task.bountyUsdc, task.rewardType).catch(console.error);
       addNotification({
         userId: task.claimant,
