@@ -27,6 +27,12 @@ export async function POST(
   if (!task.proofImageUrl) {
     return NextResponse.json({ error: "No proof image to re-evaluate" }, { status: 400 });
   }
+  // Only a favour that is still claimed can be re-evaluated (2026-10-05). An expired
+  // or cancelled favour keeps its follow-up pending; stop here, before the model
+  // call, the credit and any escrow release.
+  if (task.status !== "claimed") {
+    return NextResponse.json({ error: "This favour is no longer waiting for a follow-up" }, { status: 400 });
+  }
 
   const messages = await getMessages(id);
   const followUpIndex = messages.findIndex(m =>
@@ -57,6 +63,11 @@ export async function POST(
   );
 
   const updated = await resolveFollowUp(id, result);
+  // The store refused the verdict (the favour changed while the model was
+  // thinking). Nothing was applied, so nothing may be credited or released.
+  if (!updated) {
+    return NextResponse.json({ error: "This favour changed while it was being re-evaluated. Nothing was applied." }, { status: 409 });
+  }
   await postReEvaluationResult(id, result.verdict, result.reasoning, task.bountyUsdc, result.confidence, task.rewardType);
 
   if (result.verdict === "pass" && task.claimant) {

@@ -341,6 +341,28 @@ export async function submitProof(
   }
 }
 
+// ONE ESCROW FUNDS ONE PAYOUT (invariant 6), enforced HERE (2026-10-05, finding B
+// of the 01:00 review). A favour is a single payout when it takes one reply, OR
+// when there is money anywhere on the record: a reward that is not points, an
+// on-chain escrow id, an escrow hash, or a Double or Nothing stake.
+//
+// POST /api/tasks refuses a money favour with maxCompletions above 1, and until
+// now that refusal was the only thing between the reopen path and money. The
+// seed route, a script or a hand edit can still write such a record. If one
+// passes, reopening it would put a favour back on the board that still shows as
+// funded after its single escrow was released, with the first person's proof and
+// claimant wiped from the record the settlement and reconcile paths read. So a
+// money favour is completed by its first accepted proof, on every pass path,
+// whatever maxCompletions says, and keeps its claimant and proof.
+export function isSinglePayout(
+  task: Pick<Task, "maxCompletions" | "rewardType" | "onChainId" | "escrowTxHash" | "taskType" | "donOnChainId">,
+): boolean {
+  if (Math.max(1, task.maxCompletions ?? 1) <= 1) return true;
+  if (task.rewardType !== "points") return true;
+  if (task.onChainId != null || !!task.escrowTxHash) return true;
+  return task.taskType === "double-or-nothing" || task.donOnChainId != null;
+}
+
 export async function completeTask(
   id: string,
   result: { verdict: "pass" | "flag" | "fail"; reasoning: string; confidence: number }
@@ -350,7 +372,7 @@ export async function completeTask(
   task.verificationResult = result;
   if (result.verdict === "pass") {
     task.completionCount = (task.completionCount || 0) + 1;
-    if (task.maxCompletions > 1 && task.completionCount < task.maxCompletions) {
+    if (!isSinglePayout(task) && task.completionCount < task.maxCompletions) {
       task.status = "open";
       task.claimant = null;
       task.claimantVerification = null;
@@ -507,14 +529,15 @@ export async function setAttestationHash(id: string, txHash: string): Promise<Ta
 // good. Seen live on 4 Oct: task 3580445b ("Say It Out Loud") completed at 25 of
 // 500, and 4 welcome campaign favours with a follow-up pending.
 //
-// A multi-reply favour now follows completeTask: count the reply, take this
+// A multi-reply POINTS favour now follows completeTask: count the reply, take this
 // person's slot in the completer set so they cannot pass it twice (the same set
 // verify-proof checks), and reopen while slots remain. A single-reply favour is
-// unchanged. Funded favours are always single-reply (POST /api/tasks), so this
-// branch never touches money.
+// unchanged. A money favour never reaches the reopen branch: isSinglePayout
+// refuses it here, by rule and no longer by the coincidence that every funded
+// favour happens to be single-reply.
 async function settleLatePass(task: Task): Promise<void> {
   const max = Math.max(1, task.maxCompletions ?? 1);
-  if (max <= 1) {
+  if (isSinglePayout(task)) {
     task.status = "completed";
     return;
   }
@@ -576,6 +599,12 @@ export async function resolveFollowUp(
 ): Promise<Task | null> {
   const task = await getTask(id);
   if (!task) return null;
+  // A follow-up verdict applies only to a favour that is still claimed (2026-10-05).
+  // The expiry cron and a cancel change the status and leave the follow-up pending.
+  // Without this check a late answer turned an expired or cancelled favour into
+  // "completed" (or reopened it), and the route then credited the person and tried
+  // to release an escrow the cron may already have refunded.
+  if (task.status !== "claimed") return null;
   task.aiFollowUp = task.aiFollowUp ? { ...task.aiFollowUp, status: "resolved" } : null;
   task.verificationResult = result;
   if (result.verdict === "pass") {
