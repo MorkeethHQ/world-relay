@@ -5,6 +5,18 @@ import { evidenceUrl } from "@/lib/company-review-shape";
 import { PIECE_LABEL } from "@/lib/campaign-draft-shape";
 
 const field = "w-full rounded-xl border border-gray-300 bg-white p-3 text-[15px] text-gray-900";
+
+function EvidenceImage({ url, number }: { url: string; number: number }) {
+  const [unavailable, setUnavailable] = useState(false);
+  return <a href={url} target="_blank" rel="noopener noreferrer nofollow" className="mt-3 block rounded-xl border border-gray-200 p-3">
+    {unavailable ? <p className="text-sm text-gray-600">Photo preview unavailable. You can try opening the original.</p> :
+      // Use the existing owner-authorised URL directly; never send private proof
+      // through a public image optimiser or a separate thumbnail service.
+      <img src={url} alt={`Submitted proof image ${number}`} loading="lazy" referrerPolicy="no-referrer" onError={() => setUnavailable(true)} className="rounded-lg bg-gray-50" style={{ width: "100%", maxHeight: 240, objectFit: "contain" }} />}
+    <span className="mt-2 flex min-h-11 items-center text-sm underline">Open proof image {number} ↗</span>
+  </a>;
+}
+
 export function CompanyReview({ id }: { id: string }) {
   const [review, setReview] = useState<Review | null>(null);
   const [error, setError] = useState("");
@@ -61,9 +73,9 @@ export function CompanyReview({ id }: { id: string }) {
               <input type="checkbox" checked={selected.includes(e.id)} onChange={event => { setSelected(old => event.target.checked ? [...old, e.id] : old.filter(x => x !== e.id)); setSaved(""); }} aria-label={`Use ${e.kind ? PIECE_LABEL[e.kind] : "piece"} from ${e.participant}`} className="mt-1 h-5 w-5 shrink-0 accent-gray-900" />
               <span className="min-w-0"><span className="block text-sm font-semibold">{e.kind ? PIECE_LABEL[e.kind] : "Piece"} · {e.participant}</span><span className="mt-1 block text-xs text-gray-500">{e.reviewMethod === "human_jury" ? "Human jury" : "Verifier"}: {e.verdict === "pass" ? "accepted" : e.verdict === "fail" ? "rejected" : "in review"} · {new Date(e.at).toLocaleString()}</span></span>
             </label>
+            {e.images.map((url, i) => <EvidenceImage key={url} url={url} number={i + 1} />)}
             <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6">{e.note || "No written note accompanied this submission."}</p>
             {evidenceUrl(e.note.trim()) && <a href={evidenceUrl(e.note.trim())!} target="_blank" rel="noopener noreferrer nofollow" className="mt-2 inline-flex min-h-11 items-center text-sm font-semibold underline">Open submitted link ↗</a>}
-            {e.images.map((url, i) => <a key={url} href={url} target="_blank" rel="noopener noreferrer nofollow" className="mt-2 flex min-h-11 items-center text-sm underline">Open proof image {i + 1} ↗</a>)}
             <p className="mt-3 border-t border-gray-100 pt-3 text-xs leading-5 text-gray-500">Review reason: {e.reason}</p>
             {e.reviewReasons && <ol className="mt-2 list-decimal pl-5 text-xs text-gray-600 space-y-2">{e.reviewReasons.map((reason, i) => <li key={i}>{reason}</li>)}</ol>}
           </article>)}

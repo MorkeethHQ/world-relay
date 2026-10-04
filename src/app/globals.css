@@ -75,7 +75,9 @@ html {
 body {
   background: #FAFAFA;
   color: #191C20;
-  font-family: var(--font-sans, "TWK Lausanne", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
+  /* The kit can set --font-sans to only TWK Lausanne. Keep fallbacks outside
+     var() so a failed remote font still uses the app's sans-serif typography. */
+  font-family: var(--font-sans, "TWK Lausanne"), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
   min-height: 100dvh;
   overflow-wrap: break-word;
