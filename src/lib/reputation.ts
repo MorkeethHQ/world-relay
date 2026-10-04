@@ -13,7 +13,13 @@ export type UserReputation = {
   lastActiveAt: string;
   currentStreak: number;
   longestStreak: number;
+  // KEYED CREDITS (2026-10-05): see ProofOfFavour.creditRefs. A completion recorded
+  // with a `ref` stores the ref in the same write, so a repeat with that ref is a
+  // no-op. Live routes pass no ref.
+  creditRefs?: string[];
 };
+
+export const REPUTATION_REFS_MAX = 200;
 
 const localCache = new Map<string, UserReputation>();
 
@@ -51,6 +57,24 @@ export async function getReputation(address: string): Promise<UserReputation> {
 // Only real wallet addresses persist reputation; test/dev/anonymous identities are ignored.
 const isRealWallet = (a: string): boolean => /^0x[0-9a-fA-F]{40}$/.test(a);
 
+// This module keeps a per-process copy of every reputation it has read, and writes
+// to that copy BEFORE the store (saveReputation). A caller that must know what the
+// store holds drops the copy first.
+export function forgetReputation(address: string): void {
+  localCache.delete(address);
+}
+
+// STRICT read-back for a keyed completion: reads the STORE, never the per-process
+// copy, and throws when the store cannot be read.
+export async function hasReputationCreditRef(address: string, ref: string): Promise<boolean> {
+  const redis = getRedis();
+  if (!redis) throw new Error("no store configured");
+  const raw = await redis.get(`${REP_PREFIX}${address}`);
+  if (!raw) return false;
+  const rep: UserReputation = typeof raw === "string" ? JSON.parse(raw) : (raw as UserReputation);
+  return Array.isArray(rep.creditRefs) && rep.creditRefs.includes(ref);
+}
+
 async function saveReputation(rep: UserReputation): Promise<void> {
   if (!isRealWallet(rep.address)) return;
   localCache.set(rep.address, rep);
@@ -65,9 +89,12 @@ export async function recordCompletion(
   bountyUsdc: number,
   confidence: number,
   verificationLevel?: string,
-  isFundedTask: boolean = false
+  isFundedTask: boolean = false,
+  ref?: string,
 ): Promise<UserReputation> {
   const rep = await getReputation(address);
+  if (ref && Array.isArray(rep.creditRefs) && rep.creditRefs.includes(ref)) return rep;
+  if (ref) rep.creditRefs = [...(rep.creditRefs ?? []), ref].slice(-REPUTATION_REFS_MAX);
   if (rep.currentStreak === undefined) rep.currentStreak = 0;
   if (rep.longestStreak === undefined) rep.longestStreak = 0;
   if (rep.totalPointsEarned === undefined) rep.totalPointsEarned = 0;

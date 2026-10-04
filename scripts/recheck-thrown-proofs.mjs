@@ -18,11 +18,16 @@
 // Needs KV_REST_API_URL and KV_REST_API_TOKEN. --apply also needs
 // ANTHROPIC_API_KEY, because it calls the same model the live check calls.
 //
-// A real run is idempotent: a favour that was re-checked no longer carries the
-// fallback text, and a marker (recheck:done:<taskId>:<person>) is taken before
-// any credit. It never touches a real model flag, a money favour or a campaign
-// task. It moves no money. On a pass it awards the favour's points, exactly as
-// the live check would have, and writes the person's History row.
+// A real run can be repeated safely. Each item has a journal
+// (recheck:job:<taskId>:<person>) that is "in-progress" until every credit was
+// written AND read back, then "done". If a run stops part way, for any reason,
+// the item is printed as "failed" with no points, and the next run finishes it:
+// every run first resumes the journals still in progress. Credits are keyed by
+// favour and person, so a repeat never credits twice. Exit code 1 means run again.
+//
+// It never touches a real model flag, a money favour or a campaign task. It moves
+// no money. On a pass it awards the favour's points, exactly as the live check
+// would have, and writes the person's History row.
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { createJiti } from "jiti";
@@ -89,11 +94,22 @@ for (const o of out) {
 }
 console.log("");
 if (!APPLY) {
-  console.log(`Dry run. ${count("would-recheck")} would be re-checked, ${count("skipped")} skipped. Nothing was written. Add --apply to re-check.`);
+  console.log(`Dry run. ${count("would-recheck")} would be re-checked, ${count("would-resume")} would be resumed, ${count("skipped")} skipped. Nothing was written. Add --apply to re-check.`);
 } else {
-  console.log(`Applied. passed ${count("passed")}, failed ${count("failed")}, real flag ${count("flagged")}, still failing ${count("still-failing")}, already done ${count("already-done")}, busy ${count("busy")}, changed ${count("changed")}, skipped ${count("skipped")}.`);
+  // Points are summed only from rows that carry them, and a row carries points
+  // only after the credit was read back from the store.
+  const points = out.reduce((s, o) => s + (o.action === "passed" ? o.points ?? 0 : 0), 0);
+  console.log(`Applied. passed ${count("passed")} (${points} points read back), rejected ${count("rejected")}, real flag ${count("flagged")}, FAILED ${count("failed")}, still failing ${count("still-failing")}, already done ${count("already-done")}, busy ${count("busy")}, changed ${count("changed")}, skipped ${count("skipped")}.`);
+  if (count("failed") > 0) {
+    console.log(`${count("failed")} item(s) are NOT COMPLETE. No points are reported for them. Nothing is lost: run the same command again and it finishes them.`);
+    process.exitCode = 1;
+  }
   if (count("still-failing") > 0) {
     console.log("Some proofs could not be checked. They are unchanged. Fix the cause and run again.");
+    process.exitCode = 1;
+  }
+  if (count("busy") > 0) {
+    console.log("Some favours were busy. If a run died, its lock clears after 2 minutes. Run again.");
     process.exitCode = 1;
   }
 }

@@ -24,11 +24,18 @@ let hashes: Map<string, Map<string, number>>;
 let zsets: Map<string, Map<string, number>>;
 let commands: string[];
 let unknown: string[];
+// One write the fake store refuses, once: [command, key prefix]. Stands for a
+// store error in the middle of a run.
+let refuseOnce: [string, string] | null;
 
 function exec(args: unknown[]): unknown {
   const [cmdRaw, key, ...rest] = args as [string, string, ...unknown[]];
   const cmd = String(cmdRaw).toUpperCase();
   commands.push(cmd);
+  if (refuseOnce && cmd === refuseOnce[0] && String(key).startsWith(refuseOnce[1])) {
+    refuseOnce = null;
+    throw new Error("LOCAL DOUBLE: store refused this write");
+  }
   const str = (v: unknown) => (typeof v === "string" ? v : JSON.stringify(v));
   switch (cmd) {
     case "GET": return kv.get(key) ?? null;
@@ -44,6 +51,7 @@ function exec(args: unknown[]): unknown {
     case "SADD": { if (!sets.has(key)) sets.set(key, new Set()); let n = 0; for (const m of rest) { if (!sets.get(key)!.has(str(m))) n++; sets.get(key)!.add(str(m)); } return n; }
     case "SMEMBERS": return [...(sets.get(key) ?? [])];
     case "SISMEMBER": return sets.get(key)?.has(str(rest[0])) ? 1 : 0;
+    case "SREM": { let n = 0; for (const m of rest) if (sets.get(key)?.delete(str(m))) n++; return n; }
     case "LPUSH": { if (!lists.has(key)) lists.set(key, []); for (const v of rest) lists.get(key)!.unshift(str(v)); return lists.get(key)!.length; }
     case "LTRIM": return "OK";
     case "LRANGE": { const l = lists.get(key) ?? []; const b = Number(rest[1]); return l.slice(Number(rest[0]), b < 0 ? undefined : b + 1); }
@@ -80,16 +88,22 @@ const rec = (id: string) => JSON.parse(kv.get(`task:${id}`)!);
 const dump = () => JSON.stringify([[...kv.entries()].sort(), [...sets.entries()].map(([k, v]) => [k, [...v].sort()]).sort(), [...lists.entries()].sort()]);
 
 beforeEach(async () => {
-  kv = new Map(); sets = new Map(); lists = new Map(); hashes = new Map(); zsets = new Map(); commands = []; unknown = [];
+  kv = new Map(); sets = new Map(); lists = new Map(); hashes = new Map(); zsets = new Map(); commands = []; unknown = []; refuseOnce = null;
   server = createServer((req, res) => {
     let body = "";
     req.on("data", (c) => (body += c));
     req.on("end", () => {
       const parsed = JSON.parse(body);
       const enc = req.headers["upstash-encoding"] === "base64" ? b64 : (v: unknown) => v;
-      const answer = req.url?.includes("pipeline") || req.url?.includes("multi-exec")
-        ? (parsed as unknown[][]).map((c) => ({ result: enc(exec(c)) }))
-        : { result: enc(exec(parsed)) };
+      let answer: unknown;
+      try {
+        answer = req.url?.includes("pipeline") || req.url?.includes("multi-exec")
+          ? (parsed as unknown[][]).map((c) => ({ result: enc(exec(c)) }))
+          : { result: enc(exec(parsed)) };
+      } catch (err) {
+        res.statusCode = 500;
+        answer = { error: (err as Error).message };
+      }
       res.setHeader("Content-Type", "application/json");
       res.end(JSON.stringify(answer));
     });
@@ -117,7 +131,7 @@ async function script(args: string[], env: Record<string, string> = {}) {
     return { code: err.code ?? -1, out: `${err.stdout ?? ""}${err.stderr ?? ""}` };
   }
 }
-const WRITES = new Set(["SET", "DEL", "SADD", "LPUSH", "LTRIM", "INCR", "HINCRBY", "ZINCRBY", "EVAL", "EXPIRE", "PEXPIRE"]);
+const WRITES = new Set(["SET", "DEL", "SADD", "SREM", "LPUSH", "LTRIM", "INCR", "HINCRBY", "ZINCRBY", "EVAL", "EXPIRE", "PEXPIRE"]);
 
 describe("scripts/recheck-thrown-proofs.mjs", () => {
   it("with no flag it is a dry run: it lists, and sends no write command to the store", async () => {
@@ -125,7 +139,7 @@ describe("scripts/recheck-thrown-proofs.mjs", () => {
     const before = dump();
     const r = await script([]);
     expect(r.code).toBe(0);
-    expect(r.out).toContain("Dry run. 2 would be re-checked, 1 skipped. Nothing was written.");
+    expect(r.out).toContain("Dry run. 2 would be re-checked, 0 would be resumed, 1 skipped. Nothing was written.");
     expect(r.out).toContain("would-recheck t1");
     expect(r.out).not.toContain("t3");
     expect(commands.filter((c) => WRITES.has(c))).toEqual([]);
@@ -160,7 +174,7 @@ describe("scripts/recheck-thrown-proofs.mjs", () => {
     const realFlagBefore = kv.get("task:t3");
     const env = { ANTHROPIC_API_KEY: "local-double-not-a-key", RECHECK_VERIFIER_MODULE: passDouble };
     const r = await script(["--apply"], env);
-    expect(r.out).toContain("Applied. passed 1,");
+    expect(r.out).toContain("Applied. passed 1 (18 points read back),");
     expect(r.code).toBe(0);
     expect(unknown).toEqual([]);
     expect(rec("t1")).toMatchObject({ status: "open", completionCount: 1, claimant: null, verificationResult: null });
@@ -168,7 +182,9 @@ describe("scripts/recheck-thrown-proofs.mjs", () => {
     const history = (lists.get(`contributions:${ANA}`) ?? []).map((x) => JSON.parse(x));
     expect(history).toHaveLength(1);
     expect(history[0]).toMatchObject({ taskId: "t1", points: 18, proofNote: "Night market, start from 5pm - 10pm" });
-    expect(kv.get(`recheck:done:t1:${ANA}`)).toContain("pass");
+    expect(JSON.parse(kv.get(`recheck:job:t1:${ANA}`)!)).toMatchObject({ state: "done", points: 18 });
+    expect(JSON.parse(kv.get(`pof:${ANA}`)!)).toMatchObject({ totalPoints: 18, favoursCompleted: 1 });
+    expect(JSON.parse(kv.get(`rep:${ANA}`)!)).toMatchObject({ tasksCompleted: 1, totalPointsEarned: 18 });
     expect(lists.get("recheck:log")).toHaveLength(1);
     // The real model flag was not touched, byte for byte.
     expect(kv.get("task:t3")).toBe(realFlagBefore);
@@ -176,10 +192,46 @@ describe("scripts/recheck-thrown-proofs.mjs", () => {
     const after = dump();
     const again = await script(["--apply"], env);
     expect(again.code).toBe(0);
-    expect(again.out).toContain("Applied. passed 0,");
+    expect(again.out).toContain("Applied. passed 0 (0 points read back),");
     expect(dump()).toBe(after);
     expect(lists.get(`contributions:${ANA}`)).toHaveLength(1);
   }, 60000);
+
+  it("a store error in the middle: the run says FAILED with exit 1 and no points, and the same command again finishes it once", async () => {
+    seed(task("t1"));
+    const env = { ANTHROPIC_API_KEY: "local-double-not-a-key", RECHECK_VERIFIER_MODULE: passDouble };
+    // The reputation write is refused once. That writer catches the error and only
+    // logs it, which is the swallowed-error case from the 01:00 review.
+    refuseOnce = ["SET", "rep:"];
+    const first = await script(["--apply"], env);
+    expect(first.code).toBe(1);
+    expect(first.out).toContain("failed        t1");
+    expect(first.out).toContain("the completion on the reputation was not written");
+    expect(first.out).toContain("Applied. passed 0 (0 points read back),");
+    expect(first.out).toContain("FAILED 1");
+    expect(first.out).toContain("NOT COMPLETE");
+    expect(kv.has(`rep:${ANA}`)).toBe(false);
+    expect(JSON.parse(kv.get(`recheck:job:t1:${ANA}`)!).state).toBe("in-progress");
+    expect(sets.get("recheck:pending")?.size).toBe(1);
+
+    const dry = await script([], {});
+    expect(dry.out).toContain("would-resume  t1");
+    expect(dry.out).toContain("1 would be resumed");
+
+    const second = await script(["--apply"], env);
+    expect(second.code).toBe(0);
+    expect(second.out).toContain("Applied. passed 1 (18 points read back),");
+    expect(JSON.parse(kv.get(`pof:${ANA}`)!)).toMatchObject({ totalPoints: 18, favoursCompleted: 1, favoursAttempted: 1 });
+    expect(JSON.parse(kv.get(`rep:${ANA}`)!)).toMatchObject({ tasksCompleted: 1, totalPointsEarned: 18 });
+    expect(lists.get(`contributions:${ANA}`)).toHaveLength(1);
+    expect(rec("t1")).toMatchObject({ status: "open", completionCount: 1 });
+    expect(sets.get("recheck:pending")?.size ?? 0).toBe(0);
+
+    const after = dump();
+    const third = await script(["--apply"], env);
+    expect(third.code).toBe(0);
+    expect(dump()).toBe(after);
+  }, 90000);
 
   it("when the check still throws, nothing changes and the exit code says so", async () => {
     seed(task("t1"));
