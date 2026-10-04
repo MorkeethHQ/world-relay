@@ -58,6 +58,8 @@ vi.mock("@/lib/referral", () => ({ recordReferralActivation: async () => {} }));
 
 
 
+const evidence: any[] = [];
+vi.mock("@/lib/company-review", () => ({ recordCompanyEvidence: async (...args: any[]) => { evidence.push(args); } }));
 const results: any[] = [];
 vi.mock("@/lib/campaign-drafts", () => ({
   getPublishedCampaign: async (id: string) => ({ id, company: "Example company", pieceTaskIds: { ugc: "piece-ugc" } }),
@@ -96,7 +98,7 @@ const submit = () => POST(new Request("http://localhost/api/verify-proof", {
 }) as any);
 
 beforeEach(() => {
-  results.length = 0; recordFavourCompletedCalls.length = 0; verdict = "pass"; storedTask = piece();
+  results.length = 0; evidence.length = 0; recordFavourCompletedCalls.length = 0; verdict = "pass"; storedTask = piece();
   process.env.SESSION_SECRET = "test-secret"; process.env.ANTHROPIC_API_KEY = "test-key"; delete process.env.OPENROUTER_API_KEY;
 });
 
@@ -109,6 +111,8 @@ describe("the company sees accepted and rejected pieces, with the reason", () =>
     expect(results[0].reason).toMatch(/real clip/);
     expect(results[0].participant).not.toBe(CLAIMANT);
     expect(recordFavourCompletedCalls).toHaveLength(1);
+    expect(evidence[0][2]).toBe("https://example.test/my-clip");
+    expect(results[0]).not.toHaveProperty("note");
   });
 
   it("a rejected piece is recorded with why, and earns nothing", async () => {

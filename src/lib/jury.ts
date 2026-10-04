@@ -44,6 +44,7 @@ export type CardAnswer = {
   // them, or a card with no ground truth would be graded against isMatch and
   // pay a point for a coin flip.
   appeal?: boolean;
+  companyAppealId?: string;
   // PRACTICE cards (2026-09-21, Oscar: "Real or not should be playable for
   // ever"). Dealt when a judge has used up every live proof. Same real proofs,
   // same known answer by construction, but they pay NO points and do not count

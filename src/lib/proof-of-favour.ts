@@ -1,4 +1,5 @@
 import { getRedis } from "./redis";
+import { jsonSnapshot } from "./redis-snapshot";
 import { fundingRewardPoints, FUNDING_REWARD_PER_USD, FUNDING_REWARD_CAP } from "./reward";
 // Re-exported so existing importers (and tests) keep their `@/lib/proof-of-favour`
 // path; the pure calc itself lives in the client-safe reward.ts source of truth.
@@ -301,7 +302,7 @@ const LOCK_MAX_WAIT_MS = 7000;
 const RELEASE_LUA =
   "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end";
 
-async function withWalletLock<T>(address: string, fn: () => Promise<T>): Promise<T> {
+async function withWalletLock<T>(address: string, fn: (lease?: { key: string; token: string }) => Promise<T>): Promise<T> {
   const redis = getRedis();
   // No redis (local/dev) or non-wallet (never persists) → no cross-request race
   // to guard; run directly so tests and dev stay lock-free.
@@ -320,7 +321,7 @@ async function withWalletLock<T>(address: string, fn: () => Promise<T>): Promise
     await new Promise((r) => setTimeout(r, LOCK_RETRY_MS));
   }
   try {
-    return await fn();
+    return await fn({ key: lockKey, token });
   } finally {
     try {
       await redis.eval(RELEASE_LUA, [lockKey], [token]);
@@ -348,6 +349,43 @@ export async function getProofOfFavour(address: string): Promise<ProofOfFavour> 
   }
 }
 
+// Same award policy as awardPoints, prepared under its wallet lock so a caller
+// can commit the profile together with a completion in one Redis transaction.
+function applyPointsAward(profile: ProofOfFavour, action: string, points: number) {
+  profile.totalPoints += points;
+  profile.level = getLevel(profile.totalPoints);
+
+  // Append to history, keep last MAX_HISTORY entries
+  profile.pointsHistory.push({
+    action,
+    points,
+    timestamp: new Date().toISOString(),
+  });
+  if (profile.pointsHistory.length > MAX_HISTORY) {
+    profile.pointsHistory = profile.pointsHistory.slice(-MAX_HISTORY);
+  }
+
+  updateStreak(profile);
+
+}
+
+export async function withPreparedPointsAward<T>(address: string, commit: (p: {
+  profileKey: string; profileHash: string; indexKey: string;
+  weeklyKey: string; prepare: (amount: number) => ProofOfFavour; lease: { key: string; token: string };
+}) => Promise<T>): Promise<T> {
+  if (!getRedis() || !isRealWallet(address)) throw new Error("Points storage and wallet required");
+  return withWalletLock(address, async lease => {
+    if (!lease) throw new Error("Points lock unavailable");
+    const profileKey = `${POF_PREFIX}${address}`;
+    // Do not use the display reader's fallback on a storage error.
+    const snapshot = await jsonSnapshot<ProofOfFavour>(profileKey);
+    const profile = snapshot.value ?? defaultProfile(address);
+    if (!Number.isFinite(profile.totalPoints) || !Array.isArray(profile.pointsHistory)) throw new Error("Invalid points profile");
+    const prepare = (amount: number) => { const next = structuredClone(profile); applyPointsAward(next, "jury_appeal_cleared", amount); return next; };
+    return commit({ prepare, profileKey, profileHash: snapshot.hash, indexKey: POF_INDEX_KEY, weeklyKey: weekKey(), lease });
+  });
+}
+
 export async function awardPoints(
   address: string,
   action: string,
@@ -356,20 +394,7 @@ export async function awardPoints(
   return withWalletLock(address, async () => {
     const profile = await getProofOfFavour(address);
     if (!isRealWallet(address)) return profile;
-    profile.totalPoints += points;
-    profile.level = getLevel(profile.totalPoints);
-
-    // Append to history, keep last MAX_HISTORY entries
-    profile.pointsHistory.push({
-      action,
-      points,
-      timestamp: new Date().toISOString(),
-    });
-    if (profile.pointsHistory.length > MAX_HISTORY) {
-      profile.pointsHistory = profile.pointsHistory.slice(-MAX_HISTORY);
-    }
-
-    updateStreak(profile);
+    applyPointsAward(profile, action, points);
 
     await saveProfile(profile);
     trackWeeklyPoints(address, points).catch(console.error);

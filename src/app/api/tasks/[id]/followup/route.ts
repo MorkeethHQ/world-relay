@@ -20,6 +20,9 @@ export async function POST(
   if (!task) {
     return NextResponse.json({ error: "Task not found" }, { status: 404 });
   }
+  if (task.companyCampaignId) {
+    return NextResponse.json({ error: "Company proofs use the campaign review rule. Follow the review in History, or submit revised proof for a new AI check." }, { status: 409 });
+  }
   if (!task.aiFollowUp || task.aiFollowUp.status !== "pending") {
     return NextResponse.json({ error: "No pending follow-up for this task" }, { status: 400 });
   }

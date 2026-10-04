@@ -23,6 +23,9 @@ export async function POST(
   if (!task) {
     return NextResponse.json({ error: "Task not found" }, { status: 404 });
   }
+  if (task.companyCampaignId) {
+    return NextResponse.json({ error: "Company proofs use the campaign review rule. Follow the review in History, or submit revised proof for a new AI check." }, { status: 409 });
+  }
   if (task.verificationResult?.verdict !== "flag") {
     return NextResponse.json({ error: "Task not in flagged state" }, { status: 400 });
   }

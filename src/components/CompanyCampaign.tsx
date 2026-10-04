@@ -128,6 +128,12 @@ export function CompanyVisionCard({ onLaunch, launchLabel = "Plan a campaign", d
   const [how, setHow] = useState(false);
   return (
     <section className="mx-6 mt-4 rounded-3xl bg-gray-950 text-white overflow-hidden" aria-label="How a company campaign works">
+      <figure className="relative border-b border-white/20">
+        {/* Existing local editorial asset. Never presented as a contributor or result. */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/hero/desk.jpg" alt="Someone working at a desk with a laptop and notebook" width={800} height={1200} className="block w-full aspect-[16/9] max-h-[180px] object-cover" />
+        <figcaption className="px-5 py-3 text-[12px] leading-relaxed text-white/80">A question worth taking a closer look at. Illustrative image, not submitted work.</figcaption>
+      </figure>
       <div className="px-5 pt-4 pb-4">
         <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/60">Example · not funded</span>
         <p className="text-[20px] font-bold leading-snug tracking-tight mt-2">
@@ -428,6 +434,9 @@ export function CampaignDraftList({ drafts, onDone, justSaved, onPublished, onOp
               <p className="mt-2 text-[12px] text-gray-500">
                 Proposed pool {d.proposedPoolUsdc} USDC · <span className="font-semibold text-gray-700">not funded</span> · reviewed by {d.reviewRule === "ai_and_jury" ? "AI check, human judges on flagged photos" : "AI check"}
               </p>
+              <a href={`/companies/${encodeURIComponent(d.id)}/review`} className="mt-3 flex min-h-[44px] items-center justify-center rounded-full border border-gray-300 px-4 text-[14px] font-semibold text-gray-900">
+                {d.status === "draft" ? "Set the decision question" : "Review evidence and decide"}
+              </a>
               {d.status !== "published" ? (
                 <>
                   {d.status === "publishing" && (

@@ -1,3 +1,5 @@
+import { ensureCompanyAppeal } from "@/lib/company-appeal";
+import { recordCompanyEvidence } from "@/lib/company-review";
 import { NextRequest, NextResponse } from "next/server";
 import { getTask, submitProof, completeTask, setAttestationHash, setFollowUp, spawnRecurringTask, markSettled, markSettlementPending } from "@/lib/store";
 import { verifyProof, verifyProofConsensus, verifyProofStub } from "@/lib/verify-proof";
@@ -451,6 +453,11 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  if (result.verdict === "flag" && task.companyCampaignId) {
+    const flagged = await getTask(taskId);
+    if (flagged) await ensureCompanyAppeal(flagged);
+  }
+
   notifyProofSubmitted(task.poster, task.description).catch(console.error);
 
   // In-app notification for proof submitted (always notify poster)
@@ -560,14 +567,16 @@ export async function POST(req: NextRequest) {
   // nothing here reads or writes money.
   const cc = task.companyCampaignId ? await getPublishedCampaign(task.companyCampaignId).catch(() => null) : null;
   if (task.companyCampaignId && task.claimant && (result.verdict === "fail" || (result.verdict === "pass" && creditAllowed))) {
-    await recordCampaignResult(task.companyCampaignId, {
+    const campaignResult = {
       taskId,
       kind: cc ? kindOfTask(cc, taskId) : null,
       verdict: result.verdict,
       reason: String(result.reasoning || "").split(" | ")[0].slice(0, 280),
       participant: shortAddress(task.claimant),
       at: new Date().toISOString(),
-    }).catch(console.error);
+    };
+    await recordCampaignResult(task.companyCampaignId, campaignResult).catch(console.error);
+    await recordCompanyEvidence(task.companyCampaignId, campaignResult, proofNote, proofImageUrls).catch(console.error);
   }
 
   if (result.verdict === "pass" && task.claimant && creditAllowed) {

@@ -331,6 +331,7 @@ export async function submitProof(
       task.status = "claimed";
       task.claimantVerification = verificationLevel ?? null;
     }
+    task.proofSubmissionId = crypto.randomUUID();
     task.proofImageUrl = proofImageUrl;
     task.proofImages = proofImages && proofImages.length > 0 ? proofImages : proofImageUrl ? [proofImageUrl] : null;
     task.proofNote = proofNote;
@@ -539,7 +540,7 @@ async function settleLatePass(task: Task): Promise<void> {
 
 export async function posterConfirm(id: string, approved: boolean): Promise<Task | null> {
   const task = await getTask(id);
-  if (!task || task.verificationResult?.verdict !== "flag") return null;
+  if (!task || task.companyCampaignId || task.verificationResult?.verdict !== "flag") return null;
   if (approved) {
     await settleLatePass(task);
   } else {

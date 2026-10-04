@@ -308,9 +308,10 @@ export function Onboarding({
         </button>
       )}
 
-      {/* Progress dots. Hidden on the terminal success screen. */}
+      {/* Reserve the back control's full height on short screens so content
+          cannot rise behind it. Hidden on the terminal success screen. */}
       {step < 4 && (
-        <div className="flex items-center justify-center gap-2 pt-8 pb-2 animate-[fadeIn_0.4s_ease-out]">
+        <div className={`shrink-0 flex items-center justify-center gap-2 pt-8 ${step > 0 ? "pb-8" : "pb-2"} animate-[fadeIn_0.4s_ease-out]`}>
           {Array.from({ length: 4 }).map((_, i) => (
             <span
               key={i}
