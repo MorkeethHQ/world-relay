@@ -136,7 +136,7 @@ export function rankBoard(
   opts: { userId: string | null; userLocation: UserLocation; now: number }
 ): Task[] {
   const { userId, userLocation, now } = opts;
-  const featuredId = getFeaturedCampaign()?.id ?? null;
+  const featuredId = getFeaturedCampaign(now)?.id ?? null;
   return [...tasks].sort((a, b) => {
     const ta = boardTier(a, userId, featuredId, now);
     const tb = boardTier(b, userId, featuredId, now);

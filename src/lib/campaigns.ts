@@ -290,8 +290,18 @@ export function getCampaign(id: string): Campaign | null {
   return CAMPAIGNS.find((c) => c.id === id) || null;
 }
 
-export function getFeaturedCampaign(): Campaign | null {
-  return CAMPAIGNS.find((c) => c.featured) || null;
+// R18 (2026-10-04): a campaign is running until its endsAt.
+export function isCampaignRunning(c: Campaign, now: number = Date.now()): boolean {
+  return new Date(c.endsAt).getTime() > now;
+}
+
+// The featured campaign is the first one flagged featured that is STILL RUNNING.
+// It used to be the first flagged entry whatever its dates. On 4 Oct 2026 that
+// was "comeback-2026", which ended on 30 Sep, so the board's FEATURED tier was
+// keyed to a campaign with no open task and the welcome journey never got it.
+// Null when every featured campaign has ended.
+export function getFeaturedCampaign(now: number = Date.now()): Campaign | null {
+  return CAMPAIGNS.find((c) => c.featured && isCampaignRunning(c, now)) || null;
 }
 
 export function getCampaigns(): Campaign[] {

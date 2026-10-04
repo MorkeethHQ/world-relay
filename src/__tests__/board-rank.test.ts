@@ -98,7 +98,7 @@ describe("R3: board visibility", () => {
 });
 
 describe("R5: tier order", () => {
-  const featuredId = getFeaturedCampaign()!.id;
+  const featuredId = getFeaturedCampaign(NOW)!.id;
 
   it("my claim > funded > featured campaign > points > feedback > stale", () => {
     const myClaim = task({ status: "claimed", claimant: "me" });

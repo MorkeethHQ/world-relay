@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import type { CampaignDraft, PieceKind, PublicCompanyCampaign, CampaignResult } from "@/lib/campaign-draft-shape";
 import type { Task } from "@/lib/types";
 import { PIECE_LABEL, MAX_PIECES_PER_KIND, MAX_PIECES_TOTAL, MIN_BRIEF_WORDS, briefWords, productUrlOrNull, productNameOrNull, hasProduct, NO_PRODUCT_YET } from "@/lib/campaign-draft-shape";
-import { productHost } from "@/lib/company-door";
+import { productHost, campaignEnded } from "@/lib/company-door";
 
 // THE COMPANY JOURNEY (FAVOUR-COMPANY-JOURNEY-2026-09-21). Oscar's ruling: the
 // first screen shows the vision. A company launches a favour campaign, people do
@@ -522,8 +522,14 @@ export function CompanyCampaignView({ id, tasks, completedIds, onJoin, onBack }:
               Proposed pool {c.proposedPoolUsdc} USDC · <span className="font-semibold text-gray-700">not funded</span>. Accepted pieces earn {c.rewardPerPiecePoints} points. Reviewed by {c.reviewRule === "ai_and_jury" ? "an AI check. Human judges can clear a flagged photo proof" : "an AI check"}.
             </p>
           </div>
+          {/* R18: say so when every piece has closed, so nobody hunts for a way in. */}
+          {campaignEnded(c, tasks) && (
+            <p role="status" className="rounded-2xl bg-white border border-gray-200 px-4 py-3 text-[13px] text-gray-700">
+              This campaign has ended. No piece is open. Accepted work stays below and in History.
+            </p>
+          )}
           <section aria-label="Pieces you can join" className="flex flex-col gap-2.5">
-            <h2 className="text-[13px] font-semibold text-gray-900">Pick a piece</h2>
+            <h2 className="text-[13px] font-semibold text-gray-900">{campaignEnded(c, tasks) ? "Pieces" : "Pick a piece"}</h2>
             {c.pieces.map((p) => {
               const taskId = c.pieceTaskIds?.[p.kind];
               const task = taskId ? tasks.find((t) => t.id === taskId) : undefined;

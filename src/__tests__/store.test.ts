@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { createTask, getTask, listTasks, claimTask, submitProof, completeTask } from "@/lib/store";
+import { createTask, getTask, listTasks, claimTask, submitProof, completeTask, setFollowUp, resolveFollowUp, posterConfirm } from "@/lib/store";
 
 // Mock Redis with an in-memory implementation for tests
 const mockStore = new Map<string, string>();
@@ -16,7 +16,9 @@ vi.mock("@/lib/redis", () => ({
     del: async (key: string) => { mockStore.delete(key); },
     sadd: async (key: string, member: string) => {
       if (!mockSets.has(key)) mockSets.set(key, new Set());
+      const had = mockSets.get(key)!.has(member);
       mockSets.get(key)!.add(member);
+      return had ? 0 : 1;
     },
     smembers: async (key: string) => Array.from(mockSets.get(key) || []),
     sismember: async (key: string, member: string) => (mockSets.get(key)?.has(member) ? 1 : 0),
@@ -264,5 +266,71 @@ describe("completeTask", () => {
     expect(result!.status).toBe("open");
     expect(result!.claimant).toBeNull();
     expect(result!.proofImageUrl).toBeNull();
+  });
+});
+
+// 2026-10-04. LOCAL DOUBLE: the in-memory Redis above, not the live store.
+// Live evidence for the bug: task 3580445b ("Say It Out Loud", 25 of 500 replies)
+// sits at status completed with a resolved follow-up, so one late pass closed a
+// 500 reply favour for good. The welcome campaign has 4 follow-ups pending on
+// 1000 reply favours.
+describe("a late pass on a multi-reply favour counts one reply and reopens it", () => {
+  async function flaggedMulti(maxCompletions: number) {
+    const task = await createTask({
+      poster: "agent:relay",
+      description: "Photo your first drink of the day and tell us your city",
+      location: "Anywhere",
+      bountyUsdc: 5,
+      deadlineHours: 24,
+      rewardType: "points",
+      maxCompletions,
+      campaignId: "first-favour",
+    } as Parameters<typeof createTask>[0]);
+    await claimTask(task.id, "0xRunner");
+    await submitProof(task.id, "url", "note");
+    await completeTask(task.id, { verdict: "flag", reasoning: "needs a closer look", confidence: 0.7 });
+    return task.id;
+  }
+
+  it("follow-up pass: the favour goes back to open with one more reply counted", async () => {
+    const id = await flaggedMulti(1000);
+    await setFollowUp(id, "Which city is this?", 0.7);
+    const out = await resolveFollowUp(id, { verdict: "pass", reasoning: "answered", confidence: 0.9 });
+    expect(out!.status).toBe("open");
+    expect(out!.completionCount).toBe(1);
+    expect(out!.claimant).toBeNull();
+    expect(out!.proofImageUrl).toBeNull();
+    expect(out!.aiFollowUp).toBeNull();
+    // The same person cannot pass it twice: the per-person slot is taken.
+    expect(mockSets.get(`completed_claimants:${id}`)?.has("0xrunner")).toBe(true);
+  });
+
+  it("poster approval: same rule", async () => {
+    const id = await flaggedMulti(100);
+    const out = await posterConfirm(id, true);
+    expect(out!.status).toBe("open");
+    expect(out!.completionCount).toBe(1);
+    expect(out!.claimant).toBeNull();
+    expect(mockSets.get(`completed_claimants:${id}`)?.has("0xrunner")).toBe(true);
+  });
+
+  it("the last reply slot still completes the favour", async () => {
+    const id = await flaggedMulti(1);
+    const out = await posterConfirm(id, true);
+    expect(out!.status).toBe("completed");
+    expect(out!.claimant).toBe("0xRunner");
+  });
+
+  it("a multi-reply favour completes when its final slot is used", async () => {
+    const task = await createTask({ poster: "agent:relay", description: "two replies wanted here", location: "Anywhere", bountyUsdc: 5, deadlineHours: 24, rewardType: "points", maxCompletions: 2 } as Parameters<typeof createTask>[0]);
+    await claimTask(task.id, "0xA");
+    await submitProof(task.id, "url", "note");
+    await completeTask(task.id, { verdict: "pass", reasoning: "ok", confidence: 0.9 });
+    await claimTask(task.id, "0xB");
+    await submitProof(task.id, "url", "note");
+    await completeTask(task.id, { verdict: "flag", reasoning: "look", confidence: 0.7 });
+    const out = await posterConfirm(task.id, true);
+    expect(out!.status).toBe("completed");
+    expect(out!.completionCount).toBe(2);
   });
 });

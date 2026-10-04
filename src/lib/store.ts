@@ -1,5 +1,6 @@
 import type { Task, TaskStatus, TaskCategory, TaskType, RewardType, AiFollowUp, RecurringConfig } from "./types";
 import { getRedis } from "./redis";
+import { completedClaimantsKey } from "./completions";
 import { getAgent } from "./agents";
 import { recordFundingReward } from "./proof-of-favour";
 import { CUSTODY_RETIRED } from "./custody";
@@ -498,11 +499,49 @@ export async function setAttestationHash(id: string, txHash: string): Promise<Ta
   return task;
 }
 
+// A LATE PASS (2026-10-04): a flagged proof accepted after the first check, by a
+// follow-up answer, the poster, or dispute mediation.
+//
+// Both late paths used to set status "completed" whatever maxCompletions was, and
+// never counted the reply. So one late pass closed a 500 or 1000 reply favour for
+// good. Seen live on 4 Oct: task 3580445b ("Say It Out Loud") completed at 25 of
+// 500, and 4 welcome campaign favours with a follow-up pending.
+//
+// A multi-reply favour now follows completeTask: count the reply, take this
+// person's slot in the completer set so they cannot pass it twice (the same set
+// verify-proof checks), and reopen while slots remain. A single-reply favour is
+// unchanged. Funded favours are always single-reply (POST /api/tasks), so this
+// branch never touches money.
+async function settleLatePass(task: Task): Promise<void> {
+  const max = Math.max(1, task.maxCompletions ?? 1);
+  if (max <= 1) {
+    task.status = "completed";
+    return;
+  }
+  task.completionCount = (task.completionCount || 0) + 1;
+  const redis = getRedis();
+  if (redis && task.claimant) {
+    await redis.sadd(completedClaimantsKey(task.id), task.claimant.toLowerCase());
+  }
+  if (task.completionCount >= max) {
+    task.status = "completed";
+    return;
+  }
+  task.status = "open";
+  task.claimant = null;
+  task.claimantVerification = null;
+  task.proofImageUrl = null;
+  task.proofImages = null;
+  task.proofNote = null;
+  task.verificationResult = null;
+  task.aiFollowUp = null;
+}
+
 export async function posterConfirm(id: string, approved: boolean): Promise<Task | null> {
   const task = await getTask(id);
   if (!task || task.verificationResult?.verdict !== "flag") return null;
   if (approved) {
-    task.status = "completed";
+    await settleLatePass(task);
   } else {
     task.status = "open";
     task.claimant = null;
@@ -534,7 +573,7 @@ export async function resolveFollowUp(
   task.aiFollowUp = task.aiFollowUp ? { ...task.aiFollowUp, status: "resolved" } : null;
   task.verificationResult = result;
   if (result.verdict === "pass") {
-    task.status = "completed";
+    await settleLatePass(task);
   } else if (result.verdict === "fail") {
     task.status = "open";
     task.claimant = null;

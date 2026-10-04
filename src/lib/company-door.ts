@@ -89,13 +89,42 @@ export function canLeadCampaign(
   );
 }
 
+// R18, AN ENDED CAMPAIGN (2026-10-04). A published campaign has ended when every
+// one of its piece tasks is closed: expired, cancelled, completed, failed, or
+// still marked open after its deadline (the expiry cron runs hourly). A claimed
+// piece is work in flight, so it keeps the campaign going. A piece that is not
+// in the list at all is UNKNOWN (tasks still loading, or the piece is hidden),
+// and unknown is never treated as ended.
+//
+// Measured on 4 Oct 2026: both published campaigns had all three pieces expired
+// since 28 and 29 Sep with 0 accepted pieces, and both still sat on the board
+// under "More company campaigns" with nothing anyone could join.
+const CLOSED_PIECE = new Set<Task["status"]>(["expired", "cancelled", "completed", "failed"]);
+export function campaignEnded(c: PublicCompanyCampaign, tasks: Task[], now: number = Date.now()): boolean {
+  if (c.status !== "published") return false;
+  const ids = PIECE_KINDS.map((k) => c.pieceTaskIds?.[k]).filter((id): id is string => !!id);
+  if (ids.length === 0) return false;
+  return ids.every((id) => {
+    const t = tasks.find((x) => x.id === id);
+    if (!t) return false;
+    return CLOSED_PIECE.has(t.status) || (t.status === "open" && new Date(t.deadline).getTime() < now);
+  });
+}
+
+// lead: above the favours (R16). rest: below them, labelled, demoted (R16).
+// ended: off the board list (R18). An ended campaign is not deleted or hidden:
+// GET /api/campaigns/company still returns it, its page still opens and says it
+// has ended, and delivered pieces stay in History.
 export function rankCampaignCards(
   campaigns: PublicCompanyCampaign[],
   tasks: Task[],
   completedIds: Set<string> = new Set(),
-): { lead: PublicCompanyCampaign[]; rest: PublicCompanyCampaign[] } {
+  now: number = Date.now(),
+): { lead: PublicCompanyCampaign[]; rest: PublicCompanyCampaign[]; ended: PublicCompanyCampaign[] } {
   const visible = campaigns.filter((c) => !c.hidden).sort(campaignOrder);
-  const lead = visible.filter((c) => canLeadCampaign(c, tasks, completedIds));
-  const rest = visible.filter((c) => !lead.includes(c));
-  return { lead, rest };
+  const ended = visible.filter((c) => campaignEnded(c, tasks, now));
+  const running = visible.filter((c) => !ended.includes(c));
+  const lead = running.filter((c) => canLeadCampaign(c, tasks, completedIds));
+  const rest = running.filter((c) => !lead.includes(c));
+  return { lead, rest, ended };
 }

@@ -251,6 +251,35 @@ recur silently.
   Code `isStale` and `curateBoard` in `src/lib/board-rank.ts`; the card chip in
   `Feed.tsx` calls the same `isStale`. Test: the R17 block in `board-rank.test.ts`.
 
+- **R18, ended campaigns are history, not cards (added Oct 4, 2026).**
+  **Company campaigns.** `campaignEnded` (`src/lib/company-door.ts`): a published
+  campaign has ended when every one of its piece tasks is closed (expired,
+  cancelled, completed, failed, or open past its deadline). A claimed piece keeps
+  it running. A piece missing from the task list is unknown, and unknown is not
+  ended. `rankCampaignCards` now returns `lead`, `rest` and `ended`; the board
+  renders `lead` and `rest` only. This amends R16's "demoted, never dropped": a
+  campaign nobody can join is no longer a demoted card. It is not deleted or
+  hidden. `GET /api/campaigns/company` still returns it, its page still opens and
+  says "This campaign has ended.", and delivered pieces stay in History.
+  Measured on production on 4 Oct: 2 published campaigns, 6 piece tasks, all
+  expired on 28 and 29 Sep with 0 accepted pieces, both still listed under "More
+  company campaigns".
+  **House campaigns.** `getFeaturedCampaign(now)` returns the first `featured`
+  campaign that is still running (`isCampaignRunning`, by `endsAt`). It used to
+  return the first flagged entry whatever its dates, which on 4 Oct was
+  `comeback-2026` (ended 30 Sep), so the FEATURED tier pointed at a campaign with
+  no open task. It now points at `first-favour`.
+  **A late pass reopens a multi-reply favour.** `settleLatePass` in
+  `src/lib/store.ts`: when a flagged proof is accepted later (follow-up answer,
+  poster approval, dispute mediation) on a favour with `maxCompletions` above 1,
+  the reply is counted, the person's completer slot is taken, and the favour goes
+  back to open while slots remain. Before, one late pass set a 500 or 1000 reply
+  favour to completed for good (live: task 3580445b at 25 of 500).
+  **Not fixed by this rule.** A flag still holds a multi-reply favour for one
+  person until somebody resolves it, and agent-posted favours have nobody who
+  does. On 4 Oct that held 44 favours, including all 8 welcome journey tasks.
+  Tests: `ended-campaigns.test.ts`, and the late pass block in `store.test.ts`.
+
 ## Where each rule is enforced
 
 - **Server (`GET /api/tasks` via `orderBoardForApi`):** R5 tier order + R1 feedback
