@@ -1,0 +1,71 @@
+import { describe, it, expect } from "vitest";
+import { readFileSync } from "node:fs";
+import { validateFavourSpec, isNearDuplicate, FALLBACK_FAVOURS } from "@/lib/board-replenish";
+import { gibberishReason } from "@/lib/post-quality";
+import { looksLikeSpam, isMissionCandidate } from "@/lib/board-rank";
+
+// THE DRAFT FAVOUR PACK (2026-10-05). A reviewed data file, NOT posted. This test
+// is what "reviewed" means: every row is loadable by the replenisher's own
+// validator, reads as a real instruction, is not a money pitch, and does not
+// repeat anything that was on the live board in the 14 days before 4 Oct or in
+// the fallback pool.
+const pack = JSON.parse(readFileSync("docs/drafts/favour-pack-2026-10-05.json", "utf8"));
+const live: string[] = JSON.parse(readFileSync("src/__tests__/fixtures/live-descriptions-2026-10-04.json", "utf8")).descriptions;
+type Row = { id: string; description: string; category: string; points: number; deadlineHours: number; maxCompletions: number; proofRequired: string; whoWouldWantIt: string; funding: string };
+const rows: Row[] = pack.favours;
+
+describe("draft favour pack 2026-10-05", () => {
+  it("holds 10 to 15 favours with unique ids", () => {
+    expect(rows.length).toBeGreaterThanOrEqual(10);
+    expect(rows.length).toBeLessThanOrEqual(15);
+    expect(new Set(rows.map((r) => r.id)).size).toBe(rows.length);
+  });
+
+  it("every row passes the replenisher validator unchanged", () => {
+    for (const r of rows) {
+      const spec = validateFavourSpec(r);
+      expect(spec, r.id).not.toBeNull();
+      expect(spec!.description).toBe(r.description);
+    }
+  });
+
+  it("every row reads as an instruction and none is a money pitch", () => {
+    for (const r of rows) {
+      expect(gibberishReason(r.description), r.id).toBeNull();
+      expect(looksLikeSpam(r.description), r.id).toBe(false);
+    }
+  });
+
+  it("no row repeats the live board of the last 14 days, the fallback pool, or another row", () => {
+    const pool = FALLBACK_FAVOURS.map((f) => f.description);
+    expect(live.length).toBeGreaterThan(40);
+    for (const r of rows) {
+      expect(isNearDuplicate(r.description, live), `${r.id} vs live`).toBe(false);
+      expect(isNearDuplicate(r.description, pool), `${r.id} vs pool`).toBe(false);
+      expect(isNearDuplicate(r.description, rows.filter((o) => o.id !== r.id).map((o) => o.description)), `${r.id} vs pack`).toBe(false);
+    }
+  });
+
+  it("every row states its proof, a plausible requester and its funding honestly", () => {
+    for (const r of rows) {
+      expect(r.proofRequired.length, r.id).toBeGreaterThan(20);
+      expect(r.whoWouldWantIt.length, r.id).toBeGreaterThan(20);
+      expect(r.funding, r.id).toBe("unfunded draft");
+    }
+    expect(pack._status).toContain("Not posted");
+  });
+
+  it("is diverse: at least 5 categories, and feedback is not the majority", () => {
+    const cats = rows.map((r) => r.category);
+    expect(new Set(cats).size).toBeGreaterThanOrEqual(5);
+    expect(cats.filter((c) => c === "feedback").length).toBeLessThanOrEqual(Math.floor(rows.length / 3));
+  });
+
+  it("gives the daily mission something to pick (the live board had no candidate on 4 Oct)", () => {
+    expect(rows.filter((r) => isMissionCandidate({ description: r.description } as never)).length).toBeGreaterThanOrEqual(3);
+  });
+
+  it("contains no em dash or en dash (house writing rule)", () => {
+    expect(JSON.stringify(pack)).not.toMatch(/[–—]/);
+  });
+});
