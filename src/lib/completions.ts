@@ -96,6 +96,51 @@ export async function recordTaskCompletion(address: string, c: Contribution): Pr
   await redis.ltrim(contributionsKey(addr), 0, CONTRIBUTIONS_MAX - 1);
 }
 
+// THE HISTORY ROW FOR A LATE PASS (2026-10-05). A flagged proof can be accepted
+// later by three routes: the follow-up answer, the poster's approval, and dispute
+// mediation. None of them wrote this record, so a person who was accepted that way
+// had nothing in History, and on a multi-reply favour (reopened and wiped by
+// settleLatePass in store.ts) their proof was kept nowhere at all.
+//
+// The caller passes the task as it was BEFORE the pass was applied, because that
+// snapshot still holds the claimant and the proof.
+//
+// Points on the row: those routes credit the favour's own value through
+// reputation.recordCompletion and pay no streak bonus, so the row says exactly
+// that. A money favour shows 0 points here: its reward is USDC and is settled
+// and reported by the escrow path, never by this record.
+type LatePassTask = {
+  id: string;
+  description: string;
+  bountyUsdc: number;
+  rewardType?: string;
+  proofImageUrl: string | null;
+  proofNote: string | null;
+  campaignId?: string;
+  companyCampaignId?: string;
+};
+
+export function latePassContribution(task: LatePassTask, now: number): Contribution {
+  return buildContribution({
+    taskId: task.id,
+    description: task.description,
+    points: task.rewardType === "points" ? task.bountyUsdc : 0,
+    streakBonus: 0,
+    proofImageUrl: task.proofImageUrl,
+    proofNote: task.proofNote,
+    campaignId: task.campaignId ?? task.companyCampaignId ?? null,
+    now,
+  });
+}
+
+export async function recordLatePassHistory(
+  task: LatePassTask & { claimant: string | null },
+  now: number = Date.now(),
+): Promise<void> {
+  if (!task.claimant) return;
+  await recordTaskCompletion(task.claimant, latePassContribution(task, now));
+}
+
 // THE DUPLICATE-REWARD GUARD FAILS CLOSED (review, 2026-09-21).
 //
 // An earlier draft returned `false` on a store error, "fail open, at most one

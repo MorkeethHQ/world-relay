@@ -541,6 +541,12 @@ async function settleLatePass(task: Task): Promise<void> {
 export async function posterConfirm(id: string, approved: boolean): Promise<Task | null> {
   const task = await getTask(id);
   if (!task || task.companyCampaignId || task.verificationResult?.verdict !== "flag") return null;
+
+  // A flag can be decided once (2026-10-05). A single-reply favour keeps its
+  // "flag" verdict after an approval, so a second approval used to pass the check
+  // above and credit the person again. A flagged proof is always on a claimed task.
+  if (task.status !== "claimed") return null;
+
   if (approved) {
     await settleLatePass(task);
   } else {

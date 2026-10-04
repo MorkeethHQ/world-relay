@@ -9,6 +9,7 @@ import { recordCompletion, recordFailure } from "@/lib/reputation";
 import { fireWebhook } from "@/lib/webhooks";
 import { releaseEscrow } from "@/lib/escrow";
 import { broadcastEvent } from "@/lib/sse";
+import { recordLatePassHistory } from "@/lib/completions";
 
 export async function POST(
   req: NextRequest,
@@ -65,6 +66,9 @@ export async function POST(
     notifyVerified(task.claimant, task.bountyUsdc, task.rewardType).catch(console.error);
     const followUpIsFunded = task.onChainId !== null || !!task.escrowTxHash;
     recordCompletion(task.claimant, task.bountyUsdc, result.confidence, undefined, followUpIsFunded).catch(console.error);
+    // The person's History row. `task` is the snapshot from before the pass, so it
+    // still holds their proof; the store may have reopened and wiped the favour.
+    if (updated) await recordLatePassHistory(task).catch(console.error);
 
     const txHash = await postAttestation(
       id, task.description, proofBase64Array[0].slice(0, 100), "pass", result.confidence
