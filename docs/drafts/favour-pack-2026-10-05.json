@@ -54,7 +54,7 @@
   },
   {
    "id": "staple-prices",
-   "description": "Photo the shelf price of a litre of milk and a loaf of bread at a shop near you, and name the town. Shelf labels only: no people and no receipts.",
+   "description": "Photo the shelf price of a litre of milk and a loaf of bread at a shop in your town, and name the town. Shelf labels only: no people and no receipts.",
    "safety": "Shelf labels only: no people and no receipts.",
    "category": "photo",
    "points": 20,
@@ -70,7 +70,7 @@
   },
   {
    "id": "water-refill",
-   "description": "Find a public water tap or refill point near you. Photo it with the water running, or say it is dry. Name the town. No people in the photo.",
+   "description": "Find a public water tap or refill point in your town. Photo it with the water running, or say it is dry. Name the town. No people in the photo.",
    "safety": "No people in the photo.",
    "category": "check-in",
    "points": 18,
@@ -102,7 +102,7 @@
   },
   {
    "id": "step-free-entrance",
-   "description": "Photo the main entrance of a library, post office or station near you. Could a wheelchair get in unaided? No people in the photo where you can help it.",
+   "description": "Photo the main entrance of a library, post office or station in your town. Could a wheelchair get in unaided? No people in the photo where you can help it.",
    "safety": "No people in the photo where you can help it.",
    "category": "photo",
    "points": 20,
@@ -182,7 +182,7 @@
   },
   {
    "id": "recycling-point",
-   "description": "Photo a public recycling point near you and say what it takes. Name the town. No people and no number plates in the photo.",
+   "description": "Photo a public recycling point in your town and say what it takes. Name the town. No people and no number plates in the photo.",
    "safety": "No people and no number plates in the photo.",
    "category": "photo",
    "points": 15,
