@@ -105,11 +105,15 @@ describe("scripts/fake-store.mjs, and the dry runs anyone can check against it",
   }, 60000);
 
   it("a real hide and undo against the fake are counted as writes, so the counter is not blind", async () => {
-    await run("node", ["scripts/hide-item.mjs", "task", "stale000", "--reason", "rehearsal", "--apply"], { env: env() });
+    const codeOf = (out: string) => out.match(/--apply --confirm ([0-9a-f]+)/)![1];
+    const dryHide = await run("node", ["scripts/hide-item.mjs", "task", "stale000", "--reason", "rehearsal"], { env: env() });
+    expect((await log()).writes).toBe(0);
+    await run("node", ["scripts/hide-item.mjs", "task", "stale000", "--reason", "rehearsal", "--apply", "--confirm", codeOf(dryHide.stdout)], { env: env() });
     const afterHide = await log();
     expect(afterHide.writes).toBe(1);
     expect(afterHide.counts.EVAL).toBe(1);
-    await run("node", ["scripts/hide-item.mjs", "task", "stale000", "--undo", "--apply"], { env: env() });
+    const dryUndo = await run("node", ["scripts/hide-item.mjs", "task", "stale000", "--undo"], { env: env() });
+    await run("node", ["scripts/hide-item.mjs", "task", "stale000", "--undo", "--apply", "--confirm", codeOf(dryUndo.stdout)], { env: env() });
     expect((await log()).writes).toBe(2);
     const { stdout } = await run("node", ["scripts/hide-item.mjs", "task", "stale000", "--undo"], { env: env() });
     expect(stdout).toContain("already visible");

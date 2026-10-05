@@ -1,0 +1,2 @@
+KV_REST_API_URL=http://127.0.0.1:8079
+KV_REST_API_TOKEN=local-fake-not-a-secret

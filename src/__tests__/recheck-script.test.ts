@@ -131,6 +131,14 @@ async function script(args: string[], env: Record<string, string> = {}) {
     return { code: err.code ?? -1, out: `${err.stdout ?? ""}${err.stderr ?? ""}` };
   }
 }
+// A real run the way the operator must do it since 5 Oct: the dry run first, then
+// the same command with --apply and the code the dry run printed.
+const codeOf = (out: string) => out.match(/--apply --confirm ([0-9a-f]+)/)?.[1];
+async function applyRun(args: string[], env: Record<string, string>) {
+  const dry = await script(args);
+  const code = codeOf(dry.out);
+  return script([...args, "--apply", "--confirm", code ?? "none"], env);
+}
 const WRITES = new Set(["SET", "DEL", "SADD", "SREM", "LPUSH", "LTRIM", "INCR", "HINCRBY", "ZINCRBY", "EVAL", "EXPIRE", "PEXPIRE"]);
 
 describe("scripts/recheck-thrown-proofs.mjs", () => {
@@ -140,6 +148,7 @@ describe("scripts/recheck-thrown-proofs.mjs", () => {
     const r = await script([]);
     expect(r.code).toBe(0);
     expect(r.out).toContain("Dry run. 2 would be re-checked, 0 would be resumed, 1 skipped. Nothing was written.");
+    expect(codeOf(r.out)).toMatch(/^[0-9a-f]{10}$/);
     expect(r.out).toContain("would-recheck t1");
     expect(r.out).not.toContain("t3");
     expect(commands.filter((c) => WRITES.has(c))).toEqual([]);
@@ -149,7 +158,7 @@ describe("scripts/recheck-thrown-proofs.mjs", () => {
 
   it("--apply without a model key stops before it reads or writes anything", async () => {
     seed(task("t1"));
-    const r = await script(["--apply"]);
+    const r = await script(["--apply", "--confirm", "0000000000"]);
     expect(r.code).toBe(2);
     expect(r.out).toContain("--apply needs ANTHROPIC_API_KEY");
     expect(commands).toEqual([]);
@@ -163,7 +172,7 @@ describe("scripts/recheck-thrown-proofs.mjs", () => {
   }, 30000);
 
   it("the verifier double is refused against a store that is not on this machine", async () => {
-    const r = await script(["--apply"], { ANTHROPIC_API_KEY: "local-double-not-a-key", RECHECK_VERIFIER_MODULE: passDouble, KV_REST_API_URL: "https://example.upstash.io" });
+    const r = await script(["--apply", "--confirm", "0000000000"], { ANTHROPIC_API_KEY: "local-double-not-a-key", RECHECK_VERIFIER_MODULE: passDouble, KV_REST_API_URL: "https://example.upstash.io" });
     expect(r.code).toBe(2);
     expect(r.out).toContain("refused against a remote store");
     expect(commands).toEqual([]);
@@ -173,7 +182,7 @@ describe("scripts/recheck-thrown-proofs.mjs", () => {
     seed(task("t1"), task("t3", { claimant: BEN, verificationResult: { verdict: "flag", reasoning: "Too thin to tell.", confidence: 0.6 } }));
     const realFlagBefore = kv.get("task:t3");
     const env = { ANTHROPIC_API_KEY: "local-double-not-a-key", RECHECK_VERIFIER_MODULE: passDouble };
-    const r = await script(["--apply"], env);
+    const r = await applyRun([], env);
     expect(r.out).toContain("Applied. passed 1 (18 points read back),");
     expect(r.code).toBe(0);
     expect(unknown).toEqual([]);
@@ -190,9 +199,13 @@ describe("scripts/recheck-thrown-proofs.mjs", () => {
     expect(kv.get("task:t3")).toBe(realFlagBefore);
 
     const after = dump();
-    const again = await script(["--apply"], env);
+    // Run again: the dry run shows an empty list and prints no code, so there is
+    // nothing to apply. A real run forced with an old or invented code does not start.
+    const again = await script([]);
     expect(again.code).toBe(0);
-    expect(again.out).toContain("Applied. passed 0 (0 points read back),");
+    expect(again.out).toContain("Dry run. 0 would be re-checked, 0 would be resumed");
+    expect(codeOf(again.out)).toBeUndefined();
+    expect((await script(["--apply", "--confirm", "0000000000"], env)).code).toBe(2);
     expect(dump()).toBe(after);
     expect(lists.get(`contributions:${ANA}`)).toHaveLength(1);
   }, 60000);
@@ -203,7 +216,7 @@ describe("scripts/recheck-thrown-proofs.mjs", () => {
     // The reputation write is refused once. That writer catches the error and only
     // logs it, which is the swallowed-error case from the 01:00 review.
     refuseOnce = ["SET", "rep:"];
-    const first = await script(["--apply"], env);
+    const first = await applyRun([], env);
     expect(first.code).toBe(1);
     expect(first.out).toContain("failed        t1");
     expect(first.out).toContain("the completion on the reputation was not written");
@@ -218,7 +231,7 @@ describe("scripts/recheck-thrown-proofs.mjs", () => {
     expect(dry.out).toContain("would-resume  t1");
     expect(dry.out).toContain("1 would be resumed");
 
-    const second = await script(["--apply"], env);
+    const second = await applyRun([], env);
     expect(second.code).toBe(0);
     expect(second.out).toContain("Applied. passed 1 (18 points read back),");
     expect(JSON.parse(kv.get(`pof:${ANA}`)!)).toMatchObject({ totalPoints: 18, favoursCompleted: 1, favoursAttempted: 1 });
@@ -228,15 +241,55 @@ describe("scripts/recheck-thrown-proofs.mjs", () => {
     expect(sets.get("recheck:pending")?.size ?? 0).toBe(0);
 
     const after = dump();
-    const third = await script(["--apply"], env);
+    const third = await script([]);
     expect(third.code).toBe(0);
+    expect(codeOf(third.out)).toBeUndefined();
     expect(dump()).toBe(after);
   }, 90000);
+
+  // Second cold walk: the documented block held the dry run and both --apply lines,
+  // so a paste ran the writes. A real run now needs the code its own dry run printed.
+  it("--apply with no code, a made-up code, or the code of another list does not start, and sends no write", async () => {
+    seed(task("t1"), task("t2", { claimant: BEN, proofNote: "Transjakarta" }));
+    const env = { ANTHROPIC_API_KEY: "local-double-not-a-key", RECHECK_VERIFIER_MODULE: passDouble };
+    const before = dump();
+
+    const none = await script(["--apply"], env);
+    expect(none.code).toBe(2);
+    expect(none.out).toContain("--apply needs --confirm");
+    expect(commands).toEqual([]);
+
+    const madeUp = await script(["--apply", "--confirm", "0000000000"], env);
+    expect(madeUp.code).toBe(2);
+    expect(madeUp.out).toContain("NOT STARTED");
+
+    // The code of the one-favour dry run does not start the run of everything.
+    const one = codeOf((await script(["--limit", "1"])).out)!;
+    const all = await script(["--apply", "--confirm", one], env);
+    expect(all.code).toBe(2);
+
+    expect(commands.filter((c) => WRITES.has(c))).toEqual([]);
+    expect(dump()).toBe(before);
+  }, 60000);
+
+  it("a code goes stale when the list changes after the dry run", async () => {
+    seed(task("t1"), task("t2", { claimant: BEN, proofNote: "Transjakarta" }));
+    const env = { ANTHROPIC_API_KEY: "local-double-not-a-key", RECHECK_VERIFIER_MODULE: passDouble };
+    const code = codeOf((await script([])).out)!;
+    // t2 expires between the dry run and the real run.
+    kv.set("task:t2", JSON.stringify({ ...rec("t2"), status: "expired" }));
+    const before = dump();
+    const r = await script(["--apply", "--confirm", code], env);
+    expect(r.code).toBe(2);
+    expect(r.out).toContain("NOT STARTED");
+    expect(r.out).toContain("would-recheck t1");
+    expect(dump()).toBe(before);
+  }, 60000);
 
   it("when the check still throws, nothing changes and the exit code says so", async () => {
     seed(task("t1"));
     const before = dump();
-    const r = await script(["--apply"], { ANTHROPIC_API_KEY: "local-double-not-a-key", RECHECK_VERIFIER_MODULE: throwDouble });
+    const r = await applyRun([], { ANTHROPIC_API_KEY: "local-double-not-a-key", RECHECK_VERIFIER_MODULE: throwDouble });
     expect(r.code).toBe(1);
     expect(r.out).toContain("still-failing");
     expect(r.out).toContain("LOCAL DOUBLE: 401 invalid x-api-key");

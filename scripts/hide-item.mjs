@@ -11,13 +11,15 @@
 // This is the ONLY writer of hiddenAt. No API route writes it (guarded in
 // src/__tests__/lead-card.test.ts). It moves no points and no money.
 //
-// EVERY command is a dry run until --apply is added. That includes --undo.
+// EVERY command is a dry run until --apply is added. That includes --undo. And
+// --apply does nothing without --confirm <code>, where the code is printed by the
+// dry run of the same command and changes when the records change.
 //
-//   node scripts/hide-item.mjs                                        list hidden items (read only)
-//   node scripts/hide-item.mjs campaign <id> [--reason "..."]         dry run of a hide
-//   node scripts/hide-item.mjs campaign <id> --reason "..." --apply   hide it
-//   node scripts/hide-item.mjs task <id> --undo                       dry run of an undo
-//   node scripts/hide-item.mjs task <id> --undo --apply               undo it
+//   node scripts/hide-item.mjs                                                       list hidden items (read only)
+//   node scripts/hide-item.mjs campaign <id> --reason "..."                          dry run of a hide, prints a code
+//   node scripts/hide-item.mjs campaign <id> --reason "..." --apply --confirm <code>   hide it
+//   node scripts/hide-item.mjs task <id> --undo                                      dry run of an undo, prints a code
+//   node scripts/hide-item.mjs task <id> --undo --apply --confirm <code>             undo it
 //
 // Needs KV_REST_API_URL and KV_REST_API_TOKEN.
 //
@@ -44,6 +46,8 @@
 //
 // What it still cannot do: a campaign and its pieces are separate records, so a
 // campaign hide is not one atomic step. If it exits 1 part way, run it again.
+import { createHash } from "node:crypto";
+
 const U = process.env.KV_REST_API_URL;
 const T = process.env.KV_REST_API_TOKEN;
 if (!U || !T) { console.error("KV_REST_API_URL and KV_REST_API_TOKEN are required"); process.exit(2); }
@@ -79,7 +83,15 @@ const APPLY = argv.includes("--apply");
 const UNDO = argv.includes("--undo");
 const ri = argv.indexOf("--reason");
 const reason = ri >= 0 ? argv[ri + 1] : "operator: spam or not completable";
-const [kind, id] = argv.filter((a, i) => !a.startsWith("--") && !(ri >= 0 && i === ri + 1));
+const ciEarly = argv.indexOf("--confirm");
+const positional = argv.filter((a, i) => !a.startsWith("--") && !(ri >= 0 && i === ri + 1) && !(ciEarly >= 0 && i === ciEarly + 1));
+// Anything left over is a mistake, for example the words of a pasted comment in
+// a shell that does not treat # as one. Refuse it instead of guessing.
+if (positional.length > 2 || argv.some((a) => a.startsWith("--") && !["--apply", "--undo", "--reason", "--confirm"].includes(a))) {
+  console.error(`unexpected argument(s): ${[...positional.slice(2), ...argv.filter((a) => a.startsWith("--") && !["--apply", "--undo", "--reason", "--confirm"].includes(a))].join(" ")}\nusage: hide-item.mjs [<task|campaign> <id> [--reason "..."] [--undo] [--apply --confirm <code>]]\nNothing was read or written.`);
+  process.exit(2);
+}
+const [kind, id] = positional;
 
 if (!kind) {
   const ids = (await cmd("SMEMBERS", "campaign:company:published")) ?? [];
@@ -90,68 +102,100 @@ if (!kind) {
   process.exit(0);
 }
 if ((kind !== "task" && kind !== "campaign") || !id) {
-  console.error("usage: hide-item.mjs <task|campaign> <id> [--reason \"...\"] [--undo] [--apply]");
+  console.error("usage: hide-item.mjs [<task|campaign> <id> [--reason \"...\"] [--undo] [--apply --confirm <code>]]");
   process.exit(2);
 }
 
 const backupKey = (key) => `hide:backup:${key}`;
 const state = (d) => (d.hiddenAt ? `hidden (${d.hiddenReason ?? "no reason"})` : "visible");
-let changedUnderUs = false;
+const ci = argv.indexOf("--confirm");
+const confirm = ci >= 0 ? argv[ci + 1] : undefined;
 
-// One record. Reads it, works out the new record, and (with --apply) writes it by
-// compare-and-set. Returns the record as read, or null when there is none.
-async function setHidden(key, label) {
+// PLAN one record: read it and work out the new record. Writes nothing.
+// Returns null when there is no record, or { key, label, raw, d, next, script, entry, note, write }.
+async function plan(key, label) {
   const raw = await cmd("GET", key);
   if (raw === null || raw === undefined) { console.error(`No ${label} at ${key}`); return null; }
   if (typeof raw !== "string") { console.error(`${key}: the store did not return the record as text, so it cannot be compared before a write. Nothing written.`); process.exit(1); }
   const d = JSON.parse(raw);
   const next = { ...d };
-  let script = CAS_HIDE;
-  let entry = "";
+  const p = { key, label, raw, d, next, script: CAS_HIDE, entry: "", write: true, note: "" };
 
   if (UNDO) {
-    if (!d.hiddenAt) { console.log(`${label} ${key}: already visible, nothing to undo`); return d; }
-    script = CAS_UNDO;
-    entry = (await cmd("LINDEX", backupKey(key), 0)) ?? "";
+    if (!d.hiddenAt) { p.write = false; p.note = `${label} ${key}: already visible, nothing to undo`; return p; }
+    p.script = CAS_UNDO;
+    p.entry = (await cmd("LINDEX", backupKey(key), 0)) ?? "";
     delete next.hiddenAt;
     delete next.hiddenReason;
-    if (entry) {
-      const prior = JSON.parse(JSON.parse(entry).prior);
+    if (p.entry) {
+      const prior = JSON.parse(JSON.parse(p.entry).prior);
       if (prior.hiddenAt) { next.hiddenAt = prior.hiddenAt; next.hiddenReason = prior.hiddenReason; }
-      console.log(`${label} ${key}: ${state(d)} -> ${state(next)}  (the state saved before the last hide)`);
+      p.note = `${label} ${key}: ${state(d)} -> ${state(next)}  (the state saved before the last hide)`;
     } else {
-      console.log(`${label} ${key}: ${state(d)} -> visible  (no saved prior state: it was hidden before this script kept one)`);
+      p.note = `${label} ${key}: ${state(d)} -> visible  (no saved prior state: it was hidden before this script kept one)`;
     }
   } else {
-    if (d.hiddenAt && d.hiddenReason === reason) { console.log(`${label} ${key}: already hidden for this reason, nothing to write`); return d; }
+    if (d.hiddenAt && d.hiddenReason === reason) { p.write = false; p.note = `${label} ${key}: already hidden for this reason, nothing to write`; return p; }
     next.hiddenAt = new Date().toISOString();
     next.hiddenReason = reason;
-    entry = JSON.stringify({ at: next.hiddenAt, action: "hide", key, reason, prior: raw });
-    console.log(`${label} ${key}: ${state(d)} -> ${state(next)}`);
+    p.entry = JSON.stringify({ at: next.hiddenAt, action: "hide", key, reason, prior: raw });
+    p.note = `${label} ${key}: ${state(d)} -> ${state(next)}`;
   }
-
-  if (APPLY) {
-    const ok = await cmd("EVAL", script, "2", key, backupKey(key), raw, JSON.stringify(next), entry);
-    if (ok !== 1) {
-      changedUnderUs = true;
-      console.error(`  NOT WRITTEN: ${key} changed between the read and the write (a claim, a proof or a cron). Nothing was lost. Run the same command again.`);
-      return d;
-    }
-    const back = parse(await cmd("GET", key));
-    console.log(`  written: hiddenAt=${back.hiddenAt ?? "none"}${UNDO ? "" : `  prior record saved in ${backupKey(key)}`}`);
-  }
-  return d;
+  return p;
 }
 
+// The whole plan first: every record this command would touch.
+const plans = [];
 if (kind === "task") {
-  if (!(await setHidden(`task:${id}`, "task"))) process.exit(1);
+  const p = await plan(`task:${id}`, "task");
+  if (!p) process.exit(1);
+  plans.push(p);
 } else {
   const pre = parse(await cmd("GET", `campaign:draft:${id}`));
   if (!pre) { console.error(`No campaign ${id}`); process.exit(1); }
   if (pre.status !== "published" && pre.status !== "publishing") { console.error(`${id} is a private draft, nothing public to hide`); process.exit(1); }
-  const d = await setHidden(`campaign:draft:${id}`, "campaign");
-  if (!d) process.exit(1);
-  for (const tid of Object.values(d.pieceTaskIds ?? {})) await setHidden(`task:${tid}`, "  piece task");
+  const c = await plan(`campaign:draft:${id}`, "campaign");
+  if (!c) process.exit(1);
+  plans.push(c);
+  for (const tid of Object.values(c.d.pieceTaskIds ?? {})) {
+    const p = await plan(`task:${tid}`, "  piece task");
+    if (p) plans.push(p);
+  }
+}
+for (const p of plans) console.log(p.note);
+
+// THE CONFIRM CODE (2026-10-05). A write needs --apply AND --confirm <code>, and
+// the code is printed only by the dry run. It is made from the action, the
+// reason and the exact records the dry run read, so it cannot be known without
+// running the dry run, and it stops matching if any of those records changes.
+// A block of commands pasted whole cannot hide or undo anything.
+const code = createHash("sha256")
+  .update(JSON.stringify([kind, id, UNDO ? "undo" : "hide", UNDO ? "" : reason, plans.map((p) => [p.key, p.raw, p.write])]))
+  .digest("hex")
+  .slice(0, 10);
+const toWrite = plans.filter((p) => p.write);
+
+if (!APPLY) {
+  console.log(`Dry run. Nothing was written. ${toWrite.length} record(s) would change.`);
+  if (toWrite.length > 0) console.log(`To ${UNDO ? "undo" : "hide"}, run the same command again with: --apply --confirm ${code}`);
+  process.exit(0);
+}
+if (confirm !== code) {
+  console.error(confirm
+    ? `NOT WRITTEN: --confirm ${confirm} does not match. The records, the reason or the action differ from the dry run that gave that code. Read the lines above, then run the dry run again.`
+    : "NOT WRITTEN: --apply needs --confirm <code>. Run the same command without --apply first; it prints the code.");
+  process.exit(2);
+}
+
+let changedUnderUs = false;
+for (const p of toWrite) {
+  const ok = await cmd("EVAL", p.script, "2", p.key, backupKey(p.key), p.raw, JSON.stringify(p.next), p.entry);
+  if (ok !== 1) {
+    changedUnderUs = true;
+    console.error(`  NOT WRITTEN: ${p.key} changed between the read and the write (a claim, a proof or a cron). Nothing was lost. Run the dry run again.`);
+    continue;
+  }
+  const back = parse(await cmd("GET", p.key));
+  console.log(`  written ${p.key}: hiddenAt=${back.hiddenAt ?? "none"}${UNDO ? "" : `  prior record saved in ${backupKey(p.key)}`}`);
 }
 if (changedUnderUs) process.exit(1);
-if (!APPLY) console.log(`Dry run. Nothing was written. Add --apply to ${UNDO ? "undo" : "hide"}.`);

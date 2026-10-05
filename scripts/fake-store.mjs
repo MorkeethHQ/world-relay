@@ -12,8 +12,11 @@
 //
 // Then, in another terminal, point a script at it:
 //
-//   KV_REST_API_URL=http://127.0.0.1:8079 KV_REST_API_TOKEN=local node scripts/recheck-thrown-proofs.mjs
+//   node --env-file=scripts/fake-store.envfile scripts/recheck-thrown-proofs.mjs
 //   curl -s http://127.0.0.1:8079/__log
+//
+// scripts/fake-store.envfile holds the two variables that point a script at this
+// fake on port 8079. It contains no secret.
 //
 // GET /__log answers the command counts and how many of them were writes, so "a
 // dry run sends no write" is something anyone can check.
