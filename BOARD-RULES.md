@@ -212,7 +212,8 @@ recur silently.
   **Moderation.** `hiddenAt` on a task or a campaign is the operator's hidden
   state. Only `scripts/hide-item.mjs` writes it. Every command is a dry run until
   `--apply`, and that includes `--undo` (since 5 Oct 2026: undo used to write at
-  once). A hide saves the prior record to `hide:backup:<key>` and writes by
+  once). `--apply` does nothing without `--confirm <code>`, and the code is printed
+  only by the dry run of the same command. A hide saves the prior record to `hide:backup:<key>` and writes by
   compare-and-set, so it fails instead of overwriting a record that changed under
   it. Undo restores the hidden state saved before the last hide, which may itself
   be hidden; no API route does, and a guard test pins that. A hidden task leaves

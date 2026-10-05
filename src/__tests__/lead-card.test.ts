@@ -13,6 +13,10 @@ import { isPublicTask } from "@/lib/task-serializer";
 // copied field for field, plus one campaign that is allowed to lead.
 
 const NOW = Date.parse("2026-09-25T12:00:00Z");
+// The clock is PINNED in every rankCampaignCards call below (fixed 2026-10-05).
+// Since R18 that function asks whether a campaign's pieces have closed, which
+// depends on the time. These fixtures expire on 2026-10-05T00:00Z, and three tests
+// that left the clock to default started failing at that minute.
 
 const LIVE: PublicCompanyCampaign[] = [
   {
@@ -63,14 +67,14 @@ const pieceTasks = [...LIVE, GOOD].flatMap((c) => Object.values(c.pieceTaskIds ?
 describe("R16: campaigns that may lead the board", () => {
   it("none of the three live campaigns may lead: unverified, thin brief or no product", () => {
     for (const c of LIVE) expect(canLeadCampaign(c, pieceTasks)).toBe(false);
-    const { lead, rest } = rankCampaignCards(LIVE, pieceTasks);
+    const { lead, rest } = rankCampaignCards(LIVE, pieceTasks, new Set(), NOW);
     expect(lead).toEqual([]);
     // Demoted below the favours, never dropped.
     expect(rest.map((c) => c.company).sort()).toEqual(["Filipino Lokal", "MDM Enterprise", "kcz sdn,bhd"]);
   });
 
   it("a checked company with a real brief, a product and an open piece leads", () => {
-    const { lead, rest } = rankCampaignCards([...LIVE, GOOD], pieceTasks);
+    const { lead, rest } = rankCampaignCards([...LIVE, GOOD], pieceTasks, new Set(), NOW);
     expect(lead.map((c) => c.id)).toEqual([GOOD.id]);
     expect(rest).toHaveLength(3);
     expect(pickCampaignToDo([...LIVE, GOOD], pieceTasks)?.campaign.id).toBe(GOOD.id);
@@ -91,7 +95,7 @@ describe("R16: campaigns that may lead the board", () => {
 
   it("an operator-hidden campaign is not on the board at all, not even below", () => {
     const kcz = { ...LIVE[1], hidden: true };
-    const { lead, rest } = rankCampaignCards([LIVE[0], kcz, LIVE[2]], pieceTasks);
+    const { lead, rest } = rankCampaignCards([LIVE[0], kcz, LIVE[2]], pieceTasks, new Set(), NOW);
     expect([...lead, ...rest].some((c) => c.id === kcz.id)).toBe(false);
     expect(rest).toHaveLength(2);
   });
