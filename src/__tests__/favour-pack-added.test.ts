@@ -26,7 +26,7 @@ const added = pack._added_5_oct;
 const rows: Row[] = (added.ids as string[]).map((id) => candidates.find((c) => c.id === id)!);
 const live: string[] = JSON.parse(readFileSync("src/__tests__/fixtures/live-descriptions-2026-10-04.json", "utf8")).descriptions;
 
-describe("rows added 5 Oct, author read only", () => {
+describe("rows added 5 Oct, read by one independent reader", () => {
   it("the frozen candidates file is byte for byte the file that was frozen", () => {
     expect(createHash("sha256").update(raw).digest("hex")).toBe(FROZEN_SHA256);
     expect(candidates).toHaveLength(15);
@@ -34,7 +34,12 @@ describe("rows added 5 Oct, author read only", () => {
 
   it("every added id is a frozen candidate, and every candidate has exactly one outcome", () => {
     for (const r of rows) expect(r, "an added id is missing from the frozen file").toBeDefined();
-    const outcomes = [...added.ids, ...added.droppedByHostileRead, ...added.heldBackByAuthor, ...added.failedPackTextRule];
+    // After the independent read: 1 kept, 5 dropped by the reader, 2 replaced by
+    // proposed new wording (a new row, so the frozen one is out).
+    const readerDropped: string[] = added.droppedByIndependentReader.map((d: { id: string }) => d.id);
+    expect(readerDropped).toHaveLength(5);
+    expect([...added.ids, ...readerDropped, ...added.replacedByProposedWording].sort()).toEqual([...added.authorKept].sort());
+    const outcomes = [...added.ids, ...readerDropped, ...added.replacedByProposedWording, ...added.droppedByHostileRead, ...added.heldBackByAuthor, ...added.failedPackTextRule];
     expect(new Set(outcomes).size).toBe(outcomes.length);
     expect([...outcomes].sort()).toEqual(candidates.map((c) => c.id).sort());
     expect(added.written).toBe(15);
@@ -45,7 +50,7 @@ describe("rows added 5 Oct, author read only", () => {
       .filter((r) => r.aid === "pass" && r.hostileVerdict === "pass" && !r.heldBack).map((r) => r.id);
     // A row can pass both reads and still fail a rule about the posted text below.
     // Such a row is listed apart, with its reason, and is not edited to pass.
-    expect([...added.ids, ...added.failedPackTextRule].sort()).toEqual(passed.sort());
+    expect([...added.authorKept, ...added.failedPackTextRule].sort()).toEqual(passed.sort());
     expect(added.failedPackTextRule).toEqual(["hard-word"]);
     expect(added.failedPackTextRuleWhy).toContain("was not edited and the rule was not loosened");
     const failed = (results.results as Array<{ id: string; hostileVerdict: string }>).filter((r) => r.hostileVerdict === "FAIL").map((r) => r.id);
@@ -55,8 +60,32 @@ describe("rows added 5 Oct, author read only", () => {
   it("the added rows are kept out of the list that had independent reads, and say who read them", () => {
     const reviewed: string[] = pack.favours.map((f: { id: string }) => f.id);
     for (const id of added.ids) expect(reviewed, id).not.toContain(id);
-    expect(added.heading).toBe("Added 5 Oct, not yet read by anyone but the author");
-    expect(added.readStatus).toContain("No independent reader has seen these rows");
+    expect(added.ids).toEqual(["kinder-rejection"]);
+    expect(added.heading).toBe("Added 5 Oct, read by one independent reader");
+    expect(added.readStatus).toContain("One independent reader");
+    expect(added.total).toContain("2 reviewed rows plus 1 added and independently read");
+    expect(added.total).toContain("against 10 to 15");
+  });
+
+  it("the reader's replacement texts are held apart, marked not frozen and not read, and not counted", () => {
+    const p = added.proposedNewWordingNotFrozenNotRead;
+    expect(p.heading).toBe("Proposed 5 Oct, new wording, not frozen and not read");
+    expect(p.status).toContain("not counted as added");
+    expect(p.rows.map((r: { replaces: string }) => r.replaces).sort()).toEqual([...added.replacedByProposedWording].sort());
+    const frozenTexts = candidates.map((c) => c.description);
+    for (const r of p.rows as Array<{ replaces: string; description: string }>) {
+      expect(added.ids, r.replaces).not.toContain(r.replaces);
+      expect(frozenTexts, `${r.replaces}: a proposed text is a new text`).not.toContain(r.description);
+      expect(r.description.length, r.replaces).toBeLessThanOrEqual(160);
+    }
+  });
+
+  it("the pack says the live text check passes an on-topic attempt, and both rule gaps", () => {
+    expect(added.proofShowsCorrection).toContain("on topic");
+    expect((pack._known_limits as string[]).join(" ")).toContain("points are paid for engagement, not for quality");
+    expect(added.ruleGaps.join(" ")).toContain("proofRequired");
+    expect(added.ruleGaps.join(" ")).toContain("AFTER seeing the rows");
+    expect(added.ruleGaps.join(" ")).toContain("leaves 0 rows added");
   });
 
   it("every added row passes the replenisher validator unchanged and reads as an instruction", () => {
@@ -112,14 +141,14 @@ describe("rows added 5 Oct, author read only", () => {
   });
 
   it("the added rows are not mostly one kind of ask", () => {
-    expect(new Set(rows.map((r) => r.category)).size).toBeGreaterThanOrEqual(2);
+    expect(new Set(rows.map((r) => r.category)).size).toBeGreaterThanOrEqual(Math.min(2, rows.length));
     expect(rows.filter((r) => r.category === "feedback").length).toBeLessThanOrEqual(Math.floor(rows.length / 3));
   });
 
   it("the pack file says which of the reviewed list's rules these rows do not meet", () => {
     expect(added.notMetFromTheReviewedList).toContain("proofRequired");
     const short = rows.filter((r) => r.proofCannotShow.length <= 60).map((r) => r.id).sort();
-    expect(short).toEqual(["first-doubt"]);
+    expect(short).toEqual([]);
     for (const id of short) expect(added.notMetFromTheReviewedList, id).toContain(id);
   });
 

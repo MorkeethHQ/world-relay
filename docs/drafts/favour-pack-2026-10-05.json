@@ -1,12 +1,35 @@
 {
  "_status": "UNFUNDED DRAFT. Not posted. Do not post without Oscar.",
  "_added_5_oct": {
-  "heading": "Added 5 Oct, not yet read by anyone but the author",
-  "readStatus": "Read by the author only. No independent reader has seen these rows. The 2 rows in `favours` had four independent reads. These had none, so they are kept out of `favours`.",
+  "heading": "Added 5 Oct, read by one independent reader",
+  "readStatus": "One independent reader (reader-i) read the 8 rows the author had kept, finishing 05:22 CEST on 5 Oct. He kept 1 as written, proposed new wording for 2, and dropped 5. The 2 rows in `favours` had four independent reads. The 1 row here had one, so it is kept out of `favours`. His report: ~/Downloads/NIGHT-REVIEW-2026-10-05/cold-walk/favour-added-rows-read.md.",
+  "total": "2 reviewed rows plus 1 added and independently read. 3 rows against 10 to 15 asked for.",
+  "authorKept": ["plain-rewrite", "name-fit", "first-doubt", "step-order", "kinder-rejection", "claim-meaning", "unclear-word", "count-wording"],
+  "droppedByIndependentReader": [
+   {"id": "name-fit", "why": "asked inside an app already named FAVOUR, so the pick is biased. Worth only its human share, which cannot be shown. Handy pulls a language fact from honest German speakers. Relay is this product's old name."},
+   {"id": "step-order", "why": "safe and useless. One right answer, and the reader has just done these steps to reach the row. 400 points for the same four words 50 times."},
+   {"id": "claim-meaning", "why": "the reader has already tapped Claim to answer. 'Before you look anything up' cannot be checked. The word claim invites insurance and benefit stories."},
+   {"id": "unclear-word", "why": "the question asks for a fact about the reader ('to you') against its own clause. Without 'to you' a model answers it as well as a person."},
+   {"id": "count-wording", "why": "an opinion in text that nothing can check, the standard that removed visitor-trick. The two labels do not say the same thing."}
+  ],
+  "replacedByProposedWording": ["plain-rewrite", "first-doubt"],
+  "proposedNewWordingNotFrozenNotRead": {
+   "heading": "Proposed 5 Oct, new wording, not frozen and not read",
+   "status": "The reader's replacement texts. An edited row is a new row by the author's own freeze rule. These are not frozen, have not been through the personal data aid or the pack test, and nobody has read them as rows. They are not counted as added.",
+   "rows": [
+    {"replaces": "plain-rewrite", "description": "Rewrite this message in simpler words, in one sentence: \"Your proof is under review.\" Words only: nothing about you is needed.", "readerReason": "The quoted line is close to the app's own text and is not one of its strings, so 'this app message' was a false claim. 'Simpler' is the more common word."},
+    {"replaces": "first-doubt", "description": "An app says: \"Ask verified humans small questions, they answer for points.\" In one line, what would you not trust? Words only: nothing about you is needed.", "readerReason": "Removes 'doubt', which means 'question' in several kinds of English, and 'A new app', which describes this app as another one."}
+   ]
+  },
+  "proofShowsCorrection": "The proofShows fields in the frozen candidates file overclaim and are left as frozen. Corrected for kinder-rejection: the live check for a text proof is told only to pass an honest, on-topic attempt (src/lib/verify-proof.ts, the TEXT proofs block and the closing line of the system prompt, and line 386 which sends any proof with no photo down the lenient path). It is not told to enforce 'one or two sentences' or 'kind'. It sees one answer at a time, so a copied answer is invisible to it. Nothing tells it to look for text written by a language model, or to reject an answer that carries personal detail. So the proof can show that an answer is on topic and looks like an honest attempt, and no more.",
+  "ruleGaps": [
+   "The frozen rows have no proofRequired field, which the reviewed list requires. The author's check before the freeze missed it. The field is a review note; the reader found it nowhere in app code.",
+   "The author chose, AFTER seeing the rows, to apply only the pack's rules about the posted text to the added rows and not the reviewed list's two metadata rules (proofRequired, and a cannot-show note over 60 characters). A stricter reading leaves 0 rows added until they are redrafted and frozen again."
+  ],
   "source": "docs/drafts/favour-pack-candidates-2026-10-05.json, frozen in commit dc47e0d. The rows live in that file and are not copied here, so they cannot drift.",
   "results": "docs/drafts/favour-pack-candidates-results-2026-10-05.json",
   "written": 15,
-  "ids": ["plain-rewrite", "name-fit", "first-doubt", "step-order", "kinder-rejection", "claim-meaning", "unclear-word", "count-wording"],
+  "ids": ["kinder-rejection"],
   "droppedByHostileRead": ["button-label", "translate-sign-in", "now-or-later", "app-confusion"],
   "heldBackByAuthor": ["error-meaning", "shorten-line"],
   "failedPackTextRule": ["hard-word"],
@@ -14,10 +37,11 @@
   "notMetFromTheReviewedList": "The reviewed list also requires a proofRequired field and a proofCannotShow of more than 60 characters. The frozen rows have no proofRequired field. first-doubt (45 characters) is under 60. The author's check before the freeze missed both. The rows were not edited after the freeze to meet them, so these rows cannot move into `favours` as they stand."
  },
  "_written": "2026-10-04 night run, branch night/favour-cleanup-20261004. Revised four times on 2026-10-05 after four cold reads.",
- "_count_note": "The brief asked for 10 to 15 favours. 14 were drafted. After four independent reads, 2 remain. That is below the 10 to 15 asked for. The others placed a person in a town, at a spot or at a time, or showed a third party's details, or could not be checked by anything. Fewer good rows beat more risky ones.",
+ "_count_note": "The brief asked for 10 to 15 favours. 14 were drafted. After four independent reads, 2 remain. That is below the 10 to 15 asked for. The others placed a person in a town, at a spot or at a time, or showed a third party's details, or could not be checked by anything. Fewer good rows beat more risky ones. Later on 5 Oct, 15 more were drafted and frozen; 1 of them (kinder-rejection) was kept by the author and by one independent reader. Total: 2 reviewed rows plus 1 added and independently read, 3 against 10 to 15.",
  "_known_limits": [
+  "For a text favour the live check passes any honest, on-topic attempt, so points are paid for engagement, not for quality. Source: src/lib/verify-proof.ts, the system prompt's TEXT proofs block and its last line, and line 386. The check sees one answer at a time, so a copy is invisible. Nothing in it covers text written by a language model. This applies to translate-line and to kinder-rejection.",
   "Nothing shows that a photo is the sender's own. A picture found online passes as easily as one just taken. The app has no provenance check and this pack does not add one.",
-  "The check is a model, not a person. No human reviews a proof on the live app. Each row says what that model can see in the proof and what it cannot. Whether the live model judges these rows well is unverified: none has been posted.",
+  "The check is a model, not a person. For a flagged TEXT proof on a house favour the code holds no human review at all: the jury appeal takes only a proof with a photo (src/lib/jury-appeal.ts isAppealable), and the confirm route needs the poster's own session, and a house agent is not a person. For a flagged PHOTO proof on a points favour an appeal route exists (/api/jury/appeal, three qualified judges), but no screen in the branch calls it (grep of src/components and src/app). Whether anyone has ever ruled an appeal on the live app is unverified. Each row says what that model can see in the proof and what it cannot. Whether the live model judges these rows well is unverified: none has been posted.",
   "Answers come from one wallet. Several answers from the same wallet add up. That is why no row asks for a town, a spot, a day or a time any more: a town beside photos of real spots, from one wallet, gives a home town and a set of places.",
   "A photo is never placeless. A shelf label can still show a chain name, a branch code, a language. The safety clause in each row is an instruction to the sender. Nothing enforces it.",
   "The personal data check that the review test runs is a reviewer's aid. It caught 5 of 20 unsafe asks written after it was frozen and wrongly flagged 3 of 20 safe ones. A green test does not mean a row is safe.",
@@ -97,7 +121,9 @@
  "_decisions_for_oscar": [
   "translate-line: a machine translation passes. 100 replies at 12 points is 1200 house points that anyone with a translator can collect. Post it as it is, lower the reply count, or drop it.",
   "The pack holds 2 rows against 10 to 15 asked for. Accept 2, or ask for more rows with a person reading each one before it is posted.",
-  "Nothing shows a photo is the sender's own. Decide whether any photo favour should be posted before the app can tell."
+  "Nothing shows a photo is the sender's own. Decide whether any photo favour should be posted before the app can tell.",
+  "Finding: the proof screen tells a flagged sender on a points favour 'No points yet. People check it by hand, and the points land if they clear it.' (src/components/Feed.tsx line 3730) and 'Waiting for a human check' (line 3631). For a text proof no code path lets a person check it. For a photo proof the appeal route exists and no screen calls it. Decide whether to change that sentence or build the check. App copy was not changed.",
+  "For a text favour the live check pays for an on-topic attempt, not for a good answer. Decide whether translate-line and kinder-rejection should carry points on that basis, and at how many replies. The reader suggests 10 to 20 replies, not 50 or 100."
  ],
  "favours": [
   {
@@ -130,7 +156,7 @@
    "location": "Anywhere",
    "proofKind": "text the model can check against the posted line",
    "checkedBy": "the live model check, not a person",
-   "proofShows": "Whether the text is a fair translation of the posted line into the language named. A multilingual model can judge that from the two texts alone.",
+   "proofShows": "That the answer is on topic and looks like an honest attempt at a translation. The live check is told to pass any honest on-topic text answer. A model could judge accuracy from the two texts, but this check is not told to, so a poor translation can pass.",
    "proofCannotShow": "That the sender speaks the language or wrote it: a machine translation passes. Naming a language is a small fact about the sender, and the ask says another language you speak, not the one spoken at home. Whether the live model check judges this well is unverified.",
    "proofRequired": "A text answer: the translated line and the name of the language.",
    "rewardConsequence": "A machine translation passes, so this row pays for work a translator can do. 100 replies at 12 points is 1200 house points that anyone with a translator can collect, one reply per wallet. Whether that is acceptable is a decision for Oscar.",
