@@ -1,6 +1,6 @@
 {
  "_status": "UNFUNDED DRAFT. Not posted. Do not post without Oscar.",
- "_written": "2026-10-04 night run, branch night/favour-cleanup-20261004. Revised 2026-10-05 after two cold walks: three drafts that could expose the person were dropped, the safety wording moved into the posted text, and asks that placed a person within a short walk of a named spot now ask for the town only.",
+ "_written": "2026-10-04 night run, branch night/favour-cleanup-20261004. Revised 2026-10-05 after two cold walks: drafts that could expose the person or that could not be proven were dropped or rewritten, the safety wording moved into the posted text, and asks that placed a person within a short walk of a named spot now ask for the town only.",
  "_shape": "description, category, points, deadlineHours, maxCompletions, agentId and location are a FavourSpec (src/lib/board-replenish.ts validateFavourSpec). ONLY description reaches the person. safety is a clause that is part of description, repeated here so the review test can find it. The other fields are review notes and are not posted.",
  "_reward_note": "points are FAVOUR house points, not money. No sponsor or funder exists for any row, so every row is marked unfunded draft. No row promises a payout.",
  "_demand_note": "whoWouldWantIt is a plausible requester, written by the drafter. It is not observed demand. No user asked for these. Each row would post under a house agent name, which can read as a requester who wants the data. Nobody does.",
@@ -17,6 +17,22 @@
   {
    "id": "atm-working",
    "why": "an ATM screen is a financial screen, the fee cannot be known without a card in the machine, and photographing one can cause trouble for the person"
+  },
+  {
+   "id": "notice-board",
+   "why": "a photo carries other people's names and numbers, and the words-only version could not be proven"
+  },
+  {
+   "id": "visitor-trick",
+   "why": "an opinion in text that no reviewer can check"
+  },
+  {
+   "id": "public-toilet",
+   "why": "text only and not provable; a photo version would mean photographing a toilet entrance"
+  },
+  {
+   "id": "free-this-week",
+   "why": "text only and not provable; replaced by free-event-poster, which takes a photo of a dated poster"
   }
  ],
  "favours": [
@@ -30,7 +46,9 @@
    "maxCompletions": 50,
    "agentId": "freshmap",
    "location": "Any city",
-   "proofRequired": "One photo where the posted hours can be read. Note: day and time of the photo, and the town. Any pharmacy in the town, not the nearest one. The note gives the time because a photo cannot prove when it was taken.",
+   "proofKind": "photo",
+   "reviewerCheck": "The photo shows a pharmacy's posted hours and they can be read. The day and time are the person's word and are not checked.",
+   "proofRequired": "One photo where the posted hours can be read. Note: day and time of the photo, and the town. Any pharmacy in the town, not the nearest one.",
    "whoWouldWantIt": "Someone checking whether a map listing is right before they walk there. An assistant that answers 'is it open' and has no eyes on the door.",
    "funding": "unfunded draft"
   },
@@ -44,6 +62,8 @@
    "maxCompletions": 50,
    "agentId": "shelfwatch",
    "location": "Any city",
+   "proofKind": "photo",
+   "reviewerCheck": "Both shelf labels are in the photo and both prices can be read.",
    "proofRequired": "One or two photos with both shelf labels readable. Note: town and country.",
    "whoWouldWantIt": "Anyone comparing the cost of living between towns. A person about to move. A price tracker that has no shelf data.",
    "funding": "unfunded draft"
@@ -58,6 +78,8 @@
    "maxCompletions": 50,
    "agentId": "queuepulse",
    "location": "Any city",
+   "proofKind": "photo",
+   "reviewerCheck": "The photo shows a public tap or fountain. Running water is visible, or the note says it is dry.",
    "proofRequired": "One photo of the tap or fountain, with running water visible if it works. Note: the town. Not the street or the park: that would place the person.",
    "whoWouldWantIt": "Walkers, runners and travellers who carry a bottle. Refill maps go out of date and nobody checks them.",
    "funding": "unfunded draft"
@@ -72,7 +94,9 @@
    "maxCompletions": 50,
    "agentId": "queuepulse",
    "location": "Any city",
-   "proofRequired": "One photo of the board with times readable. Note: the town and one line from experience. The main station, not the stop the person uses. The photo proves the board, the line is the person's own word.",
+   "proofKind": "photo",
+   "reviewerCheck": "The photo shows a departure board and its times can be read. What the board gets wrong is the person's word and is not checked.",
+   "proofRequired": "One photo of the board with times readable. Note: the town and one line from experience. The main station, not the stop the person uses.",
    "whoWouldWantIt": "A commuter or visitor deciding whether to trust the board. Transit apps repeat the timetable, not what regulars know.",
    "funding": "unfunded draft"
   },
@@ -86,21 +110,25 @@
    "maxCompletions": 50,
    "agentId": "propertycheck",
    "location": "Any city",
+   "proofKind": "photo",
+   "reviewerCheck": "The photo shows the whole entrance, steps or ramp included, so the yes or no in the note can be judged from it.",
    "proofRequired": "One photo showing the whole entrance, steps or ramp included. Note: yes or no, and what is in the way.",
    "whoWouldWantIt": "Wheelchair users and parents with prams planning a trip. Access data on maps is thin and often wrong.",
    "funding": "unfunded draft"
   },
   {
-   "id": "free-this-week",
-   "description": "Name one free thing to do in your town this week that travel guides miss. Say where and when. Public places only, and no names of private people.",
-   "safety": "Public places only, and no names of private people.",
-   "category": "review",
+   "id": "free-event-poster",
+   "description": "Photo a public poster for a free event in your town this week, with the date on it readable. Name the town. Poster only: no people in the photo.",
+   "safety": "Poster only: no people in the photo.",
+   "category": "check-in",
    "points": 15,
    "deadlineHours": 168,
    "maxCompletions": 100,
    "agentId": "freshmap",
    "location": "Any city",
-   "proofRequired": "A text answer with the place, the day or time, and one line on why it is worth going. Text cannot be proven; the check only reads whether it answers the question.",
+   "proofKind": "photo",
+   "reviewerCheck": "The photo shows a poster, the event and its date can be read, and the date falls in the week the favour was open.",
+   "proofRequired": "One photo of a poster in a public place with the event and date readable. Note: the town. Replaces a text-only draft that could not be proven.",
    "whoWouldWantIt": "A visitor with a spare afternoon. A new resident. A local who has run out of ideas.",
    "funding": "unfunded draft"
   },
@@ -114,6 +142,8 @@
    "maxCompletions": 100,
    "agentId": "hermes",
    "location": "Anywhere",
+   "proofKind": "text checked against a known source",
+   "reviewerCheck": "The reviewer opens the History tab and checks that the thing named is really on that screen. An answer that names nothing on the screen is not accepted.",
    "proofRequired": "A text answer naming the thing on the screen. No screenshot, because History shows the person's own proofs.",
    "whoWouldWantIt": "The FAVOUR team. This is product feedback from the people who use the screen, and it costs them one minute.",
    "funding": "unfunded draft"
@@ -128,50 +158,26 @@
    "maxCompletions": 100,
    "agentId": "hermes",
    "location": "Anywhere",
+   "proofKind": "text checked against a known source",
+   "reviewerCheck": "The reviewer puts the answer through a translator back into English and checks it says the same thing, in the language named.",
    "proofRequired": "A text answer: the translated line and the name of the language.",
    "whoWouldWantIt": "The FAVOUR team, for a first translated screen. Live answers on 4 Oct came in Spanish, Indonesian, Tagalog and Japanese (source: raw/api_tasks.json proof notes).",
    "funding": "unfunded draft"
   },
   {
-   "id": "notice-board",
-   "description": "Read a public notice board near you. Tell us which notice is the most useful to a neighbour, and why. Words only: no photo, no names and no phone numbers.",
-   "safety": "Words only: no photo, no names and no phone numbers.",
-   "category": "feedback",
-   "points": 15,
-   "deadlineHours": 336,
-   "maxCompletions": 50,
-   "agentId": "dropscout",
-   "location": "Any city",
-   "proofRequired": "A text answer: what the notice offers and one line of why. No photo, because notice boards carry other people's names and numbers.",
-   "whoWouldWantIt": "Neighbours who never stop to read it. Anyone new to the area looking for classes, repairs or rooms.",
-   "funding": "unfunded draft"
-  },
-  {
    "id": "cheap-hot-meal",
-   "description": "What is the cheapest filling hot meal in your town? Name the place, the dish, the price and the town. Words only, and no names of staff.",
-   "safety": "Words only, and no names of staff.",
+   "description": "Photo a menu or price board in your town that shows a filling hot meal at a low price. Name the dish and the town. Menu only: no people and no receipts.",
+   "safety": "Menu only: no people and no receipts.",
    "category": "review",
    "points": 18,
    "deadlineHours": 168,
    "maxCompletions": 100,
    "agentId": "shelfwatch",
    "location": "Any city",
-   "proofRequired": "A text answer with place, dish and price. Text cannot be proven; the check only reads whether it answers the question.",
+   "proofKind": "photo",
+   "reviewerCheck": "The photo shows a menu or price board, and the dish named in the note is on it with a price that can be read.",
+   "proofRequired": "One photo of a public menu or price board with the dish and its price readable. Note: the dish and the town. Replaces a text-only draft that could not be proven.",
    "whoWouldWantIt": "Students, backpackers and anyone on a tight week. Review sites rank by rating, not by what a full plate costs.",
-   "funding": "unfunded draft"
-  },
-  {
-   "id": "visitor-trick",
-   "description": "What is one trick visitors to your city fall for, and how do locals avoid it? One or two honest lines. No names of people or of small shops.",
-   "safety": "No names of people or of small shops.",
-   "category": "feedback",
-   "points": 15,
-   "deadlineHours": 336,
-   "maxCompletions": 100,
-   "agentId": "freshmap",
-   "location": "Any city",
-   "proofRequired": "A text answer naming the trick and the way around it. No names, because an accusation against a named person or shop cannot be checked.",
-   "whoWouldWantIt": "A first time visitor to that city. Guidebooks are a year behind the street.",
    "funding": "unfunded draft"
   },
   {
@@ -184,22 +190,10 @@
    "maxCompletions": 50,
    "agentId": "propertycheck",
    "location": "Any city",
+   "proofKind": "photo",
+   "reviewerCheck": "The photo shows the containers and their labels can be read, so what goes in can be checked against the note.",
    "proofRequired": "One photo of the containers with their labels readable. Note: what goes in, and the town. Not the street.",
    "whoWouldWantIt": "A new resident who does not know where glass or batteries go. City lists are often out of date.",
-   "funding": "unfunded draft"
-  },
-  {
-   "id": "public-toilet",
-   "description": "Is there a free public toilet in your town centre? Say roughly where, and if it was open and usable when you looked. Words only, no photo.",
-   "safety": "Words only, no photo.",
-   "category": "check-in",
-   "points": 15,
-   "deadlineHours": 168,
-   "maxCompletions": 100,
-   "agentId": "queuepulse",
-   "location": "Any city",
-   "proofRequired": "A text answer: the place, the day you looked, open or closed, usable or not. Text cannot be proven; the check only reads whether it answers the question.",
-   "whoWouldWantIt": "Parents with small children, older people, delivery riders, anyone on a long walk. Maps list them and do not say if they are open.",
    "funding": "unfunded draft"
   }
  ]

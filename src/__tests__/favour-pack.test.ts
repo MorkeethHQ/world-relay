@@ -89,8 +89,28 @@ describe("draft favour pack 2026-10-05", () => {
     expect(pack._review_note).toContain("A person must read every row before it is posted");
   });
 
-  it("the three rows the cold walk called unsafe are gone", () => {
-    for (const id of ["street-conditions", "signal-check", "atm-working"]) expect(rows.some((r) => r.id === id), id).toBe(false);
+  it("the rows the cold walks called unsafe or unprovable are gone", () => {
+    for (const id of ["street-conditions", "signal-check", "atm-working", "notice-board", "visitor-trick", "public-toilet"]) expect(rows.some((r) => r.id === id), id).toBe(false);
+  });
+
+  // Second cold walk: four drafts could not be proven with their stated proof.
+  // Every row now says what kind of proof it takes and how a reviewer checks it.
+  // A photo row must ask for a photo in the posted text. A text row is allowed
+  // only when the answer can be checked against something the reviewer has.
+  it("every row has a proof a reviewer could actually check", () => {
+    type Proof = { proofKind?: string; reviewerCheck?: string };
+    for (const r of rows as Array<Row & Proof>) {
+      expect(["photo", "text checked against a known source"], r.id).toContain(r.proofKind);
+      expect((r.reviewerCheck ?? "").length, r.id).toBeGreaterThan(30);
+      if (r.proofKind === "photo") expect(/\bphoto\b/i.test(r.description.replace(r.safety, "")), `${r.id}: a photo row must ask for a photo`).toBe(true);
+    }
+    expect((rows as Array<Row & Proof>).filter((r) => r.proofKind !== "photo").length).toBeLessThanOrEqual(2);
+  });
+
+  it("no row asks for a street, a stop the person uses, or a walking distance from them", () => {
+    for (const r of rows) {
+      expect(/name the (street|road|stop|square|park)|you use|walk of you|minutes? (of|from) you|nearest you/i.test(r.description), r.id).toBe(false);
+    }
   });
 
   it("is diverse: at least 5 categories, and feedback is not the majority", () => {
