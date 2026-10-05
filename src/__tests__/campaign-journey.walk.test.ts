@@ -44,8 +44,11 @@ describe("welcome campaign journey, local double", () => {
     let t = await getTask(id);
     say("1 seeded", t, BEN);
     expect(isBoardVisible(t!, BEN, now)).toBe(true);
-    expect(getFeaturedCampaign(now)?.id).toBe("first-favour");
-    expect(boardTier(t!, BEN, getFeaturedCampaign(now)!.id, now)).toBe(TIER.FEATURED);
+    // Which house campaign is featured depends on the date (it ends 31 Dec 2026),
+    // so this one check is pinned to the night of the walk, not to the wall clock.
+    const WALKED_AT = Date.parse("2026-10-04T20:35:44Z");
+    expect(getFeaturedCampaign(WALKED_AT)?.id).toBe("first-favour");
+    expect(boardTier(t!, BEN, "first-favour", now)).toBe(TIER.FEATURED);
 
     // 2. Ana claims and submits a photo. The check flags it and asks a follow-up.
     await claimTask(id, ANA);
