@@ -46,13 +46,13 @@
 //
 // What it still cannot do: a campaign and its pieces are separate records, so a
 // campaign hide is not one atomic step. If it exits 1 part way, run it again.
-import { storeLine, issueCode, redeemCode, codeOnRecord, REFUSAL } from "./confirm-code.mjs";
+import { storeLine, storeKind, issueCode, redeemCode, codeOnRecord, REFUSAL } from "./confirm-code.mjs";
 
 const U = process.env.KV_REST_API_URL;
 const T = process.env.KV_REST_API_TOKEN;
 if (!U || !T) { console.error("KV_REST_API_URL and KV_REST_API_TOKEN are required"); process.exit(2); }
 // The first line of every run names the store, before anything can go wrong.
-console.log(await storeLine(U));
+console.log(storeLine(U, await storeKind(U)));
 
 async function cmd(...args) {
   const r = await fetch(U, { method: "POST", headers: { Authorization: `Bearer ${T}`, "Content-Type": "application/json" }, body: JSON.stringify(args) });

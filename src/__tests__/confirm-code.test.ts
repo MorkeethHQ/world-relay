@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from "vitest";
 import { execFile, spawn, type ChildProcess } from "node:child_process";
+import { createServer, type Server } from "node:http";
 import { promisify } from "node:util";
 import { writeFileSync, mkdtempSync, readdirSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -195,4 +196,139 @@ describe("hide-item: the code belongs to one store, and a refusal says run the d
     expect(await writes(B)).toBe(before);
     expect((await sh("hide-item.mjs", ["campaign", "draft_x", "--reason", "ended", "--apply", "--confirm", a], env(A))).code).toBe(0);
   }, 90000);
+});
+
+// FOURTH COLD READ (2026-10-05). Still all local: the shipped fake, and for the
+// "not the fake" case a small loopback proxy written here that forwards to fake B
+// and answers 404 when asked whether it is the fake.
+const commandsOf = async (f: Fake) => ((await (await fetch(`${f.url}/__log`)).json()) as { commands: number }).commands;
+const raw = async (f: Fake, ...cmd: unknown[]) => ((await (await fetch(f.url, { method: "POST", body: JSON.stringify(cmd) })).json()) as { result: unknown }).result;
+const refuseNext = (f: Fake, cmd: string, prefix: string) => fetch(`${f.url}/__refuse`, { method: "POST", body: JSON.stringify({ cmd, prefix }) });
+
+describe("the rehearsal verifier runs only against a store that says it is the shipped fake", () => {
+  let proxy: Server;
+  let proxyUrl = "";
+  beforeAll(async () => {
+    proxy = createServer((req, res) => {
+      if (req.method === "GET") { res.statusCode = 404; res.end("{}"); return; }
+      let body = "";
+      req.on("data", (c) => (body += c));
+      req.on("end", async () => {
+        const headers: Record<string, string> = { "content-type": "application/json" };
+        if (req.headers["upstash-encoding"]) headers["upstash-encoding"] = String(req.headers["upstash-encoding"]);
+        const r = await fetch(`${B.url}${req.url}`, { method: "POST", body, headers });
+        res.statusCode = r.status;
+        res.setHeader("Content-Type", "application/json");
+        res.end(await r.text());
+      });
+    });
+    await new Promise<void>((r) => proxy.listen(0, "127.0.0.1", () => r()));
+    const a = proxy.address();
+    proxyUrl = `http://127.0.0.1:${typeof a === "object" && a ? a.port : 0}`;
+  });
+  afterAll(() => new Promise<void>((r) => proxy.close(() => r())));
+
+  it("a local store that does not identify itself as the fake: the double is refused and nothing is written", async () => {
+    const dry = await sh("recheck-thrown-proofs.mjs", ["--only", "thrown100"], env(proxyUrl));
+    expect(dry.first).toContain("did not identify itself");
+    const code = codeOf(dry.out);
+    const before = await writes(B);
+    const r = await sh("recheck-thrown-proofs.mjs", ["--only", "thrown100", "--apply", "--confirm", code ?? "none"], env(proxyUrl));
+    expect(r.code).toBe(2);
+    expect(r.out).toContain("only against the shipped rehearsal fake");
+    expect(r.out).not.toContain("passed");
+    expect(await writes(B)).toBe(before);
+  }, 90000);
+
+  it("a store that is not on this machine: the double is refused before anything is sent", async () => {
+    const r = await sh("recheck-thrown-proofs.mjs", [], env("https://store.example.invalid"));
+    expect(r.code).toBe(2);
+    expect(r.out).toContain("only against the shipped rehearsal fake");
+  }, 60000);
+});
+
+describe("the fake store lets a key expire, so waiting can be rehearsed", () => {
+  it("SET NX PX holds a key for its time and no longer", async () => {
+    expect(await raw(B, "SET", "lock:t", "1", "NX", "PX", 300)).toBe("OK");
+    expect(await raw(B, "SET", "lock:t", "2", "NX", "PX", 300)).toBeNull();
+    expect(await raw(B, "GET", "lock:t")).toBe("1");
+    await new Promise((r) => setTimeout(r, 450));
+    expect(await raw(B, "GET", "lock:t")).toBeNull();
+    expect(await raw(B, "SET", "lock:t", "2", "NX", "PX", 300)).toBe("OK");
+  }, 30000);
+
+  it("a points lock whose release was refused clears by itself: the run waits it out and still finishes", async () => {
+    const fresh = await startFake();
+    try {
+      const dry = await sh("recheck-thrown-proofs.mjs", ["--only", "thrown100"], env(fresh));
+      // The next EVAL is the release of the points lock after the first credit write.
+      await refuseNext(fresh, "EVAL", "");
+      const start = Date.now();
+      const r = await sh("recheck-thrown-proofs.mjs", ["--only", "thrown100", "--apply", "--confirm", codeOf(dry.out)!], env(fresh));
+      expect(r.out).toContain("Applied. passed 1");
+      expect(r.code).toBe(0);
+      // The lock is held for 5 seconds. The run cannot have finished sooner.
+      expect(Date.now() - start).toBeGreaterThan(4500);
+    } finally {
+      fresh.child.kill();
+    }
+  }, 90000);
+});
+
+describe("a failed run puts the line that matters first and last, and hides the client trace unless asked", () => {
+  it("summary first and last, the wait stated, no trace without --verbose", async () => {
+    const fresh = await startFake();
+    try {
+      const dry = await sh("recheck-thrown-proofs.mjs", ["--only", "thrown200"], env(fresh));
+      await refuseNext(fresh, "SET", "rep:");
+      const r = await sh("recheck-thrown-proofs.mjs", ["--only", "thrown200", "--apply", "--confirm", codeOf(dry.out)!], env(fresh));
+      expect(r.code).toBe(1);
+      const lines = r.out.split("\n").filter((l) => l.trim());
+      expect(lines[0]).toContain("STORE:");
+      expect(lines[1]).toMatch(/^NOT COMPLETE: 1 of 1/);
+      expect(lines[lines.length - 1]).toMatch(/^NOT COMPLETE: 1 of 1/);
+      expect(r.out).toContain("2 minutes");
+      expect(r.out).not.toMatch(/^\s+at /m);
+      expect(r.out).not.toContain("UpstashError");
+      expect(r.out).toContain("--verbose");
+
+      const dry2 = await sh("recheck-thrown-proofs.mjs", ["--only", "thrown200"], env(fresh));
+      await refuseNext(fresh, "SET", "pof:");
+      const v = await sh("recheck-thrown-proofs.mjs", ["--only", "thrown200", "--apply", "--confirm", codeOf(dry2.out)!, "--verbose"], env(fresh));
+      expect(v.out).toMatch(/refused|Error/);
+    } finally {
+      fresh.child.kill();
+    }
+  }, 120000);
+
+  it("a run with nothing wrong also says so first and last", async () => {
+    const fresh = await startFake();
+    try {
+      const dry = await sh("recheck-thrown-proofs.mjs", ["--only", "thrown100"], env(fresh));
+      const r = await sh("recheck-thrown-proofs.mjs", ["--only", "thrown100", "--apply", "--confirm", codeOf(dry.out)!], env(fresh));
+      const lines = r.out.split("\n").filter((l) => l.trim());
+      expect(lines[1]).toMatch(/^COMPLETE: 1 of 1/);
+      expect(lines[lines.length - 1]).toMatch(/^COMPLETE: 1 of 1/);
+    } finally {
+      fresh.child.kill();
+    }
+  }, 120000);
+});
+
+describe("text first, photos after", () => {
+  it("--kind text and --kind photo split the list, and a code for one does not start the other", async () => {
+    const fresh = await startFake();
+    try {
+      const text = await sh("recheck-thrown-proofs.mjs", ["--kind", "text"], env(fresh));
+      expect(text.out).toContain("Dry run. 2 would be re-checked");
+      const photo = await sh("recheck-thrown-proofs.mjs", ["--kind", "photo"], env(fresh));
+      expect(photo.out).toContain("Dry run. 0 would be re-checked");
+      expect((await sh("recheck-thrown-proofs.mjs", ["--kind", "photo", "--apply", "--confirm", codeOf(text.out)!], env(fresh))).code).toBe(2);
+      expect((await sh("recheck-thrown-proofs.mjs", ["--kind", "video"], env(fresh))).code).toBe(2);
+      expect(await commandsOf(fresh)).toBeGreaterThan(0);
+      expect(await writes(fresh)).toBe(0);
+    } finally {
+      fresh.child.kill();
+    }
+  }, 120000);
 });

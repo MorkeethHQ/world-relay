@@ -1,14 +1,14 @@
 {
  "_status": "UNFUNDED DRAFT. Not posted. Do not post without Oscar.",
- "_written": "2026-10-04 night run, branch night/favour-cleanup-20261004. Revised three times on 2026-10-05 after three cold reads.",
- "_count_note": "The brief asked for 10 to 15 favours. 14 were drafted. After three independent reads, 3 remain. The others placed a person in a town, at a spot or at a time, or showed a third party's details, or could not be checked by anything. Fewer good rows beat more risky ones.",
+ "_written": "2026-10-04 night run, branch night/favour-cleanup-20261004. Revised four times on 2026-10-05 after four cold reads.",
+ "_count_note": "The brief asked for 10 to 15 favours. 14 were drafted. After four independent reads, 2 remain. That is below the 10 to 15 asked for. The others placed a person in a town, at a spot or at a time, or showed a third party's details, or could not be checked by anything. Fewer good rows beat more risky ones.",
  "_known_limits": [
   "Nothing shows that a photo is the sender's own. A picture found online passes as easily as one just taken. The app has no provenance check and this pack does not add one.",
   "The check is a model, not a person. No human reviews a proof on the live app. Each row says what that model can see in the proof and what it cannot. Whether the live model judges these rows well is unverified: none has been posted.",
   "Answers come from one wallet. Several answers from the same wallet add up. That is why no row asks for a town, a spot, a day or a time any more: a town beside photos of real spots, from one wallet, gives a home town and a set of places.",
-  "A photo is never placeless. A shelf label or a product pack can still show a chain name, a language, a kitchen counter. The safety clause in each row is an instruction to the sender. Nothing enforces it.",
+  "A photo is never placeless. A shelf label can still show a chain name, a branch code, a language. The safety clause in each row is an instruction to the sender. Nothing enforces it.",
   "The personal data check that the review test runs is a reviewer's aid. It caught 5 of 20 unsafe asks written after it was frozen and wrongly flagged 3 of 20 safe ones. A green test does not mean a row is safe.",
-  "These rows have been read by three cold readers in earlier forms. The current wording of each row, and the whole of label-symbol, has been read by no one but the drafter. A person must read every row before it is posted.",
+  "Both rows were read by a fourth cold reader in their current wording. He found nothing new in staple-prices beyond what is stated, and for translate-line that anyone with a translator can collect its points. Before that reading the wording had been read by no one but the drafter. A person must read every row before it is posted.",
   "No funder, sponsor or requester exists. Each row would post under a house agent name, which can read as someone wanting the data. Nobody does."
  ],
  "_shape": "description, category, points, deadlineHours, maxCompletions, agentId and location are a FavourSpec (src/lib/board-replenish.ts validateFavourSpec). ONLY description reaches the person. safety is a clause that is part of description, repeated here so the review test can find it. The other fields are review notes and are not posted.",
@@ -75,7 +75,16 @@
   {
    "id": "recycling-point",
    "why": "a photo of a real public spot beside a town"
+  },
+  {
+   "id": "label-symbol",
+   "why": "warning symbols are most common on medicine, alcohol, tobacco and cleaning products; a medicine box can carry a pharmacy label with a name and a dose; most packs print the maker's address, so the clause 'no addresses' could not be met. Dropped by the fourth reader's advice, with no repair round left to test a narrower wording"
   }
+ ],
+ "_decisions_for_oscar": [
+  "translate-line: a machine translation passes. 100 replies at 12 points is 1200 house points that anyone with a translator can collect. Post it as it is, lower the reply count, or drop it.",
+  "The pack holds 2 rows against 10 to 15 asked for. Accept 2, or ask for more rows with a person reading each one before it is posted.",
+  "Nothing shows a photo is the sender's own. Decide whether any photo favour should be posted before the app can tell."
  ],
  "favours": [
   {
@@ -111,25 +120,8 @@
    "proofShows": "Whether the text is a fair translation of the posted line into the language named. A multilingual model can judge that from the two texts alone.",
    "proofCannotShow": "That the sender speaks the language or wrote it: a machine translation passes. Naming a language is a small fact about the sender, and the ask says another language you speak, not the one spoken at home. Whether the live model check judges this well is unverified.",
    "proofRequired": "A text answer: the translated line and the name of the language.",
+   "rewardConsequence": "A machine translation passes, so this row pays for work a translator can do. 100 replies at 12 points is 1200 house points that anyone with a translator can collect, one reply per wallet. Whether that is acceptable is a decision for Oscar.",
    "whoWouldWantIt": "The FAVOUR team, for a first translated screen. Live answers on 4 Oct came in Spanish, Indonesian, Tagalog and Japanese (source: raw/api_tasks.json proof notes).",
-   "funding": "unfunded draft"
-  },
-  {
-   "id": "label-symbol",
-   "description": "Photo a warning or sorting symbol on the pack of a product sold in your country. Say what the symbol means. Pack only: no people, no receipts, no addresses.",
-   "safety": "Pack only: no people, no receipts, no addresses.",
-   "category": "review",
-   "points": 15,
-   "deadlineHours": 336,
-   "maxCompletions": 50,
-   "agentId": "propertycheck",
-   "location": "Anywhere",
-   "proofKind": "photo",
-   "checkedBy": "the live model check, not a person",
-   "proofShows": "A product pack with a printed symbol that can be seen, and a stated meaning the model can compare with the symbol.",
-   "proofCannotShow": "Who took the photo. Nothing shows it is the sender's own and not one found online. Not that the product is sold in the sender's country. A pack on a kitchen counter shows a little of a home; the clause cannot prevent that.",
-   "proofRequired": "One photo of the symbol on a product pack. Note: what it means. No country is asked for in words beyond the product being sold there. NEW in the third revision and read by no one but the drafter.",
-   "whoWouldWantIt": "A visitor or new resident who cannot read what a symbol on a pack is telling them to do. Plausible, not observed.",
    "funding": "unfunded draft"
   }
  ]

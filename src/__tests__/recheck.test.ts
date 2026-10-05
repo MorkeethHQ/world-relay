@@ -284,6 +284,38 @@ describe("a real run", () => {
     expect(kv.get(recheckJobKey(t.id, ANA))).not.toContain("/9j/AAAA");
   });
 
+  // Fourth cold read: the first production write was going to be a photo favour,
+  // and no rehearsal had ever read a stored photo. The dry run now reads each
+  // stored photo and says per item whether it could, and --kind keeps text first.
+  it("a dry run marks each item TEXT or PHOTO, reads the stored photo, and writes nothing", async () => {
+    await favour();
+    const mk = async (images: string[]) => {
+      const t = await createTask({ poster: "agent:dropscout", description: `Show us the sky, case ${images[0].slice(0, 12)}, exactly as it looks.`, location: "Anywhere", bountyUsdc: 15, deadlineHours: 336, rewardType: "points", maxCompletions: 100, category: "photo" } as Parameters<typeof createTask>[0]);
+      await submitProof(t.id, images[0], "", images, BEN, "orb");
+      await completeTask(t.id, THROWN);
+      return t.id;
+    };
+    const inline = await mk(["data:image/jpeg;base64,/9j/AAAA"]);
+    const path = await mk(["/api/tasks/x/proof-image?i=0"]);
+    const gone = await mk(["https://blob.example/gone.jpg"]);
+    const before = snapshot();
+    const fetchImpl = vi.fn(async () => new Response("no", { status: 404 })) as unknown as typeof fetch;
+    const out = await recheckThrownProofs({ apply: false, verify: pass, fetchImpl });
+    const detail = (id: string) => out.find((o) => o.taskId === id)!.detail;
+    expect(out.filter((o) => o.detail.startsWith("TEXT proof"))).toHaveLength(1);
+    expect(detail(inline)).toContain("PHOTO proof, stored photo READABLE (1 image");
+    expect(detail(path)).toContain("stored photo NOT READABLE (stored image is neither inline nor a URL)");
+    expect(detail(gone)).toContain("stored photo NOT READABLE (stored image answered 404)");
+    expect(snapshot()).toBe(before);
+
+    expect((await recheckThrownProofs({ apply: false, verify: pass, fetchImpl, kind: "text" })).every((o) => o.detail.startsWith("TEXT"))).toBe(true);
+    expect((await recheckThrownProofs({ apply: false, verify: pass, fetchImpl, kind: "photo" }))).toHaveLength(3);
+    // A real run restricted to text never touches a photo favour.
+    const applied = await recheckThrownProofs({ apply: true, verify: pass, now: () => NOW, kind: "text" });
+    expect(applied).toHaveLength(1);
+    expect((await getTask(inline))!.status).toBe("claimed");
+  });
+
   it("--only and --limit narrow a run", async () => {
     const a = await favour();
     await favour({ description: "Rate the public transport where you live out of 10, with one reason." }, BEN, "Transjakarta");
