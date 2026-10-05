@@ -149,6 +149,10 @@ const row = (t: { id: string; claimant: string | null; description: string }, ac
   ...(points === undefined ? {} : { points }),
 });
 
+export function proofKind(t: Pick<Task, "proofImageUrl" | "proofImages">): "text" | "photo" {
+  return t.proofImageUrl || (t.proofImages && t.proofImages.length) ? "photo" : "text";
+}
+
 // Stored proof images as raw base64, the form verifyProof takes. A proof is
 // stored either inline (data: URL) or at a blob URL.
 async function storedImages(t: Task, fetchImpl: typeof fetch): Promise<string[]> {
@@ -361,6 +365,10 @@ export type RecheckOptions = {
   verify: Verifier;
   only?: string;
   limit?: number;
+  // Only text proofs, or only photo proofs. Text first: a text proof needs nothing
+  // but the note in the record, a photo proof also needs the stored image to be
+  // readable, and no rehearsal has ever read a stored photo.
+  kind?: "text" | "photo";
   now?: () => number;
   fetchImpl?: typeof fetch;
 };
@@ -425,6 +433,8 @@ export async function recheckThrownProofs(opts: RecheckOptions): Promise<Recheck
         continue;
       }
       if (opts.only && j.taskId !== opts.only) continue;
+      // --kind does not hide an unfinished item: it is finished whatever its kind,
+      // and the dry run shows it as would-resume before anything is applied.
       // An item being resumed COUNTS against --limit (since 2026-10-05). So after a
       // one-favour step that failed, the same one-favour step finishes that favour
       // and starts nothing new. Items over the limit stay in progress for a later run.
@@ -455,6 +465,7 @@ export async function recheckThrownProofs(opts: RecheckOptions): Promise<Recheck
 
   let candidates = (await listTasks()).filter(isThrownCheck).filter((t) => !handled.has(t.id));
   if (opts.only) candidates = candidates.filter((t) => t.id === opts.only);
+  if (opts.kind) candidates = candidates.filter((t) => proofKind(t) === opts.kind);
   for (const t of candidates) {
     const skip = recheckSkipReason(t);
     if (skip) {
@@ -464,8 +475,23 @@ export async function recheckThrownProofs(opts: RecheckOptions): Promise<Recheck
     if (opts.limit !== undefined && done >= opts.limit) break;
     done++;
     if (!opts.apply || !redis) {
-      const kind = t.proofImageUrl || (t.proofImages && t.proofImages.length) ? "photo" : "text";
-      out.push(row(t, "would-recheck", `${kind} proof, ${t.bountyUsdc} points, reply ${(t.completionCount ?? 0) + 1} of ${t.maxCompletions}`));
+      // A dry run also tries to READ each stored photo, so that the first time a
+      // stored photo is read is never in the middle of a real run. This is a read:
+      // an inline image is decoded in memory, an image at a URL is fetched. Nothing
+      // is written anywhere.
+      let kind: string = proofKind(t);
+      if (kind === "photo") {
+        try {
+          const images = await storedImages(t, fetchImpl);
+          const kb = Math.round(images.reduce((n, b) => n + b.length * 0.75, 0) / 1024);
+          kind = `PHOTO proof, stored photo READABLE (${images.length} image${images.length === 1 ? "" : "s"}, about ${kb} KB)`;
+        } catch (err) {
+          kind = `PHOTO proof, stored photo NOT READABLE (${err instanceof Error ? err.message.slice(0, 80) : "unknown error"}): a real run would leave it unchanged`;
+        }
+      } else {
+        kind = "TEXT proof";
+      }
+      out.push(row(t, "would-recheck", `${kind}, ${t.bountyUsdc} points, reply ${(t.completionCount ?? 0) + 1} of ${t.maxCompletions}`));
       continue;
     }
     out.push(await underLock(redis, t.id, t, () => recheckOne(redis, t.id, opts.verify, now, fetchImpl)));

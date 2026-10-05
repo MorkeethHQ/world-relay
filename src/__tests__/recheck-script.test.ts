@@ -93,9 +93,10 @@ beforeEach(async () => {
     let body = "";
     req.on("data", (c) => (body += c));
     req.on("end", () => {
-      // The scripts ask a local store whether it is the shipped rehearsal fake
-      // (GET /__log). This test double is not that fake, and says so.
-      if (req.method === "GET") { res.statusCode = 404; res.end("{}"); return; }
+      // The scripts ask a local store whether it is a rehearsal fake (GET /__log).
+      // This in-memory test double answers yes, as the shipped fake does: it is one,
+      // and the verifier double is allowed only against a store that says so.
+      if (req.method === "GET") { res.setHeader("Content-Type", "application/json"); res.end(JSON.stringify({ fake: true })); return; }
       const parsed = JSON.parse(body);
       const enc = req.headers["upstash-encoding"] === "base64" ? b64 : (v: unknown) => v;
       let answer: unknown;
@@ -188,7 +189,7 @@ describe("scripts/recheck-thrown-proofs.mjs", () => {
     writeFileSync(join(dir, "codes", "0123456789.json"), JSON.stringify({ host: "example.upstash.io", fingerprint: "x", issuedAt: Date.now() }));
     const r = await script(["--apply", "--confirm", "0123456789"], { ANTHROPIC_API_KEY: "local-double-not-a-key", RECHECK_VERIFIER_MODULE: passDouble, KV_REST_API_URL: "https://example.upstash.io" });
     expect(r.code).toBe(2);
-    expect(r.out).toContain("refused against a remote store");
+    expect(r.out).toContain("only against the shipped rehearsal fake");
     expect(commands).toEqual([]);
   }, 30000);
 
@@ -313,7 +314,7 @@ describe("scripts/recheck-thrown-proofs.mjs", () => {
     const first = await applyRun(["--limit", "1"], env);
     expect(first.code).toBe(1);
     expect(first.out).toContain("FAILED 1");
-    expect(first.out).toContain("To finish: run the same dry run again, then the same apply with the new code it prints.");
+    expect(first.out).toContain("To finish: WAIT 2 MINUTES, then run the same dry run again, then the same apply with the new code it prints.");
 
     const dry = await script(["--limit", "1"]);
     expect(dry.out).toContain("Dry run. 0 would be re-checked, 1 would be resumed");

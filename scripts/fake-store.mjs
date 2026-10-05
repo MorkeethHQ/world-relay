@@ -24,6 +24,11 @@
 // GET /__log answers the command counts and how many of them were writes, so "a
 // dry run sends no write" is something anyone can check.
 //
+// Two rehearsal aids. Plain keys expire (SET ... PX/EX, EXPIRE, PEXPIRE), so a
+// lock clears by itself. And POST /__refuse with {"cmd":"SET","prefix":"rep:"}
+// makes the fake refuse the next matching command once, so a failed run and its
+// recovery can be rehearsed.
+//
 // Limits, stated plainly: it is a double, not Redis. EVAL does not run Lua. It
 // recognises the three scripts this repo sends (the points lock release and the
 // two hide-item compare-and-set scripts) and repeats in JavaScript what they say.
@@ -59,20 +64,41 @@ if (campaignsFile) {
 }
 
 const str = (v) => (typeof v === "string" ? v : JSON.stringify(v));
+// KEY EXPIRY (2026-10-05). SET ... PX/EX, EXPIRE and PEXPIRE are honoured for plain
+// keys, so a lock left by a failed run clears by itself here as it would on Redis,
+// and "wait, then run again" can be rehearsed. Sets and lists do not expire here.
+const expires = new Map();
+function sweep() {
+  const now = Date.now();
+  for (const [k, at] of expires) if (at <= now) { expires.delete(k); kv.delete(k); }
+}
+// REHEARSAL FAULT: POST /__refuse {"cmd":"SET","prefix":"rep:"} makes the fake
+// refuse the next matching command, once. It lets a failed run be rehearsed.
+let refuse = null;
 function exec(args) {
   const [raw, key, ...rest] = args;
   const cmd = String(raw).toUpperCase();
+  sweep();
   log.push(cmd);
+  if (refuse && cmd === refuse.cmd && String(cmd === "EVAL" ? rest[1] ?? "" : key).startsWith(refuse.prefix)) {
+    refuse = null;
+    throw new Error("fake-store: this command was refused on request (rehearsal fault)");
+  }
   switch (cmd) {
     case "GET": return kv.get(key) ?? null;
     case "SET": {
       const opts = rest.slice(1).map((x) => String(x).toUpperCase());
       if (opts.includes("NX") && kv.has(key)) return null;
       kv.set(key, str(rest[0]));
+      expires.delete(key);
+      const px = opts.indexOf("PX"), ex = opts.indexOf("EX");
+      if (px >= 0) expires.set(key, Date.now() + Number(opts[px + 1]));
+      else if (ex >= 0) expires.set(key, Date.now() + Number(opts[ex + 1]) * 1000);
       return "OK";
     }
-    case "DEL": return kv.delete(key) ? 1 : 0;
-    case "EXPIRE": case "PEXPIRE": return 1;
+    case "DEL": expires.delete(key); return kv.delete(key) ? 1 : 0;
+    case "EXPIRE": if (kv.has(key)) expires.set(key, Date.now() + Number(rest[0]) * 1000); return 1;
+    case "PEXPIRE": if (kv.has(key)) expires.set(key, Date.now() + Number(rest[0])); return 1;
     case "INCR": { const n = Number(kv.get(key) ?? 0) + 1; kv.set(key, String(n)); return n; }
     case "SADD": { if (!sets.has(key)) sets.set(key, new Set()); let n = 0; for (const m of rest) { if (!sets.get(key).has(str(m))) n++; sets.get(key).add(str(m)); } return n; }
     case "SREM": { let n = 0; for (const m of rest) if (sets.get(key)?.delete(str(m))) n++; return n; }
@@ -123,6 +149,12 @@ const server = createServer((req, res) => {
   let body = "";
   req.on("data", (c) => (body += c));
   req.on("end", () => {
+    if (req.url === "/__refuse") {
+      const r = JSON.parse(body || "{}");
+      refuse = { cmd: String(r.cmd ?? "").toUpperCase(), prefix: String(r.prefix ?? "") };
+      res.end(JSON.stringify({ fake: true, willRefuseNext: refuse }));
+      return;
+    }
     try {
       const parsed = JSON.parse(body);
       const enc = req.headers["upstash-encoding"] === "base64" ? b64 : (v) => v;

@@ -50,23 +50,33 @@ const isLocalHost = (url) => {
   }
 };
 
-// The first line of every run. It names the endpoint and says in words what it is.
-// "LOCAL FAKE" is printed only when the address is on this machine AND the thing
-// answering there says it is the fake (scripts/fake-store.mjs answers GET /__log
-// with fake: true). A remote address is never asked anything here.
-export async function storeLine(url) {
-  const host = storeHost(url);
-  if (!isLocalHost(url)) return `STORE: ${host}   NOT LOCAL. This is a real store on another machine. A write here is real.`;
-  let fake = false;
+// What kind of store is at this address. "fake" only when the address is on this
+// machine AND the thing answering there says it is the shipped rehearsal fake
+// (scripts/fake-store.mjs answers GET /__log with fake: true). "local" is this
+// machine but not the fake, or nothing answering. "remote" is anything else, and a
+// remote address is never asked anything here.
+//
+// Two things hang on this one answer, so they cannot disagree: the first line of
+// every run, and whether the rehearsal verifier double may be used at all.
+export async function storeKind(url) {
+  if (!isLocalHost(url)) return "remote";
   try {
     const r = await fetch(new URL("/__log", url), { signal: AbortSignal.timeout(1500) });
-    fake = r.ok && (await r.json()).fake === true;
+    return r.ok && (await r.json()).fake === true ? "fake" : "local";
   } catch {
-    fake = false;
+    return "local";
   }
-  return fake
-    ? `STORE: ${host}   LOCAL FAKE. A rehearsal store on this machine, in memory. Nothing here is real.`
-    : `STORE: ${host}   on this machine, but it did not identify itself as the rehearsal fake. Treat a write here as real.`;
+}
+
+// The first line of every run. It names the endpoint and says in words what it is.
+// There are exactly three wordings.
+export const STORE_WORDS = {
+  fake: "LOCAL FAKE. A rehearsal store on this machine, in memory. Nothing here is real.",
+  local: "on this machine, but it did not identify itself as the rehearsal fake. Treat a write here as real.",
+  remote: "NOT LOCAL. This is a real store on another machine. A write here is real.",
+};
+export function storeLine(url, kind) {
+  return `STORE: ${storeHost(url)}   ${STORE_WORDS[kind]}`;
 }
 
 // Called by a dry run that would change something. `what` is everything the code
