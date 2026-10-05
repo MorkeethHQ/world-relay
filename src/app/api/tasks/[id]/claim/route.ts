@@ -10,6 +10,7 @@ import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { trackEvent } from "@/lib/track";
 import { checkSeedCap } from "@/lib/seed-caps";
 import { getUserVerificationLevel, tierGateError } from "@/lib/verification-tier";
+import { isWelcomeSourceRow } from "@/lib/welcome-shape";
 
 export async function POST(
   req: NextRequest,
@@ -33,6 +34,19 @@ export async function POST(
   const task = await getTask(id);
   if (!task) {
     return NextResponse.json({ error: "Task not found" }, { status: 404 });
+  }
+
+  // WELCOME (2026-10-05). A shared Welcome row is not claimed any more: a claim
+  // holds it for everyone, which is how all 8 were held on 5 Oct 2026. A person
+  // does the step on their own instance, and nobody claims another's instance.
+  if (task.welcomeFor) {
+    return NextResponse.json({ error: "Task not found" }, { status: 404 });
+  }
+  if (task.status === "open" && isWelcomeSourceRow(task)) {
+    return NextResponse.json(
+      { error: "Open this favour from the Welcome campaign to do it.", code: "welcome_instance_required" },
+      { status: 409 },
+    );
   }
 
   if (task.claimCode && task.claimCode !== claimCode) {

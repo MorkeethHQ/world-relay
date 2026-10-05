@@ -14,8 +14,42 @@ async function persistTask(task: Task): Promise<void> {
   if (!redis) return;
   await Promise.all([
     redis.set(`${TASK_PREFIX}${task.id}`, JSON.stringify(task)),
-    redis.sadd(TASK_LIST_KEY, task.id),
+    // A per-person Welcome instance is indexed under its owner and never in the
+    // shared list, so listTasks (the board, stats, the jury deck, the crons) can
+    // not see one person's private copy or count it as open supply.
+    task.welcomeFor
+      ? redis.sadd(welcomeInstancesKey(task.welcomeFor), task.id)
+      : redis.sadd(TASK_LIST_KEY, task.id),
   ]);
+}
+
+export function welcomeInstancesKey(wallet: string): string {
+  return `welcome:instances:${wallet.toLowerCase()}`;
+}
+
+// Writes a Welcome instance row once. SET NX, so two requests for the same
+// person and step cannot both create it; the loser reads the winner's row.
+export async function createWelcomeInstanceRow(task: Task): Promise<Task | null> {
+  const redis = getRedis();
+  if (!redis || !task.welcomeFor || !task.welcomeSourceId) return null;
+  const fresh = await redis.set(`${TASK_PREFIX}${task.id}`, JSON.stringify(task), { nx: true });
+  if (fresh) await redis.sadd(welcomeInstancesKey(task.welcomeFor), task.id);
+  return (await getTask(task.id)) ?? null;
+}
+
+export async function listWelcomeInstances(wallet: string): Promise<Task[]> {
+  const redis = getRedis();
+  if (!redis) return [];
+  const ids = await redis.smembers(welcomeInstancesKey(wallet));
+  const rows = await Promise.all(ids.map((id) => getTask(String(id))));
+  const me = wallet.toLowerCase();
+  return rows.filter((t): t is Task => !!t && t.welcomeFor === me);
+}
+
+// Saves a change to an instance row made by the Welcome review (a human verdict).
+export async function saveWelcomeInstance(task: Task): Promise<void> {
+  if (!task.welcomeFor) throw new Error("not a Welcome instance");
+  await persistTask(task);
 }
 
 // Invariant 6 (one escrow funds one payout): an on-chain escrow id may back at
@@ -340,6 +374,32 @@ export async function submitProof(
   } finally {
     if (redis) await redis.del(lockKey);
   }
+}
+
+// THE CHECK DID NOT RUN (2026-10-05). Called by verify-proof for a POINTS favour
+// when the automatic check was unavailable or threw. A service failure is not a
+// verdict, so none is stored. If the favour was open before this request, it goes
+// back to open and the unchecked proof is dropped. If this person already held
+// it, they keep it and only the stale verdict is removed, so the screen does not
+// show an old "flagged" against a proof nothing looked at. Money favours are
+// refused: an outage must never reopen or relabel a funded favour.
+export async function releaseUncheckedProof(id: string, submitter: string | null | undefined, wasOpen: boolean): Promise<Task | null> {
+  const task = await getTask(id);
+  if (!task || task.status !== "claimed") return null;
+  if (task.rewardType !== "points" || task.onChainId != null || !!task.escrowTxHash || task.donOnChainId != null || !!task.escrowV2Address) return null;
+  if (!submitter || task.claimant?.toLowerCase() !== submitter.toLowerCase()) return null;
+  if (wasOpen) {
+    task.status = "open";
+    task.claimant = null;
+    task.claimantVerification = null;
+    task.proofImageUrl = null;
+    task.proofImages = null;
+    task.proofNote = null;
+  }
+  task.verificationResult = null;
+  task.aiFollowUp = null;
+  await persistTask(task);
+  return task;
 }
 
 // ONE ESCROW FUNDS ONE PAYOUT (invariant 6), enforced HERE (2026-10-05, finding B

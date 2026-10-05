@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Button, Typography, Input, TopBar } from "@worldcoin/mini-apps-ui-kit-react";
 import { hapticTap, hapticSuccess, hapticError } from "@/lib/minikit-helpers";
+import { splitPolls, pollSummary } from "@/lib/poll-view";
 
 type Poll = {
   id: string;
@@ -127,8 +128,16 @@ export function PollCard({
   return (
     <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
       <div className="p-5 pb-4">
-        <p className="text-[15px] font-semibold text-gray-900 leading-snug">{poll.question}</p>
+        {/* Only the local review fixture creates polls in this category. */}
+        {poll.category === "test-data" && (
+          <span className="inline-flex items-center rounded-full bg-gray-900 px-2 py-0.5 mb-2 text-[10px] font-bold uppercase tracking-[0.15em] text-white">Test data</span>
+        )}
+        <p className="text-[15px] font-semibold text-gray-900 leading-snug break-words">{poll.question}</p>
         <div className="flex items-center gap-2 mt-2">
+          <span className={`text-xs font-semibold ${isEnded ? "text-gray-400" : hasVoted ? "text-gray-900" : "text-amber-600"}`}>
+            {isEnded ? "Closed" : hasVoted ? "You voted" : "Open"}
+          </span>
+          <span className="text-xs text-gray-300">&middot;</span>
           <span className="text-xs text-gray-400">{localTotal} {localTotal === 1 ? "vote" : "votes"}</span>
           <span className="text-xs text-gray-300">&middot;</span>
           <span className="text-xs text-gray-400">{timeLeft(poll.endsAt)}</span>
@@ -256,7 +265,7 @@ function CreatePoll({
   return (
     <div className="flex flex-col gap-0 max-w-lg mx-auto w-full min-h-screen bg-gray-50">
       <TopBar
-        title="New Poll"
+        title="New poll"
         startAdornment={
           <button onClick={onCancel} className="text-sm text-gray-500 min-h-[44px] flex items-center">
             Cancel
@@ -266,6 +275,9 @@ function CreatePoll({
       />
 
       <div className="flex-1 px-6 py-6 flex flex-col gap-5">
+        <p className="text-[13px] leading-snug text-gray-500">
+          Ask one clear question with 2 to 4 answers. It is open for 3 days. Each World wallet votes once, and results show after you vote.
+        </p>
         <Input
           label="Question"
           value={question}
@@ -298,7 +310,7 @@ function CreatePoll({
 
         <div className="mt-auto pt-4">
           <Button onClick={handleSubmit} disabled={!isValid || submitting} variant="primary" fullWidth size="lg">
-            {submitting ? "Creating..." : "Create Poll"}
+            {submitting ? "Creating..." : "Create poll"}
           </Button>
           {createError && <p className="text-xs text-red-600 mt-2 text-center">{createError}</p>}
         </div>
@@ -315,6 +327,8 @@ export function PollsFeed({
   const [polls, setPolls] = useState<Poll[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+  // Closed polls are history: one tap away, never the default view.
+  const [showClosed, setShowClosed] = useState(false);
 
   const fetchPolls = useCallback(async () => {
     try {
@@ -361,35 +375,29 @@ export function PollsFeed({
     );
   }
 
-  // Popularity ranking: live polls by votes (ties: newest). Keeps the page
-  // browsable as poll volume grows; ended polls sit below, most recent first.
-  const active = polls
-    .filter((p) => new Date(p.endsAt).getTime() > Date.now())
-    .sort((a, b) => b.totalVotes - a.totalVotes || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  const ended = polls
-    .filter((p) => new Date(p.endsAt).getTime() <= Date.now())
-    .sort((a, b) => new Date(b.endsAt).getTime() - new Date(a.endsAt).getTime());
+  // Open questions lead, one you have not answered first. Closed polls are
+  // history behind one control (src/lib/poll-view.ts).
+  const { open: active, closed: ended } = splitPolls(polls);
+  const walletUser = !!userId && /^0x[0-9a-fA-F]{40}$/.test(userId);
+
+  const createButton = (primary: boolean) => walletUser ? (
+    <button
+      type="button"
+      onClick={() => { hapticTap(); setCreating(true); }}
+      className={primary
+        ? "w-full min-h-[48px] rounded-full bg-gray-900 text-white text-[15px] font-semibold active:scale-[0.98] transition-all"
+        : "w-full min-h-[48px] rounded-full border border-gray-300 bg-white text-gray-900 text-[15px] font-semibold active:scale-[0.98] transition-all"}
+    >
+      Ask a question
+    </button>
+  ) : (
+    <p className="text-[13px] leading-snug text-gray-500">
+      {userId ? "Open FAVOUR in World App to ask a question or vote. Preview mode can read only." : "Sign in to ask a question or vote."}
+    </p>
+  );
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Create button */}
-      {userId && (
-        <button
-          onClick={() => { hapticTap(); setCreating(true); }}
-          className="flex items-center gap-3 bg-white border border-gray-200 border-dashed rounded-2xl px-5 py-4 active:scale-[0.98] transition-all"
-        >
-          <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center shrink-0">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
-            </svg>
-          </div>
-          <div className="text-left">
-            <p className="text-sm font-medium text-gray-900">Create a poll</p>
-            <p className="text-xs text-gray-400">Ask the community anything</p>
-          </div>
-        </button>
-      )}
-
       {loading ? (
         <div className="flex flex-col gap-3">
           {[0, 1, 2].map((i) => (
@@ -403,29 +411,50 @@ export function PollsFeed({
             </div>
           ))}
         </div>
-      ) : polls.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 gap-2 animate-[fadeSlideIn_0.4s_ease-out]">
-          <p className="text-[28px] font-bold text-gray-200 tracking-tight">No polls yet</p>
-          <p className="text-[14px] text-gray-400">Be the first to ask something</p>
-        </div>
       ) : (
         <>
-          {active.length > 0 && (
-            <div className="flex flex-col gap-3">
-              {active.map((poll) => (
-                <PollCard key={poll.id} poll={poll} userId={userId} onVote={handleVote} />
-              ))}
+          <section aria-label="Open polls" className="flex flex-col gap-3">
+            <div className="flex items-baseline justify-between gap-3">
+              <h2 className="text-[13px] font-bold text-gray-900 tracking-tight">Open now</h2>
+              <span className="text-[12px] text-gray-500">{pollSummary(active, ended)}</span>
             </div>
-          )}
-          {ended.length > 0 && (
-            <>
-              <p className="text-xs text-gray-400 uppercase tracking-wider font-medium mt-2">Past polls</p>
-              <div className="flex flex-col gap-3">
-                {ended.map((poll) => (
+            {active.length > 0 ? (
+              <>
+                {active.map((poll) => (
                   <PollCard key={poll.id} poll={poll} userId={userId} onVote={handleVote} />
                 ))}
+                {createButton(false)}
+              </>
+            ) : (
+              // No open poll. Say so, and make asking one the main action. The
+              // screen never fills this gap with a made-up question or a vote.
+              <div className="rounded-2xl border border-gray-200 bg-white p-5 flex flex-col gap-3">
+                <p className="text-[20px] font-bold leading-tight tracking-tight text-gray-900">No open poll right now</p>
+                <p className="text-[14px] leading-snug text-gray-600">
+                  {ended.length > 0
+                    ? `The last ${ended.length === 1 ? "poll has" : `${ended.length} polls have`} closed. Ask the next question: it opens at once and runs for 3 days.`
+                    : "Nobody has asked anything yet. Ask the first question: it opens at once and runs for 3 days."}
+                </p>
+                {createButton(true)}
               </div>
-            </>
+            )}
+          </section>
+
+          {ended.length > 0 && (
+            <section aria-label="Closed polls" className="flex flex-col gap-3">
+              <button
+                type="button"
+                onClick={() => { hapticTap(); setShowClosed((v) => !v); }}
+                aria-expanded={showClosed}
+                className="flex items-center justify-between min-h-[48px] rounded-2xl border border-gray-200 bg-white px-4 text-left active:scale-[0.99] transition-all"
+              >
+                <span className="text-[14px] font-semibold text-gray-900">Closed polls ({ended.length})</span>
+                <span className="text-[13px] text-gray-500">{showClosed ? "Hide" : "Show results"}</span>
+              </button>
+              {showClosed && ended.map((poll) => (
+                <PollCard key={poll.id} poll={poll} userId={userId} onVote={handleVote} />
+              ))}
+            </section>
           )}
         </>
       )}
@@ -472,10 +501,7 @@ export function FeedPolls({ userId, limit = 2 }: { userId: string | null; limit?
 
   // The board slots show the HOTTEST live polls, not the newest — popularity
   // is the crowding rule (most votes first, ties to newest).
-  const active = polls
-    .filter((p) => new Date(p.endsAt).getTime() > Date.now())
-    .sort((a, b) => b.totalVotes - a.totalVotes || new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-    .slice(0, limit);
+  const active = splitPolls(polls).open.slice(0, limit);
 
   if (active.length === 0) return null;
 

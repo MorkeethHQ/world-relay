@@ -1,0 +1,7 @@
+KV_REST_API_URL=http://127.0.0.1:8079
+KV_REST_API_TOKEN=local-fake-not-a-secret
+SESSION_SECRET=local-test-data-not-a-secret
+ADMIN_SECRET=local-test-data-admin-not-a-secret
+FAVOUR_TEST_FIXTURE=1
+NEXT_PUBLIC_FAVOUR_TEST_FIXTURE=1
+NEXT_TELEMETRY_DISABLED=1

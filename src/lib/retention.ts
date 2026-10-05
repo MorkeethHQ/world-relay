@@ -112,6 +112,9 @@ const TRACKED_EVENTS = [
   "get_started_tapped",
   "for_companies_tapped",
   "piece_tapped",
+  // R19 (2026-10-05): the campaign stage on step 0.
+  "welcome_tapped",
+  "demo_brand_tapped",
 ] as const;
 
 export async function computeRetention(

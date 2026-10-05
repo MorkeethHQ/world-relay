@@ -32,7 +32,16 @@ describe("every step-0 way in reports which one it was", () => {
     expect(onboarding).toMatch(/trackFunnelEvent\("get_started_tapped"\); next\(\); \}\}[^>]*>\s*How FAVOUR works/);
     expect(onboarding).toMatch(/step === 0 \? \(\) => \{ trackFunnelEvent\("get_started_tapped"\)/);
   });
-  it("For companies, on both of its buttons, counted when it opens", () => {
-    expect(onboarding.match(/if \(!forCompanies\) trackFunnelEvent\("for_companies_tapped"\)/g)?.length).toBe(2);
+  // Since R19 (2026-10-05) step 0 has ONE "For companies" control, on the
+  // campaign stage, where it used to have two (the earn card and a bare link).
+  it("For companies, counted when it opens", () => {
+    expect(onboarding.match(/if \(!forCompanies\) trackFunnelEvent\("for_companies_tapped"\)/g)?.length).toBe(1);
+  });
+  it("Start the Welcome favours, queued through the key the Feed reads", () => {
+    expect(fnBody("startWelcome")).toMatch(/trackFunnelEvent\("welcome_tapped"\)/);
+    expect(fnBody("startWelcome")).toMatch(/localStorage\.setItem\(PENDING_WELCOME_KEY/);
+  });
+  it("the demo brand, counted when it opens", () => {
+    expect(onboarding).toMatch(/trackFunnelEvent\("demo_brand_tapped"\)/);
   });
 });

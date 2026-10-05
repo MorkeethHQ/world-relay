@@ -286,6 +286,61 @@ recur silently.
   does. On 4 Oct that held 44 favours, including all 8 welcome journey tasks.
   Tests: `ended-campaigns.test.ts`, and the late pass block in `store.test.ts`.
 
+- **R19, campaigns are the front door, and Welcome is done per person (added Oct 5, 2026).**
+  Oscar, 5 Oct: "The company campaign is the main thing, we've lost the best ones
+  we had, WELCOME campaign, onboard etc."
+  **What was measured.** Public `GET /api/tasks` on production, 5 Oct: 13 rows
+  carry `campaignId: "first-favour"`. 8 are the original Welcome favours (posted
+  5 Jul, 1000 replies each). All 8 were `claimed`, each with one earlier person's
+  flagged photo. A shared row holds one proof at a time, so no new person could do
+  any Welcome favour, and the campaign banner (which needs an open task) never
+  showed. Welcome was not deleted. It was held.
+  **The stage.** `pickCampaignStage` (`src/lib/campaign-stage.ts`) puts three
+  rungs above the daily mission, in one order, on the board and on the signed-out
+  first screen (`CampaignStageCards`):
+  1. **Welcome**, the original `first-favour` campaign. Its id, its end date
+     (31 Dec 2026) and its ten task texts are unchanged (`welcome-shape.ts`; a test
+     compares the texts with `scripts/first-favour.json`).
+  2. **A real company campaign**, only the one `pickCampaignToDo` returns. R16 is
+     unchanged: checked by hand, a real brief and product, a piece open. When none
+     qualifies the rung says so and offers nothing.
+  3. **A demo brand** (`src/lib/demo-brand.ts`). Fictional and labelled so. It is
+     not in `CAMPAIGNS`, has no task rows and no pot, and cannot be started. Its
+     amounts are proposals, printed in full (0.001 reads 0.001).
+  This amends R13: the stage leads and the daily mission follows it.
+  **Welcome per person.** A Welcome step is done on a per-person instance
+  (`ensureWelcomeInstance`, `src/lib/welcome-journey.ts`): a private copy of the
+  source row, bound to it by `welcomeSourceId` and to one wallet by `welcomeFor`.
+  Someone else's pending or flagged proof sits on their own instance. The source
+  rows are not reopened, edited or deleted, and the earlier claims stay.
+  An instance is kept out of the shared task list by the store (it is indexed
+  under its owner), so the board, the stats, the jury deck and the crons never see
+  one. Only its owner may submit to it. A pass takes the person's slot on the
+  SOURCE row, so a step is credited once per person.
+  **An open Welcome source row is not a board card** (`isBoardVisible`), is not
+  claimable, and takes no direct proof (`welcome_instance_required`). It is reached
+  through the stage, like a company piece under R15, and does not count as board
+  supply. The earlier person whose proof is on a held row still sees it and may
+  send a new proof there. Their held proof can be decided by qualified reviewers
+  (`house-review.ts`); the row changes only when three of them decide it.
+  **A source row** is an original Welcome text, posted by a house agent, points,
+  multi-reply, open or claimed, with no money on it (`isWelcomeSourceRow`). The
+  two Welcome favours that expired on production stay expired.
+  **House campaign banners.** A campaign past its end date is never a current
+  banner, whatever is still marked open under it.
+  **One review entry.** The board has one door to reviewing, `ReviewEntryCard`
+  ("Review favours"). It replaces the "Review a proof" card and the REAL OR NOT
+  banner, which both opened the same deck. Flagged proofs that need a human
+  decision are reached from inside it.
+  **Polls.** On the Polls page open polls lead, a question you have not answered
+  first (`splitPolls`, `src/lib/poll-view.ts`). Closed polls and resolved
+  predictions are history behind one control each. Measured the same day: 3 open
+  and 27 closed polls, and 180 predictions of which 176 were resolved, all printed
+  as full cards. R2 and R9 are unchanged.
+  Code: `campaign-stage.ts`, `welcome-shape.ts`, `welcome-journey.ts`,
+  `demo-brand.ts`, `review-entry.ts`, `poll-view.ts`. Tests:
+  `campaign-first.test.ts`, `welcome-two-participants.test.ts`.
+
 ## Where each rule is enforced
 
 - **Server (`GET /api/tasks` via `orderBoardForApi`):** R5 tier order + R1 feedback

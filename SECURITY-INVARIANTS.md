@@ -128,6 +128,105 @@ mechanically blocks the easy-to-regress ones.
    "not escrowed" and slipped through. A refusal gate takes the LOOSEST signal
    (`isFunded`); only crediting takes the strict one. `reward.ts` says exactly
    this and it was still got wrong.
+   **Amended 2026-10-05, three changes, all points only.**
+
+   *(a) Human review of a flagged proof on a HOUSE favour*
+   (`src/lib/house-review.ts`, gate `houseReviewScope` in
+   `src/lib/house-review-gate.ts`). The appeal above refuses any task with a
+   `campaignId` and any proof with no photo, and a house favour has no person as
+   its poster, so these flagged proofs had nobody who could decide them. On
+   5 Oct 2026 that was 8 Welcome favours and 28 written answers on production.
+   The same qualified judges (10 graded cards at 60%), the same quorum (3,
+   clearing on 2), each with a written reason, may now decide three kinds:
+   `welcome_instance` (a per-person Welcome instance, photo or written),
+   `welcome_source` (an original Welcome favour still held by an earlier
+   person's flagged proof) and `house_text` (a written answer on a plain house
+   favour). **`isAppealable` is unchanged** (it was moved, with the same logic,
+   to `jury-appeal-rules.ts` so the proof screen can read it). The house gate
+   is a second gate beside it, checked on the STORED row and never on a label
+   from the request. It refuses: a poster that is not `agent:`, a sender that is not a wallet (a
+   preview identity can hold no points, so a cleared decision could never be
+   credited), a reward that
+   is not points, an escrow hash, an `onChainId`, a Double or Nothing stake, an
+   escrow-v2 address, a company piece, a hidden favour, every campaign except
+   Welcome while it has no cash unlock, Welcome text that is not original, and
+   any proof `isAppealable` already takes (one proof, one path). Invariant 2
+   and invariant 8 are untouched: the file has no call that moves money and
+   never calls `recordCampaignCompletion`.
+
+   A flagged proof is shown ONLY to a qualified judge. An unqualified signed-in
+   person gets a count and their own record, and no note, photo or favour text.
+   No sender's wallet is sent to anyone.
+
+   Votes are bound to one exact proof (`houseCaseKey`: the favour, the sender,
+   the proof id and the proof content), so a new proof starts a new case. Once
+   three votes are in, no fourth is taken, so a late vote cannot flip a
+   decision.
+
+   **The reviewer's decision is bound to the proof they were shown.** A card
+   names the favour, and the sender may replace the proof while a reviewer has
+   the card open. Each dealt card carries `proofToken` (`houseProofToken`, the
+   hashed half of the case key, with no wallet and no proof text in it). The
+   vote must send it back. Under the verify lock it is compared with the proof
+   on the favour NOW, before any vote is counted and before any resolution step
+   runs. A missing or old token answers 409 `stale` and changes nothing.
+
+   **Order at resolution, and three single operations.** The first draft
+   reserved the resolution before taking the completion slot, so a store that
+   could not answer left a proof "cleared" with no points, for good. The second
+   draft took the slot (SADD) and noted it for the case in two commands. On a
+   real Redis, with the SADD applied and its response lost, the retry read the
+   slot as someone else's and cleared with 0 points. A write whose answer never
+   arrives must be recognisable as your own. Now:
+   1. The slot AND the case's marker of it are ONE script
+      (`CLAIM_SLOT_FOR_CASE`). A retry reads back what this case did.
+   2. The credit is ONE compare-and-set script, keyed by the case
+      (`creditCompletionStrict`, `COMMIT_KEYED_CREDIT`). The read is strict
+      (`jsonSnapshot`, never the display reader, which answers a zero profile
+      when the store fails and would let a write replace a person's whole
+      points profile). The write lands only if the profile is still the exact
+      bytes that were read and the wallet lock is still held. The ref is saved
+      in the same write as the points. The credit goes to the wallet string
+      exactly as the favour holds it.
+   3. The History row AND its marker are ONE script (`RECORD_HISTORY_ONCE`), so
+      a marker cannot exist without its row.
+   4. The favour's own row (an instance is completed or reopened; a shared row
+      goes through `posterConfirm`).
+   5. Only then the resolution marker, and the case leaves the queue.
+   Any failure, before or after a write landed, answers 503 `retry` with words
+   that do not claim nothing was written. Every step run again changes nothing
+   it already did, and the last judge may call again to finish a decision their
+   vote already closed. The earlier "known limit" (a credit lost between two
+   writes) is closed by step 1.
+   Tests: `sol-house-review.real-redis.test.ts` runs the real Lua on a real
+   Redis and throws away the answer AFTER each of the three scripts applied
+   (opt in with `FAVOUR_REAL_REDIS_TEST=1`); the same cases run on the
+   in-memory double in `welcome-two-participants.test.ts`.
+
+   *(b) A resolved appeal settles the favour.* `POST /api/jury/appeal` used to
+   move points and leave the favour `claimed` with its flag, so a favour many
+   people could answer stayed held by one decided proof. The quorum vote now
+   applies `posterConfirm`, the transition the poster's own decision uses.
+   `isAppealable` has already refused every favour with money on it, and
+   `posterConfirm` refuses anything not still claimed and flagged. No credit is
+   written by the settle step. Test: `appeal-settles-favour.test.ts`.
+
+   *(c) A service failure is not a verdict.* When the check could not run on a
+   POINTS favour (no key, limit spent, or the call threw), the route stored a
+   `flag` with confidence 0. A person read "flagged" about a proof nothing had
+   looked at, and a shared favour was held by it. A points favour now gets 503
+   `check_unavailable`, no verdict, no notification and no hold
+   (`releaseUncheckedProof`). **Money is excluded on purpose:** a favour that is
+   funded, escrow-bound, Double or Nothing or escrow-v2 keeps the old behaviour
+   exactly. It is flagged and waits, because an outage must never release or
+   reopen a funded favour. Tests: the "service failure" block in
+   `welcome-two-participants.test.ts`, which also pins the funded case.
+
+   *Per-person Welcome instances and invariant 4.* An instance belongs to one
+   wallet. `POST /api/welcome/start` and `POST /api/verify-proof` both prove the
+   wallet with `ownerRefusal` (unconditional, not the switch), and verify-proof
+   refuses any other submitter on an instance, the admin bearer included.
+
 6. **One escrow funds one payout.** Funded tasks are single-completion.
    Enforced twice since 2026-10-05. At creation, `POST /api/tasks` refuses a money
    favour with `maxCompletions` above 1. In the store, `isSinglePayout`

@@ -29,6 +29,17 @@ import { recordReferralActivation } from "@/lib/referral";
 import { ownerRefusal } from "@/lib/session";
 import { buildContribution, checkCompletedTask, claimCompletionSlot, recordTaskCompletion } from "@/lib/completions";
 import { getPublishedCampaign, kindOfTask, recordCampaignResult, shortAddress } from "@/lib/campaign-drafts";
+import { isWelcomeSourceRow } from "@/lib/welcome-shape";
+import { queueHouseReview } from "@/lib/house-review";
+import { isTestFixture, fixtureVerdict } from "@/lib/test-fixture";
+import { releaseUncheckedProof } from "@/lib/store";
+
+// The words a person reads when the check itself did not run. It is not a
+// verdict on their proof, so it is never stored as one.
+const CHECK_UNAVAILABLE = {
+  error: "The check did not run. Your proof was not scored and no points changed. Send it again in a moment.",
+  code: "check_unavailable",
+} as const;
 
 export const maxDuration = 60;
 
@@ -175,6 +186,38 @@ export async function POST(req: NextRequest) {
   if (submitter && task.poster === submitter) {
     return NextResponse.json({ error: "Can't submit proof for your own task" }, { status: 403 });
   }
+  // A PER-PERSON WELCOME INSTANCE (2026-10-05) belongs to one wallet. Nobody
+  // else may send a proof to it, with or without the admin bearer.
+  if (task.welcomeFor && (typeof submitter !== "string" || submitter.toLowerCase() !== task.welcomeFor)) {
+    return NextResponse.json({ error: "This Welcome favour belongs to someone else." }, { status: 403 });
+  }
+  // A SHARED WELCOME ROW takes no new person. One proof sits on a shared row at
+  // a time, and a flagged one held all 8 Welcome favours on 5 Oct 2026. A new
+  // person does the step on their own instance (POST /api/welcome/start). The
+  // earlier person whose proof is already on the row may still send a new one.
+  if (!demoMode && task.status === "open" && isWelcomeSourceRow(task)) {
+    return NextResponse.json(
+      { error: "Open this favour from the Welcome campaign to do it.", code: "welcome_instance_required" },
+      { status: 409 },
+    );
+  }
+  // An instance is one step of its source. Refuse a person who already has the
+  // step, before the upload and the check. Fails closed like the guard below.
+  if (!demoMode && task.welcomeSourceId && submitter) {
+    const done = await checkCompletedTask(task.welcomeSourceId, submitter);
+    if (done === "yes") {
+      return NextResponse.json(
+        { error: "You already completed this favour. Your points and proof are in History.", code: "already_completed" },
+        { status: 409 },
+      );
+    }
+    if (done === "unknown") {
+      return NextResponse.json(
+        { error: "We couldn't check whether you've already done this favour. Nothing was submitted. Please try again.", code: "completion_check_unavailable" },
+        { status: 503 },
+      );
+    }
+  }
   // ONE PASS PER PERSON on a favour many people may complete, added 2026-09-21.
   //
   // A multi-completion favour is reset to `open` on every pass with its claimant
@@ -232,6 +275,22 @@ export async function POST(req: NextRequest) {
   // backing (Inv 3). Derived from reward.ts, the single source (CLAUDE.md) —
   // an inline copy here is how the two definitions drift apart.
   const taskIsRealMoney = isRealMoney(task) && hasOnChainEscrow(task);
+
+  // A SERVICE FAILURE IS NOT A SCORE (2026-10-05). When the check cannot run on a
+  // points favour, the proof used to be stored as a "flag" with confidence 0, so
+  // a person read "flagged" about a proof nothing had looked at, and a shared
+  // favour was held by it. On 4 Oct the check threw on 36 of 44 claimed favours.
+  // A points favour now gets no verdict at all in that case: 503, nothing scored.
+  // This is POINTS ONLY. Anything that may hold money keeps the old behaviour
+  // exactly: a funded proof that cannot be checked is flagged and waits, because
+  // a funded favour must never be released or reopened by an outage (Inv 2).
+  const pointsOnly =
+    task.rewardType === "points" && !taskIsFunded && task.donOnChainId == null &&
+    task.taskType !== "double-or-nothing" && !task.escrowV2Address;
+  const wasOpenAtLoad = task.status === "open";
+  if (pointsOnly && !process.env.ANTHROPIC_API_KEY && process.env.NODE_ENV === "production") {
+    return NextResponse.json(CHECK_UNAVAILABLE, { status: 503 });
+  }
 
   // The submitter's verification tier, resolved once: it must travel into the
   // store on direct submission (claimantVerification feeds the campaign-unlock
@@ -326,6 +385,10 @@ export async function POST(req: NextRequest) {
 
   let result: { verdict: "pass" | "flag" | "fail"; reasoning: string; confidence: number; tip?: string; models?: Array<{ name: string; verdict: "pass" | "flag" | "fail"; confidence: number; reasoning: string }>; consensusMethod?: "majority" | "unanimous" };
   let consensusResult: ConsensusResult | null = null;
+  let checkDidNotRun = false;
+  // Outside production with no model key, the stand-in check. The local TEST
+  // DATA fixture swaps the random one for one that does what the note asks.
+  const devStandIn = () => (isTestFixture() ? fixtureVerdict(proofNote) : verifyProofStub(task.description, proofImages[0]));
   try {
     if (useConsensus) {
       consensusResult = await verifyProofConsensus(task.description, proofImages, proofNote, task.category, task.agent?.id);
@@ -345,18 +408,33 @@ export async function POST(req: NextRequest) {
       // tasks flag for review too, so AI-generated proof can't earn by simply
       // exhausting the AI rate limit. (verifyProofStub stays for local testing.)
       if (taskIsFunded || process.env.NODE_ENV === "production") {
+        // Reached on a points favour only when the hourly limit is spent (the
+        // missing key case returned above).
+        checkDidNotRun = pointsOnly;
         result = { verdict: "flag", reasoning: "AI verification unavailable - proof requires manual review.", confidence: 0 };
       } else {
-        result = verifyProofStub(task.description, proofImages[0]);
+        result = devStandIn();
       }
     }
   } catch (err) {
     console.error("AI verification error, falling back to safe mode:", err);
+    checkDidNotRun = pointsOnly;
     if (taskIsFunded || process.env.NODE_ENV === "production") {
       result = { verdict: "flag", reasoning: "AI verification error - proof flagged for manual review.", confidence: 0 };
+    } else if (pointsOnly) {
+      result = { verdict: "flag", reasoning: "The check did not run.", confidence: 0 };
     } else {
       result = verifyProofStub(task.description, proofImages[0]);
     }
+  }
+
+  if (checkDidNotRun) {
+    // No verdict is stored, nothing is credited, nobody is notified of a flag.
+    // A favour that was open goes back to open; a person who already held it
+    // keeps it, with the stale verdict removed.
+    await releaseUncheckedProof(taskId, submitter, wasOpenAtLoad).catch(console.error);
+    trackEvent("check_unavailable", { taskId }).catch(() => {});
+    return NextResponse.json(CHECK_UNAVAILABLE, { status: 503 });
   }
 
 
@@ -457,6 +535,13 @@ export async function POST(req: NextRequest) {
     const flagged = await getTask(taskId);
     if (flagged) await ensureCompanyAppeal(flagged);
   }
+  // A flagged Welcome instance goes to the qualified reviewers. This writes no
+  // verdict and no credit (src/lib/house-review.ts). A shared house favour needs
+  // no queue: the reviewers' deck finds it in the task list.
+  if (result.verdict === "flag" && task.welcomeFor) {
+    const flagged = await getTask(taskId);
+    if (flagged) await queueHouseReview(flagged).catch(console.error);
+  }
 
   notifyProofSubmitted(task.poster, task.description).catch(console.error);
 
@@ -483,6 +568,16 @@ export async function POST(req: NextRequest) {
     if (slot !== "claimed") {
       creditAllowed = false;
       console.error(`[verify-proof] completion slot ${slot} for ${task.claimant} on ${taskId}; no credit written`);
+    }
+  }
+  // The same gate for a Welcome instance, on its SOURCE step. An instance takes
+  // one reply, so the block above skips it; the slot that matters is the one on
+  // the original Welcome favour, which makes a step credited once per person.
+  if (result.verdict === "pass" && task.claimant && task.welcomeSourceId && !demoMode) {
+    const slot = await claimCompletionSlot(task.welcomeSourceId, task.claimant);
+    if (slot !== "claimed") {
+      creditAllowed = false;
+      console.error(`[verify-proof] welcome slot ${slot} for ${task.claimant} on ${task.welcomeSourceId}; no credit written`);
     }
   }
 

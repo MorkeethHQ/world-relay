@@ -415,6 +415,62 @@ export async function withPreparedPointsAward<T>(address: string, commit: (p: {
   });
 }
 
+// A KEYED COMPLETION CREDIT THAT FAILS CLOSED (2026-10-05), for a credit decided
+// by people after the fact (src/lib/house-review.ts).
+//
+// recordFavourCompleted reads the profile with getProofOfFavour, the DISPLAY
+// reader, which answers a fresh zero profile when the store cannot be read, and
+// it saves with a swallowed error. At an award boundary both are wrong: a failed
+// read followed by a working write would replace a person's whole points
+// profile with "0 plus this credit". Here:
+//   - the read is strict (jsonSnapshot throws on a storage error),
+//   - the write is ONE compare-and-set script: it lands only if the profile is
+//     still the exact bytes that were read and the wallet lock is still held,
+//   - the ref is stored in the same write as the points, so "was this applied"
+//     has one answer. A caller whose response was lost AFTER the write landed
+//     calls again and gets "already".
+// Same economy as a completion with no streak bonus: the favour's own points,
+// favoursCompleted + 1, a "favour_completed" history row.
+// Throws on any storage failure. Never returns a guess.
+export const COMMIT_KEYED_CREDIT = `-- favour:keyed-credit
+if redis.call('GET', KEYS[4]) ~= ARGV[5] then return 'lock' end
+local raw = redis.call('GET', KEYS[1])
+local hash = raw and redis.sha1hex(raw) or ''
+if hash ~= ARGV[1] then return 'changed' end
+redis.call('SET', KEYS[1], ARGV[2])
+redis.call('SADD', KEYS[2], ARGV[3])
+redis.call('ZINCRBY', KEYS[3], ARGV[4], ARGV[3])
+redis.call('EXPIRE', KEYS[3], 1209600)
+return 'ok'`;
+
+export async function creditCompletionStrict(address: string, points: number, ref: string): Promise<"credited" | "already"> {
+  const redis = getRedis();
+  if (!redis || !isRealWallet(address)) throw new Error("Points storage and wallet required");
+  if (!ref || !Number.isFinite(points) || points < 0) throw new Error("Invalid keyed credit");
+  return withWalletLock(address, async (lease) => {
+    if (!lease) throw new Error("Points lock unavailable");
+    const profileKey = `${POF_PREFIX}${address}`;
+    const snapshot = await jsonSnapshot<ProofOfFavour>(profileKey);
+    const profile = snapshot.value ?? defaultProfile(address);
+    if (!Number.isFinite(profile.totalPoints) || !Array.isArray(profile.pointsHistory)) throw new Error("Invalid points profile");
+    if (hasRef(profile, ref)) return "already";
+    addRef(profile, ref);
+    profile.totalPoints += points;
+    profile.favoursCompleted = (profile.favoursCompleted || 0) + 1;
+    profile.level = getLevel(profile.totalPoints);
+    profile.pointsHistory.push({ action: "favour_completed", points, timestamp: new Date().toISOString() });
+    if (profile.pointsHistory.length > MAX_HISTORY) profile.pointsHistory = profile.pointsHistory.slice(-MAX_HISTORY);
+    updateStreak(profile);
+    const done = await redis.eval(
+      COMMIT_KEYED_CREDIT,
+      [profileKey, POF_INDEX_KEY, weekKey(), lease.key],
+      [snapshot.hash, JSON.stringify(profile), address, points, lease.token],
+    );
+    if (done !== "ok") throw new Error(`Keyed credit not saved (${String(done)})`);
+    return "credited";
+  });
+}
+
 export async function awardPoints(
   address: string,
   action: string,

@@ -1,6 +1,7 @@
 import type { Task } from "./types";
 import { isRealMoney } from "./reward";
 import { isHiddenTask } from "./task-serializer";
+import { isWelcomeSourceRow } from "./welcome-shape";
 import { getFeaturedCampaign } from "./campaigns";
 
 // SINGLE SOURCE OF TRUTH for what shows on the board and in what order.
@@ -67,6 +68,10 @@ export function isBoardVisible(t: Task, userId: string | null, now: number): boo
   if (t.status === "open") {
     if (new Date(t.deadline).getTime() < now) return false;
     if (isCompanyPiece(t)) return false;
+    // R19: an original Welcome favour is reached through the campaign stage and
+    // done on a per-person instance. As a plain board card it took one proof at
+    // a time, and a flagged one held it for everybody.
+    if (isWelcomeSourceRow(t, now)) return false;
     // R16: a favour with no room left cannot be done by anyone, so it is not
     // on offer.
     if ((t.completionCount ?? 0) >= Math.max(1, t.maxCompletions ?? 1)) return false;

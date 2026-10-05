@@ -20,7 +20,9 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ car
   const review = answer.companyAppealId ? await getCompanyAppeal(answer.companyAppealId) : null;
   const src = review?.images[0] ?? task?.proofImages?.[0] ?? task?.proofImageUrl ?? null;
   if (!src) return new NextResponse("No proof image", { status: 404 });
-  if (!src.startsWith("data:")) return NextResponse.redirect(src);
+  // An absolute URL (blob storage) or, in the local fixture, a path on this
+  // site. A bare path made redirect() throw and the card showed no photo.
+  if (!src.startsWith("data:")) return NextResponse.redirect(new URL(src, _req.url));
 
   const match = src.match(/^data:([^;,]+);base64,([\s\S]+)$/);
   if (!match) return new NextResponse("Unsupported encoding", { status: 415 });

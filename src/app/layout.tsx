@@ -48,6 +48,13 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col bg-gray-50 text-gray-900">
         <ErrorBoundary>
           <MiniKitProvider>
+            {/* Shown only in the local TEST DATA fixture (scripts/REVIEW-FIXTURE.md).
+                The variable is not set in any deployed environment. */}
+            {process.env.NEXT_PUBLIC_FAVOUR_TEST_FIXTURE === "1" && (
+              <div role="note" className="pointer-events-none fixed top-1 left-1/2 z-[70] -translate-x-1/2 rounded-full bg-amber-600 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.15em] text-white whitespace-nowrap">
+                Test data · local preview
+              </div>
+            )}
             <PageTracker />
             {/* `viewport-clip`: contains horizontal overflow here, in place, so
                 it can never widen the iOS layout viewport and drag the fixed

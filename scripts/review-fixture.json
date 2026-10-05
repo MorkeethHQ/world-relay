@@ -1,0 +1,34 @@
+{
+  "note": "TEST DATA for a local review. Synthetic wallet identifiers (no real participant's sign-in is used) and a made-up session secret that signs cookies for this local preview only. Nothing here is a secret and nothing here is production.",
+  "sessionSecret": "local-test-data-not-a-secret",
+  "adminSecret": "local-test-data-admin-not-a-secret",
+  "participants": [
+    { "key": "ana", "name": "TEST Ana", "address": "0x7e57da7a000000000000000000000000000000a1", "role": "New participant 1. Has done nothing yet." },
+    { "key": "ben", "name": "TEST Ben", "address": "0x7e57da7a000000000000000000000000000000b2", "role": "New participant 2. Has done nothing yet." },
+    { "key": "rev1", "name": "TEST Reviewer 1", "address": "0x7e57da7a000000000000000000000000000000c1", "role": "Qualified reviewer (seeded graded record 10 of 12)." },
+    { "key": "rev2", "name": "TEST Reviewer 2", "address": "0x7e57da7a000000000000000000000000000000c2", "role": "Qualified reviewer (seeded graded record 10 of 12)." },
+    { "key": "rev3", "name": "TEST Reviewer 3", "address": "0x7e57da7a000000000000000000000000000000c3", "role": "Qualified reviewer (seeded graded record 10 of 12)." },
+    { "key": "company", "name": "TEST Company owner", "address": "0x7e57da7a000000000000000000000000000000d1", "role": "Owner of the TEST DATA company campaign." }
+  ],
+  "earlierHolder": "0x7e57da7a000000000000000000000000000000e0",
+  "pollAuthor": "0x7e57da7a000000000000000000000000000000f1",
+  "polls": [
+    { "question": "You have ten minutes and a stranger needs one small thing. What do you do?", "options": ["Help, no questions", "Ask what it is first", "Depends on my day", "Keep walking"] },
+    { "question": "Which would you rather be rewarded for?", "options": ["One honest photo", "Two honest lines", "Showing up somewhere", "Nothing, I do favours free"] },
+    { "question": "What should a brand have to prove before it asks you for a favour?", "options": ["That it is a real company", "That the reward is funded", "That my answer gets read", "Nothing, just ask"] }
+  ],
+  "closedPolls": [
+    { "question": "TEST DATA closed poll: is three days long enough for a poll?", "options": ["Yes", "No, a week", "No, one day"] },
+    { "question": "TEST DATA closed poll: photo or written answer?", "options": ["Photo", "Written"] }
+  ],
+  "company": {
+    "company": "TEST DATA Kiln & Kettle (fixture company)",
+    "brief": "TEST DATA brief. We make a small stoneware teapot and want short honest pieces from people who brew loose leaf tea at home, saying what they would change about it.",
+    "productName": "TEST DATA stoneware teapot",
+    "productUrl": "https://example.com/test-data-teapot",
+    "pieces": [{ "kind": "review", "count": 3 }, { "kind": "ugc", "count": 2 }],
+    "rewardPerPiecePoints": 10,
+    "proposedPoolUsdc": 50,
+    "reviewRule": "ai_and_jury"
+  }
+}

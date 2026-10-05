@@ -45,10 +45,14 @@ describe("the feed composer posts through the existing rules, not around them", 
 });
 
 describe("review supply is real proofs only", () => {
-  it("the review card renders only when real proofs are waiting, counted by the server", () => {
-    expect(feed).toMatch(/reviewDeck\.length > 0 && reviewWaiting > 0 && pickProofStrip\(tasks\)\[0\] && \(\s*<ReviewProofCard/);
+  // Since 2026-10-05 the board has ONE review entry (ReviewEntryCard). It is
+  // always there for a signed-in person; what must stay true is that its count
+  // and its picture are real.
+  it("the review entry's count is the server's, never the deck's length", () => {
+    expect(feed).toMatch(/<ReviewEntryCard/);
     expect(feed).toMatch(/waiting=\{reviewWaiting\}/);
     expect(feed).not.toMatch(/waiting=\{reviewDeck\.length\}/);
+    expect(feed).toMatch(/reviewEntryFor\(\{ waiting: reviewWaiting, flaggedWaiting: reviewFlagged, record: reviewRecord, walletUser \}\)/);
   });
 
   it("the deck comes from the jury route, the same source REAL OR NOT judges", () => {
@@ -61,8 +65,8 @@ describe("review supply is real proofs only", () => {
   });
 
   it("the preview is a REAL finished proof from the strip, never a card from the deck (which may be a decoy)", () => {
-    expect(feed).toMatch(/proof=\{pickProofStrip\(tasks\)\[0\]\}/);
-    expect(body(feed, "ReviewProofCard")).not.toMatch(/card\./);
+    expect(feed).toMatch(/proof=\{reviewDeck\.length > 0 && reviewWaiting > 0 \? \(pickProofStrip\(tasks\)\[0\] \?\? null\) : null\}/);
+    expect(body(feed, "ReviewEntryCard")).not.toMatch(/card\./);
   });
 });
 

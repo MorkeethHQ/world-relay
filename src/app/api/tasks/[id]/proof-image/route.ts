@@ -12,14 +12,17 @@ export async function GET(
 ) {
   const { id } = await params;
   const task = await getTask(id);
-  if (!task) return new NextResponse("Not found", { status: 404 });
+  // A Welcome instance is private to its owner; its proof is never served here.
+  if (!task || task.welcomeFor) return new NextResponse("Not found", { status: 404 });
 
   const idx = Math.max(0, Math.trunc(Number(new URL(req.url).searchParams.get("i")) || 0));
   const src = task.proofImages?.[idx] ?? (idx === 0 ? task.proofImageUrl : null);
   if (!src) return new NextResponse("No proof image", { status: 404 });
 
   // Already an external URL (not an inline blob): send the client there.
-  if (!src.startsWith("data:")) return NextResponse.redirect(src);
+  // An absolute URL (blob storage) or, in the local fixture, a path on this
+  // site. A bare path made redirect() throw and the card showed no photo.
+  if (!src.startsWith("data:")) return NextResponse.redirect(new URL(src, req.url));
 
   const match = src.match(/^data:([^;,]+);base64,([\s\S]+)$/);
   if (!match) return new NextResponse("Unsupported proof image encoding", { status: 415 });

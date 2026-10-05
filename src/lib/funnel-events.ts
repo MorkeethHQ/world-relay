@@ -35,6 +35,9 @@ export const FUNNEL_EVENTS = [
   "get_started_tapped",
   "for_companies_tapped",
   "piece_tapped",
+  // 2026-10-05, R19: the campaign stage on step 0.
+  "welcome_tapped",
+  "demo_brand_tapped",
 ] as const;
 
 export type FunnelEvent = (typeof FUNNEL_EVENTS)[number];

@@ -28,16 +28,15 @@ import { isRealMoney, isFunded } from "./reward";
 // could reach either. A flagged FUNDED proof still earns nothing here — it is
 // resubmitted, disputed, or expires and refunds, exactly as before.
 
-// Distinct qualified judges required before an appeal resolves.
-export const APPEAL_QUORUM = 3;
-// Of those, how many must say REAL for the proof to clear.
-export const APPEAL_CLEAR_MAJORITY = 2;
-// A judge's vote only COUNTS once they have proven they can read a proof spec,
-// on the graded Real-or-Not deck where the answer is known. The game is the
-// qualification exam for the real jury — which is the one thing a bot cannot
-// fake and an unverified crowd cannot provide.
-export const JUDGE_MIN_GRADED = 10;
-export const JUDGE_MIN_ACCURACY = 0.6;
+// The four thresholds live in jury-appeal-rules.ts so a client component can
+// show them. Quorum: distinct qualified judges required before an appeal
+// resolves. Clear majority: how many of those must say REAL. A judge's vote
+// only COUNTS once they have proven they can read a proof spec, on the graded
+// Real-or-Not deck where the answer is known. The game is the qualification
+// exam for the real jury, which is the one thing a bot cannot fake and an
+// unverified crowd cannot provide.
+import { APPEAL_QUORUM, APPEAL_CLEAR_MAJORITY, JUDGE_MIN_GRADED, JUDGE_MIN_ACCURACY, isAppealable } from "./jury-appeal-rules";
+export { APPEAL_QUORUM, APPEAL_CLEAR_MAJORITY, JUDGE_MIN_GRADED, JUDGE_MIN_ACCURACY };
 
 export type AppealTally = { real: number; not: number; voters: string[]; resolved: boolean };
 
@@ -45,35 +44,10 @@ export type AppealTally = { real: number; not: number; voters: string[]; resolve
 // PURE — the money boundary and the pool. Unit-tested without a store.
 // ---------------------------------------------------------------------------
 
-/**
- * The single gate that keeps a human verdict away from money.
- *
- * A proof is appealable ONLY if it is AI-flagged, carries an image to judge,
- * pays points, and touches no escrow, no on-chain id, no Double-or-Nothing and
- * no campaign. Every one of those exclusions maps to an invariant: money is
- * AI-verified only (Inv 2), campaign progress comes only from the pass path
- * (Inv 8), one escrow funds one payout (Inv 6).
- */
-export function isAppealable(t: Task): boolean {
-  return (
-    t.verificationResult?.verdict === "flag" &&
-    !!t.proofImageUrl &&
-    !!t.claimant &&
-    t.rewardType === "points" &&
-    !isRealMoney(t) &&
-    // isFunded, NOT hasOnChainEscrow. hasOnChainEscrow is the strict CREDIT
-    // signal: it demands a real 0x+64hex tx hash, so a task carrying an
-    // onChainId with no hash yet reads false — and as a refusal gate that
-    // silently let an escrow-bound task through (caught by this module's guard
-    // test on the first run). reward.ts says it outright: leaning loose only
-    // adds protection for a gate, and is wrong only for crediting. Refuse on
-    // the loosest possible signal.
-    !isFunded(t) &&
-    t.donOnChainId === null &&
-    !t.campaignId &&
-    !t.escrowV2Address
-  );
-}
+// isAppealable, the single gate that keeps a human verdict away from money, is
+// defined in jury-appeal-rules.ts (2026-10-05) so the proof screen can read the
+// same gate the server uses. Its logic is unchanged.
+export { isAppealable };
 
 /** Appealable proofs this judge may rule on — never their own, either side. */
 export function appealPool(tasks: Task[], judge: string | null): Task[] {

@@ -195,7 +195,9 @@ export function JuryMode({
         </div>
       </div>
 
-      <a href="/jury/appeals" className="mx-5 mb-3 text-center text-sm font-semibold underline">Review flagged photos</a>
+      {/* Inside the one Review feature: proofs the automatic check flagged, which
+          qualified reviewers decide. Not a second entry on the board. */}
+      <a href="/jury/appeals" className="mx-5 mb-3 min-h-[44px] flex items-center justify-center rounded-full border border-gray-300 bg-white text-[14px] font-semibold text-gray-900">Decide flagged proofs</a>
 
       {needsAuth && (
         <div className="mx-5 mb-2 rounded-2xl bg-gray-900 px-4 py-3 flex items-center gap-3" role="alert">

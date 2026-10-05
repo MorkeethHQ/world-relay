@@ -112,4 +112,18 @@ export type Task = {
   // never deleting.
   hiddenAt?: string | null;
   hiddenReason?: string | null;
+  // A PER-PERSON WELCOME INSTANCE (2026-10-05, src/lib/welcome-journey.ts). On
+  // 5 Oct all 8 Welcome rows on production were held "claimed" by one person's
+  // flagged proof each, so no new person could do any of them. A Welcome step is
+  // now done on a private copy of its source row: welcomeSourceId is the id of
+  // the original Welcome task (never changed, never reopened by this), and
+  // welcomeFor is the lowercased wallet the copy belongs to. An instance takes
+  // one reply, pays points only, is never listed with the shared tasks, and only
+  // its owner may submit to it. Set only by ensureWelcomeInstance, never from a
+  // request body.
+  welcomeSourceId?: string;
+  welcomeFor?: string;
+  // The outcome of the last human review of a flagged Welcome instance that was
+  // NOT accepted (src/lib/house-review.ts). Shown to the owner only.
+  welcomeReviewNote?: { outcome: "upheld"; at: string; reasons: string[] } | null;
 };

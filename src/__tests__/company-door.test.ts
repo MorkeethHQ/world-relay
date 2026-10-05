@@ -43,9 +43,13 @@ describe("the first screen leads with doing, not with planning", () => {
   const onboarding = readFileSync("src/components/Onboarding.tsx", "utf8");
   const cc = readFileSync("src/components/CompanyCampaign.tsx", "utf8");
   it("the main button reads 'Do a piece and earn'", () => {
-    expect(cc).toMatch(/>\s*Do a piece and earn\s*</);
-    expect(feed).toMatch(/<EarnCard/);
-    expect(onboarding).toMatch(/<EarnCard/);
+    // Since R19 (2026-10-05) the button sits on the campaign stage, the same
+    // component on the board and on the signed-out first screen.
+    const stage = readFileSync("src/components/CampaignFrontDoor.tsx", "utf8");
+    expect(stage).toMatch(/>\s*Do a piece and earn\s*</);
+    expect(stage).toMatch(/<CompanyTrust c=\{c\.campaign\}/);
+    expect(feed).toMatch(/<CampaignStageCards/);
+    expect(onboarding).toMatch(/<CampaignStageCards/);
   });
   it("the board no longer shows the company vision card inline; it is behind For companies", () => {
     expect(feed).not.toMatch(/<CompanyVisionCard/);
@@ -67,7 +71,8 @@ describe("the board's order after the company door", () => {
   it("today's mission comes before the list of campaign cards", () => {
     const mission = feed.indexOf("<DailyMissionCard");
     const cards = feed.indexOf("campaignCards.lead.map");
-    const earn = feed.indexOf("<EarnCard");
+    // R19: the campaign stage leads, then today's mission, then other campaigns.
+    const earn = feed.indexOf("<CampaignStageCards");
     expect(earn).toBeGreaterThan(0);
     expect(mission).toBeGreaterThan(earn);
     expect(cards).toBeGreaterThan(mission);

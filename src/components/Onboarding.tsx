@@ -8,7 +8,10 @@ import {
 } from "@worldcoin/mini-apps-ui-kit-react";
 import { WorldAppHandoff } from "@/components/WorldAppHandoff";
 import { DailyMissionCard } from "@/components/MissionCard";
-import { CompanyVisionCard, EarnCard } from "@/components/CompanyCampaign";
+import { CompanyVisionCard } from "@/components/CompanyCampaign";
+import { CampaignStageCards, DemoBrandView } from "@/components/CampaignFrontDoor";
+import { pickCampaignStage } from "@/lib/campaign-stage";
+import type { WelcomeView } from "@/lib/welcome-shape";
 import { pickCampaignToDo } from "@/lib/company-door";
 import type { PublicCompanyCampaign } from "@/lib/campaign-draft-shape";
 import { pickDailyMission, pickProofStrip } from "@/lib/board-rank";
@@ -23,6 +26,9 @@ export const PENDING_MISSION_KEY = "favour_pending_mission";
 export const PENDING_LAUNCH_KEY = "favour_pending_launch";
 // "Do a piece and earn" tapped signed out: the campaign id to open after sign-in.
 export const PENDING_PIECE_KEY = "favour_pending_piece";
+// "Start the Welcome favours" tapped signed out (R19, 2026-10-05): open the
+// Welcome list after sign-in.
+export const PENDING_WELCOME_KEY = "favour_pending_welcome";
 
 /*
  * Onboarding
@@ -166,12 +172,17 @@ export function Onboarding({
   const [proofs, setProofs] = useState<Task[]>([]);
   const [pieceToDo, setPieceToDo] = useState<ReturnType<typeof pickCampaignToDo>>(null);
   const [forCompanies, setForCompanies] = useState(false);
+  // R19: the same campaign stage the board leads with. Read-only here.
+  const [welcomeView, setWelcomeView] = useState<WelcomeView | null>(null);
+  const [demoOpen, setDemoOpen] = useState(false);
   useEffect(() => {
     Promise.all([
       fetch("/api/tasks").then((r) => (r.ok ? r.json() : null)),
       fetch("/api/campaigns/company").then((r) => (r.ok ? r.json() : null)).catch(() => null),
+      fetch("/api/welcome").then((r) => (r.ok ? r.json() : null)).catch(() => null),
     ])
-      .then(([d, cc]) => {
+      .then(([d, cc, w]) => {
+        setWelcomeView(w?.welcome ?? null);
         const tasks: Task[] = Array.isArray(d?.tasks) ? d.tasks : [];
         const campaigns: PublicCompanyCampaign[] = Array.isArray(cc?.campaigns) ? cc.campaigns : [];
         setPieceToDo(pickCampaignToDo(campaigns, tasks));
@@ -191,6 +202,16 @@ export function Onboarding({
   const startPiece = (campaignId: string) => {
     trackFunnelEvent("piece_tapped");
     try { localStorage.setItem(PENDING_PIECE_KEY, campaignId); } catch {}
+    setPendingMission(true);
+    setStep(2);
+  };
+
+  // The Welcome favours are done signed in, so the tap goes through terms and
+  // sign-in first and the Feed opens the list afterwards.
+  const startWelcome = () => {
+    trackFunnelEvent("welcome_tapped");
+    try { localStorage.setItem(PENDING_WELCOME_KEY, "1"); } catch {}
+    setDemoOpen(false);
     setPendingMission(true);
     setStep(2);
   };
@@ -326,31 +347,34 @@ export function Onboarding({
 
       {/* Content. Re-keyed on step so the entrance animation replays each screen. */}
       <div key={step} className="flex-1 flex flex-col justify-center px-7 animate-[fadeSlideIn_0.4s_ease-out]">
-        {step === 0 && mission && (
+        {step === 0 && demoOpen && (
+          <div className="-mx-7">
+            <DemoBrandView onBack={() => setDemoOpen(false)} onPlan={() => { setDemoOpen(false); startLaunch(); }} onWelcome={welcomeView ? startWelcome : null} />
+          </div>
+        )}
+        {step === 0 && !demoOpen && (mission || welcomeView) && (
           <div className="flex flex-col gap-3 -mx-7">
             <div className="px-7">
               <p className="text-[18px] font-bold tracking-tight text-gray-900">FAVOUR</p>
               <p className="text-[14px] text-gray-500 mt-1">Small asks from real people. Look first. You sign in when you do one.</p>
             </div>
             <div className="-mt-1">
-              {pieceToDo ? (
-                <EarnCard
-                  openPieces={pieceToDo.totalOpen}
-                  onDo={() => startPiece(pieceToDo.campaign.id)}
-                  onForCompanies={() => { if (!forCompanies) trackFunnelEvent("for_companies_tapped"); setForCompanies((v) => !v); }}
-                />
-              ) : (
-                <div className="mx-6 flex justify-end">
-                  <button type="button" onClick={() => { if (!forCompanies) trackFunnelEvent("for_companies_tapped"); setForCompanies((v) => !v); }} className="min-h-[40px] px-1 text-[13px] text-gray-500">For companies</button>
-                </div>
-              )}
+              <CampaignStageCards
+                stage={pickCampaignStage({ welcome: welcomeView, company: pieceToDo })}
+                welcome={welcomeView}
+                signedIn={false}
+                onOpenWelcome={startWelcome}
+                onOpenCompany={(id) => startPiece(id)}
+                onForCompanies={() => { if (!forCompanies) trackFunnelEvent("for_companies_tapped"); setForCompanies((v) => !v); }}
+                onOpenDemo={() => { trackFunnelEvent("demo_brand_tapped"); setDemoOpen(true); }}
+              />
               {forCompanies && <CompanyVisionCard onLaunch={startLaunch} launchLabel="Plan a campaign" />}
             </div>
-            <DailyMissionCard task={mission} proofs={proofs} onStart={startMission} />
+            {mission && <DailyMissionCard task={mission} proofs={proofs} onStart={startMission} />}
           </div>
         )}
 
-        {step === 0 && !mission && (
+        {step === 0 && !demoOpen && !mission && !welcomeView && (
           <div className="flex flex-col items-center text-center gap-5">
             <h1 className="text-[64px] font-bold tracking-tight text-gray-900 leading-none animate-[countUp_0.6s_ease-out]">
               FAVOUR

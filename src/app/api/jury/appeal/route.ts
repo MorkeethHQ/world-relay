@@ -1,6 +1,7 @@
 import { recordCompanyAppealVote } from "@/lib/company-appeal";
 import { NextRequest, NextResponse } from "next/server";
-import { listTasks, getTask } from "@/lib/store";
+import { listTasks, getTask, posterConfirm } from "@/lib/store";
+import { recordLatePassHistory } from "@/lib/completions";
 import { getCardAnswer } from "@/lib/jury";
 import { issueAppealDeck, recordAppealVote, getJudgeStats, isQualifiedJudge } from "@/lib/jury-appeal";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
@@ -65,6 +66,20 @@ export async function POST(req: NextRequest) {
   if (task.companyCampaignId) return NextResponse.json({ error: "Load a current company review card." }, { status: 409 });
   const result = await recordAppealVote(body.address, task, body.verdict === "real");
   if ("error" in result) return NextResponse.json(result, { status: 409 });
+  // THE DECISION ALSO SETTLES THE FAVOUR (2026-10-05). A resolved appeal used to
+  // move points and leave the favour "claimed" with its flag, so a favour many
+  // people could answer stayed held by one decided proof. On 5 Oct 2026 the
+  // public board held 10 plain photo favours that way. The quorum vote now
+  // applies the same store transition the poster's own decision uses: accepted
+  // counts the reply, takes the person's slot and reopens a multi-reply favour;
+  // declined reopens it. posterConfirm refuses anything not still claimed and
+  // flagged, so a late or repeated vote changes nothing, and isAppealable has
+  // already refused every favour with money on it. No credit is written here:
+  // the points were written once, inside recordAppealVote.
+  if (result.counted && result.outcome !== "pending") {
+    const settled = await posterConfirm(task.id, result.outcome === "cleared").catch(() => null);
+    if (settled && result.outcome === "cleared") await recordLatePassHistory(task).catch(console.error);
+  }
   trackEvent("jury_appeal_vote", { counted: result.counted, outcome: result.outcome }).catch(() => {});
   return NextResponse.json(result);
 }

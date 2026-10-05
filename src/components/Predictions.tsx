@@ -154,6 +154,8 @@ function PredictionCard({ p, userId, onStaked }: { p: ApiPrediction; userId: str
 
 export function PredictionsSection({ userId }: { userId: string | null }) {
   const [predictions, setPredictions] = useState<ApiPrediction[]>([]);
+  const [showPast, setShowPast] = useState(false);
+  const [pastShown, setPastShown] = useState(10);
 
   const load = useCallback(() => {
     fetch(`/api/predictions${userId ? `?address=${encodeURIComponent(userId)}` : ""}`)
@@ -164,16 +166,51 @@ export function PredictionsSection({ userId }: { userId: string | null }) {
 
   useEffect(() => { load(); }, [load]);
 
-  // Open first (closest lock first via API order), resolved/void after.
+  // OPEN ONLY BY DEFAULT (2026-10-05). Public GET /api/predictions on production
+  // held 180 predictions that day, 176 of them resolved, and this section printed
+  // all 180 as full cards above the polls. That was the "gigantic list" of locked
+  // cards on the Polls page. Resolved ones are history: behind one control, ten
+  // at a time. Nothing is deleted.
   const open = predictions.filter((p) => p.status === "open");
   const done = predictions.filter((p) => p.status !== "open");
   if (predictions.length === 0) return null;
 
   return (
     <div className="flex flex-col gap-2.5">
-      {[...open, ...done].map((p) => (
+      {open.length > 0 && (
+        <div className="flex items-baseline justify-between gap-3 pt-2">
+          <h2 className="text-[13px] font-bold text-gray-900 tracking-tight">Predictions open now</h2>
+          <span className="text-[12px] text-gray-500">{open.length} open</span>
+        </div>
+      )}
+      {open.map((p) => (
         <PredictionCard key={p.id} p={p} userId={userId} onStaked={load} />
       ))}
+      {done.length > 0 && (
+        <>
+          <button
+            type="button"
+            onClick={() => { hapticTap(); setShowPast((v) => !v); }}
+            aria-expanded={showPast}
+            className="flex items-center justify-between min-h-[48px] rounded-2xl border border-gray-200 bg-white px-4 text-left active:scale-[0.99] transition-all"
+          >
+            <span className="text-[14px] font-semibold text-gray-900">Past predictions ({done.length})</span>
+            <span className="text-[13px] text-gray-500">{showPast ? "Hide" : "Show results"}</span>
+          </button>
+          {showPast && done.slice(0, pastShown).map((p) => (
+            <PredictionCard key={p.id} p={p} userId={userId} onStaked={load} />
+          ))}
+          {showPast && done.length > pastShown && (
+            <button
+              type="button"
+              onClick={() => { hapticTap(); setPastShown((n) => n + 10); }}
+              className="min-h-[48px] rounded-full border border-gray-300 bg-white text-[15px] font-semibold text-gray-900 active:scale-[0.98] transition-all"
+            >
+              Show 10 more
+            </button>
+          )}
+        </>
+      )}
     </div>
   );
 }

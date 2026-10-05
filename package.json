@@ -11,7 +11,10 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
-    "demo:smoke": "node scripts/mobile-demo-smoke.mjs"
+    "demo:smoke": "node scripts/mobile-demo-smoke.mjs",
+    "fixture:store": "node scripts/fake-store.mjs --empty --fixture scripts/review-fixture.json --port 8079",
+    "fixture:app": "sh scripts/review-fixture-app.sh",
+    "fixture:seed": "node scripts/review-fixture.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.91.0",

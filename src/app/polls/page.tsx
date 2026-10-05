@@ -19,8 +19,10 @@ export default function PollsPage() {
         <h1 className="text-[18px] font-bold tracking-tight text-gray-900">Polls</h1>
       </div>
       <div className="px-6 py-4 pb-28 flex flex-col gap-4">
-        <PredictionsSection userId={userId} />
+        {/* Open questions first. Closed polls and resolved predictions are
+            history, each behind its own control (2026-10-05). */}
         <PollsFeed userId={userId} />
+        <PredictionsSection userId={userId} />
       </div>
     </div>
   );
