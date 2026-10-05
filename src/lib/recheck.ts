@@ -376,14 +376,14 @@ async function underLock(redis: Store, taskId: string, label: { id: string; clai
   try {
     locked = await redis.set(lockKey, "recheck", { nx: true, px: LOCK_MS });
   } catch (err) {
-    return row(label, "failed", `could not take the lock: ${err instanceof Error ? err.message.slice(0, 120) : "store error"}. Nothing written. Run the job again`);
+    return row(label, "failed", `could not take the lock: ${err instanceof Error ? err.message.slice(0, 120) : "store error"}. Nothing written. The next real run takes it up again`);
   }
-  if (!locked) return row(label, "busy", "a verification is in progress on this favour (or a run died less than 2 minutes ago); run again later");
+  if (!locked) return row(label, "busy", "a verification is in progress on this favour (or a run died less than 2 minutes ago). The next real run takes it up again");
   try {
     return await work();
   } catch (err) {
     const msg = err instanceof Error ? err.message.slice(0, 200) : "unknown error";
-    return row(label, "failed", `not complete: ${msg}. No points are reported for this item. Run the job again to finish it`);
+    return row(label, "failed", `not complete: ${msg}. No points are reported for this item. The next real run finishes it`);
   } finally {
     await redis.del(lockKey).catch(() => null);
   }
@@ -396,6 +396,8 @@ export async function recheckThrownProofs(opts: RecheckOptions): Promise<Recheck
   const fetchImpl = opts.fetchImpl ?? fetch;
   const out: RecheckOutcome[] = [];
   const handled = new Set<string>();
+  // How many items this run has taken on, resumed ones included.
+  let done = 0;
   const redis = getRedis();
   if (opts.apply && !redis) throw new Error("no store configured: a real run needs KV_REST_API_URL and KV_REST_API_TOKEN");
 
@@ -423,6 +425,14 @@ export async function recheckThrownProofs(opts: RecheckOptions): Promise<Recheck
         continue;
       }
       if (opts.only && j.taskId !== opts.only) continue;
+      // An item being resumed COUNTS against --limit (since 2026-10-05). So after a
+      // one-favour step that failed, the same one-favour step finishes that favour
+      // and starts nothing new. Items over the limit stay in progress for a later run.
+      if (opts.limit !== undefined && done >= opts.limit) {
+        handled.add(j.taskId);
+        continue;
+      }
+      done++;
       handled.add(j.taskId);
       const label = { id: j.taskId, claimant: j.claimant, description: j.task.description };
       if (!opts.apply) {
@@ -445,7 +455,6 @@ export async function recheckThrownProofs(opts: RecheckOptions): Promise<Recheck
 
   let candidates = (await listTasks()).filter(isThrownCheck).filter((t) => !handled.has(t.id));
   if (opts.only) candidates = candidates.filter((t) => t.id === opts.only);
-  let done = 0;
   for (const t of candidates) {
     const skip = recheckSkipReason(t);
     if (skip) {

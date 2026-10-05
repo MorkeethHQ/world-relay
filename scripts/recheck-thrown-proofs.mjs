@@ -16,8 +16,9 @@
 //   node scripts/recheck-thrown-proofs.mjs --apply --confirm <code>             re-check the whole list, for real
 //
 // --apply does nothing without --confirm <code>. The code comes from the dry run of
-// the SAME command and names the exact list it showed. If the list has changed
-// since (a favour expired, a run finished), the real run does not start.
+// the SAME command against the SAME store. It works once, for 30 minutes, and only
+// while the list is what that dry run showed. A refusal never prints a code.
+// The first line of every run names the store and says whether it is the local fake.
 //
 // Needs KV_REST_API_URL and KV_REST_API_TOKEN. --apply also needs
 // ANTHROPIC_API_KEY, because it calls the same model the live check calls.
@@ -34,10 +35,14 @@
 // would have, and writes the person's History row.
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { createHash } from "node:crypto";
+import { pathToFileURL } from "node:url";
+import { resolve } from "node:path";
 import { createJiti } from "jiti";
+import { storeLine, issueCode, redeemCode, codeOnRecord, REFUSAL } from "./confirm-code.mjs";
 
 const argv = process.argv.slice(2);
+// The first line of every run names the store, before anything can go wrong.
+if (process.env.KV_REST_API_URL) console.log(await storeLine(process.env.KV_REST_API_URL));
 const known = new Set(["--apply", "--only", "--limit", "--confirm"]);
 const flagValue = (name) => {
   const i = argv.indexOf(name);
@@ -65,13 +70,11 @@ if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) {
   console.error("KV_REST_API_URL and KV_REST_API_TOKEN are required");
   process.exit(2);
 }
-// THE CONFIRM CODE (2026-10-05). A real run needs --apply AND --confirm <code>.
-// The code is printed only by the dry run of the same command, and it is made
-// from the exact list of favours that dry run showed. So a real run cannot start
-// by pasting a block of commands, and it will not start if the list has changed
-// since the dry run was read.
-if (APPLY && !confirm) {
-  console.error("--apply needs --confirm <code>. Run the same command without --apply first; it prints the code. Nothing was read or written.");
+// THE CONFIRM CODE. A real run needs --apply AND --confirm <code>. The code is
+// printed only by the dry run of the same command against the same store; see
+// scripts/confirm-code.mjs. Without a code nothing is read or written.
+if (APPLY && !codeOnRecord(confirm)) {
+  console.error(REFUSAL);
   process.exit(2);
 }
 if (APPLY && !process.env.ANTHROPIC_API_KEY) {
@@ -95,7 +98,7 @@ if (APPLY) {
       console.error("RECHECK_VERIFIER_MODULE is for local tests only and is refused against a remote store");
       process.exit(2);
     }
-    verify = (await import(double)).default;
+    verify = (await import(pathToFileURL(resolve(double)).href)).default;
   } else {
     verify = (await jiti.import(join(root, "src/lib/verify-proof.ts"))).verifyProof;
   }
@@ -103,13 +106,10 @@ if (APPLY) {
 
 // The plan: always a dry run first, even for a real run. It reads and writes nothing.
 const plan = await recheckThrownProofs({ apply: false, verify: async () => { throw new Error("planning: the verifier is never called"); }, only, limit });
-const code = createHash("sha256")
-  .update(JSON.stringify(plan.filter((o) => o.action === "would-recheck" || o.action === "would-resume").map((o) => [o.action, o.taskId, o.claimant]).sort()))
-  .digest("hex")
-  .slice(0, 10);
-if (APPLY && confirm !== code) {
-  for (const o of plan) console.log(`${o.action.padEnd(13)} ${o.taskId}  ${(o.claimant ?? "").slice(0, 10)}  "${o.description}"\n              ${o.detail}`);
-  console.error(`\nNOT STARTED: --confirm ${confirm} does not match this list. The list above is what a real run would do now. It differs from the dry run that gave that code (a favour expired, a run finished, or --only / --limit differ). Read it, then use its code: ${code}. Nothing was written.`);
+// What a code is tied to: this command, these flags, and exactly this list.
+const what = ["recheck-thrown-proofs", { only: only ?? null, limit: limit ?? null }, plan.filter((o) => o.action === "would-recheck" || o.action === "would-resume").map((o) => [o.action, o.taskId, o.claimant]).sort()];
+if (APPLY && !redeemCode(process.env.KV_REST_API_URL, what, confirm)) {
+  console.error(REFUSAL);
   process.exit(2);
 }
 
@@ -122,22 +122,25 @@ for (const o of out) {
 console.log("");
 if (!APPLY) {
   console.log(`Dry run. ${count("would-recheck")} would be re-checked, ${count("would-resume")} would be resumed, ${count("skipped")} skipped. Nothing was written.`);
-  if (count("would-recheck") + count("would-resume") > 0) console.log(`To do exactly this list for real, run the same command again with: --apply --confirm ${code}`);
+  if (count("would-recheck") + count("would-resume") > 0) {
+    console.log(`To do exactly this list for real, on this store, run the same command again with: --apply --confirm ${issueCode(process.env.KV_REST_API_URL, what)}`);
+    console.log("The code works once, for 30 minutes, on this store only, and only while the list above is unchanged.");
+  }
 } else {
   // Points are summed only from rows that carry them, and a row carries points
   // only after the credit was read back from the store.
   const points = out.reduce((s, o) => s + (o.action === "passed" ? o.points ?? 0 : 0), 0);
   console.log(`Applied. passed ${count("passed")} (${points} points read back), rejected ${count("rejected")}, real flag ${count("flagged")}, FAILED ${count("failed")}, still failing ${count("still-failing")}, already done ${count("already-done")}, busy ${count("busy")}, changed ${count("changed")}, skipped ${count("skipped")}.`);
   if (count("failed") > 0) {
-    console.log(`${count("failed")} item(s) are NOT COMPLETE. No points are reported for them. Nothing is lost: run the dry run again, then --apply with its new code, and it finishes them.`);
+    console.log(`${count("failed")} item(s) are NOT COMPLETE. No points are reported for them. Nothing is lost. To finish: run the same dry run again, then the same apply with the new code it prints.`);
     process.exitCode = 1;
   }
   if (count("still-failing") > 0) {
-    console.log("Some proofs could not be checked. They are unchanged. Fix the cause and run again.");
+    console.log("Some proofs could not be checked. They are unchanged. Fix the cause, then run the same dry run again and apply with its new code.");
     process.exitCode = 1;
   }
   if (count("busy") > 0) {
-    console.log("Some favours were busy. If a run died, its lock clears after 2 minutes. Run again.");
+    console.log("Some favours were busy. If a run died, its lock clears after 2 minutes. Then run the same dry run again and apply with its new code.");
     process.exitCode = 1;
   }
 }

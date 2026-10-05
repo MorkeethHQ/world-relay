@@ -46,11 +46,13 @@
 //
 // What it still cannot do: a campaign and its pieces are separate records, so a
 // campaign hide is not one atomic step. If it exits 1 part way, run it again.
-import { createHash } from "node:crypto";
+import { storeLine, issueCode, redeemCode, codeOnRecord, REFUSAL } from "./confirm-code.mjs";
 
 const U = process.env.KV_REST_API_URL;
 const T = process.env.KV_REST_API_TOKEN;
 if (!U || !T) { console.error("KV_REST_API_URL and KV_REST_API_TOKEN are required"); process.exit(2); }
+// The first line of every run names the store, before anything can go wrong.
+console.log(await storeLine(U));
 
 async function cmd(...args) {
   const r = await fetch(U, { method: "POST", headers: { Authorization: `Bearer ${T}`, "Content-Type": "application/json" }, body: JSON.stringify(args) });
@@ -92,6 +94,11 @@ if (positional.length > 2 || argv.some((a) => a.startsWith("--") && !["--apply",
   process.exit(2);
 }
 const [kind, id] = positional;
+// --apply with no code is refused here, before anything is read from the store.
+if (argv.includes("--apply") && !codeOnRecord(ciEarly >= 0 ? argv[ciEarly + 1] : undefined)) {
+  console.error(REFUSAL);
+  process.exit(2);
+}
 
 if (!kind) {
   const ids = (await cmd("SMEMBERS", "campaign:company:published")) ?? [];
@@ -162,31 +169,31 @@ if (kind === "task") {
     if (p) plans.push(p);
   }
 }
-for (const p of plans) console.log(p.note);
+// The plan is shown by the dry run. An apply prints it only after its code was accepted.
+if (!APPLY) for (const p of plans) console.log(p.note);
 
-// THE CONFIRM CODE (2026-10-05). A write needs --apply AND --confirm <code>, and
-// the code is printed only by the dry run. It is made from the action, the
-// reason and the exact records the dry run read, so it cannot be known without
-// running the dry run, and it stops matching if any of those records changes.
-// A block of commands pasted whole cannot hide or undo anything.
-const code = createHash("sha256")
-  .update(JSON.stringify([kind, id, UNDO ? "undo" : "hide", UNDO ? "" : reason, plans.map((p) => [p.key, p.raw, p.write])]))
-  .digest("hex")
-  .slice(0, 10);
+// THE CONFIRM CODE. A write needs --apply AND --confirm <code>. The code is printed
+// only by the dry run of the same command against the same store, and it is tied
+// to the action, the reason and the exact records that dry run read; see
+// scripts/confirm-code.mjs. A block of commands pasted whole cannot hide or undo
+// anything, and a code from a rehearsal store does nothing on another store.
+const what = ["hide-item", kind, id, UNDO ? "undo" : "hide", UNDO ? "" : reason, plans.map((p) => [p.key, p.raw, p.write])];
 const toWrite = plans.filter((p) => p.write);
 
 if (!APPLY) {
   console.log(`Dry run. Nothing was written. ${toWrite.length} record(s) would change.`);
-  if (toWrite.length > 0) console.log(`To ${UNDO ? "undo" : "hide"}, run the same command again with: --apply --confirm ${code}`);
+  if (toWrite.length > 0) {
+    console.log(`To ${UNDO ? "undo" : "hide"}, on this store, run the same command again with: --apply --confirm ${issueCode(U, what)}`);
+    console.log("The code works once, for 30 minutes, on this store only, and only while these records are unchanged.");
+  }
   process.exit(0);
 }
-if (confirm !== code) {
-  console.error(confirm
-    ? `NOT WRITTEN: --confirm ${confirm} does not match. The records, the reason or the action differ from the dry run that gave that code. Read the lines above, then run the dry run again.`
-    : "NOT WRITTEN: --apply needs --confirm <code>. Run the same command without --apply first; it prints the code.");
+if (!redeemCode(U, what, confirm)) {
+  console.error(REFUSAL);
   process.exit(2);
 }
 
+for (const p of plans) console.log(p.note);
 let changedUnderUs = false;
 for (const p of toWrite) {
   const ok = await cmd("EVAL", p.script, "2", p.key, backupKey(p.key), p.raw, JSON.stringify(p.next), p.entry);

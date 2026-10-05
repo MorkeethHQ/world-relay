@@ -15,8 +15,11 @@
 //   node --env-file=scripts/fake-store.envfile scripts/recheck-thrown-proofs.mjs
 //   curl -s http://127.0.0.1:8079/__log
 //
-// scripts/fake-store.envfile holds the two variables that point a script at this
-// fake on port 8079. It contains no secret.
+// scripts/fake-store.envfile points a script at this fake on port 8079. It holds
+// the fake's address, a made-up token, a made-up model key and the name of the
+// rehearsal verifier double (scripts/rehearsal-verifier.mjs), so that a re-check
+// --apply can be rehearsed all the way to the confirm code gate and beyond without
+// a model. It contains no secret.
 //
 // GET /__log answers the command counts and how many of them were writes, so "a
 // dry run sends no write" is something anyone can check.

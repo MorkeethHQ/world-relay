@@ -1,2 +1,4 @@
 KV_REST_API_URL=http://127.0.0.1:8079
 KV_REST_API_TOKEN=local-fake-not-a-secret
+ANTHROPIC_API_KEY=local-rehearsal-not-a-key
+RECHECK_VERIFIER_MODULE=scripts/rehearsal-verifier.mjs
