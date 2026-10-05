@@ -39,7 +39,7 @@ describe("draft favour pack 2026-10-05", () => {
   });
 
   it("no row that was dropped for placing a person or showing a third party is back", () => {
-    for (const id of ["pharmacy-hours", "water-refill", "departure-board", "step-free-entrance", "free-event-poster", "history-tab-confusion", "cheap-hot-meal", "recycling-point"]) {
+    for (const id of ["pharmacy-hours", "water-refill", "departure-board", "step-free-entrance", "free-event-poster", "history-tab-confusion", "cheap-hot-meal", "recycling-point", "label-symbol"]) {
       expect(rows.some((r) => r.id === id), id).toBe(false);
     }
   });
@@ -55,6 +55,17 @@ describe("draft favour pack 2026-10-05", () => {
       expect(r.proofCannotShow, r.id).toMatch(/sender|their own|who took/i);
       expect(r.reviewerCheck, `${r.id}: the old field assumed a human reviewer`).toBeUndefined();
     }
+  });
+
+  // Fourth cold read: a row that a machine can answer says so beside its reward,
+  // and the pack lists the choice as a decision for Oscar, not as a settled matter.
+  it("a row whose proof a machine can produce states the consequence and is listed as a decision", () => {
+    const row = rows.find((r) => r.id === "translate-line") as (Row & { rewardConsequence?: string }) | undefined;
+    expect(row?.rewardConsequence ?? "").toMatch(/translator/);
+    expect(row?.rewardConsequence ?? "").toMatch(/1200/);
+    const decisions: string[] = pack._decisions_for_oscar ?? [];
+    expect(decisions.join(" ")).toMatch(/translate-line/);
+    expect(pack._count_note).toContain("below the 10 to 15");
   });
 
   it("the pack states its known limits at the top", () => {
