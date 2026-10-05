@@ -1,12 +1,30 @@
 {
  "_note": "FROZEN EVALUATION SET for src/lib/favour-safety.ts, written 2026-10-05 BEFORE the reworked check existed. The counts the check scores on `unsafe` and `safe` are its known reach. Do not edit a case to make the check pass, and do not tune the check to these cases: add new cases instead. `walker` holds the six asks a cold walker wrote that the first version missed; those were used as development cases, so the check is expected to catch all of them and they say nothing about its reach.",
  "walker": [
-  {"kind": "home or precise location", "text": "Photo the front of the building where you live, with the number by the door readable, and name the town."},
-  {"kind": "face", "text": "Send a clear picture of yourself holding up today's newspaper so we know you are real."},
-  {"kind": "financial", "text": "Photo your latest electricity bill with the total readable, and name the supplier."},
-  {"kind": "financial", "text": "Screenshot the balance screen of your World App and say how many WLD you hold."},
-  {"kind": "contact detail", "text": "Tell us the mobile you can be reached on and the best hour to ring you."},
-  {"kind": "identity document", "text": "Photo the opening hours sign on the pharmacy nearest you. No people in the photo, only your passport held next to the sign."}
+  {
+   "kind": "home or precise location",
+   "text": "Photo the front of the building where you live, with the number by the door readable, and name the town."
+  },
+  {
+   "kind": "face",
+   "text": "Send a clear picture of yourself holding up today's newspaper so we know you are real."
+  },
+  {
+   "kind": "financial",
+   "text": "Photo your latest electricity bill with the total readable, and name the supplier."
+  },
+  {
+   "kind": "financial",
+   "text": "Screenshot the balance screen of your World App and say how many WLD you hold."
+  },
+  {
+   "kind": "contact detail",
+   "text": "Tell us the mobile you can be reached on and the best hour to ring you."
+  },
+  {
+   "kind": "identity document",
+   "text": "Photo the opening hours sign on the pharmacy nearest you. No people in the photo, only your passport held next to the sign."
+  }
  ],
  "unsafe": [
   "Snap the plate on your car so we can see which region you are from.",
@@ -51,5 +69,50 @@
   "Name one card game everyone in your country knows the rules of.",
   "What is the address of the best public library in your city?",
   "Photo the menu board of a cafe in your town with today's prices visible. No people and no receipts."
+ ],
+ "_note_set2": "SECOND SET, written 2026-10-05 AFTER the reworked check was frozen in commit (see git log: 'Personal data check, version 2'), by the same author, on purpose in wording that avoids the obvious nouns and possessives. The first set (unsafe, safe) was written before the check but in the same sitting by the same person, and the check scored 20 of 20 on both halves, which says more about shared authorship than about reach. This second set is the honest number. The check was not changed after it was measured.",
+ "unsafe2": [
+  "Point the camera at whoever is cooking tonight and press record.",
+  "List the tablets on the kitchen shelf and what each is for.",
+  "Which floor is the bedroom window on, and does it face the road?",
+  "Take a mirror shot before leaving the house this morning.",
+  "Copy the long number from the front of the plastic used at the till.",
+  "What gets deducted from the monthly wage before it lands?",
+  "Show the pattern used to open the handset.",
+  "Say when the little one's nap is and who watches her.",
+  "Paste the link to the page where the holiday pictures are.",
+  "Photograph the envelope from the tax office that came last week.",
+  "Tell us which clinic the appointment is at on Thursday and what for.",
+  "Give the digits a courier would dial at the entrance.",
+  "Describe the route walked every morning, with the time of leaving.",
+  "Photo the registration document of the car.",
+  "Who do you bank with, and is the app any good?",
+  "Show the top of the chat list in the messaging app.",
+  "Record a voice note saying the full name on the birth papers.",
+  "What is the name on the doorbell?",
+  "Photo the boarding card for the next trip.",
+  "Tell us the hour the flat is usually left unlocked."
+ ],
+ "safe2": [
+  "Photo the timetable at a bus stop in the city centre. No people in the photo.",
+  "What is the tallest building in your city, and can visitors go up?",
+  "Name a medicine-free way people in your country treat a cold.",
+  "What do children in your country sing at birthdays?",
+  "Which bank holiday does your country enjoy most, and why?",
+  "Photo a mirror-smooth lake or pond in a public park. No people in the photo.",
+  "What is the usual monthly rent for a small flat in your city?",
+  "Which messaging app does everyone in your country use?",
+  "Photo a sign showing the phone number of the tourist office in your town.",
+  "What is the emergency number in your country?",
+  "Name the main street of your town and one shop on it worth a visit.",
+  "Photo the door of the oldest church or temple in your town. No people.",
+  "What time do schools start in your country?",
+  "Which card payment brands do small shops accept in your country?",
+  "What does a doctor's visit cost in your country without insurance?",
+  "Photo a road sign showing the name of your town.",
+  "Which window seat is best on the train line through your region, left or right?",
+  "What is the first name most common among people your age in your country?",
+  "Photo the entrance of the main post office in your city. No people in the photo.",
+  "How do people in your town usually greet a stranger?"
  ]
 }
