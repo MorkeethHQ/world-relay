@@ -119,8 +119,17 @@ describe("draft favour pack 2026-10-05", () => {
     expect(cats.filter((c) => c === "feedback").length).toBeLessThanOrEqual(Math.floor(rows.length / 3));
   });
 
-  it("gives the daily mission something to pick (the live board had no candidate on 4 Oct)", () => {
-    expect(rows.filter((r) => isMissionCandidate({ description: r.description } as never)).length).toBeGreaterThanOrEqual(3);
+  // The first version of this test wanted at least 3 rows the daily mission could
+  // pick. The mission picks "here and now" asks: near you, where you are, right
+  // now (R13, isMissionCandidate). Those are the same words that place a person.
+  // After two cold walks the pack asks for the town and nothing nearer, so it
+  // feeds the mission nothing, on purpose. That tension is a product decision and
+  // is written in the return file; it is not settled here.
+  it("no row uses the here and now wording that places a person", () => {
+    for (const r of rows) {
+      expect(/near you|nearest|closest to you|where you are|right now|around you|outside your/i.test(r.description), r.id).toBe(false);
+    }
+    expect(rows.filter((r) => isMissionCandidate({ description: r.description } as never))).toHaveLength(0);
   });
 
   it("contains no em dash or en dash (house writing rule)", () => {
