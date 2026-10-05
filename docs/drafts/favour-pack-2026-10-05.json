@@ -1,9 +1,19 @@
 {
  "_status": "UNFUNDED DRAFT. Not posted. Do not post without Oscar.",
- "_written": "2026-10-04 night run, branch night/favour-cleanup-20261004. Revised 2026-10-05 after two cold walks: drafts that could expose the person or that could not be proven were dropped or rewritten, the safety wording moved into the posted text, and asks that placed a person within a short walk of a named spot now ask for the town only.",
+ "_written": "2026-10-04 night run, branch night/favour-cleanup-20261004. Revised three times on 2026-10-05 after three cold reads.",
+ "_count_note": "The brief asked for 10 to 15 favours. 14 were drafted. After three independent reads, 3 remain. The others placed a person in a town, at a spot or at a time, or showed a third party's details, or could not be checked by anything. Fewer good rows beat more risky ones.",
+ "_known_limits": [
+  "Nothing shows that a photo is the sender's own. A picture found online passes as easily as one just taken. The app has no provenance check and this pack does not add one.",
+  "The check is a model, not a person. No human reviews a proof on the live app. Each row says what that model can see in the proof and what it cannot. Whether the live model judges these rows well is unverified: none has been posted.",
+  "Answers come from one wallet. Several answers from the same wallet add up. That is why no row asks for a town, a spot, a day or a time any more: a town beside photos of real spots, from one wallet, gives a home town and a set of places.",
+  "A photo is never placeless. A shelf label or a product pack can still show a chain name, a language, a kitchen counter. The safety clause in each row is an instruction to the sender. Nothing enforces it.",
+  "The personal data check that the review test runs is a reviewer's aid. It caught 5 of 20 unsafe asks written after it was frozen and wrongly flagged 3 of 20 safe ones. A green test does not mean a row is safe.",
+  "These rows have been read by three cold readers in earlier forms. The current wording of each row, and the whole of label-symbol, has been read by no one but the drafter. A person must read every row before it is posted.",
+  "No funder, sponsor or requester exists. Each row would post under a house agent name, which can read as someone wanting the data. Nobody does."
+ ],
  "_shape": "description, category, points, deadlineHours, maxCompletions, agentId and location are a FavourSpec (src/lib/board-replenish.ts validateFavourSpec). ONLY description reaches the person. safety is a clause that is part of description, repeated here so the review test can find it. The other fields are review notes and are not posted.",
  "_reward_note": "points are FAVOUR house points, not money. No sponsor or funder exists for any row, so every row is marked unfunded draft. No row promises a payout.",
- "_demand_note": "whoWouldWantIt is a plausible requester, written by the drafter. It is not observed demand. No user asked for these. Each row would post under a house agent name, which can read as a requester who wants the data. Nobody does.",
+ "_demand_note": "whoWouldWantIt is a plausible requester, written by the drafter. It is not observed demand. No user asked for these.",
  "_review_note": "The review test (src/__tests__/favour-pack.test.ts) is an aid. Its personal data check is a pattern matcher that caught 5 of 20 unsafe asks written after it was frozen, and wrongly flagged 3 of 20 safe ones. A green test does not mean a row is safe. A person must read every row before it is posted.",
  "_dropped": [
   {
@@ -12,140 +22,78 @@
   },
   {
    "id": "signal-check",
-   "why": "a speed test screenshot often shows IP address and provider, and 'name your network' can be read as the Wi-Fi name"
+   "why": "a speed test screenshot often shows IP address and provider"
   },
   {
    "id": "atm-working",
-   "why": "an ATM screen is a financial screen, the fee cannot be known without a card in the machine, and photographing one can cause trouble for the person"
+   "why": "a financial screen, and photographing one can cause trouble for the person"
   },
   {
    "id": "notice-board",
-   "why": "a photo carries other people's names and numbers, and the words-only version could not be proven"
+   "why": "a photo carries other people's names and numbers, and the words-only version could not be checked"
   },
   {
    "id": "visitor-trick",
-   "why": "an opinion in text that no reviewer can check"
+   "why": "an opinion in text that nothing can check"
   },
   {
    "id": "public-toilet",
-   "why": "text only and not provable; a photo version would mean photographing a toilet entrance"
+   "why": "text only and not checkable; a photo version would mean photographing a toilet entrance"
   },
   {
    "id": "free-this-week",
-   "why": "text only and not provable; replaced by free-event-poster, which takes a photo of a dated poster"
+   "why": "text only and not checkable"
+  },
+  {
+   "id": "pharmacy-hours",
+   "why": "a town, a day and a time beside a photo of a real spot, and a pharmacy sign can name the pharmacist on duty"
+  },
+  {
+   "id": "water-refill",
+   "why": "a photo of a real public spot beside a town, and 'or say it is dry' is a word the photo cannot show"
+  },
+  {
+   "id": "departure-board",
+   "why": "a departure board shows the station and the time: it places a person in space and time"
+  },
+  {
+   "id": "step-free-entrance",
+   "why": "a named kind of building in a town is a real spot, people stand at entrances, and the answer is a judgement"
+  },
+  {
+   "id": "free-event-poster",
+   "why": "a poster can carry an organiser's name and phone number, and it dates and places the sender"
+  },
+  {
+   "id": "history-tab-confusion",
+   "why": "History differs for each person, so nothing can check the answer against the sender's screen, and the live check is a model"
+  },
+  {
+   "id": "cheap-hot-meal",
+   "why": "a menu board is a named place in a town"
+  },
+  {
+   "id": "recycling-point",
+   "why": "a photo of a real public spot beside a town"
   }
  ],
  "favours": [
   {
-   "id": "pharmacy-hours",
-   "description": "Photo the opening hours sign on a pharmacy in your town. Say the day and time you took it, and name the town. Sign only: no people and no number plates.",
-   "safety": "Sign only: no people and no number plates.",
-   "category": "check-in",
-   "points": 18,
-   "deadlineHours": 168,
-   "maxCompletions": 50,
-   "agentId": "freshmap",
-   "location": "Any city",
-   "proofKind": "photo",
-   "reviewerCheck": "The photo shows a pharmacy's posted hours and they can be read. The day and time are the person's word and are not checked.",
-   "proofRequired": "One photo where the posted hours can be read. Note: day and time of the photo, and the town. Any pharmacy in the town, not the nearest one.",
-   "whoWouldWantIt": "Someone checking whether a map listing is right before they walk there. An assistant that answers 'is it open' and has no eyes on the door.",
-   "funding": "unfunded draft"
-  },
-  {
    "id": "staple-prices",
-   "description": "Photo the shelf price of a litre of milk and a loaf of bread at a shop in your town, and name the town. Shelf labels only: no people and no receipts.",
-   "safety": "Shelf labels only: no people and no receipts.",
+   "description": "Photo the shelf price labels for a litre of milk and a loaf of bread in a shop. Name the country. Labels only: no people, no receipts, no shop sign.",
+   "safety": "Labels only: no people, no receipts, no shop sign.",
    "category": "photo",
    "points": 20,
    "deadlineHours": 168,
    "maxCompletions": 50,
    "agentId": "shelfwatch",
-   "location": "Any city",
-   "proofKind": "photo",
-   "reviewerCheck": "Both shelf labels are in the photo and both prices can be read.",
-   "proofRequired": "One or two photos with both shelf labels readable. Note: town and country.",
-   "whoWouldWantIt": "Anyone comparing the cost of living between towns. A person about to move. A price tracker that has no shelf data.",
-   "funding": "unfunded draft"
-  },
-  {
-   "id": "water-refill",
-   "description": "Find a public water tap or refill point in your town. Photo it with the water running, or say it is dry. Name the town. No people in the photo.",
-   "safety": "No people in the photo.",
-   "category": "check-in",
-   "points": 18,
-   "deadlineHours": 168,
-   "maxCompletions": 50,
-   "agentId": "queuepulse",
-   "location": "Any city",
-   "proofKind": "photo",
-   "reviewerCheck": "The photo shows a public tap or fountain. Running water is visible, or the note says it is dry.",
-   "proofRequired": "One photo of the tap or fountain, with running water visible if it works. Note: the town. Not the street or the park: that would place the person.",
-   "whoWouldWantIt": "Walkers, runners and travellers who carry a bottle. Refill maps go out of date and nobody checks them.",
-   "funding": "unfunded draft"
-  },
-  {
-   "id": "departure-board",
-   "description": "Photo the departure board at the main station of your town. Name the town and one thing the board gets wrong. No people or number plates in the photo.",
-   "safety": "No people or number plates in the photo.",
-   "category": "photo",
-   "points": 20,
-   "deadlineHours": 168,
-   "maxCompletions": 50,
-   "agentId": "queuepulse",
-   "location": "Any city",
-   "proofKind": "photo",
-   "reviewerCheck": "The photo shows a departure board and its times can be read. What the board gets wrong is the person's word and is not checked.",
-   "proofRequired": "One photo of the board with times readable. Note: the town and one line from experience. The main station, not the stop the person uses.",
-   "whoWouldWantIt": "A commuter or visitor deciding whether to trust the board. Transit apps repeat the timetable, not what regulars know.",
-   "funding": "unfunded draft"
-  },
-  {
-   "id": "step-free-entrance",
-   "description": "Photo the main entrance of a library, post office or station in your town. Could a wheelchair get in unaided? No people in the photo where you can help it.",
-   "safety": "No people in the photo where you can help it.",
-   "category": "photo",
-   "points": 20,
-   "deadlineHours": 336,
-   "maxCompletions": 50,
-   "agentId": "propertycheck",
-   "location": "Any city",
-   "proofKind": "photo",
-   "reviewerCheck": "The photo shows the whole entrance, steps or ramp included, so the yes or no in the note can be judged from it.",
-   "proofRequired": "One photo showing the whole entrance, steps or ramp included. Note: yes or no, and what is in the way.",
-   "whoWouldWantIt": "Wheelchair users and parents with prams planning a trip. Access data on maps is thin and often wrong.",
-   "funding": "unfunded draft"
-  },
-  {
-   "id": "free-event-poster",
-   "description": "Photo a public poster for a free event in your town this week, with the date on it readable. Name the town. Poster only: no people in the photo.",
-   "safety": "Poster only: no people in the photo.",
-   "category": "check-in",
-   "points": 15,
-   "deadlineHours": 168,
-   "maxCompletions": 100,
-   "agentId": "freshmap",
-   "location": "Any city",
-   "proofKind": "photo",
-   "reviewerCheck": "The photo shows a poster, the event and its date can be read, and the date falls in the week the favour was open.",
-   "proofRequired": "One photo of a poster in a public place with the event and date readable. Note: the town. Replaces a text-only draft that could not be proven.",
-   "whoWouldWantIt": "A visitor with a spare afternoon. A new resident. A local who has run out of ideas.",
-   "funding": "unfunded draft"
-  },
-  {
-   "id": "history-tab-confusion",
-   "description": "Open the History tab in FAVOUR. Tell us one thing on that screen you did not understand, in one sentence. Words only: do not send a screenshot.",
-   "safety": "Words only: do not send a screenshot.",
-   "category": "feedback",
-   "points": 12,
-   "deadlineHours": 336,
-   "maxCompletions": 100,
-   "agentId": "hermes",
    "location": "Anywhere",
-   "proofKind": "text checked against a known source",
-   "reviewerCheck": "The reviewer opens the History tab and checks that the thing named is really on that screen. An answer that names nothing on the screen is not accepted.",
-   "proofRequired": "A text answer naming the thing on the screen. No screenshot, because History shows the person's own proofs.",
-   "whoWouldWantIt": "The FAVOUR team. This is product feedback from the people who use the screen, and it costs them one minute.",
+   "proofKind": "photo",
+   "checkedBy": "the live model check, not a person",
+   "proofShows": "Two shelf labels with prices and a currency that can be read.",
+   "proofCannotShow": "Who took the photo. Nothing shows it is the sender's own and not one found online. Not when it was taken, and not that it is from the country named. A label can carry a chain name; the clause asks to leave the shop sign out and nothing enforces it.",
+   "proofRequired": "One or two photos with both shelf labels readable. Note: the country only. The first versions asked for the town; a town beside a photo of a real shop, from one wallet, placed the person.",
+   "whoWouldWantIt": "Anyone comparing the cost of living between countries. A person about to move. A price tracker that has no shelf data.",
    "funding": "unfunded draft"
   },
   {
@@ -158,42 +106,30 @@
    "maxCompletions": 100,
    "agentId": "hermes",
    "location": "Anywhere",
-   "proofKind": "text checked against a known source",
-   "reviewerCheck": "The reviewer puts the answer through a translator back into English and checks it says the same thing, in the language named.",
+   "proofKind": "text the model can check against the posted line",
+   "checkedBy": "the live model check, not a person",
+   "proofShows": "Whether the text is a fair translation of the posted line into the language named. A multilingual model can judge that from the two texts alone.",
+   "proofCannotShow": "That the sender speaks the language or wrote it: a machine translation passes. Naming a language is a small fact about the sender, and the ask says another language you speak, not the one spoken at home. Whether the live model check judges this well is unverified.",
    "proofRequired": "A text answer: the translated line and the name of the language.",
    "whoWouldWantIt": "The FAVOUR team, for a first translated screen. Live answers on 4 Oct came in Spanish, Indonesian, Tagalog and Japanese (source: raw/api_tasks.json proof notes).",
    "funding": "unfunded draft"
   },
   {
-   "id": "cheap-hot-meal",
-   "description": "Photo a menu or price board in your town that shows a filling hot meal at a low price. Name the dish and the town. Menu only: no people and no receipts.",
-   "safety": "Menu only: no people and no receipts.",
+   "id": "label-symbol",
+   "description": "Photo a warning or sorting symbol on the pack of a product sold in your country. Say what the symbol means. Pack only: no people, no receipts, no addresses.",
+   "safety": "Pack only: no people, no receipts, no addresses.",
    "category": "review",
-   "points": 18,
-   "deadlineHours": 168,
-   "maxCompletions": 100,
-   "agentId": "shelfwatch",
-   "location": "Any city",
-   "proofKind": "photo",
-   "reviewerCheck": "The photo shows a menu or price board, and the dish named in the note is on it with a price that can be read.",
-   "proofRequired": "One photo of a public menu or price board with the dish and its price readable. Note: the dish and the town. Replaces a text-only draft that could not be proven.",
-   "whoWouldWantIt": "Students, backpackers and anyone on a tight week. Review sites rank by rating, not by what a full plate costs.",
-   "funding": "unfunded draft"
-  },
-  {
-   "id": "recycling-point",
-   "description": "Photo a public recycling point in your town and say what it takes. Name the town. No people and no number plates in the photo.",
-   "safety": "No people and no number plates in the photo.",
-   "category": "photo",
    "points": 15,
    "deadlineHours": 336,
    "maxCompletions": 50,
    "agentId": "propertycheck",
-   "location": "Any city",
+   "location": "Anywhere",
    "proofKind": "photo",
-   "reviewerCheck": "The photo shows the containers and their labels can be read, so what goes in can be checked against the note.",
-   "proofRequired": "One photo of the containers with their labels readable. Note: what goes in, and the town. Not the street.",
-   "whoWouldWantIt": "A new resident who does not know where glass or batteries go. City lists are often out of date.",
+   "checkedBy": "the live model check, not a person",
+   "proofShows": "A product pack with a printed symbol that can be seen, and a stated meaning the model can compare with the symbol.",
+   "proofCannotShow": "Who took the photo. Nothing shows it is the sender's own and not one found online. Not that the product is sold in the sender's country. A pack on a kitchen counter shows a little of a home; the clause cannot prevent that.",
+   "proofRequired": "One photo of the symbol on a product pack. Note: what it means. No country is asked for in words beyond the product being sold there. NEW in the third revision and read by no one but the drafter.",
+   "whoWouldWantIt": "A visitor or new resident who cannot read what a symbol on a pack is telling them to do. Plausible, not observed.",
    "funding": "unfunded draft"
   }
  ]
