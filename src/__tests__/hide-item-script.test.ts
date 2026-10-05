@@ -29,6 +29,9 @@ beforeEach(async () => {
     let body = "";
     req.on("data", (c) => (body += c));
     req.on("end", () => {
+      // GET /__log is how the script asks a local store whether it is the shipped
+      // rehearsal fake. This test double is not, and says so.
+      if (req.method === "GET") { res.statusCode = 404; res.end("{}"); return; }
       const args = JSON.parse(body) as string[];
       const [cmd, key, val] = args;
       seen.push(cmd);

@@ -93,6 +93,9 @@ beforeEach(async () => {
     let body = "";
     req.on("data", (c) => (body += c));
     req.on("end", () => {
+      // The scripts ask a local store whether it is the shipped rehearsal fake
+      // (GET /__log). This test double is not that fake, and says so.
+      if (req.method === "GET") { res.statusCode = 404; res.end("{}"); return; }
       const parsed = JSON.parse(body);
       const enc = req.headers["upstash-encoding"] === "base64" ? b64 : (v: unknown) => v;
       let answer: unknown;
@@ -121,7 +124,7 @@ writeFileSync(passDouble, `export default async () => ({ verdict: "pass", reason
 writeFileSync(throwDouble, `export default async () => { throw new Error("LOCAL DOUBLE: 401 invalid x-api-key"); };\n`);
 
 async function script(args: string[], env: Record<string, string> = {}) {
-  const base: Record<string, string | undefined> = { ...process.env, KV_REST_API_URL: url, KV_REST_API_TOKEN: "t", ...env };
+  const base: Record<string, string | undefined> = { ...process.env, KV_REST_API_URL: url, KV_REST_API_TOKEN: "t", FAVOUR_CONFIRM_DIR: join(dir, "codes"), ...env };
   if (!("ANTHROPIC_API_KEY" in env)) delete base.ANTHROPIC_API_KEY;
   try {
     const r = await run("node", ["scripts/recheck-thrown-proofs.mjs", ...args], { env: base as NodeJS.ProcessEnv });
@@ -256,7 +259,7 @@ describe("scripts/recheck-thrown-proofs.mjs", () => {
 
     const none = await script(["--apply"], env);
     expect(none.code).toBe(2);
-    expect(none.out).toContain("--apply needs --confirm");
+    expect(none.out).toContain("Run the dry run");
     expect(commands).toEqual([]);
 
     const madeUp = await script(["--apply", "--confirm", "0000000000"], env);
@@ -282,9 +285,37 @@ describe("scripts/recheck-thrown-proofs.mjs", () => {
     const r = await script(["--apply", "--confirm", code], env);
     expect(r.code).toBe(2);
     expect(r.out).toContain("NOT STARTED");
-    expect(r.out).toContain("would-recheck t1");
+    // A refusal shows no list and no code: the dry run is the only place for both.
+    expect(r.out).not.toContain("would-recheck");
+    expect(r.out.replace(code, "")).not.toMatch(/\b[0-9a-f]{10}\b/);
     expect(dump()).toBe(before);
   }, 60000);
+
+  // Third cold read: after a failed one-favour step the doc sent the operator to the
+  // whole list. The recovery for a one-favour step is now a one-favour step: an
+  // item being resumed counts against --limit, so the same two commands finish it
+  // and start nothing new.
+  it("after a failed --limit 1 step, the same --limit 1 dry run lists that one favour and nothing else, and its apply finishes it", async () => {
+    seed(task("t1"), task("t2", { claimant: BEN, proofNote: "Transjakarta" }));
+    const env = { ANTHROPIC_API_KEY: "local-double-not-a-key", RECHECK_VERIFIER_MODULE: passDouble };
+    refuseOnce = ["SET", "rep:"];
+    const first = await applyRun(["--limit", "1"], env);
+    expect(first.code).toBe(1);
+    expect(first.out).toContain("FAILED 1");
+    expect(first.out).toContain("To finish: run the same dry run again, then the same apply with the new code it prints.");
+
+    const dry = await script(["--limit", "1"]);
+    expect(dry.out).toContain("Dry run. 0 would be re-checked, 1 would be resumed");
+    expect(dry.out).not.toContain("would-recheck");
+
+    const second = await script(["--limit", "1", "--apply", "--confirm", codeOf(dry.out)!], env);
+    expect(second.code).toBe(0);
+    expect(second.out).toContain("Applied. passed 1 (18 points read back),");
+    // Exactly one of the two favours was done. The other was not started.
+    const done = [rec("t1"), rec("t2")].filter((t) => t.status === "open");
+    expect(done).toHaveLength(1);
+    expect([rec("t1"), rec("t2")].filter((t) => t.status === "claimed")).toHaveLength(1);
+  }, 120000);
 
   it("when the check still throws, nothing changes and the exit code says so", async () => {
     seed(task("t1"));
