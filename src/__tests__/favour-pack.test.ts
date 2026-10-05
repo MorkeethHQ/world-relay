@@ -69,9 +69,24 @@ describe("draft favour pack 2026-10-05", () => {
 
   it("no row asks for identity documents, contact details, a home or precise location, other people's faces, financial screens or account and network identifiers", () => {
     for (const r of rows) {
-      const hit = personalDataAsk(r.description, r.safety);
+      const hit = personalDataAsk(r.description);
       expect(hit, `${r.id}: ${hit?.kind} ("${hit?.match}")`).toBeNull();
     }
+  });
+
+  // The second walker's harness, kept: row 1's ask replaced by each of his asks,
+  // the row's valid safety clause left in place. All of these stayed green on the
+  // first version of the check.
+  it("an unsafe ask does not pass because a valid safety clause follows it", () => {
+    const walker: Array<{ text: string }> = JSON.parse(readFileSync("src/__tests__/fixtures/personal-data-asks.json", "utf8")).walker;
+    for (const w of walker) {
+      const description = `${w.text} ${rows[0].safety}`;
+      expect(personalDataAsk(description), w.text).not.toBeNull();
+    }
+  });
+
+  it("this test is a reviewer's aid: the pack file says a person must read every row", () => {
+    expect(pack._review_note).toContain("A person must read every row before it is posted");
   });
 
   it("the three rows the cold walk called unsafe are gone", () => {

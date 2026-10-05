@@ -81,7 +81,7 @@ const RULES: Array<[PersonalDataKind, RegExp]> = [
         `\\b${YOURS}\\s+(?:home|house|flat|apartment|building|block|street|road|front door|door|doorbell|letter ?box|mail ?box|hallway|stairwell|garden|yard|driveway|garage|balcony|window|bedroom|living room|kitchen|bathroom|room|desk|neighbou?rhood|commute|workplace|office|school)\\b`,
         "\\b(?:from|out of|outside|inside|in front of|around)\\s+(?:your|my)\\s+\\w+",
         "\\bstreet outside\\b|\\bat home\\b|\\bview from home\\b",
-        "\\b(?:post ?code|zip ?code|gps|coordinates|lat(?:itude)?|long(?:itude)?)\\b",
+        "\\b(?:post ?code|zip ?code|gps|coordinates|latitude|longitude)\\b",
         "\\b(?:exact|precise|live|current|real[- ]time)\\s+(?:location|position|whereabouts)\\b|\\bshare your location\\b|\\bdrop (?:a|the) pin\\b|\\bpin (?:on|for|of) (?:a|the|your|where)\\b|\\bwhere you are (?:standing|sitting|right now exactly)\\b",
         "\\b(?:who|anyone|someone) (?:lives|is|stays) (?:with you|at home)\\b|\\b(?:place|home|house|flat) (?:is )?empty\\b|\\bwhen (?:are you|you are) (?:out|away|not home)\\b",
         "\\b(?:gate|door|entry|alarm|building) code\\b|\\bcode\\b[^.]{0,30}\\b(?:gate|door|building|entrance|alarm)\\b",

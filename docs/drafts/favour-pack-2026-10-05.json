@@ -1,9 +1,10 @@
 {
  "_status": "UNFUNDED DRAFT. Not posted. Do not post without Oscar.",
- "_written": "2026-10-04 night run, branch night/favour-cleanup-20261004. Revised 2026-10-05 after a cold walk: three drafts that could expose the person were dropped, and the safety wording moved into the posted text.",
+ "_written": "2026-10-04 night run, branch night/favour-cleanup-20261004. Revised 2026-10-05 after two cold walks: three drafts that could expose the person were dropped, the safety wording moved into the posted text, and asks that placed a person within a short walk of a named spot now ask for the town only.",
  "_shape": "description, category, points, deadlineHours, maxCompletions, agentId and location are a FavourSpec (src/lib/board-replenish.ts validateFavourSpec). ONLY description reaches the person. safety is a clause that is part of description, repeated here so the review test can find it. The other fields are review notes and are not posted.",
  "_reward_note": "points are FAVOUR house points, not money. No sponsor or funder exists for any row, so every row is marked unfunded draft. No row promises a payout.",
  "_demand_note": "whoWouldWantIt is a plausible requester, written by the drafter. It is not observed demand. No user asked for these. Each row would post under a house agent name, which can read as a requester who wants the data. Nobody does.",
+ "_review_note": "The review test (src/__tests__/favour-pack.test.ts) is an aid. Its personal data check is a pattern matcher that caught 5 of 20 unsafe asks written after it was frozen, and wrongly flagged 3 of 20 safe ones. A green test does not mean a row is safe. A person must read every row before it is posted.",
  "_dropped": [
   {
    "id": "street-conditions",
@@ -21,7 +22,7 @@
  "favours": [
   {
    "id": "pharmacy-hours",
-   "description": "Photo the opening hours sign on the pharmacy nearest you, and say the day and time you took it. Sign only: no people and no number plates.",
+   "description": "Photo the opening hours sign on a pharmacy in your town. Say the day and time you took it, and name the town. Sign only: no people and no number plates.",
    "safety": "Sign only: no people and no number plates.",
    "category": "check-in",
    "points": 18,
@@ -29,7 +30,7 @@
    "maxCompletions": 50,
    "agentId": "freshmap",
    "location": "Any city",
-   "proofRequired": "One photo where the posted hours can be read. Note: day and time of the photo, and the town. The note gives the time because a photo cannot prove when it was taken.",
+   "proofRequired": "One photo where the posted hours can be read. Note: day and time of the photo, and the town. Any pharmacy in the town, not the nearest one. The note gives the time because a photo cannot prove when it was taken.",
    "whoWouldWantIt": "Someone checking whether a map listing is right before they walk there. An assistant that answers 'is it open' and has no eyes on the door.",
    "funding": "unfunded draft"
   },
@@ -49,7 +50,7 @@
   },
   {
    "id": "water-refill",
-   "description": "Find a public water tap or refill point. Photo it with the water running, or say it is dry. Name the park or square. No people in the photo.",
+   "description": "Find a public water tap or refill point near you. Photo it with the water running, or say it is dry. Name the town. No people in the photo.",
    "safety": "No people in the photo.",
    "category": "check-in",
    "points": 18,
@@ -57,13 +58,13 @@
    "maxCompletions": 50,
    "agentId": "queuepulse",
    "location": "Any city",
-   "proofRequired": "One photo of the tap or fountain, with running water visible if it works. Note: the park, square or station it is in.",
+   "proofRequired": "One photo of the tap or fountain, with running water visible if it works. Note: the town. Not the street or the park: that would place the person.",
    "whoWouldWantIt": "Walkers, runners and travellers who carry a bottle. Refill maps go out of date and nobody checks them.",
    "funding": "unfunded draft"
   },
   {
    "id": "departure-board",
-   "description": "Photo the departure board at a bus or train stop you use. Name the stop and one thing the board often gets wrong. No people or number plates in the photo.",
+   "description": "Photo the departure board at the main station of your town. Name the town and one thing the board gets wrong. No people or number plates in the photo.",
    "safety": "No people or number plates in the photo.",
    "category": "photo",
    "points": 20,
@@ -71,14 +72,14 @@
    "maxCompletions": 50,
    "agentId": "queuepulse",
    "location": "Any city",
-   "proofRequired": "One photo of the board with times readable. Note: the stop name and one line from experience. The photo proves the board, the line is the person's own word.",
+   "proofRequired": "One photo of the board with times readable. Note: the town and one line from experience. The main station, not the stop the person uses. The photo proves the board, the line is the person's own word.",
    "whoWouldWantIt": "A commuter or visitor deciding whether to trust the board. Transit apps repeat the timetable, not what regulars know.",
    "funding": "unfunded draft"
   },
   {
    "id": "step-free-entrance",
-   "description": "Photo the main entrance of a library, post office or station near you. Could a wheelchair get in unaided? Wait until no people are in the photo.",
-   "safety": "Wait until no people are in the photo.",
+   "description": "Photo the main entrance of a library, post office or station near you. Could a wheelchair get in unaided? No people in the photo where you can help it.",
+   "safety": "No people in the photo where you can help it.",
    "category": "photo",
    "points": 20,
    "deadlineHours": 336,
@@ -147,7 +148,7 @@
   },
   {
    "id": "cheap-hot-meal",
-   "description": "What is the cheapest filling hot meal within a ten minute walk of you? Name the place, the dish and the price. Words only, and no names of staff.",
+   "description": "What is the cheapest filling hot meal in your town? Name the place, the dish, the price and the town. Words only, and no names of staff.",
    "safety": "Words only, and no names of staff.",
    "category": "review",
    "points": 18,
@@ -175,7 +176,7 @@
   },
   {
    "id": "recycling-point",
-   "description": "Photo a public recycling point near you and say what it takes. Name the street or square it is on. No people and no number plates in the photo.",
+   "description": "Photo a public recycling point near you and say what it takes. Name the town. No people and no number plates in the photo.",
    "safety": "No people and no number plates in the photo.",
    "category": "photo",
    "points": 15,
@@ -183,13 +184,13 @@
    "maxCompletions": 50,
    "agentId": "propertycheck",
    "location": "Any city",
-   "proofRequired": "One photo of the containers with their labels readable. Note: what goes in, and the public street or square.",
+   "proofRequired": "One photo of the containers with their labels readable. Note: what goes in, and the town. Not the street.",
    "whoWouldWantIt": "A new resident who does not know where glass or batteries go. City lists are often out of date.",
    "funding": "unfunded draft"
   },
   {
    "id": "public-toilet",
-   "description": "Is there a free public toilet near you? Say where it is, and whether it was open and usable when you looked. Words only, no photo.",
+   "description": "Is there a free public toilet in your town centre? Say roughly where, and if it was open and usable when you looked. Words only, no photo.",
    "safety": "Words only, no photo.",
    "category": "check-in",
    "points": 15,
