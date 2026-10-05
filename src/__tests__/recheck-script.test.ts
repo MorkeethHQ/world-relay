@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { createServer, type Server } from "node:http";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import { writeFileSync, mkdtempSync } from "node:fs";
+import { writeFileSync, mkdtempSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -161,10 +161,17 @@ describe("scripts/recheck-thrown-proofs.mjs", () => {
 
   it("--apply without a model key stops before it reads or writes anything", async () => {
     seed(task("t1"));
-    const r = await script(["--apply", "--confirm", "0000000000"]);
+    // A real code from a real dry run, so the run gets past the code check to the key check.
+    const code = codeOf((await script([])).out)!;
+    const before = dump();
+    commands.length = 0;
+    const r = await script(["--apply", "--confirm", code]);
     expect(r.code).toBe(2);
     expect(r.out).toContain("--apply needs ANTHROPIC_API_KEY");
     expect(commands).toEqual([]);
+    expect(dump()).toBe(before);
+    // The code was not used up by the refusal: with a key it still starts the run.
+    expect((await script(["--apply", "--confirm", code], { ANTHROPIC_API_KEY: "local-double-not-a-key", RECHECK_VERIFIER_MODULE: passDouble })).code).toBe(0);
   }, 30000);
 
   it("an unknown flag is refused, so a typo can never become a real run", async () => {
@@ -175,7 +182,11 @@ describe("scripts/recheck-thrown-proofs.mjs", () => {
   }, 30000);
 
   it("the verifier double is refused against a store that is not on this machine", async () => {
-    const r = await script(["--apply", "--confirm", "0000000000"], { ANTHROPIC_API_KEY: "local-double-not-a-key", RECHECK_VERIFIER_MODULE: passDouble, KV_REST_API_URL: "https://example.upstash.io" });
+    // A code record placed on this machine by hand, so the run gets past the first
+    // code check without any request to the remote address.
+    mkdirSync(join(dir, "codes"), { recursive: true });
+    writeFileSync(join(dir, "codes", "0123456789.json"), JSON.stringify({ host: "example.upstash.io", fingerprint: "x", issuedAt: Date.now() }));
+    const r = await script(["--apply", "--confirm", "0123456789"], { ANTHROPIC_API_KEY: "local-double-not-a-key", RECHECK_VERIFIER_MODULE: passDouble, KV_REST_API_URL: "https://example.upstash.io" });
     expect(r.code).toBe(2);
     expect(r.out).toContain("refused against a remote store");
     expect(commands).toEqual([]);

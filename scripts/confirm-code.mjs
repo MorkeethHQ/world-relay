@@ -78,6 +78,12 @@ export function issueCode(url, what) {
   return code;
 }
 
+// A cheap first look, before anything is read from the store: is there any record
+// of this code on this machine at all. A placeholder or a made-up code stops here.
+export function codeOnRecord(code) {
+  return typeof code === "string" && /^[0-9a-f]{10}$/.test(code) && existsSync(fileFor(code));
+}
+
 // Called by --apply. True only if this code was issued by a dry run on this
 // machine, for this store, for exactly `what`, within the time limit. The record
 // is removed on success, so a code starts one run.

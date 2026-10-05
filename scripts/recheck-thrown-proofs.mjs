@@ -38,7 +38,7 @@ import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { resolve } from "node:path";
 import { createJiti } from "jiti";
-import { storeLine, issueCode, redeemCode, REFUSAL } from "./confirm-code.mjs";
+import { storeLine, issueCode, redeemCode, codeOnRecord, REFUSAL } from "./confirm-code.mjs";
 
 const argv = process.argv.slice(2);
 // The first line of every run names the store, before anything can go wrong.
@@ -73,7 +73,7 @@ if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) {
 // THE CONFIRM CODE. A real run needs --apply AND --confirm <code>. The code is
 // printed only by the dry run of the same command against the same store; see
 // scripts/confirm-code.mjs. Without a code nothing is read or written.
-if (APPLY && !confirm) {
+if (APPLY && !codeOnRecord(confirm)) {
   console.error(REFUSAL);
   process.exit(2);
 }

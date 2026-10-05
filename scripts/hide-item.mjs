@@ -46,7 +46,7 @@
 //
 // What it still cannot do: a campaign and its pieces are separate records, so a
 // campaign hide is not one atomic step. If it exits 1 part way, run it again.
-import { storeLine, issueCode, redeemCode, REFUSAL } from "./confirm-code.mjs";
+import { storeLine, issueCode, redeemCode, codeOnRecord, REFUSAL } from "./confirm-code.mjs";
 
 const U = process.env.KV_REST_API_URL;
 const T = process.env.KV_REST_API_TOKEN;
@@ -95,7 +95,7 @@ if (positional.length > 2 || argv.some((a) => a.startsWith("--") && !["--apply",
 }
 const [kind, id] = positional;
 // --apply with no code is refused here, before anything is read from the store.
-if (argv.includes("--apply") && !(ciEarly >= 0 && argv[ciEarly + 1])) {
+if (argv.includes("--apply") && !codeOnRecord(ciEarly >= 0 ? argv[ciEarly + 1] : undefined)) {
   console.error(REFUSAL);
   process.exit(2);
 }

@@ -129,6 +129,16 @@ describe("re-check: a refusal says run the dry run and nothing more", () => {
     }
     expect(await writes(B)).toBe(before);
   }, 90000);
+
+  it("a placeholder or a made-up code is refused before anything is read from the store", async () => {
+    const commands = async () => ((await (await fetch(`${B.url}/__log`)).json()) as { commands: number }).commands;
+    const before = await commands();
+    await sh("recheck-thrown-proofs.mjs", ["--apply", "--confirm", "PASTE_CODE_HERE"], env(B));
+    await sh("recheck-thrown-proofs.mjs", ["--apply", "--confirm", "abcdef0123"], env(B));
+    await sh("hide-item.mjs", ["task", "piece-a00", "--apply", "--confirm", "PASTE_CODE_HERE"], env(B));
+    await sh("hide-item.mjs", ["campaign", "draft_x", "--undo", "--apply", "--confirm", "abcdef0123"], env(B));
+    expect(await commands()).toBe(before);
+  }, 90000);
 });
 
 describe("every output starts by naming the store", () => {
