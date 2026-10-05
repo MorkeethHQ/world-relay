@@ -68,6 +68,7 @@ import { CampaignStageCards, WelcomeCampaignView, DemoBrandView } from "@/compon
 import { pickCampaignStage } from "@/lib/campaign-stage";
 import { isWelcomeSourceRow, WELCOME_CAMPAIGN_ID, type WelcomeStepView, type WelcomeView } from "@/lib/welcome-shape";
 import { reviewPathFor } from "@/lib/review-path";
+import { CHECK_UNAVAILABLE_ERROR, TRY_AGAIN_LINE, proofKeptLabel, proofKeptLine, readProofSaved, type ProofSaved } from "@/lib/check-unavailable";
 import { reviewEntryFor, type ReviewEntry } from "@/lib/review-entry";
 import { isCampaignRunning } from "@/lib/campaigns";
 import { PENDING_WELCOME_KEY } from "@/components/Onboarding";
@@ -3169,7 +3170,7 @@ function SubmitProof({
     : null;
   const [images, setImages] = useState<{ base64: string; preview: string; isVideo: boolean }[]>([]);
   const [submitting, setSubmitting] = useState(false);
-  const [result, setResult] = useState<{ verdict: string; reasoning: string; locationVerified?: boolean; distanceKm?: number; escrowReleaseTxHash?: string | null; nextAction?: string | null; pointsAwarded?: number | null; streakBonus?: number; tip?: string | null } | null>(null);
+  const [result, setResult] = useState<{ verdict: string; reasoning: string; locationVerified?: boolean; distanceKm?: number; escrowReleaseTxHash?: string | null; nextAction?: string | null; pointsAwarded?: number | null; streakBonus?: number; tip?: string | null; proofSaved?: ProofSaved } | null>(null);
   const [proofCoords, setProofCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [preCheck, setPreCheck] = useState<{ assessment: string; likely: "pass" | "marginal" | "retake" } | null>(null);
   const [preChecking, setPreChecking] = useState(false);
@@ -3309,12 +3310,13 @@ function SubmitProof({
         }
       }
 
-      // The check itself did not run. That is not a verdict on the proof, so it
-      // gets its own state: nothing scored, the same proof can go again.
+      // The checking service did not judge the proof. That is not a verdict on
+      // it, so it gets its own state. The words are the server's; the fallback is
+      // the same sentence, never a promise of when it will work.
       if (res.status === 503) {
         const down = await res.clone().json().catch(() => ({} as Record<string, unknown>));
         if (down.code === "check_unavailable") {
-          setResult({ verdict: "unavailable", reasoning: typeof down.error === "string" ? down.error : "The check did not run. Your proof was not scored. Send it again in a moment." });
+          setResult({ verdict: "unavailable", reasoning: typeof down.error === "string" ? down.error : CHECK_UNAVAILABLE_ERROR, proofSaved: readProofSaved(down.proofSaved) });
           setSubmitting(false);
           hapticSelection();
           return;
@@ -3395,7 +3397,7 @@ function SubmitProof({
             the answer box and the photo picker stayed above the result, so the
             main "Discover more favours" button sat at y 832 to 880, behind the
             bottom navigation. The result is now the first thing on the screen.
-            The note and the photos stay in state, so "Send it again" and "Send a
+            The note and the photos stay in state, so "Try again" and "Send a
             new proof" bring the form back with what was entered. */}
         {/* Task context with tier badge. Also hidden while the proof is being
             checked, so the "Checking" state is on screen and not below the form. */}
@@ -3931,11 +3933,15 @@ function SubmitProof({
             })()}
             {result.verdict === "unavailable" && (
               <div className="mt-3 flex flex-col gap-2">
+                {/* Where the proof is now, and what trying again can and cannot do.
+                    No time is promised: nobody here knows when the service returns. */}
+                <p className="text-[13px] leading-snug text-gray-700">{proofKeptLine(result.proofSaved ?? null)}</p>
+                <p className="text-[13px] leading-snug text-gray-700">{TRY_AGAIN_LINE}</p>
                 <button
                   onClick={() => { setResult(null); handleSubmit(); }}
                   className="w-full min-h-[48px] rounded-2xl border border-gray-900 bg-gray-900 text-[15px] text-white font-semibold active:scale-[0.98] transition-all"
                 >
-                  Send it again
+                  Try again
                 </button>
                 <button
                   onClick={() => { hapticTap(); onDone(); }}
@@ -3999,7 +4005,7 @@ function SubmitProof({
         {/* What was sent, read only and second to the result. */}
         {result && (
           <div className="rounded-2xl border border-gray-200 bg-white px-4 py-3">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">{result.verdict === "pass" || result.verdict === "flag" ? "You sent" : "Not sent yet"}</p>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">{result.verdict === "pass" || result.verdict === "flag" ? "You sent" : result.verdict === "unavailable" ? proofKeptLabel(result.proofSaved ?? null) : "Not sent yet"}</p>
             <p className="mt-1 text-[13px] leading-snug text-gray-600 line-clamp-2 break-words">{task.description}</p>
             {proofNote.trim() && <p className="mt-1.5 text-[14px] leading-snug text-gray-900 line-clamp-3 break-words">&ldquo;{proofNote.trim()}&rdquo;</p>}
             {images.length > 0 && <p className="mt-1 text-[13px] text-gray-600">{images.length} {images.length === 1 ? "photo" : "photos"}</p>}

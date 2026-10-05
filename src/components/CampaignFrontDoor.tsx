@@ -162,7 +162,7 @@ export function WelcomeCampaignView({ welcome, signedIn, busyId, error, onStart,
           <ul className="mt-1 flex flex-col gap-1 text-[13px] leading-snug text-gray-700">
             <li>Each favour is yours to do. Someone else&apos;s proof never takes it from you.</li>
             <li>An automatic check reads your proof. Accepted: the points are added.</li>
-            <li>If the check is not sure, 3 qualified reviewers look and 2 must accept. If the check itself does not run, nothing is scored and you send it again.</li>
+            <li>If the check is not sure, 3 qualified reviewers look and 2 must accept. If the checking service is not working, your proof is not judged and no points change. You can try again; it is judged only once the service works.</li>
             <li>Points only. No USDC is paid by this campaign.</li>
           </ul>
         </div>
@@ -189,7 +189,7 @@ export function WelcomeCampaignView({ welcome, signedIn, busyId, error, onStart,
                 </p>
               )}
               {s.state === "sent" && (
-                <p className="mt-1 text-[13px] leading-snug text-gray-600">Your proof is saved but the check did not score it. Send it again.</p>
+                <p className="mt-1 text-[13px] leading-snug text-gray-600">Your proof is saved on this favour, but it was not judged: the checking service was not working. No points yet. You can send it again; it is judged only once the service works.</p>
               )}
               {s.state === "todo" && s.reviewNote && (
                 <div className="mt-3 rounded-xl bg-gray-100 px-3 py-2">

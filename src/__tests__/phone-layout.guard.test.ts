@@ -66,12 +66,12 @@ describe("a sent proof is never cancelled (Oscar, 2026-10-05)", () => {
   });
   it("the read-only summary of what was sent comes after the result, never before it", () => {
     expect(proof.indexOf("You sent")).toBeGreaterThan(proof.indexOf("{/* Verdict result */}"));
-    expect(proof.indexOf("You sent")).toBeGreaterThan(proof.lastIndexOf("Discover more favours"));
+    expect(proof.indexOf('"You sent"')).toBeGreaterThan(proof.lastIndexOf("Discover more favours"));
   });
   it("the note and photos survive the result, so a resend does not start from nothing", () => {
-    // Send it again resubmits what is in state. The other ways back only clear
+    // Try again resubmits what is in state. The other ways back only clear
     // the result; none of them clears the note or the photos.
-    expect(proof).toMatch(/onClick=\{\(\) => \{ setResult\(null\); handleSubmit\(\); \}\}[\s\S]{0,260}Send it again/);
+    expect(proof).toMatch(/onClick=\{\(\) => \{ setResult\(null\); handleSubmit\(\); \}\}[\s\S]{0,260}Try again/);
     expect(proof).not.toMatch(/setResult\(null\);[^}]*setProofNote\(/);
     expect(proof).not.toMatch(/setResult\(null\);[^}]*setImages\(/);
   });

@@ -33,13 +33,19 @@ import { isWelcomeSourceRow } from "@/lib/welcome-shape";
 import { queueHouseReview } from "@/lib/house-review";
 import { isTestFixture, fixtureVerdict } from "@/lib/test-fixture";
 import { releaseUncheckedProof } from "@/lib/store";
+import { checkUnavailableBody, type ProofSaved } from "@/lib/check-unavailable";
+import type { Task } from "@/lib/types";
 
-// The words a person reads when the check itself did not run. It is not a
-// verdict on their proof, so it is never stored as one.
-const CHECK_UNAVAILABLE = {
-  error: "The check did not run. Your proof was not scored and no points changed. Send it again in a moment.",
-  code: "check_unavailable",
-} as const;
+// The words for a proof the checking service did not judge live in
+// src/lib/check-unavailable.ts, shared with the screen.
+// true: read back still held, with a proof on it. false: read back open with
+// no proof. Anything else, a failed or empty cleanup included: not confirmed.
+function proofSavedAfterRelease(released: Task | null, wasOpen: boolean): ProofSaved {
+  if (!released) return null;
+  const hasProof = !!released.proofNote || !!released.proofImageUrl;
+  if (wasOpen) return released.status === "open" && !released.claimant && !hasProof ? false : null;
+  return released.status === "claimed" && !!released.claimant && hasProof ? true : null;
+}
 
 export const maxDuration = 60;
 
@@ -289,7 +295,9 @@ export async function POST(req: NextRequest) {
     task.taskType !== "double-or-nothing" && !task.escrowV2Address;
   const wasOpenAtLoad = task.status === "open";
   if (pointsOnly && !process.env.ANTHROPIC_API_KEY && process.env.NODE_ENV === "production") {
-    return NextResponse.json(CHECK_UNAVAILABLE, { status: 503 });
+    // Nothing new has been written. An already-held favour may still carry an
+    // earlier proof, so do not claim the current response is absent from it.
+    return NextResponse.json(checkUnavailableBody(wasOpenAtLoad ? false : null), { status: 503 });
   }
 
   // The submitter's verification tier, resolved once: it must travel into the
@@ -432,9 +440,13 @@ export async function POST(req: NextRequest) {
     // No verdict is stored, nothing is credited, nobody is notified of a flag.
     // A favour that was open goes back to open; a person who already held it
     // keeps it, with the stale verdict removed.
-    await releaseUncheckedProof(taskId, submitter, wasOpenAtLoad).catch(console.error);
+    const released = await releaseUncheckedProof(taskId, submitter, wasOpenAtLoad).catch((err) => { console.error(err); return null; });
     trackEvent("check_unavailable", { taskId }).catch(() => {});
-    return NextResponse.json(CHECK_UNAVAILABLE, { status: 503 });
+    // Say where the proof is ONLY when the row that came back confirms it. A
+    // cleanup that failed, or returned nothing, is "not confirmed" (null): by
+    // then the proof had already been written once, so "we did not keep it"
+    // would be a guess. This reports the state; it does not repair that fault.
+    return NextResponse.json(checkUnavailableBody(proofSavedAfterRelease(released, wasOpenAtLoad)), { status: 503 });
   }
 
 
