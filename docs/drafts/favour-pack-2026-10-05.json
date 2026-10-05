@@ -1,5 +1,18 @@
 {
  "_status": "UNFUNDED DRAFT. Not posted. Do not post without Oscar.",
+ "_added_5_oct": {
+  "heading": "Added 5 Oct, not yet read by anyone but the author",
+  "readStatus": "Read by the author only. No independent reader has seen these rows. The 2 rows in `favours` had four independent reads. These had none, so they are kept out of `favours`.",
+  "source": "docs/drafts/favour-pack-candidates-2026-10-05.json, frozen in commit dc47e0d. The rows live in that file and are not copied here, so they cannot drift.",
+  "results": "docs/drafts/favour-pack-candidates-results-2026-10-05.json",
+  "written": 15,
+  "ids": ["plain-rewrite", "name-fit", "first-doubt", "step-order", "kinder-rejection", "claim-meaning", "unclear-word", "count-wording"],
+  "droppedByHostileRead": ["button-label", "translate-sign-in", "now-or-later", "app-confusion"],
+  "heldBackByAuthor": ["error-meaning", "shorten-line"],
+  "failedPackTextRule": ["hard-word"],
+  "failedPackTextRuleWhy": "hard-word passed the aid and the hostile read. It then failed the pack's rule against place and time words, on the word \"Tap\" in \"Tap Claim, do the favour, send proof.\" The rule means a water tap and the row means the verb, so the rule is wrong about this row. The row was not edited and the rule was not loosened to let it through. It is left out.",
+  "notMetFromTheReviewedList": "The reviewed list also requires a proofRequired field and a proofCannotShow of more than 60 characters. The frozen rows have no proofRequired field. first-doubt (45 characters) is under 60. The author's check before the freeze missed both. The rows were not edited after the freeze to meet them, so these rows cannot move into `favours` as they stand."
+ },
  "_written": "2026-10-04 night run, branch night/favour-cleanup-20261004. Revised four times on 2026-10-05 after four cold reads.",
  "_count_note": "The brief asked for 10 to 15 favours. 14 were drafted. After four independent reads, 2 remain. That is below the 10 to 15 asked for. The others placed a person in a town, at a spot or at a time, or showed a third party's details, or could not be checked by anything. Fewer good rows beat more risky ones.",
  "_known_limits": [

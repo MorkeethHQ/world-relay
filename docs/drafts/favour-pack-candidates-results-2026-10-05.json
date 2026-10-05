@@ -10,8 +10,11 @@
   "dropped_by_hostile_read": 4,
   "survived_both_checks": 11,
   "survived_but_held_back_by_author": 2,
-  "note": "See _pack_test for what the pack's own tests did to the 9 that were left."
+  "failed_a_pack_rule_about_posted_text": 1,
+  "left_as_added_rows": 8,
+  "note": "15 written. 4 dropped by the hostile read. 2 held back by the author. 1 failed a pack rule. 8 are left."
  },
+ "_pack_test": "After both reads, the 9 rows left were run through the pack's rules about the posted text (src/__tests__/favour-pack-added.test.ts). hard-word failed the rule against place and time words on the word \"Tap\". The rule means a water tap and the row means the verb. The row was not edited and the rule was not loosened, so hard-word is left out. The other 8 passed. The reviewed list's two metadata rules (a proofRequired field, and a proofCannotShow over 60 characters) are not met by the frozen rows and are not applied to them. That is stated in the pack file.",
  "results": [
   {"id": "plain-rewrite", "aid": "pass", "hostileAnswer": "We are still checking the photo of my front door that I sent.", "hostileVerdict": "pass", "why": "The row asks for a rewrite of a posted sentence. The personal detail had to be forced in. An honest answer needs nothing about the sender."},
   {"id": "name-fit", "aid": "pass", "hostileAnswer": "Favour, because where I live we say do me a favour.", "hostileVerdict": "pass", "why": "A pick and a reason about a name. The sender can volunteer where they live, but the row does not call for it. Note: Relay and Handy are also names of existing products. That is not personal data, but Oscar should know before posting."},
