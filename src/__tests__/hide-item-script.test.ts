@@ -2,6 +2,9 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { createServer, type Server } from "node:http";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 // R16: runs the REAL operator script against a fake Upstash REST endpoint, so the
 // dry run, --apply, --undo and the campaign-to-pieces cascade are exercised, not
@@ -73,8 +76,10 @@ beforeEach(async () => {
 });
 afterEach(() => new Promise<void>((r) => server.close(() => r())));
 
+// The dry runs here leave code records; keep them in a folder of this test's own.
+const CODES = mkdtempSync(join(tmpdir(), "hide-item-codes-"));
 const hide = (...args: string[]) =>
-  run("node", ["scripts/hide-item.mjs", ...args], { env: { ...process.env, KV_REST_API_URL: url, KV_REST_API_TOKEN: "t" } });
+  run("node", ["scripts/hide-item.mjs", ...args], { env: { ...process.env, KV_REST_API_URL: url, KV_REST_API_TOKEN: "t", FAVOUR_CONFIRM_DIR: CODES } });
 // A write the way the operator must do it since 5 Oct: the dry run first, then the
 // same command with --apply and the code the dry run printed.
 const codeOf = (out: string) => out.match(/--apply --confirm ([0-9a-f]+)/)?.[1];

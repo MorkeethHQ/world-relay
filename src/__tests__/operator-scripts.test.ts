@@ -72,7 +72,7 @@ describe("scripts/fake-store.mjs, and the dry runs anyone can check against it",
   }, 20000);
   afterAll(() => { child?.kill(); });
 
-  const env = () => ({ ...process.env, KV_REST_API_URL: url, KV_REST_API_TOKEN: "local", ANTHROPIC_API_KEY: "" });
+  const env = () => ({ ...process.env, KV_REST_API_URL: url, KV_REST_API_TOKEN: "local", ANTHROPIC_API_KEY: "", FAVOUR_CONFIRM_DIR: join(dir, "codes") });
   const log = async () => (await fetch(`${url}/__log`)).json() as Promise<{ fake: boolean; commands: number; writes: number; counts: Record<string, number>; unknown: string[] }>;
 
   it("says what it is and how it was seeded", async () => {
