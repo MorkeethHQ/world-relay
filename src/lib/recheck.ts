@@ -376,14 +376,14 @@ async function underLock(redis: Store, taskId: string, label: { id: string; clai
   try {
     locked = await redis.set(lockKey, "recheck", { nx: true, px: LOCK_MS });
   } catch (err) {
-    return row(label, "failed", `could not take the lock: ${err instanceof Error ? err.message.slice(0, 120) : "store error"}. Nothing written. Run the job again`);
+    return row(label, "failed", `could not take the lock: ${err instanceof Error ? err.message.slice(0, 120) : "store error"}. Nothing written. The next real run takes it up again`);
   }
-  if (!locked) return row(label, "busy", "a verification is in progress on this favour (or a run died less than 2 minutes ago); run again later");
+  if (!locked) return row(label, "busy", "a verification is in progress on this favour (or a run died less than 2 minutes ago). The next real run takes it up again");
   try {
     return await work();
   } catch (err) {
     const msg = err instanceof Error ? err.message.slice(0, 200) : "unknown error";
-    return row(label, "failed", `not complete: ${msg}. No points are reported for this item. Run the job again to finish it`);
+    return row(label, "failed", `not complete: ${msg}. No points are reported for this item. The next real run finishes it`);
   } finally {
     await redis.del(lockKey).catch(() => null);
   }

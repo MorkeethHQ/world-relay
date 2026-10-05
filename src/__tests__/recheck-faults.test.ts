@@ -211,7 +211,7 @@ describe("the named steps, one failure each", () => {
     expect(first.out).toHaveLength(1);
     expect(first.out[0].action).toBe("failed");
     expect(first.out[0].points).toBeUndefined();
-    expect(first.out[0].detail).toContain("Run the job again");
+    expect(first.out[0].detail).toContain("The next real run finishes it");
     expect(creditState()).not.toEqual(EXACTLY_ONCE);
     nextProcess();
     const second = await run();
