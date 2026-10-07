@@ -85,3 +85,58 @@ export function sumRewards(tasks: Array<Pick<Task, "rewardType" | "escrowTxHash"
   }
   return { points: Math.round(points), usdc: Math.round(usdc * 100) / 100 };
 }
+
+// EXACT USDC AMOUNTS (2026-10-08). Everything above this line works on
+// `bountyUsdc`, a JS float, and rounds to 2 decimals. That is fine for a label
+// on a 5 USDC favour. It cannot carry a 0.001 USDC review payment: sumRewards
+// shows 0.001 as 0.00, and a float total drifts when it is added many times.
+//
+// The three helpers below work on USDC base units as bigint (1 USDC is
+// 1,000,000 units, the same integer the token contract stores). They use string
+// and bigint arithmetic only. A float never enters, so a value is either exact
+// or refused. They change none of the eleven exports above.
+const USDC_UNIT_DECIMALS = 6;
+const UNITS_PER_USDC = BigInt(1_000_000);
+const ZERO_UNITS = BigInt(0);
+// Digits, then an optional point with 1 to 6 more digits. No sign, no exponent,
+// no spaces, no thousands separator, no leading or trailing point.
+const USDC_TEXT = /^[0-9]+(\.[0-9]{1,6})?$/;
+
+// Base units to a display string. 1000 units is "0.001", 1,000,000 units is "1".
+// Trailing zeros are dropped; no digit that carries value is dropped or rounded.
+export function usdcUnitsToText(units: bigint): string {
+  if (typeof units !== "bigint") throw new TypeError("usdcUnitsToText needs a bigint of base units");
+  const negative = units < ZERO_UNITS;
+  const abs = negative ? -units : units;
+  const whole = abs / UNITS_PER_USDC;
+  const fraction = abs % UNITS_PER_USDC;
+  let text = whole.toString();
+  if (fraction !== ZERO_UNITS) {
+    text += "." + fraction.toString().padStart(USDC_UNIT_DECIMALS, "0").replace(/0+$/, "");
+  }
+  return negative ? "-" + text : text;
+}
+
+// A typed or stored amount string to base units. "0.001" is 1000 units.
+// Anything that cannot be represented exactly is refused with an error. It is
+// never rounded: "0.0000001" has a seventh decimal, so it throws.
+export function usdcTextToUnits(text: string): bigint {
+  if (typeof text !== "string" || !USDC_TEXT.test(text)) {
+    throw new RangeError(
+      `Not an exact USDC amount: ${JSON.stringify(text)}. Use digits with at most ${USDC_UNIT_DECIMALS} decimals, for example 0.001.`,
+    );
+  }
+  const [whole, fraction = ""] = text.split(".");
+  return BigInt(whole) * UNITS_PER_USDC + BigInt(fraction.padEnd(USDC_UNIT_DECIMALS, "0"));
+}
+
+// Exact sum of base-unit amounts. A value that is not a bigint is refused, so a
+// float can never be added in by accident.
+export function sumUsdcUnits(amounts: readonly bigint[]): bigint {
+  let total = ZERO_UNITS;
+  for (const amount of amounts) {
+    if (typeof amount !== "bigint") throw new TypeError("sumUsdcUnits adds bigint base units only");
+    total += amount;
+  }
+  return total;
+}
