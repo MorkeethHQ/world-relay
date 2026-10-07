@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { campaignIntakePaused } from "@/lib/contribution-responses";
 import { ensureCompanyAppeal } from "@/lib/company-appeal";
 import { recordCompanyEvidence } from "@/lib/company-review";
@@ -357,7 +358,7 @@ export async function POST(req: NextRequest) {
   const proofImageUrls = await Promise.all(
     proofImages.map((img: string, i: number) => uploadProofImage(img, taskId, i))
   );
-  await submitProof(
+  const savedProof = await submitProof(
     taskId,
     proofImageUrls[0] || null,
     proofNote || null,
@@ -480,10 +481,30 @@ export async function POST(req: NextRequest) {
     };
   }
 
+  // Company completion, its per-person slot, and response evidence commit together.
+  // No reward or settlement is attempted until this transaction is confirmed.
+  let companyCompletionCommitted = false;
+  const cc = task.companyCampaignId ? await getPublishedCampaign(task.companyCampaignId).catch(() => null) : null;
+  if (task.companyCampaignId && task.claimant && (result.verdict === "pass" || result.verdict === "fail")) {
+    try {
+      if (!cc) throw new Error("Company campaign could not be loaded");
+      const registrationKey = createHash("sha256").update(JSON.stringify([taskId, task.claimant.toLowerCase(), proofNote || "", proofImages, result.verdict])).digest("hex");
+      await recordCompanyEvidence(task.companyCampaignId, {
+        taskId, kind: kindOfTask(cc, taskId), verdict: result.verdict,
+        reason: String(result.reasoning || "").split(" | ")[0].slice(0, 280),
+        participant: shortAddress(task.claimant), at: new Date().toISOString(),
+      }, proofNote, proofImageUrls, task.claimant, registrationKey, result, savedProof?.proofSubmissionId);
+      companyCompletionCommitted = true;
+    } catch (error) {
+      console.error("[Company evidence] Registration not confirmed", error);
+      return NextResponse.json({ error: "Company completion could not be confirmed. No reward was attempted. Reload your contributions and favour before retrying.", code: "company_evidence_unavailable" }, { status: 503 });
+    }
+  }
+
   const isFollowUpCandidate = result.verdict === "flag" && result.confidence >= 0.6 && result.confidence <= 0.85;
 
   if (isFollowUpCandidate && useRealVerification) {
-    await completeTask(taskId, result);
+    if (!companyCompletionCommitted) await completeTask(taskId, result);
 
     const followUpQ = await generateFollowUpQuestion(task, proofImages[0], {
       reasoning: result.reasoning,
@@ -507,7 +528,7 @@ export async function POST(req: NextRequest) {
       }).catch(console.error);
     }
   } else {
-    await completeTask(taskId, result);
+    if (!companyCompletionCommitted) await completeTask(taskId, result);
     trackEvent("verification_result", { taskId, verdict: result.verdict, confidence: result.confidence, bounty: task.bountyUsdc }).catch(() => {});
     if (result.verdict === "pass" && task.claimant) {
       trackEvent("loop_complete", { taskId, submitter: task.claimant }).catch(() => {});
@@ -581,7 +602,7 @@ export async function POST(req: NextRequest) {
   // points block, which runs AFTER the unlock. Single-completion favours are guarded
   // by status and claimant as before and never reach this gate.
   let creditAllowed = true;
-  if (result.verdict === "pass" && task.claimant && task.maxCompletions > 1 && !demoMode) {
+  if (result.verdict === "pass" && task.claimant && task.maxCompletions > 1 && !demoMode && !companyCompletionCommitted) {
     const slot = await claimCompletionSlot(taskId, task.claimant);
     if (slot !== "claimed") {
       creditAllowed = false;
@@ -678,7 +699,6 @@ export async function POST(req: NextRequest) {
   // fail; a flag is still under review, so it waits for its verdict. Display only,
   // no credit: the points for a pass are written above like any points favour, and
   // nothing here reads or writes money.
-  const cc = task.companyCampaignId ? await getPublishedCampaign(task.companyCampaignId).catch(() => null) : null;
   if (task.companyCampaignId && task.claimant && (result.verdict === "fail" || (result.verdict === "pass" && creditAllowed))) {
     const campaignResult = {
       taskId,
@@ -689,7 +709,6 @@ export async function POST(req: NextRequest) {
       at: new Date().toISOString(),
     };
     await recordCampaignResult(task.companyCampaignId, campaignResult).catch(console.error);
-    await recordCompanyEvidence(task.companyCampaignId, campaignResult, proofNote, proofImageUrls, task.claimant).catch(console.error);
   }
 
   if (result.verdict === "pass" && task.claimant && creditAllowed) {

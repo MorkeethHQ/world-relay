@@ -1,8 +1,9 @@
-import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 import { getRedis } from '@/lib/redis';
+import * as redisModule from '@/lib/redis';
 import { issueSessionToken } from '@/lib/session';
-import { recordCompanyEvidence } from '@/lib/company-review';
+import { recordCompanyEvidence, EVIDENCE_PREFIX, REGISTER_COMPANY_EVIDENCE } from '@/lib/company-review';
 import { GET, POST } from '@/app/api/campaigns/company/[id]/contributions/route';
 import { GET as MY_RESPONSES } from '@/app/api/me/company-responses/route';
 import { campaignIntakePaused } from '@/lib/contribution-responses';
@@ -12,12 +13,59 @@ const owner='0x1111111111111111111111111111111111111111',person='0x2222222222222
 const id='draft_response_test';const params={params:Promise.resolve({id})};
 function req(wallet?:string,body?:unknown){return new NextRequest(`http://127.0.0.1/api/campaigns/company/${id}/contributions`,{method:body?'POST':'GET',headers:{'Content-Type':'application/json',...(wallet?{cookie:`favour_session=${issueSessionToken(wallet,Date.now())}`}:{})},...(body?{body:JSON.stringify(body)}:{})});}
 describe.skipIf(!run)('contribution response API against isolated real Redis',()=>{
+ afterEach(()=>vi.restoreAllMocks());
  beforeAll(async()=>{
  process.env.KV_REST_API_URL='http://127.0.0.1:8087';process.env.KV_REST_API_TOKEN='test-only';process.env.SESSION_SECRET='TEST DATA response secret';
  const r=getRedis()!;await r.del('company:responses:'+id,'campaign:company:private-evidence:'+id);
  await r.set('campaign:draft:'+id,JSON.stringify({id,owner,status:'published',company:'TEST DATA Company',brief:'TEST DATA original brief',reviewWithinHours:48}));
  await r.sadd('campaign:company:published',id);
  await recordCompanyEvidence(id,{taskId:'test-piece',kind:'review',verdict:'pass',reason:'TEST DATA verifier result',participant:'test contributor',at:new Date(Date.now()-49*3600000).toISOString()},'TEST DATA private original',[],person);
+ });
+ it('commits proof, completion and slot together across faults and retry',async()=>{
+   const r=getRedis()!;const campaign='draft_registration_fault';const taskId='fault-task';
+   await r.del(EVIDENCE_PREFIX+campaign,'completed_claimants:'+taskId,'failed_claimants:'+taskId);
+   const task={id:taskId,companyCampaignId:campaign,status:'claimed',claimant:person,proofSubmissionId:'proof-a',proofNote:'Original retained proof',rewardType:'points',maxCompletions:5,completionCount:0};
+   await r.set('task:'+taskId,JSON.stringify(task));
+   const result={taskId,kind:'review' as const,verdict:'pass' as const,reason:'TEST DATA verified original',participant:'TEST DATA participant',at:new Date().toISOString()};
+   const verification={verdict:'pass' as const,reasoning:'TEST DATA valid proof',confidence:0.95};
+   const key='test-registration-'+Date.now();
+   const save=()=>recordCompanyEvidence(campaign,result,'Original retained proof',[],person,key,verification,'proof-a');
+   const original=r.eval.bind(r);
+   const before=vi.spyOn(redisModule,'getRedis').mockReturnValue({eval:async(script: string,keys: string[],args: string[])=>{if(script===REGISTER_COMPANY_EVIDENCE)throw new Error('TEST DATA before Redis write');return original(script,keys,args);}} as any);
+   await expect(save()).rejects.toThrow('before Redis');before.mockRestore();
+   expect(await r.lrange(EVIDENCE_PREFIX+campaign,0,-1)).toHaveLength(0);
+   expect(await r.smembers('completed_claimants:'+taskId)).toHaveLength(0);
+   expect(await r.get('task:'+taskId)).toMatchObject({status:'claimed',completionCount:0});
+   // A competing slot and a replaced proof both reject without publishing evidence.
+   await r.sadd('completed_claimants:'+taskId,person);await expect(save()).rejects.toThrow();
+   expect(await r.lrange(EVIDENCE_PREFIX+campaign,0,-1)).toHaveLength(0);
+   await r.del('completed_claimants:'+taskId);
+   await r.set('task:'+taskId,JSON.stringify({...task,proofSubmissionId:'proof-b'}));await expect(save()).rejects.toThrow();
+   expect(await r.lrange(EVIDENCE_PREFIX+campaign,0,-1)).toHaveLength(0);
+   await r.set('task:'+taskId,JSON.stringify({...task,completionCount:5}));await expect(save()).rejects.toThrow();
+   expect(await r.lrange(EVIDENCE_PREFIX+campaign,0,-1)).toHaveLength(0);
+   await r.set('task:'+taskId,JSON.stringify(task));
+   const raced=vi.spyOn(redisModule,'getRedis').mockReturnValue({eval:async(script: string,keys: string[],args: string[])=>{if(script===REGISTER_COMPANY_EVIDENCE)await r.set('task:'+taskId,JSON.stringify({...task,proofSubmissionId:'proof-race'}));return original(script,keys,args);}} as any);
+   await expect(save()).rejects.toThrow();raced.mockRestore();
+   expect(await r.lrange(EVIDENCE_PREFIX+campaign,0,-1)).toHaveLength(0);
+   expect(await r.smembers('completed_claimants:'+taskId)).toHaveLength(0);
+   await r.set('task:'+taskId,JSON.stringify(task));
+   const after=vi.spyOn(redisModule,'getRedis').mockReturnValue({eval:async(script: string,keys: string[],args: string[])=>{const value=await original(script,keys,args);if(script===REGISTER_COMPANY_EVIDENCE)throw new Error('TEST DATA reply lost after Redis write');return value;}} as any);
+   await expect(save()).rejects.toThrow('reply lost');after.mockRestore();
+   expect(await r.lrange(EVIDENCE_PREFIX+campaign,0,-1)).toHaveLength(1);
+   expect(await r.smembers('completed_claimants:'+taskId)).toEqual([person]);
+   expect(await r.get('task:'+taskId)).toMatchObject({status:'open',completionCount:1});
+   await expect(save()).rejects.toThrow();
+   expect(await r.lrange(EVIDENCE_PREFIX+campaign,0,-1)).toHaveLength(1);
+   expect(await r.get('task:'+taskId)).toMatchObject({completionCount:1});
+   // Rejected proof also commits its reopen and private evidence together;
+   // retrying identical rejected work never creates a second response obligation.
+   await r.del('completed_claimants:'+taskId);
+   const reject=()=>recordCompanyEvidence(campaign,{...result,verdict:'fail'},'Rejected original',[],person,key+'-fail',{...verification,verdict:'fail'},'proof-a');
+   for(let i=0;i<2;i++){await r.set('task:'+taskId,JSON.stringify(task));await reject();}
+   expect(await r.lrange(EVIDENCE_PREFIX+campaign,0,-1)).toHaveLength(2);
+   expect(await r.get('task:'+taskId)).toMatchObject({status:'open',completionCount:0});
+   expect(await r.smembers('completed_claimants:'+taskId)).toHaveLength(0);
  });
  it('walks private read, revision, stale write, use, consent, revoke and rejects spoofing',async()=>{
  expect((await(await MY_RESPONSES(req(person))).json()).campaigns.some((c:{id:string})=>c.id===id)).toBe(true);

@@ -1,5 +1,8 @@
-import { randomUUID } from "crypto";
+import { createHash, randomUUID } from "crypto";
 import { getRedis } from "./redis";
+import { jsonSnapshot } from "./redis-snapshot";
+import { isSinglePayout } from "./store";
+import type { Task } from "./types";
 import { DRAFT_PREFIX } from "./campaign-drafts";
 import type { CampaignDraft, CampaignResult } from "./campaign-draft-shape";
 import { evidenceUrl, type CompanyEvidence, type CompanyDecision, type CompanyReview } from "./company-review-shape";
@@ -8,13 +11,50 @@ export const EVIDENCE_PREFIX = "campaign:company:private-evidence:";
 export const DECISION_PREFIX = "campaign:company:private-decisions:";
 const parse = <T>(value: unknown): T => (typeof value === "string" ? JSON.parse(value) : value) as T;
 
+// Validate all keys before writing. Task transition, completion slot and private
+// evidence become visible together; a lost reply cannot orphan accepted work.
+export const REGISTER_COMPANY_EVIDENCE = `
+for i=1,5 do
+ local t=redis.call('TYPE',KEYS[i]).ok
+ local want=(i==3 and 'list') or ((i==4 or i==5) and 'set') or 'string'
+ if t~='none' and t~=want then return redis.error_reply('Evidence store type mismatch') end
+end
+local registered=redis.call('EXISTS',KEYS[1])==1
+if registered and ARGV[5]=='pass' then return 0 end
+local raw=redis.call('GET',KEYS[2])
+if not raw or redis.sha1hex(raw)~=ARGV[3] then return -1 end
+if ARGV[5]=='pass' and redis.call('SISMEMBER',KEYS[4],ARGV[4])==1 then return -1 end
+redis.call('SET',KEYS[2],ARGV[2])
+if ARGV[5]=='pass' then redis.call('SADD',KEYS[4],ARGV[4]) else redis.call('SADD',KEYS[5],ARGV[4]) end
+if not registered then redis.call('SET',KEYS[1],ARGV[1]); redis.call('LPUSH',KEYS[3],ARGV[1]) end
+return 1`;
+
 // Private copy of submitted work, separate from the public verifier summaries.
 // Only the proof-verification path calls this; buyers cannot fabricate an entry.
-export async function recordCompanyEvidence(id: string, result: CampaignResult, note: string | null | undefined, images: string[], contributorWallet?: string) {
+export async function recordCompanyEvidence(id: string, result: CampaignResult, note: string | null | undefined, images: string[], contributorWallet?: string, registrationKey?: string, verification?: Task["verificationResult"], proofSubmissionId?: string) {
   const redis = getRedis();
   if (!redis) throw new Error("Company evidence storage unavailable");
-  const evidence: CompanyEvidence = { ...result, ...(contributorWallet ? { contributorWallet: contributorWallet.toLowerCase() } : {}), id: randomUUID(), note: String(note || "").slice(0, 4000), images: images.map(evidenceUrl).filter((x): x is string => !!x).slice(0, 5) };
-  await redis.lpush(`${EVIDENCE_PREFIX}${id}`, JSON.stringify(evidence));
+  const evidence: CompanyEvidence = { ...result, ...(contributorWallet ? { contributorWallet: contributorWallet.toLowerCase() } : {}), id: registrationKey ? createHash("sha256").update(JSON.stringify([id, registrationKey])).digest("hex") : randomUUID(), note: String(note || "").slice(0, 4000), images: images.map(evidenceUrl).filter((x): x is string => !!x).slice(0, 5) };
+  if (registrationKey) {
+    if (!verification || !contributorWallet || !proofSubmissionId) throw new Error("Missing completion context");
+    const snapshot = await jsonSnapshot<Task>(`task:${result.taskId}`);
+    const task = snapshot.value;
+    if (!task || task.proofSubmissionId !== proofSubmissionId || task.status !== 'claimed' || task.claimant?.toLowerCase() !== contributorWallet.toLowerCase() || task.companyCampaignId !== id || (task.completionCount || 0) >= task.maxCompletions) throw new Error("Proof no longer owns an available completion");
+    task.verificationResult = verification;
+    if (result.verdict === 'pass') {
+      task.completionCount = (task.completionCount || 0) + 1;
+      task.status = !isSinglePayout(task) && task.completionCount < task.maxCompletions ? 'open' : 'completed';
+    } else task.status = 'open';
+    if (task.status === 'open') Object.assign(task, { claimant: null, claimantVerification: null, proofImageUrl: null, proofImages: null, proofNote: null, verificationResult: null });
+    const committed = await redis.eval(REGISTER_COMPANY_EVIDENCE,
+      [`company:evidence-registration:${evidence.id}`, `task:${result.taskId}`, `${EVIDENCE_PREFIX}${id}`, `completed_claimants:${result.taskId}`, `failed_claimants:${result.taskId}`],
+      [JSON.stringify(evidence), JSON.stringify(task), snapshot.hash, contributorWallet.toLowerCase(), result.verdict]);
+    if (Number(committed) !== 1) throw new Error("Completion already recorded or proof changed; no reward attempted");
+  } else {
+    // Compatibility for direct local fixtures. Live verification always provides
+    // its stable content/verdict key; jury evidence uses its existing transaction.
+    await redis.lpush(`${EVIDENCE_PREFIX}${id}`, JSON.stringify(evidence));
+  }
 }
 
 async function owned(owner: string, id: string): Promise<CampaignDraft | null> {
