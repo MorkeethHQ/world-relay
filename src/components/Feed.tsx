@@ -28,7 +28,7 @@ function isMiniKit(): boolean {
   try { return typeof window !== "undefined" && MiniKit.isInstalled(); } catch { return false; }
 }
 import { VerificationBadge, RequiredTierBadge } from "@/components/VerificationBadge";
-import { encodeCreateTask, encodeClaimTask, encodeReleasePayment, encodeUniswapSwap, readTaskCount, readUsdcBalance, RELAY_ESCROW_ADDRESS, DOUBLE_OR_NOTHING_ADDRESS, encodeCreateDoubleOrNothing, encodeStakeAndClaimWithApproval, readDonTaskCount, type SwapToken } from "@/lib/contracts";
+import { encodeCreateTask, encodeClaimTask, encodeReleasePayment, encodeUniswapSwap, readTaskCount, readUsdcBalance, RELAY_ESCROW_ADDRESS, type SwapToken } from "@/lib/contracts";
 import { CUSTODY_RETIRED } from "@/lib/custody";
 import { SWAP_ENABLED } from "@/lib/contracts";
 import { hapticSuccess, hapticError, hapticTap, hapticHeavy, hapticMedium, hapticSelection, shareTask } from "@/lib/minikit-helpers";
@@ -36,9 +36,8 @@ import { TASK_TEMPLATES } from "@/lib/agents";
 import { POST_TEMPLATES, QUICK_IDEAS, MIN_DESCRIPTION_LENGTH, isTemplateCopy } from "@/lib/post-templates";
 import { useWorldUsers, displayName } from "@/hooks/useWorldUser";
 import { getCampaigns, type Campaign } from "@/lib/campaigns";
-import DailyFavour from "@/components/DailyFavour";
 import { CampaignPage, FeaturedCampaignBanner } from "@/components/CampaignPage";
-import { PollsFeed, FeedPolls } from "@/components/Polls";
+import { PollsFeed } from "@/components/Polls";
 import {
   isBoardVisible,
   isStale as isStaleFavour,
@@ -50,8 +49,6 @@ import {
   pickDailyMission,
   leadWithDoable,
   pickProofStrip,
-  POLL_INSERT_AFTER,
-  POLL_CARDS_MAX,
 } from "@/lib/board-rank";
 import { JuryMode, type JuryCard } from "@/components/JuryMode";
 import { ForCompaniesView, CompanyTrust, ProductLine, CampaignDraftForm, CampaignDraftList, CompanyCampaignCard, CompanyCampaignView } from "@/components/CompanyCampaign";
@@ -431,6 +428,9 @@ const RELAY_BOT_ADDRESS = "0x1101158041fd96f21cbcbb0e752a9a2303e6d70e";
 export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId: string | null; verificationLevel?: string | null; onLogout?: () => void; onReauth?: () => void }) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [view, setView] = useState<"board" | "post" | "proof" | "detail" | "campaign" | "jury" | "launch" | "drafts" | "company" | "companies" | "welcome" | "demo">("board");
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('companyPlan') === 'repeat') setView('launch');
+  }, []);
   const [companyCampaignId, setCompanyCampaignId] = useState<string | null>(null);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [tab, setTab] = useState<Tab>("available");
@@ -1038,23 +1038,17 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
   }, [completedByClaiming.length, totalPosted]);
 
   const executeClaimTask = useCallback(async (task: Task, claimCode?: string) => {
+    if (task.taskType === "double-or-nothing" || task.donOnChainId != null) {
+      setClaimTxError({ message: "New betting claims are closed. Existing participants can still finish their favour.", taskId: task.id, retry: () => {} });
+      return;
+    }
     try {
       hapticTap();
       setClaimTxError(null);
       setClaimTxSuccess(null);
 
       try {
-        if (task.taskType === "double-or-nothing" && isMiniKit() && DOUBLE_OR_NOTHING_ADDRESS && task.donOnChainId !== null) {
-          const txPayload = encodeStakeAndClaimWithApproval(task.donOnChainId, task.bountyUsdc);
-          if (txPayload) {
-            const txResult = await MiniKit.sendTransaction(txPayload);
-            if (!txResult) {
-              setClaimTxError({ message: `Staking $${task.bountyUsdc} USDC failed. Please try again.`, taskId: task.id, retry: () => {} });
-              hapticError();
-              return;
-            }
-          }
-        } else if (isMiniKit() && RELAY_ESCROW_ADDRESS && task.onChainId !== null) {
+        if (isMiniKit() && RELAY_ESCROW_ADDRESS && task.onChainId !== null) {
           const txPayload = encodeClaimTask(task.onChainId);
           if (txPayload) {
             const txResult = await MiniKit.sendTransaction(txPayload);
@@ -1243,10 +1237,10 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
           <h1 className="text-[18px] font-bold tracking-tight text-gray-900">FAVOUR</h1>
           {userId && (
             <button
-              onClick={() => { hapticTap(); setPostCampaignId(null); setView("post"); }}
+              onClick={() => { hapticTap(); setView("companies"); }}
               className="bg-gray-900 text-white text-[13px] font-semibold px-4 py-2 rounded-full active:scale-95 transition-transform min-h-[36px]"
             >
-              + New
+              Create campaign
             </button>
           )}
         </div>
@@ -1294,15 +1288,11 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
         />
       )}
 
-      {/* WRITE A FAVOUR, right here. The one-line composer is the main path to
-          posting; the full page stays for what this cannot do (a place, USDC). */}
       {tab === "available" && !loading && userId && (
-        <FeedComposer
-          userId={userId}
-          onReauth={onReauth}
-          onPosted={() => fetchTasks()}
-          onMore={() => { hapticTap(); setPostCampaignId(null); setView("post"); }}
-        />
+        <details className="mx-6 mt-4 rounded-2xl border border-gray-200 bg-white p-4">
+          <summary className="cursor-pointer text-[14px] font-semibold text-gray-900">Ask a one-off favour</summary>
+          <FeedComposer userId={userId} onReauth={onReauth} onPosted={() => fetchTasks()} onMore={() => { hapticTap(); setPostCampaignId(null); setView("post"); }} />
+        </details>
       )}
 
       {/* REVIEW FAVOURS, the ONE entry on the board (2026-10-05). There were two:
@@ -1327,13 +1317,6 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
         c.id === campaignStage.company?.campaign.id ? null :
         <CompanyCampaignCard key={c.id} c={c} onOpen={() => { hapticTap(); setCompanyCampaignId(c.id); setView("company"); }} />
       ))}
-
-      {/* Daily poll — after favours for first-time users so it doesn't hijack the loop */}
-      {tab === "available" && !loading && !showFirstRunCoach && (
-        <div className="px-6 pt-4">
-          <DailyFavour userId={userId} onReauth={onReauth} />
-        </div>
-      )}
 
       {tab === "available" && !loading && showFirstRunCoach && starterFavour && (
         <StarterFavourBanner
@@ -1662,11 +1645,7 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
           <div className="flex flex-col gap-2.5">
             {(tab === "available" ? boardTasks : filtered).map((task, i) => (
               <Fragment key={task.id}>
-                {/* R2 (BOARD-RULES.md): polls never lead the board — they render
-                    after the first POLL_INSERT_AFTER task cards. */}
-                {tab === "available" && i === POLL_INSERT_AFTER && (
-                  <FeedPolls userId={userId} limit={POLL_CARDS_MAX} />
-                )}
+
                 <div
                   style={{ animationDelay: `${i * 50}ms` }}
                   className="rounded-2xl"
@@ -1687,14 +1666,6 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
                 </div>
               </Fragment>
             ))}
-            {tab === "available" && boardTasks.length <= POLL_INSERT_AFTER && (
-              <FeedPolls userId={userId} limit={POLL_CARDS_MAX} />
-            )}
-            {tab === "available" && showFirstRunCoach && (
-              <div className="px-6 pt-2 pb-4">
-                <DailyFavour userId={userId} onReauth={onReauth} />
-              </div>
-            )}
 
           </div>
         )}
@@ -3149,6 +3120,17 @@ function SubmitProof({
   // Campaign tasks keep the full screen: their rules differ (no human appeal).
   const quick = task.rewardType === "points" && !isFunded(task) && !task.campaignId;
   const [proofNote, setProofNote] = useState("");
+  const [noteRestored, setNoteRestored] = useState<string | null>(null);
+  useEffect(() => {
+    if (!task.companyCampaignId || !userId) return;
+    try { setProofNote(localStorage.getItem(`favour:proof-draft:${userId}:${task.id}`) || ''); } catch {}
+    setNoteRestored(`${userId}:${task.id}`);
+  }, [task.id, task.companyCampaignId, userId]);
+  useEffect(() => {
+    if (!task.companyCampaignId || !userId || noteRestored !== `${userId}:${task.id}`) return;
+    try { if (proofNote) localStorage.setItem(`favour:proof-draft:${userId}:${task.id}`, proofNote); else localStorage.removeItem(`favour:proof-draft:${userId}:${task.id}`); } catch {}
+  }, [proofNote, noteRestored, task.id, task.companyCampaignId, userId]);
+
   // A COMPANY CAMPAIGN PIECE (2026-09-21 walk of "Filipino Lokal"): the proof step
   // showed the whole brief as one heading, with the actual instruction last, asked to
   // "Type your answer" for a piece whose proof is a link, and said nothing about
@@ -3430,6 +3412,8 @@ function SubmitProof({
                       <ul className="mt-1 flex flex-col gap-1 text-[13px] text-gray-700 leading-snug">
                         <li>{pieceCampaign.reviewRule === "ai_and_jury" ? "An AI checks your proof. If it flags a photo proof, human judges can clear it." : "An AI checks your proof."}</li>
                         <li>Accepted: <span className="font-semibold text-gray-900">+{pieceCampaign.rewardPerPiecePoints} points</span>, shown in History under {pieceCampaign.company}. Rejected: you see why.</li>
+                        {pieceCampaign.reviewWithinHours && <li>The company will respond within {pieceCampaign.reviewWithinHours} hours after review. Return to History to read its answer.</li>}
+                        <li>Your written draft is saved on this device for this account and piece. Photos must be selected again after leaving.</li>
                         <li>This pays points only. The {pieceCampaign.proposedPoolUsdc} USDC pool is proposed, not funded.</li>
                       </ul>
                     </div>

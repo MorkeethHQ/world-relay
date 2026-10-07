@@ -92,6 +92,8 @@ export function validateDraftInput(body: unknown): Result {
     return { ok: false, error: "The proposed pool must be between 0 and 10,000 USDC." };
   }
 
+  const reviewWithinHours = b.reviewWithinHours === undefined ? undefined : Number(b.reviewWithinHours);
+  if (reviewWithinHours !== undefined && ![24,48,72,168].includes(reviewWithinHours)) return { ok: false, error: "Choose a response window of 24, 48, 72 or 168 hours." };
   const reviewRule: ReviewRule = b.reviewRule === "ai_and_jury" ? "ai_and_jury" : "ai";
 
   return {
@@ -99,6 +101,7 @@ export function validateDraftInput(body: unknown): Result {
     draft: {
       status: "draft",
       company,
+      ...(reviewWithinHours ? { reviewWithinHours } : {}),
       brief,
       pieces,
       rewardPerPiecePoints: reward,
@@ -322,6 +325,7 @@ export async function publishDraft(
 function toPublic(d: CampaignDraft & { status: "publishing" | "published" }): PublicCompanyCampaign {
   return {
     id: d.id,
+    reviewWithinHours: d.reviewWithinHours,
     company: d.company,
     brief: d.brief,
     pieces: d.pieces,

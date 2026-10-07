@@ -1,0 +1,2 @@
+import { ContributionResponses } from '@/components/ContributionResponses';
+export default async function Page({params}: {params:Promise<{id:string}>}) { const {id}=await params; return <main className="mx-auto max-w-lg p-6 text-gray-900"><a href="/history" className="inline-flex min-h-11 items-center text-sm underline">← Your history</a><div className="mt-5"><ContributionResponses id={id}/></div><a href="/" className="mt-6 inline-flex min-h-11 items-center underline text-sm">Explore the next campaign →</a></main>; }

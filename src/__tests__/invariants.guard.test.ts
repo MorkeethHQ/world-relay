@@ -83,7 +83,6 @@ describe("invariant guards", () => {
     // session gate anyone could spend or farm points as another wallet. These two
     // accept the stronger unconditional ownerRefusal gate as well.
     for (const route of [
-      join("predictions", "[id]", "stake"),
       join("jury", "appeal"),
     ]) {
       const f = files.find((p) => p.endsWith(join(route, "route.ts")));
@@ -215,4 +214,11 @@ describe("invariant guards", () => {
     expect(s, "feedback-tasks must call ownershipError").toMatch(/ownershipError\(/);
     expect(s, "feedback-tasks must cap the daily earn (once-per-day earn lock)").toMatch(/earned:/);
   });
+});
+
+it("retired predictions refuse both new records and new stakes without a store", async () => {
+  const create = await import("@/app/api/predictions/route");
+  const stake = await import("@/app/api/predictions/[id]/stake/route");
+  expect((await create.POST()).status).toBe(410);
+  expect((await stake.POST()).status).toBe(410);
 });

@@ -39,8 +39,8 @@ describe("the feed composer posts through the existing rules, not around them", 
     expect(composer).not.toMatch(/QUICK_IDEAS/);
   });
 
-  it("is rendered on the Favours tab for a signed-in person", () => {
-    expect(feed).toMatch(/tab === "available" && !loading && userId && \(\s*<FeedComposer/);
+  it("remains available under the one-off ask on the campaigns tab for a signed-in person", () => {
+    expect(feed).toMatch(/tab === "available" && !loading && userId && \(\s*<details[^>]*>\s*<summary[^>]*>Ask a one-off favour<\/summary>\s*<FeedComposer/);
   });
 });
 

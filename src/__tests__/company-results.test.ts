@@ -1,3 +1,5 @@
+// Legacy fixture has no response deadline; the real Redis response test exercises intake gating.
+vi.mock("@/lib/contribution-responses", () => ({ campaignIntakePaused: async () => false }));
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
 // The company sees its pieces reviewed (FAVOUR-COMPANY-JOURNEY-2026-09-21): a pass
@@ -6,11 +8,13 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 
 const recordFavourCompletedCalls: any[] = [];
 let storedTask: any = null;
+let evidenceFailure = false;
+let completedCalls = 0;
 
 vi.mock("@/lib/store", () => ({
   getTask: async () => storedTask,
   submitProof: async (_id: string, _n: any, _i: any, level: any) => ({ ...storedTask, claimantVerification: level }),
-  completeTask: async () => storedTask,
+  completeTask: async () => { completedCalls++; return storedTask; },
   setAttestationHash: async () => {},
   setFollowUp: async () => {},
   spawnRecurringTask: async () => null,
@@ -59,7 +63,7 @@ vi.mock("@/lib/referral", () => ({ recordReferralActivation: async () => {} }));
 
 
 const evidence: any[] = [];
-vi.mock("@/lib/company-review", () => ({ recordCompanyEvidence: async (...args: any[]) => { evidence.push(args); } }));
+vi.mock("@/lib/company-review", () => ({ getCompanyCompletion: async () => null, recordCompanyEvidence: async (...args: any[]) => { if(evidenceFailure)throw new Error("TEST DATA evidence store failed"); evidence.push(args); return args[1].verdict === "pass" ? { pointsAwarded:9, streakBonus:0 } : undefined; } }));
 const results: any[] = [];
 vi.mock("@/lib/campaign-drafts", () => ({
   getPublishedCampaign: async (id: string) => ({ id, company: "Example company", pieceTaskIds: { ugc: "piece-ugc" } }),
@@ -98,19 +102,33 @@ const submit = () => POST(new Request("http://localhost/api/verify-proof", {
 }) as any);
 
 beforeEach(() => {
+  evidenceFailure = false; completedCalls = 0;
   results.length = 0; evidence.length = 0; recordFavourCompletedCalls.length = 0; verdict = "pass"; storedTask = piece();
   process.env.SESSION_SECRET = "test-secret"; process.env.ANTHROPIC_API_KEY = "test-key"; delete process.env.OPENROUTER_API_KEY;
 });
 
 describe("the company sees accepted and rejected pieces, with the reason", () => {
+  it("refuses acceptance before task completion or points when evidence registration fails, then retries", async () => {
+    evidenceFailure = true;
+    const failed = await submit();
+    expect(failed.status).toBe(503);
+    expect((await failed.json()).code).toBe("company_evidence_unavailable");
+    expect(completedCalls).toBe(0); expect(recordFavourCompletedCalls).toHaveLength(0);
+    expect(results).toHaveLength(0); expect(evidence).toHaveLength(0);
+    evidenceFailure = false;
+    expect((await submit()).status).toBe(200);
+    expect(completedCalls).toBe(0); expect(recordFavourCompletedCalls).toHaveLength(0);
+    expect(evidence).toHaveLength(1); expect(evidence[0][5]).toMatch(/^[a-f0-9]{64}$/);
+  });
   it("an accepted piece is recorded for the company, and the participant earns points", async () => {
     const res = await submit();
     expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({pointsAwarded:9,streakBonus:0});
     expect(results).toHaveLength(1);
     expect(results[0]).toMatchObject({ id: "draft_x", taskId: "piece-ugc", kind: "ugc", verdict: "pass" });
     expect(results[0].reason).toMatch(/real clip/);
     expect(results[0].participant).not.toBe(CLAIMANT);
-    expect(recordFavourCompletedCalls).toHaveLength(1);
+    expect(recordFavourCompletedCalls).toHaveLength(0);
     expect(evidence[0][2]).toBe("https://example.test/my-clip");
     expect(results[0]).not.toHaveProperty("note");
   });

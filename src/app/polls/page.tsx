@@ -22,7 +22,11 @@ export default function PollsPage() {
         {/* Open questions first. Closed polls and resolved predictions are
             history, each behind its own control (2026-10-05). */}
         <PollsFeed userId={userId} />
-        <PredictionsSection userId={userId} />
+        <details className="rounded-2xl border border-gray-200 p-4">
+          <summary className="cursor-pointer text-[13px] text-gray-500">Prediction archive & existing stakes</summary>
+          <p className="mt-3 mb-4 text-[13px] text-gray-600">Predictions have closed. Past results and existing stakes stay available here.</p>
+          <PredictionsSection userId={userId} />
+        </details>
       </div>
     </div>
   );

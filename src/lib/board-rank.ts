@@ -61,6 +61,7 @@ export function looksLikeSpam(text: string | null | undefined): boolean {
 }
 
 export function isBoardVisible(t: Task, userId: string | null, now: number): boolean {
+  if ((t.taskType === "double-or-nothing" || t.donOnChainId != null) && (!userId || (t.poster !== userId && t.claimant !== userId))) return false;
   if (t.status === "expired" || t.status === "cancelled") return false;
   // R16: operator-hidden (scripts/hide-item.mjs) never shows, not even to its
   // claimant. The record is kept; hiding is never deleting.

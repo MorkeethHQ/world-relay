@@ -1,4 +1,5 @@
 "use client";
+import { ContributionResponses } from "./ContributionResponses";
 import { useEffect, useState } from "react";
 import type { CompanyReview as Review } from "@/lib/company-review-shape";
 import { evidenceUrl } from "@/lib/company-review-shape";
@@ -59,6 +60,7 @@ export function CompanyReview({ id }: { id: string }) {
         <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6">{review.campaign.brief}</p>
         <p className="mt-3 text-xs text-gray-500">{review.campaign.status === "draft" ? "Private draft. No pieces have been published." : "Company campaign · points only"}</p>
       </section>
+      <div className="mt-8"><ContributionResponses id={id} /></div>
       <form onSubmit={e => { e.preventDefault(); void save(); }} className="mt-6 space-y-6">
         <section>
           <label htmlFor="question" className="block text-base font-semibold">What will this work help you decide?</label>

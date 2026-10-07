@@ -42,11 +42,11 @@ describe("the first screen leads with doing, not with planning", () => {
   const feed = readFileSync("src/components/Feed.tsx", "utf8");
   const onboarding = readFileSync("src/components/Onboarding.tsx", "utf8");
   const cc = readFileSync("src/components/CompanyCampaign.tsx", "utf8");
-  it("the main button reads 'Do a piece and earn'", () => {
+  it("the main button opens the campaign before committing work", () => {
     // Since R19 (2026-10-05) the button sits on the campaign stage, the same
     // component on the board and on the signed-out first screen.
     const stage = readFileSync("src/components/CampaignFrontDoor.tsx", "utf8");
-    expect(stage).toMatch(/>\s*Do a piece and earn\s*</);
+    expect(stage).toMatch(/>\s*Explore campaign →\s*</);
     expect(stage).toMatch(/<CompanyTrust c=\{c\.campaign\}/);
     expect(feed).toMatch(/<CampaignStageCards/);
     expect(onboarding).toMatch(/<CampaignStageCards/);

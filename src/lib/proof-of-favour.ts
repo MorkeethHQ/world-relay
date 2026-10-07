@@ -400,7 +400,7 @@ function applyPointsAward(profile: ProofOfFavour, action: string, points: number
 
 export async function withPreparedPointsAward<T>(address: string, commit: (p: {
   profileKey: string; profileHash: string; indexKey: string;
-  weeklyKey: string; prepare: (amount: number) => ProofOfFavour; lease: { key: string; token: string };
+  weeklyKey: string; prepare: (amount: number) => ProofOfFavour; prepareCompletion: (amount: number, ref: string, streak: number) => { profile: ProofOfFavour; points: number; streakBonus: number }; lease: { key: string; token: string };
 }) => Promise<T>): Promise<T> {
   if (!getRedis() || !isRealWallet(address)) throw new Error("Points storage and wallet required");
   return withWalletLock(address, async lease => {
@@ -411,7 +411,18 @@ export async function withPreparedPointsAward<T>(address: string, commit: (p: {
     const profile = snapshot.value ?? defaultProfile(address);
     if (!Number.isFinite(profile.totalPoints) || !Array.isArray(profile.pointsHistory)) throw new Error("Invalid points profile");
     const prepare = (amount: number) => { const next = structuredClone(profile); applyPointsAward(next, "jury_appeal_cleared", amount); return next; };
-    return commit({ prepare, profileKey, profileHash: snapshot.hash, indexKey: POF_INDEX_KEY, weeklyKey: weekKey(), lease });
+    const prepareCompletion = (amount: number, ref: string, streak: number) => {
+      if (!Number.isFinite(amount) || amount < 0 || !Number.isFinite(streak) || !ref) throw new Error("Invalid completion award");
+      const next = structuredClone(profile);
+      const streakBonus = streakBonusFor(streak);
+      applyPointsAward(next, "favour_completed", amount);
+      if (streakBonus) applyPointsAward(next, "streak_bonus", streakBonus);
+      next.favoursCompleted = (next.favoursCompleted || 0) + 1;
+      next.favoursAttempted = (next.favoursAttempted || 0) + 1;
+      addRef(next, ref);
+      return { profile: next, points: amount + streakBonus, streakBonus };
+    };
+    return commit({ prepare, prepareCompletion, profileKey, profileHash: snapshot.hash, indexKey: POF_INDEX_KEY, weeklyKey: weekKey(), lease });
   });
 }
 

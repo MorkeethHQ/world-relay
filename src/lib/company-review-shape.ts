@@ -1,6 +1,6 @@
 import type { CampaignResult, CampaignDraft } from "./campaign-draft-shape";
 
-export type CompanyEvidence = CampaignResult & { id: string; note: string; images: string[]; reviewReasons?: string[] };
+export type CompanyEvidence = CampaignResult & { id: string; contributorWallet?: string; note: string; images: string[]; reviewReasons?: string[] };
 export type CompanyDecision = { id: string; question: string; decision: string; evidenceIds: string[]; at: string };
 export type CompanyReview = {
   campaign: Pick<CampaignDraft, "id" | "company" | "brief" | "status" | "productName" | "productUrl">;

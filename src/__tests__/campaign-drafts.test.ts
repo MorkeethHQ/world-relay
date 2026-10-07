@@ -237,12 +237,11 @@ describe("a company piece never reads as money", () => {
 
 describe("the example card is an explainer, never a campaign", () => {
   const src = require("fs").readFileSync(require("path").join(__dirname, "../components/CompanyCampaign.tsx"), "utf8");
-  it("labels itself as an example that is not funded", () => {
-    expect(src).toMatch(/Example · not funded/);
-    expect(src).toMatch(/A proposed pool is not money/);
-  });
-  it("names no invented brand: the company is literally 'Example company'", () => {
-    expect(src).toMatch(/>Example company</);
+  it("R20 offers private planning rather than a fictional funded example", () => {
+    expect(src).toMatch(/Start with a private draft/);
+    expect(src).toMatch(/proposed funding is shown separately/);
+    expect(src).not.toMatch(/>Example company</);
+    expect(src).not.toMatch(/200 USDC proposed/);
   });
   it("the action says what it does: Plan, not Launch, because it saves a private draft", () => {
     expect(src).toMatch(/launchLabel = "Plan a campaign"/);
