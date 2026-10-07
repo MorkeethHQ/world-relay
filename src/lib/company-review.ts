@@ -10,10 +10,10 @@ const parse = <T>(value: unknown): T => (typeof value === "string" ? JSON.parse(
 
 // Private copy of submitted work, separate from the public verifier summaries.
 // Only the proof-verification path calls this; buyers cannot fabricate an entry.
-export async function recordCompanyEvidence(id: string, result: CampaignResult, note: string | null | undefined, images: string[]) {
+export async function recordCompanyEvidence(id: string, result: CampaignResult, note: string | null | undefined, images: string[], contributorWallet?: string) {
   const redis = getRedis();
   if (!redis) throw new Error("Company evidence storage unavailable");
-  const evidence: CompanyEvidence = { ...result, id: randomUUID(), note: String(note || "").slice(0, 4000), images: images.map(evidenceUrl).filter((x): x is string => !!x).slice(0, 5) };
+  const evidence: CompanyEvidence = { ...result, ...(contributorWallet ? { contributorWallet: contributorWallet.toLowerCase() } : {}), id: randomUUID(), note: String(note || "").slice(0, 4000), images: images.map(evidenceUrl).filter((x): x is string => !!x).slice(0, 5) };
   await redis.lpush(`${EVIDENCE_PREFIX}${id}`, JSON.stringify(evidence));
 }
 
@@ -33,7 +33,7 @@ export async function getCompanyReview(owner: string, id: string): Promise<Compa
   const [evidence, decisions] = await Promise.all([
     redis.lrange(`${EVIDENCE_PREFIX}${id}`, 0, -1), redis.lrange(`${DECISION_PREFIX}${id}`, 0, -1),
   ]);
-  return { campaign: { id: draft.id, company: draft.company, brief: draft.brief, status: draft.status, productName: draft.productName, productUrl: draft.productUrl }, evidence: evidence.map(x => parse<CompanyEvidence>(x)), decisions: decisions.map(x => parse<CompanyDecision>(x)) };
+  return { campaign: { id: draft.id, company: draft.company, brief: draft.brief, status: draft.status, productName: draft.productName, productUrl: draft.productUrl }, evidence: evidence.map(x => { const { contributorWallet: _wallet, ...safe } = parse<CompanyEvidence>(x); return safe; }), decisions: decisions.map(x => parse<CompanyDecision>(x)) };
 }
 
 export async function saveCompanyDecision(owner: string, id: string, body: unknown) {

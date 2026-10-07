@@ -1,3 +1,4 @@
+import { campaignIntakePaused } from "@/lib/contribution-responses";
 import { ensureCompanyAppeal } from "@/lib/company-appeal";
 import { recordCompanyEvidence } from "@/lib/company-review";
 import { NextRequest, NextResponse } from "next/server";
@@ -178,6 +179,11 @@ export async function POST(req: NextRequest) {
   const task = await getTask(taskId);
   if (!task) {
     return NextResponse.json({ error: "Task not found" }, { status: 404 });
+  }
+
+  if (task.companyCampaignId && task.status === "open") {
+    try { if (await campaignIntakePaused(task.companyCampaignId)) return NextResponse.json({ error: "The company is answering earlier work. New contributions are paused." }, { status: 409 }); }
+    catch { return NextResponse.json({ error: "Campaign availability could not be checked. Please retry." }, { status: 503 }); }
   }
 
   // Allow direct submission from open OR claimed status
@@ -683,7 +689,7 @@ export async function POST(req: NextRequest) {
       at: new Date().toISOString(),
     };
     await recordCampaignResult(task.companyCampaignId, campaignResult).catch(console.error);
-    await recordCompanyEvidence(task.companyCampaignId, campaignResult, proofNote, proofImageUrls).catch(console.error);
+    await recordCompanyEvidence(task.companyCampaignId, campaignResult, proofNote, proofImageUrls, task.claimant).catch(console.error);
   }
 
   if (result.verdict === "pass" && task.claimant && creditAllowed) {

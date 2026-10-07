@@ -1,3 +1,5 @@
+import { campaignIntakePaused } from "@/lib/contribution-responses";
+import { ownerRefusal } from "@/lib/session";
 import { NextRequest, NextResponse } from "next/server";
 import { claimTask, getTask } from "@/lib/store";
 import { postClaimNotification, postClaimBriefing, syncAndProcessMessages } from "@/lib/xmtp";
@@ -36,6 +38,12 @@ export async function POST(
     return NextResponse.json({ error: "Task not found" }, { status: 404 });
   }
 
+  if (task.companyCampaignId) {
+    const refusal = ownerRefusal(req, claimant, Date.now());
+    if (refusal) return NextResponse.json(refusal, { status: 403 });
+    try { if (await campaignIntakePaused(task.companyCampaignId)) return NextResponse.json({ error: "The company is answering earlier work. New contributions are paused." }, { status: 409 }); }
+    catch { return NextResponse.json({ error: "Campaign availability could not be checked. Please retry." }, { status: 503 }); }
+  }
   if (task.taskType === "double-or-nothing" || task.donOnChainId != null) {
     return NextResponse.json({ error: "New betting claims are closed. Existing participants can still finish their favour." }, { status: 410 });
   }

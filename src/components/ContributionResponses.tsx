@@ -1,0 +1,45 @@
+"use client";
+import { useEffect, useState } from 'react';
+import { RESPONSE_LABELS, type ContributionCard, type ContributionReveal } from '@/lib/contribution-response-shape';
+const field = 'w-full rounded-xl border border-gray-300 bg-white p-3 text-sm';
+function Contribution({ card, id, reload }: { card: ContributionCard; id: string; reload: () => void }) {
+  const [status,setStatus]=useState('acknowledged'), [message,setMessage]=useState(''), [before,setBefore]=useState(''), [after,setAfter]=useState(''), [url,setUrl]=useState(''), [note,setNote]=useState(''), [credit,setCredit]=useState(''), [error,setError]=useState(''), [busy,setBusy]=useState(false);
+  const last=card.thread.responses.at(-1); const revision=card.thread.revisions.at(-1);
+  async function save(body: Record<string,unknown>) {
+    setBusy(true);setError('');
+    try { const r=await fetch(`/api/campaigns/company/${encodeURIComponent(id)}/contributions`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...body,evidenceId:card.id,version:card.thread.version})}); const data=await r.json();if(!r.ok)throw new Error(data.error);reload(); }
+    catch(e){setError(e instanceof Error?e.message:'Save not confirmed. Reload before retrying.');}finally{setBusy(false);}
+  }
+  return <article className="rounded-2xl border border-gray-200 bg-white p-4 space-y-3">
+    <p className="text-xs text-gray-500">Original submission · verifier {card.verdict} · {new Date(card.at).toLocaleDateString()}</p>
+    <p className="whitespace-pre-wrap break-words text-sm leading-6">{card.note || 'Photo submission. The company can view the original proof in its evidence review.'}</p>
+    {card.replyBy && <p className="text-xs text-gray-600">{Date.parse(card.replyBy)<Date.now()?'Response overdue':'Company response due'} · {new Date(card.replyBy).toLocaleString()}</p>}
+    {card.thread.responses.map((r,i)=><div key={`${r.at}-${i}`} className="border-l-2 border-gray-900 pl-3 text-sm leading-6"><strong>{RESPONSE_LABELS[r.status]}</strong><p className="whitespace-pre-wrap break-words">{r.message}</p>{r.status==='used'&&<><p className="mt-2"><strong>Before:</strong> {r.before}</p><p><strong>After:</strong> {r.after}</p><a className="min-h-11 inline-flex items-center underline" href={r.evidenceUrl} target="_blank" rel="noopener noreferrer nofollow">See the use ↗</a><p className="text-xs text-gray-500">Company statement, not an independent impact finding.</p></>}</div>)}
+    {card.thread.revisions.map((r,i)=><div key={`${r.at}-${i}`} className="rounded-xl bg-gray-50 p-3 text-sm"><strong>Contributor revision</strong><p className="whitespace-pre-wrap break-words leading-6">{r.note}</p></div>)}
+    {!card.canReply?<p className="text-sm text-gray-500">This older record has no linked contributor account. It is retained as evidence, but a response cannot be delivered.</p>:card.role==='company'?<form className="space-y-3" onSubmit={e=>{e.preventDefault();void save({action:'respond',status,message,before,after,evidenceUrl:url});}}>
+      <label className="block text-sm font-semibold">Your response<select aria-label="Response" className={`${field} mt-2`} value={status} onChange={e=>setStatus(e.target.value)}>{Object.entries(RESPONSE_LABELS).map(([k,v])=><option key={k} value={k}>{v}</option>)}</select></label>
+      <label className="block text-sm">Explain your decision<textarea aria-label="Response explanation" required minLength={20} maxLength={2000} className={`${field} mt-2`} rows={3} value={message} onChange={e=>setMessage(e.target.value)}/></label>
+      {status==='used'&&<><label className="block text-sm">Before<textarea aria-label="Before" required minLength={10} maxLength={1000} className={field} value={before} onChange={e=>setBefore(e.target.value)}/></label><label className="block text-sm">After<textarea aria-label="After" required minLength={10} maxLength={1000} className={field} value={after} onChange={e=>setAfter(e.target.value)}/></label><label className="block text-sm">Link showing actual use<input aria-label="Use evidence link" required type="url" className={field} value={url} onChange={e=>setUrl(e.target.value)}/></label><p className="text-xs text-gray-500">The contributor must approve public credit for this exact response. New responses remove prior approval.</p></>}
+      <button disabled={busy} className="min-h-12 w-full rounded-full bg-gray-900 px-4 text-sm font-semibold text-white disabled:opacity-40">{busy?'Saving…':'Send response to contributor'}</button>
+    </form>:<>
+      {last?.status==='revision_requested'&&(!revision||revision.at<=last.at)&&<form className="space-y-3" onSubmit={e=>{e.preventDefault();void save({action:'revise',note});}}><label className="block text-sm font-semibold">Add a revision<textarea aria-label="Revision" required minLength={20} maxLength={4000} className={`${field} mt-2`} rows={4} value={note} onChange={e=>setNote(e.target.value)}/></label><p className="text-xs text-gray-500">Your original stays in the record. A revision does not earn another reward or replace the verifier result.</p><button disabled={busy} className="min-h-12 w-full rounded-full bg-gray-900 text-sm text-white">Send revision</button></form>}
+      {last?.status==='used'&&<div className="space-y-3"><p className="text-sm leading-6">You control public credit. Allowing it shows the company response, before/after and evidence link with your display name. This approval shares the use statement and your credit, not your private revision notes. Original proofs can also appear in FAVOUR review and History.</p>{card.thread.consent?<button disabled={busy} onClick={()=>save({action:'consent',allow:false})} className="min-h-11 underline text-sm">Remove public credit</button>:<form className="space-y-3" onSubmit={e=>{e.preventDefault();void save({action:'consent',allow:true,credit});}}><input aria-label="Credit name" required maxLength={80} placeholder="Your public display name" className={field} value={credit} onChange={e=>setCredit(e.target.value)}/><button disabled={busy} className="min-h-12 w-full rounded-full border border-gray-900 text-sm">Allow this response and credit publicly</button></form>}</div>}
+      {!last&&<p className="text-sm text-gray-500">Waiting for the company to read your work.</p>}
+    </>}
+    {error&&<p role="alert" className="text-sm text-red-700">{error}</p>}
+  </article>;
+}
+export function ContributionResponses({id,onAvailability}: {id:string;onAvailability?:(paused:boolean)=>void}) {
+  const [data,setData]=useState<{cards:ContributionCard[];reveals:ContributionReveal[];owner:boolean;intakePaused:boolean;company:string}|null>(null),[error,setError]=useState(''),[version,setVersion]=useState(0);
+  useEffect(()=>{let live=true;fetch(`/api/campaigns/company/${encodeURIComponent(id)}/contributions`,{cache:'no-store'}).then(async r=>{const d=await r.json();if(!r.ok)throw new Error(d.error);return d;}).then(d=>{if(live){setData(d);setError('');onAvailability?.(d.intakePaused);}}).catch(e=>{if(live)setError(e.message);});return()=>{live=false;};},[id,version,onAvailability]);
+  return <section className="space-y-4" aria-label="Contribution responses">
+    {data?.company && <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">{data.company}</p>}
+    <h2 className="text-xl font-semibold tracking-tight">What happened to the work?</h2>
+    <p className="text-sm leading-6 text-gray-600">Company responses and revisions are private until you approve a use statement. Original proofs follow FAVOUR review and History visibility. Responses do not change points.</p>
+    {error&&<p role="alert" className="text-sm text-red-700">{error}<button onClick={()=>setVersion(v=>v+1)} className="block min-h-11 underline">Retry</button></p>}
+    {data?.intakePaused&&<p role="status" className="rounded-xl bg-amber-50 p-4 text-sm">This company has overdue responses. New contributions are paused while it answers earlier work. Work already claimed can still be submitted.</p>}
+    {data?.cards.map(c=><Contribution key={`${c.id}-${c.thread.version}`} card={c} id={id} reload={()=>setVersion(v=>v+1)}/>)}
+    {data&&!data.cards.length&&!data.reveals.length&&<p className="rounded-xl border border-dashed border-gray-300 p-4 text-sm text-gray-500">No public use has been shared yet. Sign in with your contributor account to see your private responses.</p>}
+    {!!data?.reveals.length&&<div className="space-y-3"><h3 className="font-semibold">Used with contributor permission</h3>{data.reveals.map(r=><article key={r.id} className="rounded-2xl bg-gray-900 text-white p-5 space-y-2"><p className="text-xs">With {r.credit}</p><p className="text-lg font-semibold">{r.response.message}</p><p className="text-sm leading-6">Before: {r.response.before}</p><p className="text-sm leading-6">After: {r.response.after}</p><a href={r.response.evidenceUrl} target="_blank" rel="noopener noreferrer nofollow" className="inline-flex min-h-11 items-center underline text-sm">See the use ↗</a><p className="text-xs text-white/60">Company statement · shared with contributor permission</p></article>)}</div>}
+  </section>;
+}

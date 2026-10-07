@@ -428,6 +428,9 @@ const RELAY_BOT_ADDRESS = "0x1101158041fd96f21cbcbb0e752a9a2303e6d70e";
 export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId: string | null; verificationLevel?: string | null; onLogout?: () => void; onReauth?: () => void }) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [view, setView] = useState<"board" | "post" | "proof" | "detail" | "campaign" | "jury" | "launch" | "drafts" | "company" | "companies" | "welcome" | "demo">("board");
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('companyPlan') === 'repeat') setView('launch');
+  }, []);
   const [companyCampaignId, setCompanyCampaignId] = useState<string | null>(null);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [tab, setTab] = useState<Tab>("available");
@@ -3117,6 +3120,17 @@ function SubmitProof({
   // Campaign tasks keep the full screen: their rules differ (no human appeal).
   const quick = task.rewardType === "points" && !isFunded(task) && !task.campaignId;
   const [proofNote, setProofNote] = useState("");
+  const [noteRestored, setNoteRestored] = useState<string | null>(null);
+  useEffect(() => {
+    if (!task.companyCampaignId || !userId) return;
+    try { setProofNote(localStorage.getItem(`favour:proof-draft:${userId}:${task.id}`) || ''); } catch {}
+    setNoteRestored(`${userId}:${task.id}`);
+  }, [task.id, task.companyCampaignId, userId]);
+  useEffect(() => {
+    if (!task.companyCampaignId || !userId || noteRestored !== `${userId}:${task.id}`) return;
+    try { if (proofNote) localStorage.setItem(`favour:proof-draft:${userId}:${task.id}`, proofNote); else localStorage.removeItem(`favour:proof-draft:${userId}:${task.id}`); } catch {}
+  }, [proofNote, noteRestored, task.id, task.companyCampaignId, userId]);
+
   // A COMPANY CAMPAIGN PIECE (2026-09-21 walk of "Filipino Lokal"): the proof step
   // showed the whole brief as one heading, with the actual instruction last, asked to
   // "Type your answer" for a piece whose proof is a link, and said nothing about
@@ -3398,6 +3412,8 @@ function SubmitProof({
                       <ul className="mt-1 flex flex-col gap-1 text-[13px] text-gray-700 leading-snug">
                         <li>{pieceCampaign.reviewRule === "ai_and_jury" ? "An AI checks your proof. If it flags a photo proof, human judges can clear it." : "An AI checks your proof."}</li>
                         <li>Accepted: <span className="font-semibold text-gray-900">+{pieceCampaign.rewardPerPiecePoints} points</span>, shown in History under {pieceCampaign.company}. Rejected: you see why.</li>
+                        {pieceCampaign.reviewWithinHours && <li>The company will respond within {pieceCampaign.reviewWithinHours} hours after review. Return to History to read its answer.</li>}
+                        <li>Your written draft is saved on this device for this account and piece. Photos must be selected again after leaving.</li>
                         <li>This pays points only. The {pieceCampaign.proposedPoolUsdc} USDC pool is proposed, not funded.</li>
                       </ul>
                     </div>

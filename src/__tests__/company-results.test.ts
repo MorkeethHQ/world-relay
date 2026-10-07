@@ -1,3 +1,5 @@
+// Legacy fixture has no response deadline; the real Redis response test exercises intake gating.
+vi.mock("@/lib/contribution-responses", () => ({ campaignIntakePaused: async () => false }));
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
 // The company sees its pieces reviewed (FAVOUR-COMPANY-JOURNEY-2026-09-21): a pass

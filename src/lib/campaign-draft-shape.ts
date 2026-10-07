@@ -91,6 +91,7 @@ export type CampaignDraft = {
   // campaign identity (2026-09-21 fix: a failure on piece 2 of 3 used to leave
   // unlabelled pieces and burn the day's publish, with no way to finish).
   status: "draft" | "publishing" | "published";
+  reviewWithinHours?: number;
   company: string;
   brief: string;
   pieces: Array<{ kind: PieceKind; count: number }>;
@@ -124,7 +125,7 @@ export type CampaignDraft = {
 // the company is named by the name it chose.
 export type PublicCompanyCampaign = Pick<
   CampaignDraft,
-  "id" | "company" | "brief" | "pieces" | "rewardPerPiecePoints" | "proposedPoolUsdc" | "reviewRule" | "publishedAt" | "pieceTaskIds" | "productUrl" | "productName"
+  "reviewWithinHours" | "id" | "company" | "brief" | "pieces" | "rewardPerPiecePoints" | "proposedPoolUsdc" | "reviewRule" | "publishedAt" | "pieceTaskIds" | "productUrl" | "productName"
 > & { status: "publishing" | "published"; companyChecked: boolean; hidden?: boolean };
 
 export type CampaignResult = {

@@ -1,5 +1,6 @@
 "use client";
 
+import { ContributionResponses } from "./ContributionResponses";
 import { useState, useEffect } from "react";
 import type { CampaignDraft, PieceKind, PublicCompanyCampaign, CampaignResult } from "@/lib/campaign-draft-shape";
 import type { Task } from "@/lib/types";
@@ -183,9 +184,16 @@ export function CampaignDraftForm({ onSaved, onCancel, onReauth }: {
   const [reward, setReward] = useState(10);
   const [pool, setPool] = useState("0");
   const [reviewRule, setReviewRule] = useState<"ai" | "ai_and_jury">("ai_and_jury");
+  const [reviewWithinHours, setReviewWithinHours] = useState(48);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    const repeat = sessionStorage.getItem('favour:repeat-campaign');
+    if (!repeat) return;
+    sessionStorage.removeItem('favour:repeat-campaign');
+    try { const d = JSON.parse(repeat); setCompany(d.company || ''); setBrief(d.brief || ''); setProductName(d.productName || ''); setProductUrl(d.productUrl || ''); setCounts({ugc:0,article:0,review:5}); } catch {}
+  }, []);
   const save = async () => {
     setSaving(true);
     setError(null);
@@ -195,6 +203,7 @@ export function CampaignDraftForm({ onSaved, onCancel, onReauth }: {
       productName,
       productUrl,
       pieces: (Object.keys(counts) as PieceKind[]).filter((k) => counts[k] > 0).map((k) => ({ kind: k, count: counts[k] })),
+      reviewWithinHours,
       rewardPerPiecePoints: reward,
       proposedPoolUsdc: Number(pool),
       reviewRule,
@@ -238,7 +247,13 @@ export function CampaignDraftForm({ onSaved, onCancel, onReauth }: {
         </p>
         <div className="rounded-2xl border border-gray-200 bg-white p-4">
           <p className="text-[14px] font-semibold text-gray-900">Start with a useful question</p>
-          <p className="mt-1 text-[13px] leading-relaxed text-gray-500">Use a brief starter, then make it yours. Your company and product stay blank.</p>
+          <button type="button" onClick={() => {
+            setCompany("STRIVE"); setProductName("STRIVE"); setProductUrl("https://agentic-strava.vercel.app");
+            setBrief("First-party STRIVE feedback request. Try turning one real coding session into a STRIVE run. Add a photo, check the project breakdown and preview the result. Tell us the first unclear step, what you expected and what happened. Honest criticism is welcome; no positive public review is required. Screenshots are optional: hide private information. Points only, no cash promised.");
+            setCounts({ugc:0,article:0,review:5});setPool("0");setReviewWithinHours(48);
+          }} className="mt-3 min-h-11 rounded-full border border-gray-900 px-4 text-sm font-semibold">Prepare STRIVE feedback brief</button>
+          <p className="mt-2 text-xs leading-5 text-gray-500">Use only if you represent STRIVE. This fills the form; saving still requires your real World App session. It does not verify your company or publish a campaign.</p>
+          <p className="mt-1 text-[13px] leading-relaxed text-gray-500">For another product, use the general starter below and add your company details.</p>
           <button type="button" onClick={() => {
             setBrief("Try one real task with our product. Tell us the first step that was unclear, what you expected, and what happened. If everything worked, tell us which part was most useful. Include the specific step and your expected and actual result. A screenshot is optional; hide any private information. Honest criticism is welcome.");
             setCounts({ ugc: 0, article: 0, review: 5 }); setPool("0");
@@ -298,6 +313,9 @@ export function CampaignDraftForm({ onSaved, onCancel, onReauth }: {
           </div>
         </div>
         <div>
+          <label htmlFor="c-response" className="text-sm font-semibold">Commit to a company response</label>
+          <select id="c-response" value={reviewWithinHours} onChange={e=>setReviewWithinHours(Number(e.target.value))} className={inputCls}>{[24,48,72,168].map(h=><option key={h} value={h}>Within {h} hours of reviewed work</option>)}</select>
+          <p className="mt-2 mb-4 text-xs leading-5 text-gray-500">Read each contribution and give a reasoned response. Overdue responses pause new intake. A revision starts a new response window.</p>
           <label htmlFor="c-pool" className="text-[12px] text-gray-400">Proposed pool (USDC)</label>
           <input id="c-pool" inputMode="decimal" className={inputCls} value={pool} onChange={(e) => setPool(e.target.value.replace(/[^0-9.]/g, ""))} />
           <p className="mt-1 text-[12px] text-gray-500">A proposal, not a payment. It is shown as not funded, and accepted pieces earn points until a real pool is funded.</p>
@@ -415,6 +433,7 @@ export function CampaignDraftList({ drafts, onDone, justSaved, onPublished, onOp
                 </span>
               </div>
               <p className="text-[13px] text-gray-600 mt-1 line-clamp-3 break-words">{d.brief}</p>
+              {d.reviewWithinHours && <p className="mt-2 text-xs text-gray-500">Company response within {d.reviewWithinHours} hours of reviewed work</p>}
               <ul className="mt-2 text-[13px] text-gray-700">
                 {d.pieces.map((p) => <li key={p.kind}>{PIECE_LABEL[p.kind]} · {p.count} wanted · {d.rewardPerPiecePoints} pts each</li>)}
               </ul>
@@ -438,6 +457,7 @@ export function CampaignDraftList({ drafts, onDone, justSaved, onPublished, onOp
                 </>
               ) : (
                 <>
+                  <a href="/?companyPlan=repeat" onClick={()=>sessionStorage.setItem('favour:repeat-campaign',JSON.stringify({company:d.company,brief:d.brief,productName:d.productName,productUrl:d.productUrl}))} className="mt-3 flex min-h-11 items-center justify-center text-sm underline">Prepare a follow-up brief</a>
                   {!hasProduct(d) && <AddProductForm id={d.id} onReauth={onReauth} onSaved={() => onChanged?.()} />}
                   <button type="button" onClick={() => onOpen(d.id)} className="mt-3 w-full min-h-[44px] rounded-full border border-gray-900 text-gray-900 text-[14px] font-semibold">
                     Open campaign
@@ -488,6 +508,7 @@ export function CompanyCampaignView({ id, tasks, completedIds, onJoin, onBack }:
 }) {
   const [data, setData] = useState<{ campaign: PublicCompanyCampaign; results: CampaignResult[] } | null>(null);
   const [missing, setMissing] = useState(false);
+  const [intakePaused,setIntakePaused]=useState(false);
   useEffect(() => {
     let live = true;
     fetch(`/api/campaigns/company/${encodeURIComponent(id)}`, { cache: "no-store" })
@@ -532,7 +553,7 @@ export function CompanyCampaignView({ id, tasks, completedIds, onJoin, onBack }:
               const done = !!taskId && completedIds.has(taskId);
               // No product named: the piece is not offered, because nobody can tell
               // what to make it about.
-              const open = hasProduct(c) && !!task && task.status === "open" && !done;
+              const open = hasProduct(c) && !intakePaused && !!task && task.status === "open" && !done;
               const left = task ? Math.max(0, (task.maxCompletions || p.count) - (task.completionCount || 0)) : 0;
               return (
                 <div key={p.kind} className="rounded-2xl bg-white border border-gray-200 p-4">
@@ -540,7 +561,7 @@ export function CompanyCampaignView({ id, tasks, completedIds, onJoin, onBack }:
                     <p className="flex-1 min-w-0 text-[14px] font-semibold text-gray-900">{PIECE_LABEL[p.kind]}</p>
                     <span className="shrink-0 text-[12px] font-bold text-gray-900 bg-gray-100 rounded-full px-2.5 py-1">{c.rewardPerPiecePoints} pts</span>
                   </div>
-                  <p className="text-[12px] text-gray-500 mt-1">{done ? "You delivered this piece. It is in History." : campaignEnded(c, tasks) ? "Closed" : open ? `${left} of ${p.count} still wanted` : !hasProduct(c) ? "Offered once the company names its product" : "Not open right now"}</p>
+                  <p className="text-[12px] text-gray-500 mt-1">{done ? "You delivered this piece. It is in History." : campaignEnded(c, tasks) ? "Closed" : open ? `${left} of ${p.count} still wanted` : !hasProduct(c) ? "Offered once the company names its product" : intakePaused ? "Paused while the company answers earlier work" : "Not open right now"}</p>
                   {open && task && (
                     <button type="button" onClick={() => onJoin(task)} className="mt-3 w-full min-h-[44px] rounded-full bg-gray-900 text-white text-[14px] font-semibold">
                       Join this piece
@@ -550,6 +571,8 @@ export function CompanyCampaignView({ id, tasks, completedIds, onJoin, onBack }:
               );
             })}
           </section>
+          {c.reviewWithinHours && <div className="rounded-2xl bg-white p-5 border border-gray-200"><h2 className="font-semibold">A clear answer to your work</h2><p className="mt-2 text-sm leading-6">The company commits to responding within {c.reviewWithinHours} hours after verification. Company responses and revision notes are private. You choose whether a use statement and credit become public. Original proofs can appear in review and History: remove private information before submitting. No cash is promised.</p><a href={`/companies/${encodeURIComponent(id)}/contributions`} className="inline-flex min-h-11 items-center underline text-sm">Return to your contributions →</a></div>}
+          <ContributionResponses id={id} onAvailability={setIntakePaused}/>
           <section aria-label="Reviewed work" className="flex flex-col gap-2">
             <h2 className="text-[13px] font-semibold text-gray-900">Reviewed work</h2>
             {data!.results.length === 0 ? (

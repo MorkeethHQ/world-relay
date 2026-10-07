@@ -66,6 +66,9 @@ function ResultCard({
 }
 
 export default function HistoryPage() {
+  const [responseCampaigns,setResponseCampaigns]=useState<Array<{id:string;company:string;role:string;pieces:number;waiting:number}>>([]);
+  const [responseError,setResponseError]=useState('');
+  useEffect(()=>{let live=true;fetch('/api/me/company-responses',{cache:'no-store'}).then(async r=>{const d=await r.json();if(!r.ok)throw new Error(d.error);return d;}).then(d=>{if(live)setResponseCampaigns(d.campaigns||[]);}).catch(e=>{if(live)setResponseError(e.message);});return()=>{live=false;};},[]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [stats, setStats] = useState<Stats>({});
   const [loading, setLoading] = useState(true);
@@ -136,11 +139,13 @@ export default function HistoryPage() {
           </article>)}
         </section>}
 
+        {responseError && <p role="alert" className="text-sm text-red-700">{responseError}</p>}
+        {!!responseCampaigns.length && <section className="space-y-3" aria-label="Your company responses"><h2 className="font-semibold">Your company responses</h2>{responseCampaigns.map(c=><a key={c.id} href={`/companies/${encodeURIComponent(c.id)}/${c.role==='company'?'review':'contributions'}`} className="block rounded-2xl border border-gray-200 bg-white p-4"><strong className="block text-sm">{c.company}</strong><span className="mt-2 block text-sm text-gray-600">{c.pieces} contributions · {c.waiting} awaiting a response →</span></a>)}</section>}
         {otherResults.length > 0 && (
           <section className="flex flex-col gap-2.5" aria-label="Your results">
             <h2 className="text-[13px] font-semibold text-gray-900">Yours</h2>
             {otherResults.map((c) => (
-              <ResultCard
+              <div key={`${c.taskId}-${c.at}`}><ResultCard
                 key={`${c.taskId}-${c.at}`}
                 description={c.description}
                 badge={`+${c.points} pts`}
@@ -151,6 +156,8 @@ export default function HistoryPage() {
                 meta={`${c.campaignLabel ? `${c.campaignLabel} · ` : c.campaignId && getCampaign(c.campaignId) ? `${getCampaign(c.campaignId)!.name} · ` : ""}Passed ${timeAgo(c.at)}${c.recovered ? " · from the completion log" : ""}`}
                 mine
               />
+              {c.campaignId?.startsWith("draft_") && <a href={`/companies/${encodeURIComponent(c.campaignId)}/contributions`} className="flex min-h-11 items-center px-4 text-sm underline">See the company response →</a>}
+              </div>
             ))}
 
           </section>
