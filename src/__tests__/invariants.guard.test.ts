@@ -214,6 +214,46 @@ describe("invariant guards", () => {
     expect(s, "feedback-tasks must call ownershipError").toMatch(/ownershipError\(/);
     expect(s, "feedback-tasks must cap the daily earn (once-per-day earn lock)").toMatch(/earned:/);
   });
+
+  // CAMPAIGN MONEY CORE (2026-10-08): campaign-balance.ts and campaign-settlement.ts.
+  const CORE = ["campaign-balance", "campaign-settlement"];
+  const coreFiles = () => CORE.map((n) => files.find((p) => p.endsWith(join("lib", `${n}.ts`))));
+  // Code only: the headers of both files name the things they must not do.
+  const code = (f: string) => read(f).replace(/\/\/.*$/gm, "");
+
+  it("Inv 2/3: the campaign money core is not reachable from any route, page or component", () => {
+    // Funding and the switch are Oscar's. Until he rules the deposit rail, the
+    // fee, the payout wallet and the refund rule, nothing a person can reach may
+    // import the core. Wiring it is a deliberate act: it means changing this
+    // test in the same commit, with the ruling named.
+    const importers = files.filter(
+      (f) =>
+        !CORE.some((n) => f.endsWith(join("lib", `${n}.ts`))) &&
+        /campaign-(balance|settlement)/.test(read(f)),
+    );
+    expect(importers, `the campaign money core is imported by: ${importers.join(", ")}`).toEqual([]);
+  });
+
+  it("Inv 2: the campaign money core holds no key, no network call, no env read and no clock", () => {
+    for (const f of coreFiles()) {
+      expect(f, "campaign money core file not found").toBeTruthy();
+      const s = code(f!);
+      const imports = [...s.matchAll(/from\s+["']([^"']+)["']/g)].map((m) => m[1]);
+      for (const from of imports) {
+        expect(["./reward", "./campaign-balance"], `${f} imports ${from}`).toContain(from);
+      }
+      expect(s, `${f} must not read env, call the network, sign, or read a clock`).not.toMatch(
+        /process\.env|\bfetch\(|viem|privateKey|WALLET_KEY|createWalletClient|Date\.now|new Date\(|Math\.random|getRedis/,
+      );
+    }
+  });
+
+  it("Inv 1: the campaign money core does no float arithmetic on an amount", () => {
+    for (const f of coreFiles()) {
+      const s = code(f!);
+      expect(s, `${f} must keep amounts in bigint base units`).not.toMatch(/parseFloat|parseInt|Math\.(round|floor|ceil)|toFixed|\bNumber\(|amountUsdc|bountyUsdc/);
+    }
+  });
 });
 
 it("retired predictions refuse both new records and new stakes without a store", async () => {
