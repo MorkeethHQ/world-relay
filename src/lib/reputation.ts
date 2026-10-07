@@ -93,6 +93,14 @@ export async function recordCompletion(
   ref?: string,
 ): Promise<UserReputation> {
   const rep = await getReputation(address);
+  const updated = prepareCompletionReputation(rep, address, bountyUsdc, confidence, verificationLevel, isFundedTask, ref);
+  await saveReputation(updated);
+  return updated;
+}
+
+// Pure preparation for a caller committing reputation with its points and proof.
+export function prepareCompletionReputation(previous: UserReputation | null, address: string, bountyUsdc: number, confidence: number, verificationLevel?: string, isFundedTask = false, ref?: string): UserReputation {
+  const rep = structuredClone(previous ?? defaultRep(address));
   if (ref && Array.isArray(rep.creditRefs) && rep.creditRefs.includes(ref)) return rep;
   if (ref) rep.creditRefs = [...(rep.creditRefs ?? []), ref].slice(-REPUTATION_REFS_MAX);
   if (rep.currentStreak === undefined) rep.currentStreak = 0;
@@ -114,7 +122,6 @@ export async function recordCompletion(
   if (rep.currentStreak > rep.longestStreak) rep.longestStreak = rep.currentStreak;
   rep.lastActiveAt = new Date().toISOString();
   if (verificationLevel) rep.verificationLevel = verificationLevel;
-  await saveReputation(rep);
   return rep;
 }
 

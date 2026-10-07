@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { campaignIntakePaused } from "@/lib/contribution-responses";
 import { ensureCompanyAppeal } from "@/lib/company-appeal";
-import { recordCompanyEvidence } from "@/lib/company-review";
+import { recordCompanyEvidence, getCompanyCompletion } from "@/lib/company-review";
 import { NextRequest, NextResponse } from "next/server";
 import { getTask, submitProof, completeTask, setAttestationHash, setFollowUp, spawnRecurringTask, markSettled, markSettlementPending } from "@/lib/store";
 import { verifyProof, verifyProofConsensus, verifyProofStub } from "@/lib/verify-proof";
@@ -180,6 +180,17 @@ export async function POST(req: NextRequest) {
   const task = await getTask(taskId);
   if (!task) {
     return NextResponse.json({ error: "Task not found" }, { status: 404 });
+  }
+
+  // A lost completion reply must be recoverable before capacity, claimant and
+  // duplicate refusals. This receipt was committed with the award, never guessed.
+  if (task.companyCampaignId && submitter) {
+    try {
+      const receipt = await getCompanyCompletion(taskId, submitter);
+      if (receipt) return NextResponse.json({ ...receipt, recovered: true, personTip: personTip(receipt.verification, task.category), settlementNeedsReview: false });
+    } catch {
+      return NextResponse.json({ error: "Your previous company completion could not be checked. Please retry.", code: "company_completion_unavailable" }, { status: 503 });
+    }
   }
 
   if (task.companyCampaignId && task.status === "open") {
@@ -489,15 +500,16 @@ export async function POST(req: NextRequest) {
     try {
       if (!cc) throw new Error("Company campaign could not be loaded");
       const registrationKey = createHash("sha256").update(JSON.stringify([taskId, task.claimant.toLowerCase(), proofNote || "", proofImages, result.verdict])).digest("hex");
-      await recordCompanyEvidence(task.companyCampaignId, {
+      const receipt = await recordCompanyEvidence(task.companyCampaignId, {
         taskId, kind: kindOfTask(cc, taskId), verdict: result.verdict,
         reason: String(result.reasoning || "").split(" | ")[0].slice(0, 280),
         participant: shortAddress(task.claimant), at: new Date().toISOString(),
       }, proofNote, proofImageUrls, task.claimant, registrationKey, result, savedProof?.proofSubmissionId);
       companyCompletionCommitted = true;
+      if (receipt) { pointsAwarded = receipt.pointsAwarded; streakBonusAwarded = receipt.streakBonus; }
     } catch (error) {
       console.error("[Company evidence] Registration not confirmed", error);
-      return NextResponse.json({ error: "Company completion could not be confirmed. No reward was attempted. Reload your contributions and favour before retrying.", code: "company_evidence_unavailable" }, { status: 503 });
+      return NextResponse.json({ error: "Company completion could not be confirmed. Your submission may already be saved. Retry to recover its result and points safely.", code: "company_evidence_unavailable" }, { status: 503 });
     }
   }
 
@@ -654,7 +666,7 @@ export async function POST(req: NextRequest) {
       // Count this earn against the claimant's daily seeded-task cap.
       recordSeededEarn(task, task.claimant).catch(console.error);
       // Award attempt and completion points only on a passing verdict.
-      recordFavourAttempted(task.claimant).catch(console.error);
+      if (!companyCompletionCommitted) recordFavourAttempted(task.claimant).catch(console.error);
       // claimantLevel, NOT the stale task.claimantVerification: passing the stale
       // null left rep.verificationLevel at "wallet" for every Orb human (live: 0 of
       // 33 correct), so getTrustScore withheld the orb +0.3 and mis-sorted the
@@ -669,7 +681,7 @@ export async function POST(req: NextRequest) {
       // recordFavourCompleted fire in /api/escrow-v2 verify-released, after
       // the chain shows Released. AI pass here = "proof verified, awaiting
       // poster release", tracked via markSettlementPending below.
-      if (task.rewardType !== "usdc-v2") {
+      if (task.rewardType !== "usdc-v2" && !companyCompletionCommitted) {
         recordCompletion(task.claimant, task.bountyUsdc, result.confidence, claimantLevel || undefined, taskIsRealMoney).catch(console.error);
         const claimantRep2 = await getReputation(task.claimant);
         // Honest pricing: a points task pays exactly its advertised bounty.
@@ -711,7 +723,7 @@ export async function POST(req: NextRequest) {
     await recordCampaignResult(task.companyCampaignId, campaignResult).catch(console.error);
   }
 
-  if (result.verdict === "pass" && task.claimant && creditAllowed) {
+  if (result.verdict === "pass" && task.claimant && creditAllowed && !companyCompletionCommitted) {
     await recordTaskCompletion(
       task.claimant,
       buildContribution({

@@ -3,8 +3,9 @@ import { NextRequest } from 'next/server';
 import { getRedis } from '@/lib/redis';
 import * as redisModule from '@/lib/redis';
 import { issueSessionToken } from '@/lib/session';
-import { recordCompanyEvidence, EVIDENCE_PREFIX, REGISTER_COMPANY_EVIDENCE } from '@/lib/company-review';
+import { recordCompanyEvidence, EVIDENCE_PREFIX, REGISTER_COMPANY_EVIDENCE, getCompanyCompletion, companyCompletionKey } from '@/lib/company-review';
 import { GET, POST } from '@/app/api/campaigns/company/[id]/contributions/route';
+import { POST as VERIFY } from '@/app/api/verify-proof/route';
 import { GET as MY_RESPONSES } from '@/app/api/me/company-responses/route';
 import { campaignIntakePaused } from '@/lib/contribution-responses';
 vi.mock('@/lib/track',()=>({trackEvent:async()=>{}}));
@@ -23,19 +24,28 @@ describe.skipIf(!run)('contribution response API against isolated real Redis',()
  });
  it('commits proof, completion and slot together across faults and retry',async()=>{
    const r=getRedis()!;const campaign='draft_registration_fault';const taskId='fault-task';
-   await r.del(EVIDENCE_PREFIX+campaign,'completed_claimants:'+taskId,'failed_claimants:'+taskId);
-   const task={id:taskId,companyCampaignId:campaign,status:'claimed',claimant:person,proofSubmissionId:'proof-a',proofNote:'Original retained proof',rewardType:'points',maxCompletions:5,completionCount:0};
+   await r.del(EVIDENCE_PREFIX+campaign,'completed_claimants:'+taskId,'failed_claimants:'+taskId,companyCompletionKey(taskId,person),'pof:'+person,'contributions:'+person,'rep:'+person,'rl:verify:198.51.100.77');
+   const task={id:taskId,companyCampaignId:campaign,status:'claimed',claimant:person,proofSubmissionId:'proof-a',proofNote:'Original retained proof',description:'TEST DATA original trial',bountyUsdc:9,rewardType:'points',maxCompletions:5,completionCount:0};
    await r.set('task:'+taskId,JSON.stringify(task));
    const result={taskId,kind:'review' as const,verdict:'pass' as const,reason:'TEST DATA verified original',participant:'TEST DATA participant',at:new Date().toISOString()};
    const verification={verdict:'pass' as const,reasoning:'TEST DATA valid proof',confidence:0.95};
    const key='test-registration-'+Date.now();
    const save=()=>recordCompanyEvidence(campaign,result,'Original retained proof',[],person,key,verification,'proof-a');
    const original=r.eval.bind(r);
-   const before=vi.spyOn(redisModule,'getRedis').mockReturnValue({eval:async(script: string,keys: string[],args: string[])=>{if(script===REGISTER_COMPANY_EVIDENCE)throw new Error('TEST DATA before Redis write');return original(script,keys,args);}} as any);
+   const before=vi.spyOn(redisModule,'getRedis').mockReturnValue(new Proxy(r,{get:(target,key)=>key==='eval' ?async(script: string,keys: string[],args: string[])=>{if(script===REGISTER_COMPANY_EVIDENCE)throw new Error('TEST DATA before Redis write');return original(script,keys,args);} : Reflect.get(target,key)}));
    await expect(save()).rejects.toThrow('before Redis');before.mockRestore();
    expect(await r.lrange(EVIDENCE_PREFIX+campaign,0,-1)).toHaveLength(0);
    expect(await r.smembers('completed_claimants:'+taskId)).toHaveLength(0);
+   expect(await r.get('pof:'+person)).toBeNull();
+   expect(await r.lrange('contributions:'+person,0,-1)).toHaveLength(0);
    expect(await r.get('task:'+taskId)).toMatchObject({status:'claimed',completionCount:0});
+   // A bad History key must be rejected before ANY task, slot or points write.
+   await r.set('contributions:'+person,'TEST DATA wrong storage type');
+   await expect(save()).rejects.toThrow();
+   expect(await r.get('pof:'+person)).toBeNull();
+   expect(await r.get('task:'+taskId)).toMatchObject({status:'claimed',completionCount:0});
+   expect(await r.lrange(EVIDENCE_PREFIX+campaign,0,-1)).toHaveLength(0);
+   await r.del('contributions:'+person);
    // A competing slot and a replaced proof both reject without publishing evidence.
    await r.sadd('completed_claimants:'+taskId,person);await expect(save()).rejects.toThrow();
    expect(await r.lrange(EVIDENCE_PREFIX+campaign,0,-1)).toHaveLength(0);
@@ -45,12 +55,12 @@ describe.skipIf(!run)('contribution response API against isolated real Redis',()
    await r.set('task:'+taskId,JSON.stringify({...task,completionCount:5}));await expect(save()).rejects.toThrow();
    expect(await r.lrange(EVIDENCE_PREFIX+campaign,0,-1)).toHaveLength(0);
    await r.set('task:'+taskId,JSON.stringify(task));
-   const raced=vi.spyOn(redisModule,'getRedis').mockReturnValue({eval:async(script: string,keys: string[],args: string[])=>{if(script===REGISTER_COMPANY_EVIDENCE)await r.set('task:'+taskId,JSON.stringify({...task,proofSubmissionId:'proof-race'}));return original(script,keys,args);}} as any);
+   const raced=vi.spyOn(redisModule,'getRedis').mockReturnValue(new Proxy(r,{get:(target,key)=>key==='eval' ?async(script: string,keys: string[],args: string[])=>{if(script===REGISTER_COMPANY_EVIDENCE)await r.set('task:'+taskId,JSON.stringify({...task,proofSubmissionId:'proof-race'}));return original(script,keys,args);} : Reflect.get(target,key)}));
    await expect(save()).rejects.toThrow();raced.mockRestore();
    expect(await r.lrange(EVIDENCE_PREFIX+campaign,0,-1)).toHaveLength(0);
    expect(await r.smembers('completed_claimants:'+taskId)).toHaveLength(0);
    await r.set('task:'+taskId,JSON.stringify(task));
-   const after=vi.spyOn(redisModule,'getRedis').mockReturnValue({eval:async(script: string,keys: string[],args: string[])=>{const value=await original(script,keys,args);if(script===REGISTER_COMPANY_EVIDENCE)throw new Error('TEST DATA reply lost after Redis write');return value;}} as any);
+   const after=vi.spyOn(redisModule,'getRedis').mockReturnValue(new Proxy(r,{get:(target,key)=>key==='eval' ?async(script: string,keys: string[],args: string[])=>{const value=await original(script,keys,args);if(script===REGISTER_COMPANY_EVIDENCE)throw new Error('TEST DATA reply lost after Redis write');return value;} : Reflect.get(target,key)}));
    await expect(save()).rejects.toThrow('reply lost');after.mockRestore();
    expect(await r.lrange(EVIDENCE_PREFIX+campaign,0,-1)).toHaveLength(1);
    expect(await r.smembers('completed_claimants:'+taskId)).toEqual([person]);
@@ -58,6 +68,24 @@ describe.skipIf(!run)('contribution response API against isolated real Redis',()
    await expect(save()).rejects.toThrow();
    expect(await r.lrange(EVIDENCE_PREFIX+campaign,0,-1)).toHaveLength(1);
    expect(await r.get('task:'+taskId)).toMatchObject({completionCount:1});
+   expect(await r.get('pof:'+person)).toMatchObject({totalPoints:10,favoursCompleted:1});
+   expect(await r.lrange('contributions:'+person,0,-1)).toHaveLength(1);
+   expect(await r.get('rep:'+person)).toMatchObject({tasksCompleted:1,totalPointsEarned:9,totalEarnedUsdc:0});
+   for(let i=0;i<3;i++) expect(await getCompanyCompletion(taskId,person)).toMatchObject({pointsAwarded:10,streakBonus:1});
+   expect(await r.get('pof:'+person)).toMatchObject({totalPoints:10,favoursCompleted:1});
+   expect(await getCompanyCompletion(taskId,other)).toBeNull();
+   // Run the actual authenticated HTTP handler: even a now-full task recovers
+   // its saved award before the status/duplicate/intake gates or another AI call.
+   await r.set('task:'+taskId,JSON.stringify({...task,status:'completed',completionCount:5,claimant:other,proofNote:'ANOTHER PERSON PRIVATE PROOF'}));
+   const retry=(wallet:string,as=wallet)=>VERIFY(new NextRequest('http://localhost/api/verify-proof',{method:'POST',headers:{'Content-Type':'application/json',cookie:`favour_session=${issueSessionToken(wallet,Date.now())}`,'x-forwarded-for':'198.51.100.77'},body:JSON.stringify({taskId,submitter:as,proofNote:'Original retained proof'})}));
+   for(let i=0;i<3;i++) {const response=await retry(person);expect(response.status).toBe(200);const body=await response.json();expect(body).toMatchObject({recovered:true,pointsAwarded:10,streakBonus:1});expect(JSON.stringify(body)).not.toContain('ANOTHER PERSON');}
+   expect((await retry(other,person)).status).toBe(403);
+   expect((await retry(other)).status).not.toBe(200);
+   expect(await r.get('pof:'+person)).toMatchObject({totalPoints:10,favoursCompleted:1});
+   expect(await r.lrange('contributions:'+person,0,-1)).toHaveLength(1);
+   expect(await r.get('rep:'+person)).toMatchObject({tasksCompleted:1,totalPointsEarned:9,totalEarnedUsdc:0});
+
+
    // Rejected proof also commits its reopen and private evidence together;
    // retrying identical rejected work never creates a second response obligation.
    await r.del('completed_claimants:'+taskId);
@@ -87,6 +115,6 @@ describe.skipIf(!run)('contribution response API against isolated real Redis',()
  const final=await(await GET(req(person),params)).json();expect(final.cards[0].thread.revisions).toHaveLength(1);expect(final.cards[0].note).toBe('TEST DATA private original');
  const race=await Promise.all(['First concurrent decision is retained.','Second concurrent decision must reload.'].map(message=>POST(req(owner,{evidenceId:eid,version:5,action:'respond',status:'not_selected',message}),params)));
  expect(race.map(r=>r.status).sort()).toEqual([200,409]);
- expect(await getRedis()!.get('pof:'+person)).toBeNull();
+ expect(await getRedis()!.get('pof:'+person)).toMatchObject({totalPoints:10,favoursCompleted:1});
  });
 });

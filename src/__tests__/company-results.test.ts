@@ -63,7 +63,7 @@ vi.mock("@/lib/referral", () => ({ recordReferralActivation: async () => {} }));
 
 
 const evidence: any[] = [];
-vi.mock("@/lib/company-review", () => ({ recordCompanyEvidence: async (...args: any[]) => { if(evidenceFailure)throw new Error("TEST DATA evidence store failed"); evidence.push(args); } }));
+vi.mock("@/lib/company-review", () => ({ getCompanyCompletion: async () => null, recordCompanyEvidence: async (...args: any[]) => { if(evidenceFailure)throw new Error("TEST DATA evidence store failed"); evidence.push(args); return args[1].verdict === "pass" ? { pointsAwarded:9, streakBonus:0 } : undefined; } }));
 const results: any[] = [];
 vi.mock("@/lib/campaign-drafts", () => ({
   getPublishedCampaign: async (id: string) => ({ id, company: "Example company", pieceTaskIds: { ugc: "piece-ugc" } }),
@@ -117,17 +117,18 @@ describe("the company sees accepted and rejected pieces, with the reason", () =>
     expect(results).toHaveLength(0); expect(evidence).toHaveLength(0);
     evidenceFailure = false;
     expect((await submit()).status).toBe(200);
-    expect(completedCalls).toBe(0); expect(recordFavourCompletedCalls).toHaveLength(1);
+    expect(completedCalls).toBe(0); expect(recordFavourCompletedCalls).toHaveLength(0);
     expect(evidence).toHaveLength(1); expect(evidence[0][5]).toMatch(/^[a-f0-9]{64}$/);
   });
   it("an accepted piece is recorded for the company, and the participant earns points", async () => {
     const res = await submit();
     expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({pointsAwarded:9,streakBonus:0});
     expect(results).toHaveLength(1);
     expect(results[0]).toMatchObject({ id: "draft_x", taskId: "piece-ugc", kind: "ugc", verdict: "pass" });
     expect(results[0].reason).toMatch(/real clip/);
     expect(results[0].participant).not.toBe(CLAIMANT);
-    expect(recordFavourCompletedCalls).toHaveLength(1);
+    expect(recordFavourCompletedCalls).toHaveLength(0);
     expect(evidence[0][2]).toBe("https://example.test/my-clip");
     expect(results[0]).not.toHaveProperty("note");
   });
