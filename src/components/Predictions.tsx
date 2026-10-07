@@ -39,7 +39,7 @@ function PredictionCard({ p, userId, onStaked }: { p: ApiPrediction; userId: str
 
   const total = Object.values(p.pools).reduce((s, v) => s + v, 0);
   const showPools = !!p.myStake || p.locked || p.status !== "open";
-  const canStake = !p.locked && p.status === "open" && !p.myStake && !!userId;
+  const canStake = false; // Retired: records and settlement remain available.
 
   const stake = async () => {
     if (!userId || !option || busy) return;
@@ -76,7 +76,7 @@ function PredictionCard({ p, userId, onStaked }: { p: ApiPrediction; userId: str
         </div>
         <p className="text-[15px] font-bold text-white leading-snug">{p.question}</p>
         <p className="text-[11px] text-white/50 mt-1 font-mono">
-          {total > 0 ? `${total} pts staked · ${p.stakers} ${p.stakers === 1 ? "staker" : "stakers"}` : "Be the first to stake"}
+          {total > 0 ? `${total} pts staked · ${p.stakers} ${p.stakers === 1 ? "staker" : "stakers"}` : "No points staked"}
           {p.myStake ? ` · you: ${p.myStake.amount} pts on ${p.myStake.option}` : ""}
         </p>
       </div>
@@ -179,8 +179,8 @@ export function PredictionsSection({ userId }: { userId: string | null }) {
     <div className="flex flex-col gap-2.5">
       {open.length > 0 && (
         <div className="flex items-baseline justify-between gap-3 pt-2">
-          <h2 className="text-[13px] font-bold text-gray-900 tracking-tight">Predictions open now</h2>
-          <span className="text-[12px] text-gray-500">{open.length} open</span>
+          <h2 className="text-[13px] font-bold text-gray-900 tracking-tight">Awaiting settlement</h2>
+          <span className="text-[12px] text-gray-500">{open.length} pending</span>
         </div>
       )}
       {open.map((p) => (

@@ -356,7 +356,7 @@ export function Onboarding({
           <div className="flex flex-col gap-3 -mx-7">
             <div className="px-7">
               <p className="text-[18px] font-bold tracking-tight text-gray-900">FAVOUR</p>
-              <p className="text-[14px] text-gray-500 mt-1">Small asks from real people. Look first. You sign in when you do one.</p>
+              <p className="text-[14px] text-gray-500 mt-1">Campaigns made of small, useful contributions.</p>
             </div>
             <div className="-mt-1">
               <CampaignStageCards
@@ -370,7 +370,7 @@ export function Onboarding({
               />
               {forCompanies && <CompanyVisionCard onLaunch={startLaunch} launchLabel="Plan a campaign" />}
             </div>
-            {mission && <DailyMissionCard task={mission} proofs={proofs} onStart={startMission} />}
+            {!welcomeView && mission && <DailyMissionCard task={mission} proofs={proofs} onStart={startMission} />}
           </div>
         )}
 

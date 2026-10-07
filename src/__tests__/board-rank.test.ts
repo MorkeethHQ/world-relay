@@ -213,15 +213,8 @@ describe("server-side ordering (GET /api/tasks)", () => {
 describe("R2: poll placement is wired into the Feed", () => {
   const feedSrc = readFileSync(join(__dirname, "../components/Feed.tsx"), "utf8");
 
-  it("polls render gated on POLL_INSERT_AFTER and capped at POLL_CARDS_MAX", () => {
-    expect(POLL_INSERT_AFTER).toBe(3);
-    expect(POLL_CARDS_MAX).toBe(2);
-    expect(feedSrc).toMatch(/i === POLL_INSERT_AFTER/);
-    expect(feedSrc).toMatch(/limit=\{POLL_CARDS_MAX\}/);
-    // No unguarded FeedPolls above the list: every render passes the limit prop.
-    const renders = feedSrc.match(/<FeedPolls[^/]*\/>/g) || [];
-    expect(renders.length).toBeGreaterThan(0);
-    for (const r of renders) expect(r).toContain("limit={POLL_CARDS_MAX}");
+  it("R20 keeps poll rails in their own tab, outside campaign discovery", () => {
+    expect(feedSrc).not.toMatch(/<FeedPolls/);
   });
 
   it("the old feedback-category visibility bypass never comes back", () => {
@@ -445,4 +438,27 @@ describe("R17: a favour nobody answered in a week leaves active discovery", () =
     expect(src).toContain("isStaleFavour(task, Date.now())");
     expect(src).not.toMatch(/const isStale = task\.status === "open"/);
   });
+});
+
+describe("R20 retired betting stays out of discovery", () => {
+  it("keeps an unclaimed old bet out for anonymous and unrelated viewers", () => {
+    const old = task({ taskType: "double-or-nothing", rewardType: "points", poster: "owner" });
+    expect(isBoardVisible(old, null, NOW)).toBe(false);
+    expect(isBoardVisible(old, "other", NOW)).toBe(false);
+    expect(isBoardVisible(old, "owner", NOW)).toBe(true);
+  });
+  it("retains a claimant's existing obligation", () => {
+    const old = task({ taskType: "double-or-nothing", status: "claimed", claimant: "runner" });
+    expect(isBoardVisible(old, "runner", NOW)).toBe(true);
+    expect(isBoardVisible(old, "other", NOW)).toBe(false);
+  });
+});
+
+it("R20 retires open betting supply while retaining claims and results", async () => {
+  const { isRetiredBetOffer } = await import("@/lib/task-serializer");
+  expect(isRetiredBetOffer(task({ taskType: "double-or-nothing" }))).toBe(true);
+  expect(isRetiredBetOffer(task({ donOnChainId: 0 }))).toBe(true);
+  expect(isRetiredBetOffer(task({ taskType: "double-or-nothing", status: "claimed" }))).toBe(false);
+  expect(isRetiredBetOffer(task({ taskType: "double-or-nothing", status: "completed" }))).toBe(false);
+  expect(isRetiredBetOffer(task())).toBe(false);
 });

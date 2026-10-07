@@ -12,7 +12,7 @@ import { getCampaign } from "@/lib/campaigns";
 import { isEscrowTaskFunded } from "@/lib/escrow";
 import { isTemplateCopy, MIN_DESCRIPTION_LENGTH } from "@/lib/post-templates";
 import { gibberishReason } from "@/lib/post-quality";
-import { toApiTasks, isPublicTask } from "@/lib/task-serializer";
+import { toApiTasks, isPublicTask, isRetiredBetOffer } from "@/lib/task-serializer";
 import { orderBoardForApi } from "@/lib/board-rank";
 import { CUSTODY_RETIRED } from "@/lib/custody";
 import { escrowV2Enabled, escrowV2MaxUsd } from "@/lib/escrow-v2";
@@ -26,7 +26,7 @@ import { ownerRefusal } from "@/lib/session";
 
 export async function GET() {
   trackEvent("feed_loaded").catch(() => {});
-  const tasks = (await listTasks()).filter(isPublicTask);
+  const tasks = (await listTasks()).filter((t) => isPublicTask(t) && !isRetiredBetOffer(t));
   // BOARD-RULES.md R1+R5 are enforced here too, so API consumers (agents,
   // integrations) get the same board composition as the app.
   const ordered = orderBoardForApi(tasks, Date.now());
@@ -54,6 +54,9 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json();
   const { poster, category, lat, lng, bountyUsdc, deadlineHours, onChainId, escrowTxHash, taskType, rewardType, donOnChainId, agentId, maxCompletions, campaignId } = body;
+  if (taskType === "double-or-nothing" || donOnChainId != null) {
+    return NextResponse.json({ error: "Double or Nothing is retired. Create a standard favour or campaign instead." }, { status: 410 });
+  }
 
   // Only accept a campaignId that maps to a real campaign; ignore anything else
   // so a task can't be linked to a non-existent campaign.

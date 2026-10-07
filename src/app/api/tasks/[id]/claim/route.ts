@@ -36,6 +36,10 @@ export async function POST(
     return NextResponse.json({ error: "Task not found" }, { status: 404 });
   }
 
+  if (task.taskType === "double-or-nothing" || task.donOnChainId != null) {
+    return NextResponse.json({ error: "New betting claims are closed. Existing participants can still finish their favour." }, { status: 410 });
+  }
+
   // WELCOME (2026-10-05). A shared Welcome row is not claimed any more: a claim
   // holds it for everyone, which is how all 8 were held on 5 Oct 2026. A person
   // does the step on their own instance, and nobody claims another's instance.

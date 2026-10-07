@@ -10,16 +10,7 @@ import { productHost, campaignEnded } from "@/lib/company-door";
 // first screen shows the vision. A company launches a favour campaign, people do
 // useful work for it, reviewed work earns rewards.
 //
-// The card below is an EXAMPLE, and says so in its first line. The company is
-// named "Example company", not an invented brand, and the pool is shown as
-// proposed and not funded, because it is both. Nothing on this card is presented
-// as a real campaign, and nothing here can move money.
-
-const EXAMPLE_PIECES: Array<{ kind: PieceKind; count: number }> = [
-  { kind: "ugc", count: 5 },
-  { kind: "article", count: 2 },
-  { kind: "review", count: 10 },
-];
+// Campaign planning starts with the owner's real product and brief.
 
 const STEPS = [
   "A company proposes a campaign and a pool.",
@@ -135,27 +126,15 @@ export function CompanyVisionCard({ onLaunch, launchLabel = "Plan a campaign", d
         <figcaption className="px-5 py-3 text-[12px] leading-relaxed text-white/80">A question worth taking a closer look at. Illustrative image, not submitted work.</figcaption>
       </figure>
       <div className="px-5 pt-4 pb-4">
-        <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/60">Example · not funded</span>
-        <p className="text-[20px] font-bold leading-snug tracking-tight mt-2">
-          A company launches a favour campaign. People do useful work for it. Reviewed work earns rewards.
-        </p>
-        <div className="mt-4 rounded-2xl bg-white/10 px-4 py-3">
-          <div className="flex items-start justify-between gap-3">
-            <p className="text-[14px] font-semibold">Example company</p>
-            <span className="shrink-0 text-[12px] font-bold bg-white/15 rounded-full px-2.5 py-1">200 USDC proposed</span>
-          </div>
-          <ul className="mt-2 flex flex-col gap-1">
-            {EXAMPLE_PIECES.map((p) => (
-              <li key={p.kind} className="flex items-center justify-between text-[13px] text-white/80">
-                <span>{PIECE_LABEL[p.kind]} · {p.count} wanted</span>
-                <span className="font-semibold text-white">10 pts each</span>
-              </li>
-            ))}
-          </ul>
-          <p className="mt-2 text-[11px] text-white/50">
-            A proposed pool is not money. Accepted pieces earn points until a real pool is funded.
-          </p>
+        <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/60">Your campaign starts here</span>
+        <h2 className="campaign-title text-[28px] font-bold leading-tight tracking-tight mt-2">Put a real ask<br />out into the world.</h2>
+        <p className="mt-3 text-[15px] leading-relaxed text-white/80">Get a fresh look at your product. Ask for an original clip, a considered article or an honest review.</p>
+        <div className="mt-5 grid grid-cols-3 gap-2 text-[12px] text-white/80">
+          <div className="rounded-xl bg-white/10 p-3">01<br /><strong className="block mt-2 text-white">Write your brief</strong></div>
+          <div className="rounded-xl bg-white/10 p-3">02<br /><strong className="block mt-2 text-white">Choose the work</strong></div>
+          <div className="rounded-xl bg-white/10 p-3">03<br /><strong className="block mt-2 text-white">Review the results</strong></div>
         </div>
+        <p className="mt-4 text-[12px] leading-relaxed text-white/65">Start with a private draft. Publish when you are ready. Accepted work earns points; proposed funding is shown separately.</p>
         <button
           type="button"
           onClick={onLaunch}
@@ -202,7 +181,7 @@ export function CampaignDraftForm({ onSaved, onCancel, onReauth }: {
   const [productName, setProductName] = useState("");
   const [counts, setCounts] = useState<Record<PieceKind, number>>({ ugc: 5, article: 2, review: 10 });
   const [reward, setReward] = useState(10);
-  const [pool, setPool] = useState("200");
+  const [pool, setPool] = useState("0");
   const [reviewRule, setReviewRule] = useState<"ai" | "ai_and_jury">("ai_and_jury");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -257,6 +236,14 @@ export function CampaignDraftForm({ onSaved, onCancel, onReauth }: {
         <p className="text-[13px] text-gray-500 leading-snug">
           This saves a private <span className="font-semibold text-gray-900">draft</span>. Nothing goes on the board until you publish it, and no money moves. Funding the pool is a separate step.
         </p>
+        <div className="rounded-2xl border border-gray-200 bg-white p-4">
+          <p className="text-[14px] font-semibold text-gray-900">Start with a useful question</p>
+          <p className="mt-1 text-[13px] leading-relaxed text-gray-500">Use a brief starter, then make it yours. Your company and product stay blank.</p>
+          <button type="button" onClick={() => {
+            setBrief("Try one real task with our product. Tell us the first step that was unclear, what you expected, and what happened. If everything worked, tell us which part was most useful. Include the specific step and your expected and actual result. A screenshot is optional; hide any private information. Honest criticism is welcome.");
+            setCounts({ ugc: 0, article: 0, review: 5 }); setPool("0");
+          }} className="mt-3 min-h-[44px] rounded-full border border-gray-300 px-4 text-[13px] font-semibold text-gray-900">Product first impressions</button>
+        </div>
         <div>
           <label htmlFor="c-company" className="text-[12px] text-gray-400">Company name</label>
           <input id="c-company" className={inputCls} value={company} onChange={(e) => setCompany(e.target.value)} maxLength={80} placeholder="Your company" />

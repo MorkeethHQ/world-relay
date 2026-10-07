@@ -204,3 +204,18 @@ input::placeholder, textarea::placeholder {
 * {
   -webkit-tap-highlight-color: transparent;
 }
+
+/* The UI kit's unlayered reset overrides Tailwind spacing on native elements.
+   Keep the campaign spacing explicit until the kit can be layered safely. */
+.campaign-stage .campaign-demo { padding: 1.25rem; border-style: dashed; }
+.campaign-stage .mt-1\.5 { margin-top: 0.375rem; }
+.campaign-stage .mt-2 { margin-top: 0.5rem; }
+
+/* Campaign typography/actions survive the kit's unlayered element resets. */
+.campaign-section-title { font-size: 24px; font-weight: 700; line-height: 1.15; letter-spacing: -0.6px; color: #191c20; }
+.campaign-title { font-size: 28px; font-weight: 700; line-height: 1.12; letter-spacing: -0.65px; }
+button.campaign-action-dark { background: #191c20; color: white; font-size: 15px; font-weight: 600; }
+button.campaign-action-light { background: white; color: #191c20; font-size: 15px; font-weight: 600; }
+nav[aria-label="Main navigation"] > div { max-width: 512px; margin: 0 auto; }
+
+button.campaign-owner-entry { padding: 20px; }

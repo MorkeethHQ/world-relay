@@ -55,3 +55,8 @@ export function isPublicTask(t: Task): boolean {
   if (isHiddenTask(t)) return false;
   return !TEST_IDENTITY.test(t.poster || "") && !TEST_IDENTITY.test(t.claimant || "");
 }
+
+// Retired offers leave discovery; claims and historical results remain visible.
+export function isRetiredBetOffer(t: Pick<Task, "taskType" | "donOnChainId" | "status">): boolean {
+  return t.status === "open" && (t.taskType === "double-or-nothing" || t.donOnChainId != null);
+}

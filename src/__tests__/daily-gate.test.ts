@@ -349,14 +349,8 @@ describe("the daily card is scoped to the board, not the whole app", () => {
     expect(code).not.toMatch(/<DailyFavour/);
   });
 
-  it("renders inside Feed gated on the available tab", async () => {
-    const src = await import("node:fs").then((fs) =>
-      fs.readFileSync("src/components/Feed.tsx", "utf8"),
-    );
-    const at = src.indexOf("<DailyFavour");
-    expect(at).toBeGreaterThan(-1);
-    // The nearest preceding gate must be the available-tab check.
-    const before = src.slice(Math.max(0, at - 300), at);
-    expect(before).toMatch(/tab === "available"/);
+  it("R20 removes daily quiz clutter from campaign discovery", async () => {
+    const src = await import("node:fs").then((fs) => fs.readFileSync("src/components/Feed.tsx", "utf8"));
+    expect(src).not.toMatch(/<DailyFavour/);
   });
 });

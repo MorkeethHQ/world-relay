@@ -363,3 +363,18 @@ Propose the new threshold or tier explicitly (rules, not vibes), update this doc
 `board-rank.ts`, and `board-rank.test.ts` in the same commit.
 
 R16 rendering clarification (2026-10-03): unverified company cards remain below the favour list even when that list is empty. A company-only board must still expose its published campaigns; this does not make an unverified company eligible to lead.
+
+## R20 — Campaign focus, 7 October 2026
+
+Oscar asks for real campaigns, removal of old betting and a cleaner product.
+This supersedes R10 and the demo rung in R19. Checked, doable company campaigns
+lead when present; the real Welcome journey remains available. Fictional brand
+examples leave the front door. Campaign creation replaces the generic header action.
+No new predictions or stakes may be created through the API. Football sync only
+settles existing predictions; its schedule remains for those obligations. Old
+results and pending stakes remain behind the archive control on Polls.
+New Double or Nothing favours are refused; existing rows remain reachable by
+link and visible to their poster or claimant. Settlement logic is unchanged.
+
+The campaign board no longer interleaves daily quizzes or poll rails. Polls remain
+in their own tab. One-off favour composition is behind one disclosure.
