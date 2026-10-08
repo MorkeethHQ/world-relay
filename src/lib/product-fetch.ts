@@ -408,8 +408,11 @@ export async function fetchProduct(raw: unknown, deps: FetchDeps = defaultDeps):
       if (addresses.length === 0) return { ok: false, reason: "The site could not be found." };
       if (addresses.some(isPrivateAddress)) return { ok: false, reason: "That link does not point to a public site." };
 
-      // Every address passed the check; the request is tied to the first one.
-      const res = await deps.request(url.toString(), controller.signal, addresses[0]);
+      // Every address passed the check; the request is tied to one of them. IPv4
+      // first: a host without IPv6 on its way out cannot reach an IPv6 address,
+      // and a pinned request has no second address to fall back to.
+      const pin = addresses.find((a) => /^\d+\.\d+\.\d+\.\d+$/.test(a)) ?? addresses[0];
+      const res = await deps.request(url.toString(), controller.signal, pin);
       if (res.status >= 300 && res.status < 400) {
         const next = fetchableUrl(new URL(res.headers.get("location") || "", url).toString());
         if (!next) return { ok: false, reason: "The site sent us somewhere we do not follow." };

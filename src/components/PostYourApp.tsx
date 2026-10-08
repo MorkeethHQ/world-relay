@@ -174,7 +174,7 @@ export function PostYourApp() {
         <div role="alert" className="mt-4 rounded-xl border border-gray-200 bg-white p-3 text-sm text-red-600">
           {problem.text}
           {problem.openInWorldApp && (
-            <Link href="/" className="mt-1 block font-semibold text-gray-900 underline underline-offset-2">Open FAVOUR and sign in</Link>
+            <Link href="/" className="mt-1 flex min-h-[44px] items-center font-semibold text-gray-900 underline underline-offset-2">Open FAVOUR and sign in</Link>
           )}
         </div>
       )}

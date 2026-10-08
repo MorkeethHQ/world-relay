@@ -119,6 +119,15 @@ describe("the fenced fetch", () => {
     expect(lookups).toBe(1);
   });
 
+  it("pins to an IPv4 address when the host has both kinds", async () => {
+    const pinned: string[] = [];
+    await fetchProduct("https://acme.test/", deps({
+      resolve: async () => ["2606:4700::1111", "93.184.216.34"],
+      request: async (_u, _s, address) => { pinned.push(address); return html(PAGE); },
+    }));
+    expect(pinned).toEqual(["93.184.216.34"]);
+  });
+
   it("makes no request when the host resolves to a private address", async () => {
     for (const address of ["127.0.0.1", "169.254.169.254", "10.0.0.5"]) {
       const d = deps({ resolve: async () => ["93.184.216.34", address] }); // one bad address among good ones is enough

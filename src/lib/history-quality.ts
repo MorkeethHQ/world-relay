@@ -4,9 +4,11 @@
 // History stays. A finished favour is left out of the public list when it is
 // plainly bad. Nothing is deleted: the favour stays stored, and points or money
 // already paid are not touched. Each reason is one a stranger can check:
-//   - the check FAILED. A flag is not a fail: a finished favour that still reads
-//     "flag" was cleared by a jury of people (jury-appeal.ts pays and leaves the
-//     verdict as it was), and an old favour may carry no result at all. Both stay.
+//   - the check FAILED. A flag is not treated as a fail: a finished favour that
+//     still reads "flag" MAY have been cleared by a jury of people (jury-appeal.ts
+//     pays and leaves the verdict as it was), and an old favour may carry no
+//     result. Not verified: several code paths finish a favour, and I did not
+//     confirm which one each flagged row took. So a flag stays shown.
 //   - the ask is not a real sentence: too short, or only a wallet address or link
 //   - there is no proof at all: no note and no picture
 // Pure. The reason is returned so a count per reason can be shown to Oscar.
