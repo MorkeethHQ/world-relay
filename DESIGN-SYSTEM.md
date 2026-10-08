@@ -65,6 +65,7 @@ Guard: `design-components.guard.test.ts` reads this table.
 | `HunterCard.tsx` | The top of the profile: products reviewed, reviews accepted, products launched | Show a level, a rank or a badge with no rule behind it. Show a GitHub name that is not verified |
 | `TopProductsLive.tsx` | `TopProducts` with its data from `/api/top`, and its loading and error states. The one line a first page mounts | Draw a product row itself. Choose a link for the server to read |
 | `ProductScreen.tsx` | Flow 1 on one route, `/p/<id>`: the product, the review, the result of the check | Show a result the check did not give. Name money. Call a held review accepted or refused |
+| `HunterCardLive.tsx` | `HunterCard` with the signed-in person's own data, at the top of the profile page | Ask for another person's record. Show zeros to a person who is not signed in |
 | `PostYourApp.tsx` | Flow 2 on one route, `/post`: paste the link, confirm what was read, write the ask, post | Publish what the maker did not see. Name money. Publish with no picture. Trust a picture link the server did not read, except the maker's own |
 | `RewardBadge.tsx` | Every reward amount, points or USDC | Be replaced by a hand-written amount |
 

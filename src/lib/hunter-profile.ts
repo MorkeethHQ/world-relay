@@ -10,7 +10,7 @@
 //   launched   products this person put on FAVOUR, and how many name a product
 // The contribution record only holds accepted work, so every row counts.
 //
-// No caller in the app yet. `/look` shows it in development.
+// Caller: HunterCardLive, at the top of the profile page.
 
 import { hasProduct } from "@/lib/campaign-draft-shape";
 

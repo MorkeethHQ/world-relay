@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import type { Task } from "@/lib/types";
 import { ProofOfFavourCard } from "@/components/ProofOfFavourCard";
+import { HunterCardLive } from "@/components/HunterCardLive";
 import { VerificationBadge } from "@/components/VerificationBadge";
 import { displayName, profilePicture, useWorldUsers } from "@/hooks/useWorldUser";
 import { rewardAmountLabel } from "@/lib/reward";
@@ -102,9 +103,6 @@ export default function ProfilePage() {
   const addresses = userId ? [userId] : [];
   useWorldUsers(addresses);
 
-  const appCompleted = tasks.filter(t => t.claimant === userId && t.status === "completed");
-  const openTasks = tasks.filter(t => t.poster === userId);
-  const funded = tasks.filter(t => t.status === "open");
 
   const userName = userId ? displayName(userId) : "Anonymous";
   const userAvatar = userId ? profilePicture(userId) : null;
@@ -147,22 +145,12 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            {/* Quick stats row */}
-            <div className="grid grid-cols-3 gap-3 mt-5">
-              <div className="text-center">
-                <Typography variant="number" level={2} className="text-gray-900">{appCompleted.length}</Typography>
-                <Typography variant="body" level={4} className="text-gray-400 mt-0.5">My completed</Typography>
-              </div>
-              <div className="text-center">
-                <Typography variant="number" level={2} className="text-gray-900">{openTasks.length}</Typography>
-                <Typography variant="body" level={4} className="text-gray-400 mt-0.5">My posted</Typography>
-              </div>
-              <div className="text-center">
-                <Typography variant="number" level={2} className="text-gray-900">{funded.length}</Typography>
-                <Typography variant="body" level={4} className="text-gray-400 mt-0.5">Available</Typography>
-              </div>
-            </div>
           </div>
+
+          {/* The person as a hunter and feedback giver (Oscar, 8 Oct 2026): products
+              reviewed, reviews accepted, products launched. It replaces the three
+              counts that stood here, one of which counted the whole board. */}
+          <HunterCardLive name="Your work" />
 
           {/* Reputation */}
           <div>
