@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthedAddress } from "@/lib/session";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
-import { validateDraftInput, saveDraft, publishDraft } from "@/lib/campaign-drafts";
+import { validateDraftInput, saveDraft, publishDraft, listDrafts, PUBLISH_DAY_PREFIX } from "@/lib/campaign-drafts";
+import { getRedis } from "@/lib/redis";
 import { createTask } from "@/lib/store";
 import { fetchProduct } from "@/lib/product-fetch";
 import { postBody, postReason, pictureRecord, pictureOf } from "@/lib/post-app";
@@ -37,15 +38,42 @@ export async function POST(req: NextRequest) {
   const read = await fetchProduct(checked.draft.productUrl);
   const record = pictureRecord(read.ok ? read.proposal : null, input.makerImage, now);
   const reason = postReason(input, pictureOf(record, checked.draft.productName!, checked.draft.productUrl!));
-  if (reason) return NextResponse.json({ error: reason, code: "picture_required" }, { status: 400 });
-
-  const saved = await saveDraft(owner, checked.draft, now, () => crypto.randomUUID());
-  if (!saved.ok) return NextResponse.json({ error: saved.error }, { status: saved.status });
-  if (!(await savePictureRecord(saved.draft.id, record))) {
-    return NextResponse.json({ error: "Your app was saved as a draft, but its picture could not be saved. Try again.", draftId: saved.draft.id }, { status: 503 });
+  if (reason) {
+    // Say why there is no picture when the page could not be read this time.
+    const why = read.ok ? reason : `FAVOUR could not read your page just now (${read.reason}) Add a link to a picture, or try again.`;
+    return NextResponse.json({ error: why, code: "picture_required" }, { status: 400 });
   }
-  const out = await publishDraft(owner, saved.draft.id, Date.now(), (t) => createTask(t));
-  // Saved but not published (for example one publish a day): say so, with the id.
-  if (!out.ok) return NextResponse.json({ error: out.error, draftId: saved.draft.id }, { status: out.status });
+
+  // A RETRY RESUMES. A draft this wallet already saved for the same link is used
+  // again, so a failed publish never leaves a pile of drafts behind (a wallet may
+  // hold ten). A draft that is already published is never reused.
+  const mine = await listDrafts(owner);
+  const waiting = mine.find((d) => d.status !== "published" && d.productUrl === checked.draft.productUrl);
+
+  // One publish a day per wallet. Checked BEFORE a new draft is saved. A draft
+  // that already holds today's slot may finish.
+  const redis = getRedis();
+  if (!redis) return NextResponse.json({ error: "Apps cannot be posted right now. Try again later." }, { status: 503 });
+  const dayKey = `${PUBLISH_DAY_PREFIX}${owner.toLowerCase()}:${new Date(now).toISOString().slice(0, 10)}`;
+  const holder = await redis.get(dayKey).catch(() => null);
+  if (holder && holder !== waiting?.id) {
+    return NextResponse.json({ error: "You can post one app a day. Come back tomorrow.", code: "one_a_day" }, { status: 429 });
+  }
+
+  let draftId = waiting?.id;
+  if (!draftId) {
+    const saved = await saveDraft(owner, checked.draft, now, () => crypto.randomUUID());
+    if (!saved.ok) return NextResponse.json({ error: saved.error }, { status: saved.status });
+    draftId = saved.draft.id;
+  }
+  if (!(await savePictureRecord(draftId, record))) {
+    return NextResponse.json({ error: "Your app is saved, but its picture could not be saved. Tap Post again." }, { status: 503 });
+  }
+  const out = await publishDraft(owner, draftId, Date.now(), (t) => createTask(t));
+  if (!out.ok) {
+    // The draft and its picture are kept. Posting again resumes this same draft.
+    const again = out.status === 409 || out.status === 429 ? out.error : `${out.error} Tap Post again to finish.`;
+    return NextResponse.json({ error: again }, { status: out.status });
+  }
   return NextResponse.json({ campaign: out.campaign }, { status: 201 });
 }

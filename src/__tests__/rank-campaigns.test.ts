@@ -66,6 +66,22 @@ describe("the top list of the day", () => {
   });
 });
 
+describe("what the list may claim", () => {
+  it("marks a count as a floor when the results list is full", () => {
+    const full = Array.from({ length: 30 }, () => pass(ago(2 * DAY_MS)));
+    const top = rankCampaigns([{ campaign: c("a", "2026-09-01T00:00:00Z"), results: full }, { campaign: c("b", "2026-09-01T00:00:00Z"), results: full.slice(0, 29) }], NOW);
+    expect(top.rows.map((r) => [r.id, r.acceptedTotal, r.totalIsFloor])).toEqual([["a", 30, true], ["b", 29, false]]);
+  });
+
+  it("calls a maker checked only when the campaign says so", () => {
+    const top = rankCampaigns([
+      { campaign: c("yes", "2026-09-02T00:00:00Z", { companyChecked: true }), results: [] },
+      { campaign: c("no", "2026-09-01T00:00:00Z"), results: [] },
+    ], NOW);
+    expect(top.rows.map((r) => r.makerChecked)).toEqual([true, false]);
+  });
+});
+
 describe("TopProducts shows only what is real", () => {
   const src = readFileSync(join(__dirname, "..", "components", "TopProducts.tsx"), "utf8");
 
@@ -73,6 +89,11 @@ describe("TopProducts shows only what is real", () => {
     expect(src).not.toMatch(/proposedPoolUsdc|USDC|>\$/);
     expect(src).not.toMatch(/success-\d|\b(green|emerald|teal|blue|indigo|violet|purple|cyan|sky)-\d/);
     expect(src).not.toMatch(/info-\d/);
+  });
+
+  it("names a company only when it is checked, and names the outside source on its number", () => {
+    expect(src).toMatch(/row\.makerChecked \? `by \$\{row\.company\}` : "maker not checked"/);
+    expect(src).toMatch(/label="HN points"/);
   });
 
   it("shows points in amber and nothing that pulses or bounces", () => {

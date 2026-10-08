@@ -11,11 +11,12 @@ describe("which finished favours history shows", () => {
     expect(showInHistory({ ...ok, description: "無料で色々もらえたりゲームもできてウォレットまである" })).toBe(true); // no spaces, many letters
   });
 
-  it("leaves out a favour whose check did not pass, whatever else it has", () => {
-    for (const verdict of ["flag", "fail", null, undefined]) {
-      expect(historyReason({ ...ok, verificationResult: { verdict } })).toBe("check_not_passed");
+  it("leaves out a favour whose check failed, and keeps a flag or a missing result", () => {
+    expect(historyReason({ ...ok, verificationResult: { verdict: "fail" } })).toBe("check_failed");
+    // A finished favour that reads "flag" was cleared by a jury; an old one may have no result.
+    for (const verificationResult of [{ verdict: "flag" }, { verdict: null }, null, undefined]) {
+      expect(historyReason({ ...ok, verificationResult }), JSON.stringify(verificationResult)).toBeNull();
     }
-    expect(historyReason({ ...ok, verificationResult: null })).toBe("check_not_passed");
   });
 
   it("leaves out an ask that is not a sentence", () => {

@@ -19,6 +19,9 @@
 import { hasProduct, type CampaignResult, type PublicCompanyCampaign } from "@/lib/campaign-draft-shape";
 
 export const DAY_MS = 24 * 60 * 60 * 1000;
+// The public results list holds this many rows at most (listCampaignResults). A
+// full list means the count is a floor, and the screen shows it as "30+".
+export const RESULTS_SHOWN_MAX = 30;
 
 export type RankedCampaign = {
   rank: number;
@@ -31,6 +34,8 @@ export type RankedCampaign = {
   acceptedTotal: number;
   reviewedTotal: number;
   publishedAt: string | null;
+  makerChecked: boolean; // true only when Oscar checked the company by hand
+  totalIsFloor: boolean; // the results list was full, so the real total may be higher
 };
 
 export type TopList = {
@@ -43,7 +48,7 @@ export type TopList = {
 };
 
 type Input = {
-  campaign: Pick<PublicCompanyCampaign, "id" | "company" | "productName" | "productUrl" | "rewardPerPiecePoints" | "publishedAt" | "hidden">;
+  campaign: Pick<PublicCompanyCampaign, "id" | "company" | "productName" | "productUrl" | "rewardPerPiecePoints" | "publishedAt" | "hidden"> & { companyChecked?: boolean };
   results: Array<Pick<CampaignResult, "verdict" | "at">>;
 };
 
@@ -67,6 +72,8 @@ export function rankCampaigns(input: Input[], now: number = Date.now()): TopList
         acceptedTotal: passed.length,
         reviewedTotal: results.length,
         publishedAt: c.publishedAt ?? null,
+        makerChecked: c.companyChecked === true,
+        totalIsFloor: results.length >= RESULTS_SHOWN_MAX,
       };
     })
     .sort((a, b) =>

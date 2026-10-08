@@ -5,9 +5,12 @@ const fetched = vi.hoisted(() => vi.fn());
 const saveDraft = vi.hoisted(() => vi.fn());
 const publishDraft = vi.hoisted(() => vi.fn());
 const savePictureRecord = vi.hoisted(() => vi.fn());
+const listDrafts = vi.hoisted(() => vi.fn());
+const dayHolder = vi.hoisted(() => ({ value: null as string | null }));
 const limit = vi.hoisted(() => vi.fn(async () => ({ ok: true })));
 vi.mock("@/lib/product-fetch", async (orig) => ({ ...(await orig<typeof import("@/lib/product-fetch")>()), fetchProduct: fetched }));
-vi.mock("@/lib/campaign-drafts", async (orig) => ({ ...(await orig<typeof import("@/lib/campaign-drafts")>()), saveDraft, publishDraft }));
+vi.mock("@/lib/campaign-drafts", async (orig) => ({ ...(await orig<typeof import("@/lib/campaign-drafts")>()), saveDraft, publishDraft, listDrafts }));
+vi.mock("@/lib/redis", () => ({ getRedis: () => ({ get: async () => dayHolder.value }) }));
 vi.mock("@/lib/campaign-pictures", () => ({ savePictureRecord }));
 vi.mock("@/lib/store", () => ({ createTask: vi.fn() }));
 vi.mock("@/lib/rate-limit", () => ({ rateLimit: limit, getClientIp: () => "test" }));
@@ -36,6 +39,8 @@ beforeEach(() => {
   fetched.mockResolvedValue({ ok: true, proposal: PAGE });
   saveDraft.mockImplementation(async (owner: string, draft: object) => ({ ok: true, draft: { ...draft, id: "draft_1", owner } }));
   savePictureRecord.mockResolvedValue(true);
+  listDrafts.mockResolvedValue([]);
+  dayHolder.value = null;
   publishDraft.mockResolvedValue({ ok: true, campaign: { id: "draft_1", status: "published" } });
 });
 
@@ -84,9 +89,10 @@ describe("the picture record", () => {
 
 describe("POST /api/post-app/read", () => {
   it("refuses a caller with no session, and a session that is not a wallet, before any fetch", async () => {
-    expect((await read(req("/api/post-app/read", { url: GOOD.productUrl }))).status).toBe(403);
+    const none = await read(req("/api/post-app/read", { url: GOOD.productUrl }));
+    expect([none.status, (await none.json()).code]).toEqual([403, "reauth_required"]);
     const res = await read(req("/api/post-app/read", { url: GOOD.productUrl }, "dev_user"));
-    expect(res.status).toBe(403);
+    expect([res.status, (await res.json()).code]).toEqual([403, "wallet_required"]);
     expect(fetched).not.toHaveBeenCalled();
   });
 
@@ -141,14 +147,62 @@ describe("POST /api/post-app", () => {
     expect(fetched).not.toHaveBeenCalled();
   });
 
-  it("does not publish when the picture record cannot be saved, and reports a publish that is refused", async () => {
+  it("does not publish when the picture record cannot be saved", async () => {
     savePictureRecord.mockResolvedValue(false);
     expect((await post(req("/api/post-app", GOOD, MAKER))).status).toBe(503);
     expect(publishDraft).not.toHaveBeenCalled();
-    savePictureRecord.mockResolvedValue(true);
-    publishDraft.mockResolvedValue({ ok: false, error: "One campaign a day.", status: 429 });
+  });
+
+  it("one app a day: refuses BEFORE saving a draft, so refusals never pile drafts up", async () => {
+    dayHolder.value = "draft_other";
+    for (let i = 0; i < 3; i++) {
+      const res = await post(req("/api/post-app", GOOD, MAKER));
+      expect(res.status).toBe(429);
+      expect((await res.json()).code).toBe("one_a_day");
+    }
+    expect(saveDraft).not.toHaveBeenCalled();
+    expect(publishDraft).not.toHaveBeenCalled();
+  });
+
+  it("a retry resumes the draft saved before, and saves no second one", async () => {
+    publishDraft.mockResolvedValueOnce({ ok: false, error: "A piece could not be made.", status: 502 });
+    const first = await post(req("/api/post-app", GOOD, MAKER));
+    expect(first.status).toBe(502);
+    expect((await first.json()).error).toBe("A piece could not be made. Tap Post again to finish.");
+    // The failed publish holds today's slot for that draft; the retry finds it and finishes it.
+    listDrafts.mockResolvedValue([{ id: "draft_1", status: "publishing", productUrl: "https://agentic-strava.vercel.app/" }]);
+    dayHolder.value = "draft_1";
+    const second = await post(req("/api/post-app", GOOD, MAKER));
+    expect(second.status).toBe(201);
+    expect(saveDraft).toHaveBeenCalledTimes(1);
+    expect(publishDraft.mock.calls.map((c) => c[1])).toEqual(["draft_1", "draft_1"]);
+  });
+
+  it("never reuses a draft that is already published, or one for another link", async () => {
+    listDrafts.mockResolvedValue([
+      { id: "draft_done", status: "published", productUrl: "https://agentic-strava.vercel.app/" },
+      { id: "draft_else", status: "draft", productUrl: "https://other.test/" },
+    ]);
+    expect((await post(req("/api/post-app", GOOD, MAKER))).status).toBe(201);
+    expect(saveDraft).toHaveBeenCalledTimes(1);
+    expect(publishDraft.mock.calls[0][1]).toBe("draft_1");
+  });
+
+  it("says why when the page cannot be read at posting time, and asks for a picture", async () => {
+    fetched.mockResolvedValue({ ok: false, reason: "The site took too long to answer." });
     const res = await post(req("/api/post-app", GOOD, MAKER));
-    expect(res.status).toBe(429);
-    expect(await res.json()).toEqual({ error: "One campaign a day.", draftId: "draft_1" });
+    const body = await res.json();
+    expect(res.status).toBe(400);
+    expect(body.code).toBe("picture_required");
+    expect(body.error).toMatch(/could not read your page just now \(The site took too long to answer\.\)/);
+  });
+
+  it("stores no picture link that points inside: a private host, an address or a port", async () => {
+    for (const makerImage of ["https://192.168.1.1/x.png", "https://localhost/x.png", "https://cdn.test:8443/x.png", "https://foo.localhost/x.png"]) {
+      fetched.mockResolvedValue({ ok: true, proposal: { ...PAGE, image: null } });
+      const res = await post(req("/api/post-app", { ...GOOD, makerImage }, MAKER));
+      expect(res.status, makerImage).toBe(400);
+    }
+    expect(saveDraft).not.toHaveBeenCalled();
   });
 });

@@ -40,7 +40,7 @@ function Row({
   picture: CampaignPicture | undefined;
   name: string;
   sub: ReactNode;
-  n: number;
+  n: number | string;
   label: string;
   onClick?: () => void;
 }) {
@@ -107,8 +107,10 @@ export function TopProducts({
                 rank={row.rank}
                 picture={pictures[row.id]}
                 name={row.name}
-                sub={<><span className="font-semibold text-amber-600">{row.points} pts</span>{" · "}by {row.company}</>}
-                n={top.rankedBy === "today" ? row.acceptedToday : row.acceptedTotal}
+                // "by" is shown only for a company Oscar checked. Anyone can post any link,
+                // so an unchecked row says so and names no company.
+                sub={<><span className="font-semibold text-amber-600">{row.points} pts</span>{" · "}{row.makerChecked ? `by ${row.company}` : "maker not checked"}</>}
+                n={top.rankedBy === "today" ? row.acceptedToday : row.totalIsFloor ? `${row.acceptedTotal}+` : row.acceptedTotal}
                 label={top.rankedBy === "today" ? "today" : row.acceptedTotal === 1 ? "review" : "reviews"}
                 onClick={() => onOpen?.(row.id)}
               />
@@ -130,7 +132,7 @@ export function TopProducts({
                 name={l.name}
                 sub={l.line ?? new URL(l.url).hostname.replace(/^www\./, "")}
                 n={l.score}
-                label="points"
+                label="HN points"
                 onClick={() => onOpenLaunch?.(l)}
               />
             ))}

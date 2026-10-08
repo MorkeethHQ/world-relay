@@ -16,7 +16,10 @@ import styles from "./PostYourApp.module.css";
 //               none, and writes the ask. One button: "Post for reviews".
 //   3. done     the app is on FAVOUR. One button: back to the board.
 //
-// Two taps from here to done. Nothing is published that the maker did not see.
+// Two taps from here to done. The maker sees the name, the line and the picture
+// before posting. The server reads the page once more when it posts, and stores
+// what the page declares at that moment; if that read finds no picture, the
+// maker is asked for a link to one.
 // The reward is points and the screen says so; no money is named, because no
 // campaign is funded here. A caller who is not signed in with a World wallet is
 // told to open FAVOUR in World App; this screen does not rebuild sign-in.
@@ -50,6 +53,7 @@ export function PostYourApp() {
   const [makerImage, setMakerImage] = useState("");
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<Problem>(null);
+  const [askPicture, setAskPicture] = useState(false);
 
   const picture = campaignPicture({
     productName: name, productUrl: read?.url ?? link,
@@ -75,7 +79,12 @@ export function PostYourApp() {
     setBusy(true); setProblem(null);
     const { ok, data } = await send("/api/post-app", input);
     setBusy(false);
-    if (!ok) { setProblem(problemOf(data)); return; }
+    if (!ok) {
+      // The server reads the page again. If it found no picture, the field appears.
+      if (data.code === "picture_required") setAskPicture(true);
+      setProblem(problemOf(data));
+      return;
+    }
     setStep("done");
     window.scrollTo(0, 0);
   }
@@ -124,7 +133,7 @@ export function PostYourApp() {
           <input id="post-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={80} disabled={busy}
             className={`${styles.field} min-h-[48px] w-full rounded-xl border border-gray-200 bg-white text-[16px] text-gray-900`} />
 
-          {!read.image && (
+          {(!read.image || askPicture) && (
             <>
               <label className="mt-4 block text-xs font-semibold text-gray-600" htmlFor="post-picture">Link to a picture of your app</label>
               <input id="post-picture" type="url" inputMode="url" placeholder="https://" value={makerImage} onChange={(e) => setMakerImage(e.target.value)} disabled={busy}
@@ -153,7 +162,7 @@ export function PostYourApp() {
         <section>
           <h1 className={styles.title}>{name} is on FAVOUR</h1>
           <p className="mt-1 text-sm text-gray-600">
-            People can review it now. You see each review when the check accepts it.
+            People can review it now, for {POST_POINTS} pts each.
           </p>
           <Link href="/" className="mt-5 flex min-h-[44px] w-full items-center justify-center rounded-xl bg-gray-900 px-5 text-sm font-semibold text-white active:scale-[0.98]">
             See it on the board

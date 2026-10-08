@@ -10,8 +10,12 @@ export const PICTURE_PREFIX = "campaign:picture:";
 export async function savePictureRecord(campaignId: string, record: PictureRecord): Promise<boolean> {
   const redis = getRedis();
   if (!redis) return false;
-  await redis.set(`${PICTURE_PREFIX}${campaignId}`, JSON.stringify(record));
-  return true;
+  try {
+    await redis.set(`${PICTURE_PREFIX}${campaignId}`, JSON.stringify(record));
+    return true;
+  } catch {
+    return false; // the caller says so and does not publish
+  }
 }
 
 export async function getPictureRecord(campaignId: string): Promise<PictureRecord | null> {
