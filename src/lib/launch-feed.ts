@@ -18,7 +18,8 @@ import { fetchableUrl } from "@/lib/product-fetch";
 import { DAY_MS } from "@/lib/rank-campaigns";
 
 export const LAUNCH_SOURCE = "Hacker News";
-export const MAX_LAUNCHES = 10;
+// Oscar, 8 Oct 2026: "maybe just keep like 3 of them? its a big component now on phone".
+export const MAX_LAUNCHES = 3;
 const NAME_MAX = 40;
 const LINE_MAX = 90;
 

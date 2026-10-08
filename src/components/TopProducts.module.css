@@ -1,23 +1,7 @@
-/* The one number that leads the first page. The app's UI kit resets native
+/* The app's UI kit resets native
    headings outside Tailwind's layers, so heading sizes are set here. */
-.lead {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  color: #111827;
-}
-.number {
-  font-size: 64px;
-  font-weight: 800;
-  line-height: 0.9;
-  letter-spacing: -0.04em;
-}
-.unit {
-  font-size: 18px;
-  font-weight: 700;
-}
 .heading {
-  margin-top: 24px;
+  margin-top: 16px;
   font-size: 18px;
   font-weight: 700;
 }
@@ -36,4 +20,11 @@
   font-size: 26px;
   font-weight: 800;
   color: rgb(17 24 39 / 0.82);
+}
+.group {
+  margin-top: 14px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }

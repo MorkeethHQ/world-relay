@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { listTasks } from "@/lib/store";
 import { toApiTasks, isPublicTask } from "@/lib/task-serializer";
+import { showInHistory } from "@/lib/history-quality";
 
 const DEFAULT_LIMIT = 60;
 const MAX_LIMIT = 120;
@@ -17,6 +18,9 @@ export async function GET(req: NextRequest) {
   const completed = (await listTasks())
     .filter(isPublicTask)
     .filter((t) => t.status === "completed")
+    // Oscar, 8 Oct 2026: history stays, the bad ones go. Left out of this list
+    // only; nothing is deleted. The rule and its reasons: lib/history-quality.ts.
+    .filter(showInHistory)
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .slice(0, limit);
 

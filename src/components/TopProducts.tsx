@@ -10,6 +10,9 @@ import styles from "./TopProducts.module.css";
 // numbers and a top list. Asking for a favour comes after this. "TOP today needs
 // to be products for sure": every row is a product with a name and a link.
 //
+// Small on purpose (Oscar, 8 Oct 2026: "its a big component now on phone, and a
+// lot of text at the top"): one heading, one line of numbers, then rows.
+//
 // Two groups, and they are never mixed, because their numbers mean different
 // things:
 //   1. On FAVOUR: products a maker put here. Ranked by reviews FAVOUR accepted.
@@ -87,22 +90,12 @@ export function TopProducts({
   const source = launches[0]?.source;
   return (
     <section aria-label="Top products today">
-      <div className="px-4 pt-4">
-        <p className={styles.lead}>
-          <span className={`${styles.number} tabular-nums`}>{top.products + launches.length}</span>
-          <span className={styles.unit}>top products today</span>
-        </p>
-        <p className="mt-1 text-sm text-gray-600 tabular-nums">
-          {top.products} on FAVOUR to review. {top.acceptedToday} {top.acceptedToday === 1 ? "review" : "reviews"} accepted today, {top.acceptedTotal} in total.
-        </p>
-      </div>
-
-      <h2 className={`${styles.heading} px-4 text-gray-900`}>On FAVOUR</h2>
+      <h2 className={`${styles.heading} px-4 text-gray-900`}>Top today</h2>
+      <p className="px-4 text-xs text-gray-400 tabular-nums">
+        {top.products} on FAVOUR · {top.acceptedToday} {top.acceptedToday === 1 ? "review" : "reviews"} accepted today
+      </p>
       {top.rows.length === 0 ? (
-        <p className="px-4 pb-2 pt-1 text-sm text-gray-600">
-          No product is on FAVOUR yet.
-          {top.waiting > 0 && ` ${top.waiting} ${top.waiting === 1 ? "campaign names" : "campaigns name"} no product, so ${top.waiting === 1 ? "it is" : "they are"} not listed.`}
-        </p>
+        <p className="px-4 pt-2 text-sm text-gray-600">No product is on FAVOUR yet.</p>
       ) : (
         <>
           <ol className="mt-1">
@@ -125,8 +118,8 @@ export function TopProducts({
 
       {launches.length > 0 && (
         <>
-          <h2 className={`${styles.heading} px-4 text-gray-900`}>Launched today</h2>
-          <ol className="mt-1">
+          <p className={`${styles.group} px-4 text-gray-400`}>Launched today on {source}</p>
+          <ol>
             {launches.map((l) => (
               <Row
                 key={l.id}
@@ -141,7 +134,7 @@ export function TopProducts({
             ))}
           </ol>
           <p className="px-4 pb-4 pt-2 text-xs text-gray-400">
-            From {source}, last 24 hours. The points are {source}&apos;s, not FAVOUR&apos;s. These makers have not joined FAVOUR.
+            {source}&apos;s points. Not on FAVOUR yet.
           </p>
         </>
       )}

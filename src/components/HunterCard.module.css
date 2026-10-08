@@ -1,0 +1,6 @@
+/* The app's UI kit resets native headings outside Tailwind's layers, so the size
+   and weight are set here. */
+.name {
+  font-size: 18px;
+  font-weight: 700;
+}

@@ -2,6 +2,8 @@ import { notFound } from "next/navigation";
 import { FeaturedProduct } from "@/components/FeaturedProduct";
 import { ProductCampaignCard } from "@/components/ProductCampaignCard";
 import { TopProducts } from "@/components/TopProducts";
+import { HunterCard } from "@/components/HunterCard";
+import { hunterProfile } from "@/lib/hunter-profile";
 import { campaignPicture } from "@/lib/campaign-picture";
 import { rankCampaigns } from "@/lib/rank-campaigns";
 import { fetchLaunches } from "@/lib/launch-feed";
@@ -68,6 +70,24 @@ export default async function LookPage() {
       <div className="-mx-3 border-y border-gray-200 bg-white">
         <TopProducts top={top} launches={launches} pictures={pictures} />
       </div>
+      <p className="rounded-xl border border-gray-200 bg-white p-3 text-xs text-gray-600">
+        Profile, top part. First a new person: real zeros. Then example numbers, to show the full card.
+        A person&apos;s real record needs their sign-in, so it cannot be read on this page.
+      </p>
+      <HunterCard name="@new_person" profile={hunterProfile([])} />
+      <HunterCard
+        name="@example"
+        github={{ name: "example", verified: true }}
+        profile={hunterProfile(
+          [
+            { campaignId: "a", campaignLabel: "STRIVE", points: 10, at: "2026-10-07T10:00:00Z" },
+            { campaignId: "a", campaignLabel: "STRIVE", points: 10, at: "2026-10-05T10:00:00Z" },
+            { campaignId: "b", campaignLabel: "Wave Radio", points: 10, at: "2026-10-03T10:00:00Z" },
+            { campaignId: null, points: 3, at: "2026-09-20T10:00:00Z" },
+          ],
+          [{ status: "published", productName: "STRIVE", productUrl: "https://agentic-strava.vercel.app" }],
+        )}
+      />
       <p className="rounded-xl border border-gray-200 bg-white p-3 text-xs text-gray-600">
         Development preview. The $20 budget is an example: no campaign is funded.
       </p>
