@@ -1,13 +1,38 @@
 import { notFound } from "next/navigation";
 import { FeaturedProduct } from "@/components/FeaturedProduct";
 import { ProductCampaignCard } from "@/components/ProductCampaignCard";
+import { TopProducts } from "@/components/TopProducts";
 import { campaignPicture } from "@/lib/campaign-picture";
+import { rankCampaigns } from "@/lib/rank-campaigns";
+import type { CampaignResult, PublicCompanyCampaign } from "@/lib/campaign-draft-shape";
+
+// The live site's own numbers, read when the page is built. Nothing is made up:
+// if the live site cannot be read, the list is empty and the page says so.
+const LIVE = "https://world-relay.vercel.app";
+async function liveCampaigns(): Promise<Array<{ campaign: PublicCompanyCampaign; results: CampaignResult[] }> | null> {
+  try {
+    const list = await fetch(`${LIVE}/api/campaigns/company`, { cache: "no-store" }).then((r) => r.json());
+    return await Promise.all(
+      (list.campaigns as PublicCompanyCampaign[]).map(async (campaign) => {
+        const one = await fetch(`${LIVE}/api/campaigns/company/${encodeURIComponent(campaign.id)}`, { cache: "no-store" }).then((r) => r.json());
+        return { campaign, results: (one.results ?? []) as CampaignResult[] };
+      }),
+    );
+  } catch {
+    return null;
+  }
+}
 
 // A development-only page to look at the campaign card. It answers 404 in
 // production. The three products are real; the one funded budget is an example
 // and says so, because no campaign is funded yet.
-export default function LookPage() {
+export default async function LookPage() {
   if (process.env.NODE_ENV === "production") notFound();
+  const live = await liveCampaigns();
+  const top = rankCampaigns(live ?? []);
+  const pictures = Object.fromEntries(
+    (live ?? []).map(({ campaign: c }) => [c.id, campaignPicture({ productName: c.productName || c.company, productUrl: c.productUrl })]),
+  );
   const cards = [
     {
       name: "STRIVE", line: "A run is one real session with your coding agent. See its map, add your story.",
@@ -26,7 +51,13 @@ export default function LookPage() {
     },
   ];
   return (
-    <main className="mx-auto max-w-md space-y-4 bg-gray-50 p-3">
+    <main className="mx-auto max-w-[390px] space-y-4 bg-gray-50 p-3 pb-24">
+      <p className="rounded-xl border border-gray-200 bg-white p-3 text-xs text-gray-600">
+        First page, top part. {live ? "These are the live site's real numbers, read just now." : "The live site could not be read, so the list is empty."}
+      </p>
+      <div className="-mx-3 border-y border-gray-200 bg-white">
+        <TopProducts top={top} pictures={pictures} />
+      </div>
       <p className="rounded-xl border border-gray-200 bg-white p-3 text-xs text-gray-600">
         Development preview. The $20 budget is an example: no campaign is funded.
       </p>
