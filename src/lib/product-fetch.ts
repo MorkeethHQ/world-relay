@@ -16,10 +16,11 @@
 //   - at most MAX_REDIRECTS hops, a time limit, HTML only, and only the first
 //     MAX_BYTES of the page are ever read
 //   - picture links are returned, never fetched here, and only when they are https
-// KNOWN LIMIT: the address is checked and then the request is made, so a host that
-// answers the check with a public address and the request with a private one
-// (DNS rebinding) is not stopped by this file. Pinning the checked address into
-// the connection needs a custom agent and is not built.
+// PINNED ADDRESS (8 Oct 2026): the address that passed the check is the address
+// the request connects to. The connection is given that address directly and does
+// no second lookup, so a host that answers the check with a public address and a
+// later lookup with a private one (DNS rebinding) reaches nothing private. TLS
+// still checks the certificate against the host name.
 
 import { productUrlOrNull } from "@/lib/campaign-draft-shape";
 
@@ -186,8 +187,8 @@ export function parseProductPage(html: string, pageUrl: string): ProductProposal
 export type FetchDeps = {
   /** All addresses a host name resolves to. */
   resolve: (host: string) => Promise<string[]>;
-  /** One request that does NOT follow redirects. */
-  request: (url: string, signal: AbortSignal) => Promise<Response>;
+  /** One request that does NOT follow redirects and connects to `address` only. */
+  request: (url: string, signal: AbortSignal, address: string) => Promise<Response>;
 };
 
 async function defaultResolve(host: string): Promise<string[]> {
@@ -195,11 +196,52 @@ async function defaultResolve(host: string): Promise<string[]> {
   return (await lookup(host, { all: true })).map((r) => r.address);
 }
 
-const defaultDeps: FetchDeps = {
-  resolve: defaultResolve,
-  request: (url, signal) =>
-    fetch(url, { redirect: "manual", signal, headers: { accept: "text/html", "user-agent": "FavourProductFetch/1" } }),
-};
+/** One GET over https to the pinned address. No redirect is followed. */
+export async function pinnedRequest(url: string, signal: AbortSignal, address: string): Promise<Response> {
+  const https = await import("node:https");
+  const { isIP } = await import("node:net");
+  const zlib = await import("node:zlib");
+  const { Readable } = await import("node:stream");
+  const family = isIP(address);
+  if (!family) throw new Error("not an address");
+  return new Promise<Response>((resolve, reject) => {
+    const req = https.request(
+      url,
+      {
+        method: "GET",
+        signal,
+        headers: { accept: "text/html", "accept-encoding": "gzip, br", "user-agent": "FavourProductFetch/1" },
+        // The connection asks for the address of the host; it always gets the checked one.
+        lookup: (_host, options, callback) => {
+          if (typeof options === "object" && options.all) (callback as (e: null, a: Array<{ address: string; family: number }>) => void)(null, [{ address, family }]);
+          else (callback as (e: null, a: string, f: number) => void)(null, address, family);
+        },
+      },
+      (res) => {
+        const status = res.statusCode ?? 502;
+        const headers = new Headers();
+        for (const [k, v] of Object.entries(res.headers)) if (typeof v === "string") headers.set(k, v);
+        if (status < 200 || status > 599 || (status >= 300 && status < 400) || status === 204) {
+          res.resume();
+          resolve(new Response(null, { status: status < 200 || status > 599 ? 502 : status, headers }));
+          return;
+        }
+        const encoding = (res.headers["content-encoding"] || "").toLowerCase();
+        const body =
+          encoding === "gzip" ? res.pipe(zlib.createGunzip()) :
+          encoding === "br" ? res.pipe(zlib.createBrotliDecompress()) :
+          encoding === "" || encoding === "identity" ? res : null;
+        if (!body) { res.destroy(); reject(new Error("unknown encoding")); return; }
+        body.on("error", () => res.destroy());
+        resolve(new Response(Readable.toWeb(body) as ReadableStream<Uint8Array>, { status, headers }));
+      },
+    );
+    req.on("error", reject);
+    req.end();
+  });
+}
+
+const defaultDeps: FetchDeps = { resolve: defaultResolve, request: pinnedRequest };
 
 /** The first MAX_BYTES of the page. What a page says about itself is at the top,
  *  so a large page is cut there and read, never loaded whole. */
@@ -232,7 +274,8 @@ export async function fetchProduct(raw: unknown, deps: FetchDeps = defaultDeps):
       if (addresses.length === 0) return { ok: false, reason: "The site could not be found." };
       if (addresses.some(isPrivateAddress)) return { ok: false, reason: "That link does not point to a public site." };
 
-      const res = await deps.request(url.toString(), controller.signal);
+      // Every address passed the check; the request is tied to the first one.
+      const res = await deps.request(url.toString(), controller.signal, addresses[0]);
       if (res.status >= 300 && res.status < 400) {
         const next = fetchableUrl(new URL(res.headers.get("location") || "", url).toString());
         if (!next) return { ok: false, reason: "The site sent us somewhere we do not follow." };

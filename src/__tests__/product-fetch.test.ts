@@ -96,6 +96,23 @@ describe("the fenced fetch", () => {
     expect(d.asked).toEqual(["https://acme.test/app"]);
   });
 
+  it("ties the request to the address that passed the check, on every hop", async () => {
+    const pinned: string[] = [];
+    let lookups = 0;
+    const d = deps({
+      // A rebinding host: public on the check, private on any later lookup.
+      resolve: async (host) => (host === "acme.test" ? [lookups++ === 0 ? "93.184.216.34" : "10.0.0.9"] : ["8.8.8.8"]),
+      request: async (url, _signal, address) => {
+        pinned.push(address);
+        return url === "https://acme.test/" ? new Response(null, { status: 302, headers: { location: "https://next.test/" } }) : html(PAGE);
+      },
+    });
+    const r = await fetchProduct("https://acme.test/", d);
+    expect(r.ok).toBe(true);
+    expect(pinned).toEqual(["93.184.216.34", "8.8.8.8"]); // the request never gets to look the host up again
+    expect(lookups).toBe(1);
+  });
+
   it("makes no request when the host resolves to a private address", async () => {
     for (const address of ["127.0.0.1", "169.254.169.254", "10.0.0.5"]) {
       const d = deps({ resolve: async () => ["93.184.216.34", address] }); // one bad address among good ones is enough
