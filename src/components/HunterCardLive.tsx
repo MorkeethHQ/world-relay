@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { hunterProfile, type HunterProfile } from "@/lib/hunter-profile";
 import { HunterCard } from "./HunterCard";
+import { Note } from "./Kit";
 
 // `HunterCard` WITH ITS DATA, for the signed-in person. It reads two routes that
 // answer from the session only: the person's accepted work and the person's own
@@ -37,22 +38,13 @@ export function HunterCardLive({ name }: { name: string }) {
     return () => { live = false; };
   }, [attempt]);
 
-  if (state.kind === "loading") return <p role="status" className="text-sm text-gray-600">Reading your work…</p>;
-  if (state.kind === "signed_out") {
-    return <p className="rounded-2xl border border-gray-200 bg-white p-4 text-sm text-gray-600">Open FAVOUR in World App and sign in to see your reviews.</p>;
-  }
+  if (state.kind === "loading") return <Note kind="loading" quiet>Reading your work…</Note>;
+  if (state.kind === "signed_out") return <Note quiet>Open FAVOUR in World App and sign in to see your reviews.</Note>;
   if (state.kind === "error") {
     return (
-      <div role="alert" className="rounded-2xl border border-gray-200 bg-white p-4">
-        <p className="text-sm text-gray-600">Your work could not be read.</p>
-        <button
-          type="button"
-          className="mt-3 min-h-[44px] w-full rounded-xl border border-gray-200 bg-white text-sm font-semibold text-gray-900 active:scale-[0.98]"
-          onClick={() => { setState({ kind: "loading" }); setAttempt((n) => n + 1); }}
-        >
-          Try again
-        </button>
-      </div>
+      <Note kind="error" action="Try again" onAction={() => { setState({ kind: "loading" }); setAttempt((n) => n + 1); }}>
+        Your work could not be read.
+      </Note>
     );
   }
   return <HunterCard name={name} profile={state.profile} />;
