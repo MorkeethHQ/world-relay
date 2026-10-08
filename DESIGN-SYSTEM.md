@@ -63,6 +63,7 @@ Guard: `design-components.guard.test.ts` reads this table.
 | `ProductCampaignCard.tsx` | One product in a list: its picture in a window, its name, one line, one button | Show green for a budget that is not funded. Use a picture from another product |
 | `FeaturedProduct.tsx` | One product fills the screen. Used for one product at a time | Take a colour except through `productColour()`. Use a gradient. Move |
 | `HunterCard.tsx` | The top of the profile: products reviewed, reviews accepted, products launched | Show a level, a rank or a badge with no rule behind it. Show a GitHub name that is not verified |
+| `PostYourApp.tsx` | Flow 2 on one route, `/post`: paste the link, confirm what was read, write the ask, post | Publish what the maker did not see. Name money. Publish with no picture. Trust a picture link the server did not read, except the maker's own |
 | `RewardBadge.tsx` | Every reward amount, points or USDC | Be replaced by a hand-written amount |
 
 Rules for every component in the table:
@@ -104,8 +105,8 @@ Rules for both flows:
    only favours that pass `showInHistory()`. Nothing is deleted.
 6. **A flow changes here first.** Change this section in the same PR as the screens.
 
-Not built yet on 8 Oct 2026: the product screen of flow 1, steps 2 to 5 of flow 2 as one screen,
-and the mount of `TopProducts` on the first page.
+Built on 8 Oct 2026, on a branch: flow 2 as `/post` with `/api/post-app`. Not built yet: the product
+screen of flow 1, and the mount of `TopProducts` on the first page. Until that mount, nothing links to `/post`.
 
 ## Change process
 

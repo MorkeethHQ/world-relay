@@ -14,11 +14,11 @@ const file = (name: string) => join(ROOT, "src", "components", name);
 
 // The components built for the product surfaces. A new one goes in this list AND
 // in the document's table; the test below fails when the two differ.
-const PRODUCT_SURFACES = ["TopProducts.tsx", "ProductCampaignCard.tsx", "FeaturedProduct.tsx", "HunterCard.tsx"];
+const PRODUCT_SURFACES = ["TopProducts.tsx", "ProductCampaignCard.tsx", "FeaturedProduct.tsx", "HunterCard.tsx", "PostYourApp.tsx"];
 
 describe("the component table in DESIGN-SYSTEM.md is the truth", () => {
   it("names only components that exist", () => {
-    expect(listed.length).toBeGreaterThanOrEqual(5);
+    expect(listed.length).toBeGreaterThanOrEqual(6);
     for (const name of listed) expect(existsSync(file(name)), name).toBe(true);
   });
 
