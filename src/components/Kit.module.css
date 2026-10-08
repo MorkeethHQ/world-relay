@@ -1,0 +1,322 @@
+/* THE ONE KIT. DESIGN-SYSTEM.md, "The system".
+   Sizes live here, not in Tailwind classes, because the World UI kit resets
+   native headings, paragraphs and form controls outside Tailwind's layers. A
+   CSS module is unlayered and class-scoped, so these rules hold. */
+
+/* ---- the screen ---- */
+.screen {
+  margin: 0 auto;
+  width: 100%;
+  max-width: 32rem;
+  min-height: 100vh;
+  padding: 0 16px 112px;
+  background: #fafafa;
+  color: #111827;
+}
+.topBar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 56px;
+  margin: 0 -16px;
+  padding: 4px 8px 0;
+}
+.back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  color: #111827;
+}
+.back:active { background: #f3f4f6; }
+.topTitle {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+/* ---- type ---- */
+.display {
+  margin-top: 20px;
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+.title {
+  margin-top: 16px;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+.heading {
+  margin-top: 8px;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+.line {
+  margin-top: 8px;
+  font-size: 15px;
+  line-height: 1.5;
+  color: #4b5563;
+}
+.caption {
+  margin-top: 4px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: #9ca3af;
+}
+.body {
+  font-size: 15px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.group {
+  margin-top: 24px;
+  margin-bottom: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #9ca3af;
+}
+
+/* ---- buttons ---- */
+.primary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 52px;
+  margin-top: 16px;
+  padding: 0 20px;
+  border-radius: 16px;
+  background: #111827;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+  text-align: center;
+}
+.quiet {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 18px;
+  border-radius: 999px;
+  background: #f3f4f6;
+  color: #111827;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+}
+.wide { display: flex; width: 100%; margin-top: 12px; }
+.primary:active, .quiet:active { transform: scale(0.98); }
+.primary:disabled, .quiet:disabled { opacity: 0.6; }
+
+/* ---- the row ---- */
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 72px;
+  padding: 8px 0;
+  text-align: left;
+}
+.row:active { background: #f9fafb; }
+.rowText { flex: 1; min-width: 0; }
+.rowName {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 16px;
+  font-weight: 600;
+  color: #111827;
+}
+.rowSub {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-top: 2px;
+  font-size: 13px;
+  color: #9ca3af;
+}
+.rule {
+  margin-left: 68px;
+  border-bottom: 1px solid rgb(0 0 0 / 0.07);
+}
+.pill {
+  flex: none;
+  min-width: 68px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+.pillOn { background: #f3f4f6; color: #111827; }
+.pillOff { background: transparent; color: #9ca3af; }
+.pillDark { background: #111827; color: #fff; }
+
+/* ---- pictures ---- */
+.icon {
+  flex: none;
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  object-fit: cover;
+  border: 1px solid rgb(0 0 0 / 0.07);
+  background: #fff;
+}
+.initial {
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  color: rgb(17 24 39 / 0.82);
+  background: #f3f4f6;
+}
+.icon.initial { font-size: 22px; }
+.wideIcon {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1.9;
+  object-fit: cover;
+  object-position: center;
+  background: #f3f4f6;
+}
+.wideIcon.initial { font-size: 64px; }
+.framed {
+  border-radius: 16px;
+  border: 1px solid rgb(0 0 0 / 0.07);
+}
+
+/* ---- card and lead card ---- */
+.card {
+  margin-top: 16px;
+  padding: 16px;
+  border-radius: 20px;
+  border: 1px solid rgb(0 0 0 / 0.07);
+  background: #fff;
+}
+.lead {
+  display: block;
+  width: 100%;
+  margin-top: 16px;
+  overflow: hidden;
+  border-radius: 20px;
+  border: 1px solid rgb(0 0 0 / 0.07);
+  background: #fff;
+  text-align: left;
+}
+.lead:active { transform: scale(0.99); }
+.leadFoot {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px 16px;
+}
+.leadName {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+  color: #111827;
+}
+.leadLine {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-top: 2px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: #9ca3af;
+}
+.leadEmpty {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  aspect-ratio: 1.9;
+  background: #f3f4f6;
+  color: #9ca3af;
+  font-size: 13px;
+  text-align: center;
+  padding: 16px;
+}
+
+/* ---- fields ---- */
+.label {
+  display: block;
+  margin-top: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #4b5563;
+}
+.field {
+  display: block;
+  width: 100%;
+  min-height: 52px;
+  margin-top: 6px;
+  padding: 0 14px;
+  border-radius: 14px;
+  border: 1px solid rgb(0 0 0 / 0.12);
+  background: #fff;
+  font-size: 16px;
+  color: #111827;
+}
+.area {
+  padding: 12px 14px;
+  min-height: 140px;
+  resize: vertical;
+  line-height: 1.5;
+}
+.field:focus-visible { outline: 2px solid #111827; outline-offset: 1px; }
+.field:disabled { opacity: 0.6; }
+.count {
+  margin-top: 6px;
+  font-size: 13px;
+  color: #9ca3af;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- notes: loading, empty, error ---- */
+.note {
+  margin-top: 16px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  font-size: 15px;
+  line-height: 1.5;
+  color: #4b5563;
+}
+.noteError { background: #fff; border: 1px solid rgb(0 0 0 / 0.07); color: #dc2626; }
+.noteQuiet { padding-left: 0; padding-right: 0; }
+
+/* ---- counts ---- */
+.counts { display: flex; gap: 12px; margin-top: 16px; }
+.count3 { flex: 1; min-width: 0; }
+.countN {
+  display: block;
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: #111827;
+}
+.countL { display: block; margin-top: 4px; font-size: 13px; color: #9ca3af; }

@@ -14,7 +14,7 @@ const file = (name: string) => join(ROOT, "src", "components", name);
 
 // The components built for the product surfaces. A new one goes in this list AND
 // in the document's table; the test below fails when the two differ.
-const PRODUCT_SURFACES = ["TopProducts.tsx", "ProductCampaignCard.tsx", "FeaturedProduct.tsx", "HunterCard.tsx", "PostYourApp.tsx", "TopProductsLive.tsx", "ProductScreen.tsx", "HunterCardLive.tsx"];
+const PRODUCT_SURFACES = ["TopProducts.tsx", "ProductCampaignCard.tsx", "FeaturedProduct.tsx", "HunterCard.tsx", "PostYourApp.tsx", "TopProductsLive.tsx", "ProductScreen.tsx", "HunterCardLive.tsx", "Kit.tsx"];
 
 describe("the component table in DESIGN-SYSTEM.md is the truth", () => {
   it("names only components that exist", () => {
@@ -57,5 +57,22 @@ describe.each(PRODUCT_SURFACES)("%s obeys the rules for every component", (name)
 
   it("gives every button a 44px target", () => {
     for (const m of src.matchAll(/<button[\s\S]*?>/g)) expect(m[0], m[0]).toMatch(/min-h-\[(44|72)px\]/);
+  });
+});
+
+// The kit is where every surface's buttons come from, so the kit's own buttons,
+// pills and rows carry the target in their CSS too, and the kit knows no amber,
+// no green and no keyframe at all.
+describe("Kit.module.css holds the system", () => {
+  const css = readFileSync(file("Kit.module.css"), "utf8");
+  it("gives the primary button, the quiet pill and the row their minimum height", () => {
+    expect(css).toMatch(/\.primary \{[^}]*min-height: 52px/);
+    expect(css).toMatch(/\.quiet \{[^}]*min-height: 44px/);
+    expect(css).toMatch(/\.row \{[^}]*min-height: 72px/);
+    expect(css).toMatch(/\.field \{[^}]*font-size: 16px/); // the phone must not zoom
+  });
+  it("holds no colour that means points or money, and nothing that moves", () => {
+    expect(css).not.toMatch(/#(d97706|f59e0b|b45309|16a34a|22c55e|15803d)|amber|green/i);
+    expect(css).not.toMatch(/@keyframes|animation:|gradient|box-shadow/);
   });
 });

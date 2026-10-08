@@ -51,6 +51,81 @@ live review ("how we create, how we write, how we claim needs to be coherent").
 - Every error states what happened and what to do next, verbatim from the server when it knows better.
 - Points are "pts", money is "$ USDC", never mixed (reward.ts owns the labels).
 
+## The system (one kit, 8 Oct 2026 night redesign)
+
+Oscar, 8 Oct 2026: "design components are falling to pieces", "we want the apple and world app feeling,
+clean good overview, not too much copy". So there is one kit, `src/components/Kit.tsx` with
+`Kit.module.css`, and every product surface draws with it. The kit sets sizes in a CSS module
+because the World UI kit resets native headings, paragraphs and form controls outside Tailwind's
+layers; a Tailwind size on `<h1>` or `mt-*` on `<p>` can silently not apply.
+
+**Type scale** (one family, the app's sans): display 28/800 tracking -0.02em for the page word
+("Today"); title 24/800 for a product name on its own screen; heading 20/700 for a screen
+heading; name 16/600 for a row; body 15/400 line 1.5; caption 13/400 gray-400. Numbers are
+tabular. Nothing is uppercase except a tiny source chip.
+
+**Spacing scale**: 4, 8, 12, 16, 20, 24, 32. The page gutter is 16. A section starts 24 below
+the one before. A heading has 8 to its line and 16 to the first thing to tap.
+
+**Radii**: row 0 (rows sit edge to edge with a hairline), picture 16, card 20, sheet 24, button 16,
+field 14, pill 999.
+
+**Surfaces**: page #FAFAFA; card white with a 1px hairline `rgb(0 0 0 / 0.07)`, no shadow; a sheet
+is a white card that holds the one primary button; ink gray-900. No dark wall except the
+featured product's own colour (one door, above).
+
+**Buttons**: one primary, dark, full width, 52 tall, radius 16, 16/600 white text, at most one
+per screen and it is the next step. One quiet pill, gray-100, 44 tall, 14/600 ink, for every
+other action (Vote, Open, Try again, Post another). Links in text are ink and underlined.
+Disabled is 60% opacity, never a new colour.
+
+**Row**: 72 tall, one tap target: a 56 picture or initial, a name, one caption line, one quiet
+pill on the right. Hairline between rows, inset to the text.
+
+**Card**: a lead card is the row's big brother: the product's picture across the top at the
+share-picture ratio 1.9:1, then name, line, and one pill. Only the lead card may carry the
+dark pill.
+
+**Field**: 52 tall, radius 14, 16 text (so the phone does not zoom), hairline border, ink
+focus ring. A label is caption size above it. A counter is a caption under it.
+
+**States**: one pattern, `Note`, for loading ("Reading…"), empty (one line that says what to do
+next) and error (one line, then "Try again" as a quiet pill). Nothing spins.
+
+**Width**: phone first at 390. Every screen is one column, `max-w-lg` (512), centred, the same
+as the bottom nav, so a laptop shows one phone-wide column in the middle.
+
+**Motion**: a press scales to 0.98. Nothing else moves.
+
+## Screens (what each one becomes)
+
+| Screen | Becomes |
+|---|---|
+| First page, Campaigns tab (`Feed.tsx`) | A quiet header "FAVOUR" with no button. `TopProductsLive` on white. Below it, on the page colour: the campaign stage only when a Welcome or company campaign is open, the daily mission when one exists, the open favours as a plain list, and nothing that explains. No counts line, no coach card, no example favour, no "Build a campaign", no "Create campaign". The only dark button on the page is on the lead card; a favour's button is the quiet pill |
+| Product screen `/p/<id>` | Back chevron, picture, title, line, maker caption, then a card with the ask, then one line with the points and the accepted count, then the primary button. "Open site" is a quiet pill |
+| Review write step | Heading "Your review", one line, the site pill, one field, the word count, the primary button |
+| Review results | One heading each: "Accepted" with the points large; "Not accepted" with the reason and "Change my review"; "Held" with the reason. One primary each, no second text |
+| Post, step 1 | Heading "Post your own app", one line, one field, primary "Show my app". Under the field, an empty lead card frame that says where the app will appear |
+| Post, step 2 | The maker's app as the real lead card it will be on FAVOUR (same `LeadCard`), with the name editable under it, the picture link only when the page has none, the ask, the reward line, primary "Post for reviews" |
+| Post, step 3 | The same card with the pill "On FAVOUR", primary "See it on the first page", quiet "Post another" |
+| History | Header "History". Three counts in one white card. Then rows of results. Empty: one line |
+| Profile | One identity block (picture, name, sign-in level). `HunterCard`. Activity rows. Invite as a row. No level name, no rank, no streak flame (`ProofOfFavourCard` is not mounted here) |
+| Polls | Header through the kit. The feed is untouched |
+| Onboarding | The same five steps with product words and less text. Buttons stay the UI kit's (sign-in is not touched) |
+| Old company-campaign screens | Untouched this run. Reached only from a row when a campaign is open |
+
+## Build plan (ordered, each with its done check)
+
+1. Kit: `Kit.tsx` and `Kit.module.css`. Done when: the guard test reads the kit as a product surface and is green.
+2. First page: `Feed.tsx` header, stage, coach cards, counts, empty board; `TaskCard` button. Done when: at 390 the page shows one dark button, one row style, no sentence above a tap target; screenshot read.
+3. `TopProducts` on the kit, lead card as `LeadCard`, picture fallback on error, a vote candidate already on FAVOUR is not listed twice. Done when: filled and empty screenshots read; tests green.
+4. `/post` as the lead-card flow. Done when: the three steps are seen at 390 with a stand-in read; the guard is green.
+5. `/p/<id>` on the kit, all three results. Done when: the five states are seen at 390.
+6. Profile. Done when: no level name, no gradient, no keyframe on the page; seen signed in and out.
+7. History and Polls headers. Done when: seen at 390 and 1440.
+8. Onboarding copy. Done when: a stranger's first five screens are seen at 390.
+9. Hostile review, fixes, push.
+
 ## Components (strict, Oscar 8 Oct 2026: "We need strict rules on design, compeontsn and how flow swork")
 
 One job, one component. A screen that shows a product uses one of these and nothing else.
@@ -68,6 +143,7 @@ Guard: `design-components.guard.test.ts` reads this table.
 | `HunterCardLive.tsx` | `HunterCard` with the signed-in person's own data, at the top of the profile page | Ask for another person's record. Show zeros to a person who is not signed in |
 | `PostYourApp.tsx` | Flow 2 on one route, `/post`: paste the link, confirm what was read, write the ask, post | Publish what the maker did not see. Name money. Publish with no picture. Trust a picture link the server did not read, except the maker's own |
 | `RewardBadge.tsx` | Every reward amount, points or USDC | Be replaced by a hand-written amount |
+| `Kit.tsx` | The one kit: `Screen`, `TopBar`, `Heading`, `Button`, `Pill`, `Row`, `LeadCard`, `Picture`, `Field`, `Note`, `Counts`. Every product surface draws with it | Hold a colour that means points or money. Hold a keyframe. Know about a product, a route or a reward |
 
 Rules for every component in the table:
 
