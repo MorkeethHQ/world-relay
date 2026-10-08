@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { FeaturedProduct } from "@/components/FeaturedProduct";
 import { ProductCampaignCard } from "@/components/ProductCampaignCard";
 import { TopProducts } from "@/components/TopProducts";
+import { TopProductsLive } from "@/components/TopProductsLive";
 import { HunterCard } from "@/components/HunterCard";
 import { hunterProfile } from "@/lib/hunter-profile";
 import { campaignPicture } from "@/lib/campaign-picture";
@@ -69,6 +70,13 @@ export default async function LookPage() {
       </p>
       <div className="-mx-3 border-y border-gray-200 bg-white">
         <TopProducts top={top} launches={launches} pictures={pictures} />
+      </div>
+      <p className="rounded-xl border border-gray-200 bg-white p-3 text-xs text-gray-600">
+        The same part as the app will mount it: `TopProductsLive`, with its data from this server&apos;s own /api/top.
+        This worktree has no database, so it lists no product on FAVOUR. A tap on a product opens /p/&lt;id&gt;.
+      </p>
+      <div className="-mx-3 border-y border-gray-200 bg-white">
+        <TopProductsLive />
       </div>
       <p className="rounded-xl border border-gray-200 bg-white p-3 text-xs text-gray-600">
         Profile, top part. First a new person: real zeros. Then example numbers, to show the full card.
