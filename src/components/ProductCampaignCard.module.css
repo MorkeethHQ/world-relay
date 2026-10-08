@@ -1,0 +1,47 @@
+/* The window onto the product. Its height is fixed so a feed of cards keeps one rhythm. */
+.window {
+  --window: 300px;
+  height: var(--window);
+  overflow: hidden;
+  border-bottom: 1px solid rgb(0 0 0 / 0.07);
+  background: #f9fafb;
+}
+.cover {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top;
+  display: block;
+}
+/* A capture is taller than the window. It travels from its top to its bottom and back. */
+.pan {
+  width: 100%;
+  display: block;
+  animation: pan 18s ease-in-out infinite alternate;
+}
+@keyframes pan {
+  from { transform: translateY(0); }
+  to { transform: translateY(min(0px, calc(-100% + var(--window)))); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pan { animation: none; }
+}
+.fallback {
+  height: 100%;
+  display: grid;
+  place-items: center;
+}
+.fallback span {
+  font-size: 120px;
+  font-weight: 800;
+  line-height: 1;
+  color: rgb(17 24 39 / 0.82);
+}
+/* The app's UI kit resets native headings outside Tailwind's layers, so a utility
+   class cannot make this heading bold. The weight is set here, where it holds. */
+.name {
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
