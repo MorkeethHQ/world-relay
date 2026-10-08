@@ -4,6 +4,8 @@ import { ProductCampaignCard } from "@/components/ProductCampaignCard";
 import { TopProducts } from "@/components/TopProducts";
 import { campaignPicture } from "@/lib/campaign-picture";
 import { rankCampaigns } from "@/lib/rank-campaigns";
+import { fetchLaunches } from "@/lib/launch-feed";
+import { fetchProduct } from "@/lib/product-fetch";
 import type { CampaignResult, PublicCompanyCampaign } from "@/lib/campaign-draft-shape";
 
 // The live site's own numbers, read when the page is built. Nothing is made up:
@@ -30,9 +32,17 @@ export default async function LookPage() {
   if (process.env.NODE_ENV === "production") notFound();
   const live = await liveCampaigns();
   const top = rankCampaigns(live ?? []);
-  const pictures = Object.fromEntries(
-    (live ?? []).map(({ campaign: c }) => [c.id, campaignPicture({ productName: c.productName || c.company, productUrl: c.productUrl })]),
-  );
+  // Today's outside launches, then each product's own page read through the fence
+  // for its picture and icon. A page that cannot be read leaves the row its initial.
+  const launches = await fetchLaunches();
+  const read = await Promise.all(launches.map((l) => fetchProduct(l.url)));
+  const pictures = Object.fromEntries([
+    ...(live ?? []).map(({ campaign: c }) => [c.id, campaignPicture({ productName: c.productName || c.company, productUrl: c.productUrl })]),
+    ...launches.map((l, i) => {
+      const r = read[i];
+      return [l.id, campaignPicture({ productName: l.name, productUrl: l.url, shareImage: r.ok ? r.proposal.image : null, icon: r.ok ? r.proposal.icon : null })];
+    }),
+  ]);
   const cards = [
     {
       name: "STRIVE", line: "A run is one real session with your coding agent. See its map, add your story.",
@@ -53,10 +63,10 @@ export default async function LookPage() {
   return (
     <main className="mx-auto max-w-[390px] space-y-4 bg-gray-50 p-3 pb-24">
       <p className="rounded-xl border border-gray-200 bg-white p-3 text-xs text-gray-600">
-        First page, top part. {live ? "These are the live site's real numbers, read just now." : "The live site could not be read, so the list is empty."}
+        First page, top part. {live ? "FAVOUR numbers are the live site's, and the launch list is today's Show HN, both read just now." : "The live site could not be read, so the list is empty."}
       </p>
       <div className="-mx-3 border-y border-gray-200 bg-white">
-        <TopProducts top={top} pictures={pictures} />
+        <TopProducts top={top} launches={launches} pictures={pictures} />
       </div>
       <p className="rounded-xl border border-gray-200 bg-white p-3 text-xs text-gray-600">
         Development preview. The $20 budget is an example: no campaign is funded.

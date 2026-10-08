@@ -6,20 +6,24 @@
 // nothing and invents nothing. A campaign with no review today still shows, with
 // a zero, and the list says what it was ranked by.
 //
+// PRODUCTS ONLY (Oscar, 8 Oct 2026: "TOP today needs to be products for sure"). A
+// campaign that names no product, or has no link to it, is not in this list.
+// `waiting` counts those, so the screen can say they exist.
+//
 // Order: reviews accepted in the last 24 hours, then reviews accepted in total,
 // then newest first. Only a "pass" counts: a flagged or failed review never lifts
 // a product. Votes can be added as a key later; voting is not built.
 //
 // No caller in the app yet. `/look` shows it in development.
 
-import type { CampaignResult, PublicCompanyCampaign } from "@/lib/campaign-draft-shape";
+import { hasProduct, type CampaignResult, type PublicCompanyCampaign } from "@/lib/campaign-draft-shape";
 
 export const DAY_MS = 24 * 60 * 60 * 1000;
 
 export type RankedCampaign = {
   rank: number;
   id: string;
-  name: string; // the product's name, or the company's when no product is named
+  name: string; // the product's name
   company: string;
   productUrl: string | null;
   points: number; // points per accepted piece; real
@@ -32,6 +36,7 @@ export type RankedCampaign = {
 export type TopList = {
   rows: RankedCampaign[];
   products: number;
+  waiting: number; // published campaigns left out because they name no product
   acceptedToday: number;
   acceptedTotal: number;
   rankedBy: "today" | "total" | "newest"; // what separated the top of the list
@@ -44,7 +49,7 @@ type Input = {
 
 export function rankCampaigns(input: Input[], now: number = Date.now()): TopList {
   const rows = input
-    .filter((x) => !x.campaign.hidden)
+    .filter((x) => !x.campaign.hidden && hasProduct(x.campaign))
     .map(({ campaign: c, results }) => {
       const passed = results.filter((r) => r.verdict === "pass");
       const today = passed.filter((r) => {
@@ -54,7 +59,7 @@ export function rankCampaigns(input: Input[], now: number = Date.now()): TopList
       return {
         rank: 0,
         id: c.id,
-        name: (c.productName || c.company || "").trim(),
+        name: (c.productName || "").trim(),
         company: c.company,
         productUrl: c.productUrl ?? null,
         points: c.rewardPerPiecePoints,
@@ -77,6 +82,7 @@ export function rankCampaigns(input: Input[], now: number = Date.now()): TopList
   return {
     rows,
     products: rows.length,
+    waiting: input.filter((x) => !x.campaign.hidden && !hasProduct(x.campaign)).length,
     acceptedToday,
     acceptedTotal,
     rankedBy: acceptedToday > 0 ? "today" : acceptedTotal > 0 ? "total" : "newest",

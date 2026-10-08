@@ -6,7 +6,7 @@ import { DAY_MS, rankCampaigns } from "@/lib/rank-campaigns";
 const NOW = Date.parse("2026-10-08T12:00:00Z");
 const ago = (ms: number) => new Date(NOW - ms).toISOString();
 const c = (id: string, publishedAt: string, extra: object = {}) => ({
-  id, company: `Co ${id}`, rewardPerPiecePoints: 10, publishedAt, ...extra,
+  id, company: `Co ${id}`, productName: `P ${id}`, productUrl: `https://${id}.test/`, rewardPerPiecePoints: 10, publishedAt, ...extra,
 });
 const pass = (at: string) => ({ verdict: "pass" as const, at });
 
@@ -17,7 +17,7 @@ describe("the top list of the day", () => {
       { campaign: c("new", "2026-09-22T05:05:13Z"), results: [] },
     ], NOW);
     expect(top.rows.map((r) => [r.rank, r.id, r.acceptedToday])).toEqual([[1, "new", 0], [2, "old", 0]]);
-    expect(top).toMatchObject({ products: 2, acceptedToday: 0, acceptedTotal: 0, rankedBy: "newest" });
+    expect(top).toMatchObject({ products: 2, waiting: 0, acceptedToday: 0, acceptedTotal: 0, rankedBy: "newest" });
   });
 
   it("ranks by reviews accepted in the last 24 hours, before the total", () => {
@@ -53,6 +53,16 @@ describe("the top list of the day", () => {
     expect(top.rows).toHaveLength(1);
     expect(top.rows[0]).toMatchObject({ name: "STRIVE", company: "Co p", productUrl: "https://agentic-strava.vercel.app" });
     expect(top.acceptedToday).toBe(0);
+  });
+
+  it("is products only: a campaign with no product name or no link is counted as waiting, not listed", () => {
+    const top = rankCampaigns([
+      { campaign: c("bare", "2026-10-07T00:00:00Z", { productName: undefined, productUrl: undefined }), results: [pass(ago(1))] },
+      { campaign: c("nolink", "2026-10-07T00:00:00Z", { productUrl: undefined }), results: [pass(ago(1))] },
+      { campaign: c("real", "2026-09-01T00:00:00Z"), results: [] },
+    ], NOW);
+    expect(top.rows.map((r) => r.id)).toEqual(["real"]);
+    expect(top).toMatchObject({ products: 1, waiting: 2, acceptedToday: 0 });
   });
 });
 
