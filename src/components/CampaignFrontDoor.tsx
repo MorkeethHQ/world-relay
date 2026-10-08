@@ -31,7 +31,7 @@ function ProgressDots({ total, done, waiting }: { total: number; done: number; w
   );
 }
 
-export function CampaignStageCards({ stage, welcome, signedIn, onOpenWelcome, onOpenCompany, onForCompanies, onOpenDemo }: {
+export function CampaignStageCards({ stage, welcome, signedIn, onOpenWelcome, onOpenCompany, onForCompanies, onOpenDemo, quiet = false }: {
   stage: CampaignStage;
   welcome: WelcomeView | null;
   signedIn: boolean;
@@ -39,12 +39,17 @@ export function CampaignStageCards({ stage, welcome, signedIn, onOpenWelcome, on
   onOpenCompany: (campaignId: string) => void;
   onForCompanies: () => void;
   onOpenDemo: () => void;
+  // The first page (8 Oct 2026 redesign) has one way to post a product, "Post your
+  // own app" at the top. With `quiet`, the owner entry and its sentence are not
+  // drawn; the campaigns themselves still are. Onboarding keeps the full stage.
+  quiet?: boolean;
 }) {
   const w = stage.welcome;
   const c = stage.company;
+  if (quiet && !c && !(w && welcome)) return null;
   return (
     <section aria-label="Campaigns" className="campaign-stage flex flex-col gap-5 px-6 pt-5 pb-2">
-      <h2 className="campaign-section-title">Explore campaigns</h2>
+      <h2 className="campaign-section-title">{quiet ? "Campaigns" : "Explore campaigns"}</h2>
       {c && (
         <article className="overflow-hidden rounded-3xl border border-gray-200 bg-white">
           <div className="p-5">
@@ -82,12 +87,14 @@ export function CampaignStageCards({ stage, welcome, signedIn, onOpenWelcome, on
           </div>
         </article>
       )}
-      <button type="button" onClick={onForCompanies} className="campaign-owner-entry text-left rounded-3xl border border-gray-200 bg-white p-5 min-h-[110px]">
-        <span className="block text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">For teams & creators</span>
-        <span className="mt-2 block text-[21px] font-bold tracking-tight text-gray-950">Build a campaign ↗</span>
-        <span className="mt-2 block text-[14px] leading-relaxed text-gray-600">Product feedback, honest reviews, original stories. Build your campaign.</span>
-      </button>
-      {!c && <p className="text-[12px] text-gray-500">Company campaigns open here after review.{w && welcome ? " Welcome is open now." : " Start a campaign with your own product and brief."}</p>}
+      {!quiet && (
+        <button type="button" onClick={onForCompanies} className="campaign-owner-entry text-left rounded-3xl border border-gray-200 bg-white p-5 min-h-[110px]">
+          <span className="block text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">For teams & creators</span>
+          <span className="mt-2 block text-[21px] font-bold tracking-tight text-gray-950">Build a campaign ↗</span>
+          <span className="mt-2 block text-[14px] leading-relaxed text-gray-600">Product feedback, honest reviews, original stories. Build your campaign.</span>
+        </button>
+      )}
+      {!quiet && !c && <p className="text-[12px] text-gray-500">Company campaigns open here after review.{w && welcome ? " Welcome is open now." : " Start a campaign with your own product and brief."}</p>}
     </section>
   );
 }

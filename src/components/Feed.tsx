@@ -127,9 +127,9 @@ function StarterFavourBanner({
         <span className="text-sm font-bold text-gray-900 shrink-0">{rewardLabel(task)}</span>
       </div>
       <div className="px-4 pb-4 flex flex-col gap-2">
-        <Button fullWidth variant="primary" size="lg" onClick={onStart}>
+        <button type="button" onClick={onStart} className="w-full min-h-[44px] rounded-full bg-gray-100 text-gray-900 text-[14px] font-semibold active:scale-[0.98]">
           Start this favour
-        </Button>
+        </button>
         <button
           type="button"
           onClick={onDismiss}
@@ -1234,16 +1234,11 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
           navigations create confusion) — Polls and History are bottom-nav
           pages now; this screen is only the board. */}
       <div className="sticky top-0 z-10 bg-white border-b border-gray-100">
+        {/* One way to post on the first page (8 Oct 2026 redesign): "Post your own
+            app" at the top of the products. The old company form stays reachable
+            through the campaign stage and Onboarding; its header button is gone. */}
         <div className="flex items-center justify-between px-6 py-3">
           <h1 className="text-[18px] font-bold tracking-tight text-gray-900">FAVOUR</h1>
-          {userId && (
-            <button
-              onClick={() => { hapticTap(); setView("companies"); }}
-              className="bg-gray-900 text-white text-[13px] font-semibold px-4 py-2 rounded-full active:scale-95 transition-transform min-h-[36px]"
-            >
-              Create campaign
-            </button>
-          )}
         </div>
       </div>
 
@@ -1277,6 +1272,7 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
           onOpenCompany={(id) => { hapticTap(); setCompanyCampaignId(id); setView("company"); }}
           onForCompanies={() => { hapticTap(); setView("companies"); }}
           onOpenDemo={() => { hapticTap(); setView("demo"); }}
+          quiet
         />
       )}
 
@@ -1297,13 +1293,6 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
           proofs={missionProofs}
           onStart={() => startFavour(dailyMission)}
         />
-      )}
-
-      {tab === "available" && !loading && userId && (
-        <details className="mx-6 mt-4 rounded-2xl border border-gray-200 bg-white p-4">
-          <summary className="cursor-pointer text-[14px] font-semibold text-gray-900">Ask a one-off favour</summary>
-          <FeedComposer userId={userId} onReauth={onReauth} onPosted={() => fetchTasks()} onMore={() => { hapticTap(); setPostCampaignId(null); setView("post"); }} />
-        </details>
       )}
 
       {/* REVIEW FAVOURS, the ONE entry on the board (2026-10-05). There were two:
@@ -1337,43 +1326,9 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
         />
       )}
 
-      {/* The no-starter fallback must also stand down for the mission, or the screen
-          carries two "start here" cards again by a different route. Caught by
-          rendering the real board at 390 px rather than by reading the branch. */}
-      {tab === "available" && !loading && showFirstRunCoach && !starterFavour && !dailyMission && (
-        <div className="mx-6 mt-4 rounded-2xl border border-gray-200 bg-white px-4 py-4">
-          <p className="text-[13px] font-semibold text-gray-900">Pick any favour below</p>
-          <p className="text-[13px] text-gray-500 mt-1">Tap <span className="font-medium text-gray-700">Do it</span>, follow the steps, submit proof.</p>
-          <button type="button" onClick={dismissFirstRunCoach} className="mt-3 text-[12px] font-medium text-gray-400 hover:text-gray-700">Got it</button>
-        </div>
-      )}
-
-      {/* Animated hero - Tasks. The hook leads; the numbers support it. */}
-      {tab === "available" && !loading && (
-        <div className="px-6 pt-6 pb-2 animate-[fadeSlideIn_0.4s_ease-out]">
-          <p className="text-[19px] font-bold text-gray-900 tracking-tight leading-snug">
-            {showFirstRunCoach || dailyMission ? "Or browse more favours" : "Do a favour. Prove it. Get rewarded."}
-          </p>
-          {!showFirstRunCoach && (
-          <div className="flex items-center gap-4 mt-2">
-            <div className="flex items-baseline gap-1.5">
-              <span className="text-[15px] font-bold text-gray-900">{tasks.filter(t => t.status === "open").length}</span>
-              <span className="text-[12px] text-gray-400">open now</span>
-            </div>
-            <div className="w-1 h-1 rounded-full bg-gray-200" />
-            <div className="flex items-baseline gap-1.5">
-              <span className="text-[15px] font-bold text-gray-900">{tasks.filter(t => t.status === "completed").length}</span>
-              <span className="text-[12px] text-gray-400">verified</span>
-            </div>
-            <div className="w-1 h-1 rounded-full bg-gray-200" />
-            <div className="flex items-baseline gap-1.5">
-              <span className="text-[15px] font-bold text-gray-900">${tasks.filter(t => (t.onChainId != null || t.escrowTxHash) && t.settlementTx).reduce((s, t) => s + t.bountyUsdc, 0).toFixed(0)}</span>
-              <span className="text-[12px] text-gray-400">paid out</span>
-            </div>
-          </div>
-          )}
-        </div>
-      )}
+      {/* The "Pick any favour below" coach card and the hero line with three counts
+          stood here. Gone in the 8 Oct 2026 redesign: the first page explains nothing
+          above a tap target, and a count line is not a thing to do. */}
 
       {/* Liveness: real recent activity from logged events (renders nothing when
           there's none). Keeps a thin board feeling alive without fake data. */}
@@ -1386,11 +1341,7 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
       {/* Returning-user freshness: activity while you were away. */}
       {tab === "available" && !loading && freshReady && freshIds.size > 0 && (
         <div className="px-6 pb-1 animate-[fadeSlideIn_0.4s_ease-out]">
-          <div className="inline-flex items-center gap-2 rounded-full bg-white border border-gray-200 pl-2.5 pr-3 py-1.5">
-            <span className="relative flex w-2 h-2">
-              <span className="absolute inline-flex w-full h-full rounded-full bg-green-400 opacity-70 animate-ping" />
-              <span className="relative inline-flex w-2 h-2 rounded-full bg-green-500" />
-            </span>
+          <div className="inline-flex items-center gap-2 rounded-full bg-white border border-gray-200 px-3 py-1.5">
             <span className="text-[12px] font-medium text-gray-700">
               {freshIds.size} new since you were here
             </span>
@@ -1441,12 +1392,8 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
               feedTopRef.current?.scrollIntoView({ behavior: "smooth" });
               setNewTaskToast({ count: 0, visible: false });
             }}
-            className="w-full bg-white border border-gray-200 rounded-xl px-5 py-3 flex items-center justify-center gap-2 active:scale-[0.98] transition-transform shadow-sm"
+            className="w-full bg-white border border-gray-200 rounded-xl px-5 py-3 flex items-center justify-center gap-2 active:scale-[0.98] transition-transform min-h-[44px]"
           >
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-75" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
-            </span>
             <span className="text-sm font-medium text-gray-900">
               {newTaskToast.count} new {newTaskToast.count === 1 ? "favour" : "favours"} available
             </span>
@@ -1458,10 +1405,6 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
       {statusToast.visible && statusToast.message && (
         <div className="px-6 pt-4">
           <div className="w-full bg-gray-50 border border-gray-200 rounded-xl px-5 py-3 flex items-center gap-3">
-            <span className="relative flex h-2 w-2 shrink-0">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-warning-500 opacity-75" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-warning-600" />
-            </span>
             <span className={`text-sm font-medium ${statusToast.color}`}>
               {statusToast.message}
             </span>
@@ -1621,7 +1564,9 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
         ) : filtered.length === 0 ? (
           <>
             {tab === "available" ? (
-              <EmptyBoardTeach onPost={openQuickPost} />
+              // One line, no example and no second door: the product rows above are
+              // the thing to do, and "Post your own app" is the one way to post.
+              <p className="py-6 text-[15px] text-gray-500">No open favour today. Pick a product above.</p>
             ) : (
               <div className="flex flex-col items-center justify-center py-20 gap-2 animate-[fadeSlideIn_0.4s_ease-out]">
                 <p className="text-[28px] font-bold text-gray-200 tracking-tight">No history</p>
@@ -1680,6 +1625,14 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
 
           </div>
         )}
+            {/* A one-off favour is still asked here, under the list, quietly. The
+                one way to post a product is at the top of the page. */}
+            {tab === "available" && !loading && userId && (
+              <details className="mt-4 rounded-2xl border border-gray-200 bg-white p-4">
+                <summary className="cursor-pointer text-[14px] font-semibold text-gray-900 min-h-[44px] flex items-center">Ask a one-off favour</summary>
+                <FeedComposer userId={userId} onReauth={onReauth} onPosted={() => fetchTasks()} onMore={() => { hapticTap(); setPostCampaignId(null); setView("post"); }} />
+              </details>
+            )}
             {/* R16: campaigns that may not lead (unchecked company, thin brief, no
                 product, nothing open) sit below the favours, labelled. Demoted,
                 never dropped; only the operator's hidden state removes one. */}
@@ -1993,9 +1946,11 @@ function TaskCard({
       </div>
 
       {task.status === "open" && userId && !isOwnTask && (
+        // The quiet pill, not the dark button: the one dark button on the first
+        // page is on the lead product card (8 Oct 2026 redesign).
         <button
           onClick={(e) => { e.stopPropagation(); onSubmitProof(); }}
-          className="w-full bg-gray-900 text-white text-[13px] font-semibold py-3 rounded-xl active:scale-[0.98] transition-transform min-h-[44px]"
+          className="w-full bg-gray-100 text-gray-900 text-[14px] font-semibold py-3 rounded-full active:scale-[0.98] transition-transform min-h-[44px]"
         >
           Start favour
         </button>
@@ -2288,7 +2243,7 @@ function ReviewEntryCard({
         <button
           type="button"
           onClick={onReview}
-          className="mt-3 w-full min-h-[48px] rounded-full bg-gray-900 text-white text-[15px] font-semibold active:scale-[0.99]"
+          className="mt-3 w-full min-h-[44px] rounded-full bg-gray-100 text-gray-900 text-[14px] font-semibold active:scale-[0.98]"
         >
           {entry.cta}
         </button>
