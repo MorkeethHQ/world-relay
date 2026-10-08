@@ -2,8 +2,8 @@
 // friendliness ... Nice pictures, UX, UI from apps etc.").
 //
 // Give a product link, get what a campaign needs to look like its product: the
-// name, one line, the share picture, the icon and any screenshots the page itself
-// declares. The result is a PROPOSAL. Nothing here saves anything, and a campaign
+// name, one line, the share picture, the icon, the theme colour and any screenshots
+// the page itself declares. The result is a PROPOSAL. Nothing here saves anything, and a campaign
 // is never filled in for a company without the company seeing and confirming it
 // (campaign-draft-shape.ts: "Never filled in for a company").
 //
@@ -37,6 +37,7 @@ export type ProductProposal = {
   image: string | null; // the share picture
   icon: string | null;
   screenshots: string[]; // only what the page declares; never guessed
+  colour: string | null; // the page's own theme colour as "#rrggbb"; product-colour.ts decides if it may be used
 };
 
 export type FetchResult =
@@ -176,6 +177,7 @@ export function parseProductPage(html: string, pageUrl: string): ProductProposal
     image: picture(meta["og:image:secure_url"] || meta["og:image"] || meta["twitter:image"], base),
     icon,
     screenshots,
+    colour: /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test((meta["theme-color"] || "").trim()) ? meta["theme-color"].trim().toLowerCase() : null,
   };
 }
 

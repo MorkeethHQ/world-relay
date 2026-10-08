@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { FeaturedProduct } from "@/components/FeaturedProduct";
 import { ProductCampaignCard } from "@/components/ProductCampaignCard";
 import { campaignPicture } from "@/lib/campaign-picture";
 
@@ -30,6 +31,20 @@ export default function LookPage() {
         Development preview. The $20 budget is an example: no campaign is funded.
       </p>
       {cards.map((c) => <ProductCampaignCard key={c.name} {...c} />)}
+      <p className="rounded-xl border border-gray-200 bg-white p-3 text-xs text-gray-600">
+        Below: the featured screen, three times. Voting is not built, so the label is an example.
+        First the colour a maker could pick (an example, STRIVE declares none). Then Wave Radio in
+        the colour its own page declares. Then a green that is refused, so the screen stays ink.
+      </p>
+      {[
+        { ...cards[0], colour: "#4f46e5" },
+        { ...cards[2], colour: "#0d0d0d", picture: campaignPicture({ productName: "Wave Radio", productUrl: "https://waveradio-five.vercel.app", shareImage: "https://waveradio-five.vercel.app/og-card.png" }) },
+        { ...cards[1], colour: "#16a34a" },
+      ].map((c) => (
+        <div key={c.name} className="-mx-3" style={{ ["--nav" as string]: "55px" }}>
+          <FeaturedProduct label="Example: project of the week" {...c} />
+        </div>
+      ))}
     </main>
   );
 }

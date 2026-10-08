@@ -1,0 +1,73 @@
+/* The wall. Ink unless the product's own colour passed productColour. */
+/* --nav is the height of the app's bottom bar, which stays on this screen. */
+.wall {
+  --nav: 0px;
+  min-height: calc(100svh - var(--nav));
+  background: #030712;
+  display: flex;
+  justify-content: center;
+}
+.onDark { color: #fff; }
+.onLight { color: #111827; }
+.column {
+  width: 100%;
+  max-width: 28rem;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px 16px 16px;
+}
+.label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.72;
+}
+/* The app's UI kit resets native headings outside Tailwind's layers, so the size
+   and weight are set here, where they hold. */
+.name {
+  font-size: clamp(56px, 19vw, 88px);
+  font-weight: 800;
+  line-height: 0.92;
+  letter-spacing: -0.04em;
+  overflow-wrap: anywhere;
+}
+.line {
+  font-size: 16px;
+  line-height: 1.35;
+  max-width: 22rem;
+  opacity: 0.86;
+}
+/* The picture sits low, next to the sheet, and the space goes between the words
+   and the picture. A capture of the live product is tall, so it fills that space. */
+.frame {
+  margin: auto 0 0;
+  min-height: 0;
+}
+.fill {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  margin-top: 8px;
+}
+.frame img {
+  display: block;
+  width: 100%;
+  border-radius: 16px;
+  background: #fff;
+}
+.fill img {
+  flex: 1 1 0;
+  min-height: 0;
+  object-fit: cover;
+  object-position: top;
+}
+.credit {
+  margin-top: 6px;
+  font-size: 12px;
+  opacity: 0.6;
+}
+/* The sheet is always the last thing on the wall, with or without a picture. */
+.sheet { margin-top: auto; }
+.frame + .sheet { margin-top: 0; }

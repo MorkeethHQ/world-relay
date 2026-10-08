@@ -9,6 +9,7 @@ const PAGE = `<!doctype html><html><head>
 <meta property="og:site_name" content="Acme">
 <meta property="og:description" content="Track your   runs &amp; share them.">
 <meta property="og:image" content="/share.png">
+<meta name="theme-color" content="#5E6AD2">
 <link rel="icon" href="/favicon.ico">
 <link rel="apple-touch-icon" href="https://cdn.acme.test/touch.png">
 <script type="application/ld+json">{"@type":"SoftwareApplication","screenshot":["https://cdn.acme.test/1.png",{"url":"/2.png"},"http://cdn.acme.test/plain.png","javascript:alert(1)","https://cdn.acme.test/3.png","https://cdn.acme.test/4.png"]}</script>
@@ -34,6 +35,8 @@ describe("reading a product page", () => {
     expect(p.line).toBe("Track your runs & share them.");
     expect(p.image).toBe("https://acme.test/share.png");
     expect(p.icon).toBe("https://cdn.acme.test/touch.png"); // the touch icon beats the favicon
+    expect(p.colour).toBe("#5e6ad2");
+    expect(parseProductPage(`<meta name="theme-color" content="red; background:url(x)">`, "https://acme.test/").colour).toBeNull();
   });
 
   it("keeps only https screenshots, and at most the limit", () => {
@@ -43,7 +46,7 @@ describe("reading a product page", () => {
 
   it("invents nothing when the page declares nothing", () => {
     expect(parseProductPage("<html><body>hello</body></html>", "https://acme.test/")).toEqual({
-      url: "https://acme.test/", name: null, line: null, image: null, icon: null, screenshots: [],
+      url: "https://acme.test/", name: null, line: null, image: null, icon: null, screenshots: [], colour: null,
     });
   });
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { campaignPicture, hueOf, safePicture } from "@/lib/campaign-picture";
+import { campaignPicture, hueOf, pictureAllowsLaunch, safePicture } from "@/lib/campaign-picture";
 
 const all = {
   productName: "STRIVE", productUrl: "https://www.striverun.app/x",
@@ -40,5 +40,16 @@ describe("which picture a campaign shows", () => {
     }
     expect(campaignPicture({ ...all, makerImage: "javascript:alert(1)" }).source).toBe("capture");
     expect(campaignPicture({ ...all, icon: "http://cdn.test/i.png" }).icon).toBeNull();
+  });
+});
+
+describe("no picture, no launch", () => {
+  it("lets a campaign go live with any real picture, and never without one", () => {
+    expect(pictureAllowsLaunch(campaignPicture(all))).toBe(true);
+    expect(pictureAllowsLaunch(campaignPicture({ productName: "X", captureImage: all.captureImage }))).toBe(true);
+    expect(pictureAllowsLaunch(campaignPicture({ productName: "X", shareImage: all.shareImage }))).toBe(true);
+    expect(pictureAllowsLaunch(campaignPicture({ productName: "X", icon: all.icon }))).toBe(false); // an icon is not a picture
+    expect(pictureAllowsLaunch(campaignPicture({ productName: "X", shareImage: "http://plain.test/a.png" }))).toBe(false);
+    expect(pictureAllowsLaunch(campaignPicture({}))).toBe(false);
   });
 });

@@ -10,7 +10,18 @@ live review ("how we create, how we write, how we claim needs to be coherent").
 - **Money = green-600 ONLY.** Never used for anything that is not real escrowed USDC.
 - **Points = amber-600 ONLY** (canonical in RewardBadge).
 - **Danger/fail = red-600. Under-review = yellow-600.**
-- **NO blue. NO purple.** The info-* palette is banned from user surfaces.
+- **NO blue. NO purple** in FAVOUR's own parts. The info-* palette is banned from user surfaces.
+- **One exception, one door (Oscar, 8 Oct 2026).** The featured product screen (`FeaturedProduct.tsx`)
+  may be filled with the product's own colour, and that colour may be blue or purple. The colour must
+  pass `productColour()` in `src/lib/product-colour.ts`. That function refuses every saturated colour
+  with a hue from 15 to 195 degrees: orange, amber, yellow, lime, green, teal and cyan. Those hues
+  read as points or as money. A refused colour gives an ink screen. A gray passes at any hue.
+  The fill is one flat colour, never a gradient. Money and the primary button stay on a white sheet.
+  No other surface may take a colour from a campaign or a product. Why: on 3 Sep 2026 a points
+  campaign was painted green from its own colour and read as money. Guard: `product-colour.test.ts`.
+- **A product's picture is not FAVOUR's colour.** A campaign card (`ProductCampaignCard.tsx`) shows the
+  product's picture in a window. The parts around it obey every rule in this file.
+- **No picture, no launch.** A campaign goes live only when `pictureAllowsLaunch()` is true.
 - Live/pulse dots: green-400/500.
 
 ## Buttons

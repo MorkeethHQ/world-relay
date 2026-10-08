@@ -61,6 +61,15 @@ export function hueOf(name: string): number {
   return h;
 }
 
+/**
+ * NO PICTURE, NO LAUNCH (Oscar, 8 Oct 2026). A campaign may go live only when it
+ * has a real picture: the maker's, a capture or the share picture. No caller yet:
+ * the place that makes a draft live must ask this first.
+ */
+export function pictureAllowsLaunch(picture: CampaignPicture): boolean {
+  return picture.source !== "none" && picture.url !== null;
+}
+
 export function campaignPicture(input: CampaignPictureInput): CampaignPicture {
   const icon = safePicture(input.icon);
   const site = host(input.productUrl);
