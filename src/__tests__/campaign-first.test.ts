@@ -347,7 +347,8 @@ describe("the one Review favours entry", () => {
   it("uses real counts and says how to qualify", () => {
     const e = reviewEntryFor({ waiting: 3, flaggedWaiting: 2, record: { judged: 4, correct: 3 }, walletUser: true });
     expect(e.title).toBe("Review favours");
-    expect(e.line).toMatch(/^3 real proofs to judge/);
+    expect(e.line).toBe("3 real proofs to judge. A correct call earns a point.");
+    expect(e.line.length).toBeLessThan(60); // one short line on the card
     expect(e.flagged).toBe("2 flagged proofs wait for a human decision.");
     expect(e.qualification).toBe("4 of 10 graded calls, 75% right. 10 calls at 60% qualifies you to decide flagged proofs.");
   });
@@ -355,6 +356,7 @@ describe("the one Review favours entry", () => {
     const e = reviewEntryFor({ waiting: 0, flaggedWaiting: 0, record: null, walletUser: true });
     expect(e.flagged).toBeNull();
     expect(e.line).not.toMatch(/\d/);
+    expect(e.line.length).toBeLessThan(70);
   });
   it("tells a qualified reviewer, and a preview identity, the truth", () => {
     expect(reviewEntryFor({ waiting: 0, flaggedWaiting: 0, record: { judged: 12, correct: 10 }, walletUser: true }).qualification).toMatch(/Your decision counts/);

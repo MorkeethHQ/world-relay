@@ -3,6 +3,7 @@ import { getAuthedAddress } from "@/lib/session";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { fetchProduct, type FetchResult } from "@/lib/product-fetch";
 import { CANDIDATES, CANDIDATES_FROM, castVote, tallies, voteRows } from "@/lib/product-votes";
+import { recordStamp, stampForVote } from "@/lib/daily-hunt";
 
 // GET  /api/votes        -> the products people can vote on, with each count and
 //                           whether the caller voted. Private: it names "mine".
@@ -41,7 +42,13 @@ export async function POST(req: NextRequest) {
   }
   const body = (await req.json().catch(() => null)) as { id?: unknown } | null;
   const result = await castVote(body?.id, wallet);
-  if (result.ok) return NextResponse.json(result, { headers: priv });
+  if (result.ok) {
+    // The vote is also today's stamp on the hunt card (lib/daily-hunt.ts). It is
+    // written after the vote is safe; a stamp that fails leaves the vote standing
+    // and the answer says so, so the screen can draw the slot as not filled.
+    const stamp = await recordStamp(wallet, stampForVote(String(body?.id)), Date.now());
+    return NextResponse.json({ ...result, stamps: stamp.ok ? stamp.stamps : null }, { headers: priv });
+  }
   if (result.reason === "unknown_product") return NextResponse.json({ error: "That product is not on the list." }, { status: 404, headers: priv });
   if (result.reason === "wallet_required") return NextResponse.json({ error: "Open FAVOUR in World App to vote.", code: "wallet_required" }, { status: 403, headers: priv });
   return NextResponse.json({ error: "Your vote was not saved. Try again." }, { status: 503, headers: priv });

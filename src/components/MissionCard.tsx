@@ -23,7 +23,7 @@ export function DailyMissionCard({
 }) {
   const needsPhoto = PHOTO_CATEGORIES.includes(task.category);
   return (
-    <div className="mx-6 mt-4 rounded-3xl border border-gray-900 bg-white overflow-hidden animate-[fadeSlideIn_0.4s_ease-out]">
+    <div className="mx-4 mt-4 rounded-3xl border border-gray-900 bg-white overflow-hidden animate-[fadeSlideIn_0.4s_ease-out]">
       <div className="px-5 pt-4 pb-3">
         <div className="flex items-center justify-between">
           <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-900">Today&apos;s mission</span>
@@ -88,7 +88,7 @@ export function DailyMissionDoneCard({
 }) {
   const today = !at || at.slice(0, 10) === new Date().toISOString().slice(0, 10);
   return (
-    <div className="mx-6 mt-4 rounded-3xl border border-gray-200 bg-white overflow-hidden animate-[fadeSlideIn_0.4s_ease-out]">
+    <div className="mx-4 mt-4 rounded-3xl border border-gray-200 bg-white overflow-hidden animate-[fadeSlideIn_0.4s_ease-out]">
       <div className="px-5 pt-4 pb-4 flex gap-4 items-start">
         {proofImageUrl ? (
           <img src={proofImageUrl} alt="Your proof" loading="lazy" className="w-16 h-16 rounded-xl object-cover bg-gray-100 shrink-0" />

@@ -101,7 +101,9 @@ as the bottom nav, so a laptop shows one phone-wide column in the middle.
 
 | Screen | Becomes |
 |---|---|
-| First page, Campaigns tab (`Feed.tsx`) | A quiet header "FAVOUR" with no button. `TopProductsLive` on white. Below it, on the page colour: the campaign stage only when a Welcome or company campaign is open, the daily mission when one exists, the open favours as a plain list, and nothing that explains. No counts line, no coach card, no example favour, no "Build a campaign", no "Create campaign". The only dark button on the page is on the lead card; a favour's button is the quiet pill |
+| First tab, "Today" (`/`, `HuntLive`) | Today's hunt and nothing else (Oscar, 8 Oct 2026, night: "make it fun, gamified. a place you want to check the apps"). The bar: the word FAVOUR, and the person's points in amber only when signed in and known. The hunt card, ink: "Today's hunt", three stamp slots that fill with the app's own picture, one status line ("Check 3 apps", "2 of 3", "Card full. Back tomorrow."), and "Day N in a row" only when the server gave 2 or more. The rail: the apps sideways, each a tile with picture, name, one line and one grey pill. One quiet button, "Post your own app". No dark button on the tab: the sheet is its own screen and holds the one dark button |
+| The sheet (inside `Hunt.tsx`) | One tap on a tile slides it up: picture, name, one line, where it is from ("From Hacker News · 52 points" for an outside launch, the host otherwise). "Vote" as a quiet pill, only for an app that can take a vote. The dark button is the next step: "Review · N pts" to `/p/<id>` for a product on FAVOUR, "Open" in a new tab for the rest. It closes by the grab handle, a tap outside and Escape. One slow ease-out slide is the only movement; reduced motion gets none |
+| Favours tab (`/favours`, `Feed.tsx`) | Every block that left the first tab: header "Favours", the campaign stage when one is open, the daily mission, "Review favours" cut to a title, one line and its button, the open favours as a plain list, "Ask a one-off favour" as a quiet pill, the footer line. Nothing removed, only moved and restyled on one gutter of 16 |
 | Product screen `/p/<id>` | Back chevron, picture, title, line, maker caption, then a card with the ask, then one line with the points and the accepted count, then the primary button. "Open site" is a quiet pill |
 | Review write step | Heading "Your review", one line, the site pill, one field, the word count, the primary button |
 | Review results | One heading each: "Accepted" with the points large; "Not accepted" with the reason and "Change my review"; "Held" with the reason. One primary each, no second text |
@@ -134,11 +136,13 @@ Guard: `design-components.guard.test.ts` reads this table.
 
 | Component | Its one job | It must never |
 |---|---|---|
-| `TopProducts.tsx` | The top of the first page, in one piece: the heading "Today", one lead card, one kind of row for products on FAVOUR, products to vote for and three outside launches at most, and the door "Post your own app" | Mix FAVOUR's numbers with an outside source's numbers. Show a proposed pool as money. List a campaign that names no product. Show a count the server did not give. Use a second dark button. Explain an empty group with a sentence |
+| `Hunt.tsx` | The first tab, in one piece: the bar, the hunt card with three stamp slots and one status line, the rail of tiles, the door "Post your own app", and the sheet that one tap opens | Draw a stamp the server did not give. Show a streak under 2, or one for a signed-out person. Copy a number from a mock. Show a count the server did not give. Use a second dark button. Move anything but the sheet's one slide |
+| `HuntLive.tsx` | `Hunt` with its data from `/api/top`, `/api/votes`, `/api/hunt` and the person's own contribution record, and its loading and error states. The one line the first tab mounts | Draw a tile itself. Show points to a person the server does not know. Treat a failed read of the card as an empty card with a number on it |
+| `TopProducts.tsx` | The list form of the same apps, on `/look` only since the hunt: the heading "Today", one lead card, one kind of row, and the door "Post your own app" | Mix FAVOUR's numbers with an outside source's numbers. Show a proposed pool as money. List a campaign that names no product. Show a count the server did not give. Use a second dark button. Explain an empty group with a sentence |
 | `ProductCampaignCard.tsx` | One product in a list: its picture in a window, its name, one line, one button | Show green for a budget that is not funded. Use a picture from another product |
 | `FeaturedProduct.tsx` | One product fills the screen. Used for one product at a time | Take a colour except through `productColour()`. Use a gradient. Move |
 | `HunterCard.tsx` | The top of the profile: products reviewed, reviews accepted, products launched | Show a level, a rank or a badge with no rule behind it. Show a GitHub name that is not verified |
-| `TopProductsLive.tsx` | `TopProducts` with its data from `/api/top`, and its loading and error states. The one line a first page mounts | Draw a product row itself. Choose a link for the server to read |
+| `TopProductsLive.tsx` | `TopProducts` with its data from `/api/top`, and its loading and error states. Mounted on `/look` | Draw a product row itself. Choose a link for the server to read |
 | `ProductScreen.tsx` | Flow 1 on one route, `/p/<id>`: the product, the review, the result of the check | Show a result the check did not give. Name money. Call a held review accepted or refused |
 | `HunterCardLive.tsx` | `HunterCard` with the signed-in person's own data, at the top of the profile page | Ask for another person's record. Show zeros to a person who is not signed in |
 | `PostYourApp.tsx` | Flow 2 on one route, `/post`: paste the link, confirm what was read, write the ask, post | Publish what the maker did not see. Name money. Publish with no picture. Trust a picture link the server did not read, except the maker's own |
@@ -152,7 +156,7 @@ Rules for every component in the table:
 3. **Real data only.** A zero is shown as a zero. An example is shown only on `/look` and says "example".
 4. **Phone first.** It is designed at 390 px. A row is at least 72 px tall and is one tap target.
 5. **Text is short.** One heading, one line under it. No paragraph above the first thing a person can tap.
-6. **Nothing pulses, bounces or blinks.** One slow movement is allowed: the capture inside `ProductCampaignCard`.
+6. **Nothing pulses, bounces or blinks.** Two slow movements are allowed: the capture inside `ProductCampaignCard` (a keyframe), and the sheet's one slide up in `Hunt` (a transition, 280 ms ease-out, none under reduced motion).
 7. **The words come from the product.** FAVOUR does not write a product's name or line for a maker.
 
 ## Flows (strict)
@@ -161,14 +165,24 @@ A person who opens FAVOUR does one of two things. Every screen serves one of the
 
 **Flow 1: review a product and get paid.**
 
-1. First page: `TopProducts`. Tap a product.
+1. First tab: the hunt. Tap a tile; the sheet slides up. Tap "Review · N pts".
 2. Product screen: the picture, what the maker asks, the reward. One primary button.
 3. The person tries the product and writes the review.
-4. The check runs. Passed: the reward is shown at once. Not passed: the reason is shown, with what to change.
+4. The check runs. Passed: the reward is shown at once, and the product is a stamp on today's hunt card. Not passed: the reason is shown, with what to change.
+
+**Flow 0: check an app and collect a stamp.** (8 Oct 2026, night)
+
+1. First tab: the hunt card and the rail. Tap a tile; the sheet slides up.
+2. "Vote" (a vote candidate) or "Review · N pts" (a product on FAVOUR). "Open" alone fills no slot.
+3. A stamp is recorded on the server for the signed-in wallet, per UTC day, in `lib/daily-hunt.ts`
+   (`/api/hunt`; a vote stamps in `/api/votes`, a review stamps after the check passes and the server
+   finds the person's own accepted review in their record). It pays nothing. Three stamps fill the card.
+   "Day N in a row" is the server's count of UTC days with a stamp, ending today or yesterday, printed
+   only at 2 or more and never for a signed-out person.
 
 **Flow 2: post your own app.**
 
-1. First page: "Post your own app".
+1. First tab: "Post your own app".
 2. Paste the link. FAVOUR reads the page and proposes the name, the line, the picture and the colour.
 3. The maker confirms or changes each one. Nothing is published that the maker did not see.
 4. A picture is required (`pictureAllowsLaunch()`). Then publish.
@@ -193,6 +207,11 @@ Redesigned on 8 Oct 2026, at night, on the same branch: every product surface, t
 history and polls draw with `Kit.tsx`. The first page has one dark button and one way to post.
 `/post` shows the maker's app as the lead card on every step. The profile shows no level name.
 Seen at 390 and 1440 with stand-in data; screenshots in `~/.local/state/favour-look-20261008/redesign/`.
+
+Rebuilt later the same night as the hunt (idea D of `directions.html`, with the sheet of idea C), after
+Oscar refused the list twice ("no hierarchy", "make it fun, gamified"). The first tab is `HuntLive` on
+`/`; the favours board is `/favours`. The bottom nav is Today, Favours, Polls, History, Profile.
+Screenshots in `~/.local/state/favour-look-20261008/hunt/`.
 
 ## Change process
 

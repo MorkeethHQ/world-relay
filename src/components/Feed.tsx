@@ -62,7 +62,6 @@ import { PENDING_MISSION_KEY } from "@/components/Onboarding";
 import { trackFunnelEvent } from "@/lib/funnel-events";
 import { authorLabel } from "@/lib/authorship";
 import { CampaignStageCards, WelcomeCampaignView, DemoBrandView } from "@/components/CampaignFrontDoor";
-import { TopProductsLive } from "@/components/TopProductsLive";
 import { pickCampaignStage } from "@/lib/campaign-stage";
 import { isWelcomeSourceRow, WELCOME_CAMPAIGN_ID, type WelcomeStepView, type WelcomeView } from "@/lib/welcome-shape";
 import { reviewPathFor } from "@/lib/review-path";
@@ -1237,8 +1236,8 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
         {/* One way to post on the first page (8 Oct 2026 redesign): "Post your own
             app" at the top of the products. The old company form stays reachable
             through the campaign stage and Onboarding; its header button is gone. */}
-        <div className="flex items-center justify-between px-6 py-3">
-          <h1 className="text-[18px] font-bold tracking-tight text-gray-900">FAVOUR</h1>
+        <div className="flex items-center justify-between px-4 py-3">
+          <h1 className="text-[18px] font-bold tracking-tight text-gray-900">Favours</h1>
         </div>
       </div>
 
@@ -1253,16 +1252,8 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
           quieter "For companies" link. Shown only while a piece is open. */}
       {/* R19 (2026-10-05): the campaign stage leads. Welcome, then a real company
           campaign that may lead (R16 unchanged), then a labelled demo brand. */}
-      {/* THE FIRST THING ON THE FIRST PAGE (Oscar, 8 Oct 2026: "yes fix it i want to
-          see it in full"). DESIGN-SYSTEM.md, Flow 1, step 1: today's products and
-          the door "Post your own app". It reads its own data from /api/top and
-          opens /p/<id> and /post. */}
-      {tab === "available" && (
-        <div className="border-b border-gray-200 bg-white">
-          <TopProductsLive />
-        </div>
-      )}
-
+      {/* The products left this board on 8 Oct 2026, night: the first tab, /, is
+          today's hunt (`HuntLive`). This is the Favours tab, /favours. */}
       {tab === "available" && !loading && (
         <CampaignStageCards
           stage={campaignStage}
@@ -1333,14 +1324,14 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
       {/* Liveness: real recent activity from logged events (renders nothing when
           there's none). Keeps a thin board feeling alive without fake data. */}
       {tab === "available" && !loading && (
-        <div className="px-6">
+        <div className="px-4">
           <LivenessStrip refreshKey={tasks.length} />
         </div>
       )}
 
       {/* Returning-user freshness: activity while you were away. */}
       {tab === "available" && !loading && freshReady && freshIds.size > 0 && (
-        <div className="px-6 pb-1 animate-[fadeSlideIn_0.4s_ease-out]">
+        <div className="px-4 pb-1 animate-[fadeSlideIn_0.4s_ease-out]">
           <div className="inline-flex items-center gap-2 rounded-full bg-white border border-gray-200 px-3 py-1.5">
             <span className="text-[12px] font-medium text-gray-700">
               {freshIds.size} new since you were here
@@ -1386,7 +1377,7 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
 
       {/* New tasks toast */}
       {newTaskToast.visible && newTaskToast.count > 0 && (
-        <div className="px-6 pt-4">
+        <div className="px-4 pt-4">
           <button
             onClick={() => {
               feedTopRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -1403,7 +1394,7 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
 
       {/* Status change toast */}
       {statusToast.visible && statusToast.message && (
-        <div className="px-6 pt-4">
+        <div className="px-4 pt-4">
           <div className="w-full bg-gray-50 border border-gray-200 rounded-xl px-5 py-3 flex items-center gap-3">
             <span className={`text-sm font-medium ${statusToast.color}`}>
               {statusToast.message}
@@ -1426,7 +1417,7 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
         const hero = live[0];
         const second = live[1];
         return (
-          <div className="px-6 pt-4 flex flex-col gap-2.5">
+          <div className="px-4 pt-4 flex flex-col gap-2.5">
             {hero && (
               <FeaturedCampaignBanner
                 campaign={hero}
@@ -1459,19 +1450,19 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
 
       {/* Polls tab */}
       {tab === "polls" && (
-        <div className="flex-1 px-6 py-4">
+        <div className="flex-1 px-4 py-4">
           <PollsFeed userId={userId} />
         </div>
       )}
 
       {/* Content */}
       {tab !== "polls" && (
-      <div className="flex-1 px-6 py-4">
+      <div className="flex-1 px-4 py-4">
         {/* Section eyebrow — gives favours a little breathing room below the
             campaigns block and names the third section (Oscar Jul 9). */}
         {tab === "available" && !loading && (
           <div className="flex items-baseline justify-between pt-1 pb-3">
-            <h2 className="text-[13px] font-bold text-gray-900 tracking-tight">Favours</h2>
+            <h2 className="text-[13px] font-bold text-gray-900 tracking-tight">Open favours</h2>
             {/* R17: the list can be shorter than the open count (stale favours are
                 left out), so say how many are shown instead of implying all of them are. */}
             <span className="text-[11px] text-gray-400">{boardCountLabel(filtered.length, tasks.filter(t => t.status === "open").length)}</span>
@@ -1566,7 +1557,7 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
             {tab === "available" ? (
               // One line, no example and no second door: the product rows above are
               // the thing to do, and "Post your own app" is the one way to post.
-              <p className="py-6 text-[15px] text-gray-500">No open favour today. Pick a product above.</p>
+              <p className="py-6 text-[15px] text-gray-500">No open favour today.</p>
             ) : (
               <div className="flex flex-col items-center justify-center py-20 gap-2 animate-[fadeSlideIn_0.4s_ease-out]">
                 <p className="text-[28px] font-bold text-gray-200 tracking-tight">No history</p>
@@ -1628,8 +1619,8 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
             {/* A one-off favour is still asked here, under the list, quietly. The
                 one way to post a product is at the top of the page. */}
             {tab === "available" && !loading && userId && (
-              <details className="mt-4 rounded-2xl border border-gray-200 bg-white p-4">
-                <summary className="cursor-pointer text-[14px] font-semibold text-gray-900 min-h-[44px] flex items-center">Ask a one-off favour</summary>
+              <details className="mt-4">
+                <summary className="cursor-pointer list-none rounded-full bg-gray-100 text-[14px] font-semibold text-gray-900 min-h-[44px] flex items-center justify-center">Ask a one-off favour</summary>
                 <FeedComposer userId={userId} onReauth={onReauth} onPosted={() => fetchTasks()} onMore={() => { hapticTap(); setPostCampaignId(null); setView("post"); }} />
               </details>
             )}
@@ -2223,31 +2214,21 @@ function ReviewEntryCard({
   waiting: number;
   onReview: () => void;
 }) {
+  // Cut to a title, one line and the button on 8 Oct 2026 (Oscar: "not too much
+  // copy"). The proof picture, the flagged line and the qualification line are no
+  // longer drawn here; the deck itself says who may decide a flagged proof.
+  void proof; void waiting;
   return (
-    <section aria-label="Review favours" className="mx-6 mt-4 rounded-2xl border border-gray-200 bg-white overflow-hidden">
-      <div className="p-4 pb-3 flex items-start gap-3">
-        <div className="flex-1 min-w-0">
-          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-900">{entry.title}</p>
-          <p className="text-[14px] leading-snug text-gray-700 mt-1">{entry.line}</p>
-        </div>
-        {waiting > 0 && (
-          <span className="shrink-0 text-[12px] font-bold text-gray-900 bg-gray-100 rounded-full px-2.5 py-1">{waiting} waiting</span>
-        )}
-      </div>
-      {proof?.proofImageUrl && (
-        <img src={proof.proofImageUrl} alt="A finished proof" loading="lazy" className="w-full h-40 object-cover bg-gray-100" />
-      )}
-      <div className="p-4 pt-3">
-        {entry.flagged && <p className="text-[13px] font-semibold text-yellow-600">{entry.flagged}</p>}
-        <p className="text-[12px] text-gray-500 mt-1">{entry.qualification}</p>
-        <button
-          type="button"
-          onClick={onReview}
-          className="mt-3 w-full min-h-[44px] rounded-full bg-gray-100 text-gray-900 text-[14px] font-semibold active:scale-[0.98]"
-        >
-          {entry.cta}
-        </button>
-      </div>
+    <section aria-label="Review favours" className="mx-4 mt-4 rounded-[20px] border border-black/[0.07] bg-white p-4">
+      <p className="text-[16px] font-semibold text-gray-900">{entry.title}</p>
+      <p className="text-[13px] leading-[1.4] text-gray-400 mt-0.5">{entry.line}</p>
+      <button
+        type="button"
+        onClick={onReview}
+        className="mt-3 w-full min-h-[44px] rounded-full bg-gray-100 text-gray-900 text-[14px] font-semibold active:scale-[0.98]"
+      >
+        {entry.cta}
+      </button>
     </section>
   );
 }

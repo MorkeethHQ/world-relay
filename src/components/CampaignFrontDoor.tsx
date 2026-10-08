@@ -48,7 +48,7 @@ export function CampaignStageCards({ stage, welcome, signedIn, onOpenWelcome, on
   const c = stage.company;
   if (quiet && !c && !(w && welcome)) return null;
   return (
-    <section aria-label="Campaigns" className="campaign-stage flex flex-col gap-5 px-6 pt-5 pb-2">
+    <section aria-label="Campaigns" className="campaign-stage flex flex-col gap-5 px-4 pt-5 pb-2">
       <h2 className="campaign-section-title">{quiet ? "Campaigns" : "Explore campaigns"}</h2>
       {c && (
         <article className="overflow-hidden rounded-3xl border border-gray-200 bg-white">

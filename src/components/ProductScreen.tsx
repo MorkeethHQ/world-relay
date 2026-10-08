@@ -77,6 +77,12 @@ export function ProductScreen({ id }: { id: string }) {
     setBusy(false);
     if (result.kind === "problem") { setProblem(result); return; }
     setOutcome(result); go("result");
+    // A passed review is today's stamp on the hunt card. The server checks the
+    // claim against the person's own record before it writes anything, and a
+    // stamp that fails changes nothing here: the review stands on its own.
+    if (result.kind === "passed") {
+      fetch("/api/hunt", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ kind: "review", id }) }).catch(() => {});
+    }
   }
 
   const product = load.kind === "ready" ? load.product : null;

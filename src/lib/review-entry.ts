@@ -27,9 +27,11 @@ export function reviewEntryFor(input: {
   const pct = Math.round(JUDGE_MIN_ACCURACY * 100);
   return {
     title: "Review favours",
+    // One short line (8 Oct 2026: "not too much copy"). The card draws the title,
+    // this line and the button, and nothing else.
     line: waiting > 0
-      ? `${waiting} real ${waiting === 1 ? "proof" : "proofs"} to judge. Does the proof match what was asked? A correct call earns a point.`
-      : "Judge real proofs people sent. Does the proof match what was asked? When no new proof is waiting, a practice round is ready and earns nothing.",
+      ? `${waiting} real ${waiting === 1 ? "proof" : "proofs"} to judge. A correct call earns a point.`
+      : "Judge real proofs. A practice round is ready when none waits.",
     flagged: flaggedWaiting > 0
       ? `${flaggedWaiting} flagged ${flaggedWaiting === 1 ? "proof waits" : "proofs wait"} for a human decision.`
       : null,
