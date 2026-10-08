@@ -80,12 +80,14 @@ export function TopProducts({
   pictures,
   onOpen,
   onOpenLaunch,
+  onPost,
 }: {
   top: TopList;
   launches: Launch[];
   pictures: Record<string, CampaignPicture>;
   onOpen?: (id: string) => void;
   onOpenLaunch?: (launch: Launch) => void;
+  onPost?: () => void;
 }) {
   const source = launches[0]?.source;
   return (
@@ -133,11 +135,22 @@ export function TopProducts({
               />
             ))}
           </ol>
-          <p className="px-4 pb-4 pt-2 text-xs text-gray-400">
+          <p className="px-4 pb-2 pt-2 text-xs text-gray-400">
             {source}&apos;s points. Not on FAVOUR yet.
           </p>
         </>
       )}
+      {/* The second door (Oscar, 8 Oct 2026: "someone should post their own app").
+          Secondary shape: doing a review is the first thing on this screen. */}
+      <div className="px-4 pb-4 pt-1">
+        <button
+          type="button"
+          onClick={onPost}
+          className="min-h-[44px] w-full rounded-xl border border-gray-200 bg-white text-sm font-semibold text-gray-900 active:scale-[0.98]"
+        >
+          Post your own app
+        </button>
+      </div>
     </section>
   );
 }
