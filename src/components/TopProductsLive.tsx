@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { FirstPage } from "@/lib/first-page";
 import type { Launch } from "@/lib/launch-feed";
 import { TopProducts } from "./TopProducts";
+import { VoteList } from "./VoteList";
 
 // `TopProducts` WITH ITS DATA. DESIGN-SYSTEM.md, Flow 1, step 1. This is the one
 // line a first page needs: <TopProductsLive />. It reads /api/top and shows the
@@ -61,6 +62,7 @@ export function TopProductsLive({
   }
   const { top, launches, pictures } = state.page;
   return (
+    <>
     <TopProducts
       top={top}
       launches={launches}
@@ -69,5 +71,8 @@ export function TopProductsLive({
       onPost={onPost ?? (() => router.push("/post"))}
       onOpenLaunch={onOpenLaunch ?? ((l) => { window.open(l.url, "_blank", "noopener,noreferrer"); })}
     />
+    {/* Under the day's list: real products a person can vote for. */}
+    <VoteList />
+    </>
   );
 }

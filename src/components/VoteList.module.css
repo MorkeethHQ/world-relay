@@ -1,0 +1,27 @@
+/* The app's UI kit resets native headings and paragraph margins outside
+   Tailwind's layers, so they are set here. */
+.heading {
+  margin-top: 16px;
+  font-size: 18px;
+  font-weight: 700;
+}
+.note {
+  margin-top: 8px;
+}
+.thumb {
+  width: 56px;
+  height: 56px;
+  flex: none;
+  border-radius: 12px;
+  object-fit: cover;
+  object-position: top;
+  border: 1px solid rgb(0 0 0 / 0.07);
+}
+.initial {
+  display: grid;
+  place-items: center;
+  font-size: 26px;
+  font-weight: 800;
+  color: rgb(17 24 39 / 0.82);
+  background: #f3f4f6;
+}
