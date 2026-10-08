@@ -62,6 +62,7 @@ import { PENDING_MISSION_KEY } from "@/components/Onboarding";
 import { trackFunnelEvent } from "@/lib/funnel-events";
 import { authorLabel } from "@/lib/authorship";
 import { CampaignStageCards, WelcomeCampaignView, DemoBrandView } from "@/components/CampaignFrontDoor";
+import { TopProductsLive } from "@/components/TopProductsLive";
 import { pickCampaignStage } from "@/lib/campaign-stage";
 import { isWelcomeSourceRow, WELCOME_CAMPAIGN_ID, type WelcomeStepView, type WelcomeView } from "@/lib/welcome-shape";
 import { reviewPathFor } from "@/lib/review-path";
@@ -1257,6 +1258,16 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
           quieter "For companies" link. Shown only while a piece is open. */}
       {/* R19 (2026-10-05): the campaign stage leads. Welcome, then a real company
           campaign that may lead (R16 unchanged), then a labelled demo brand. */}
+      {/* THE FIRST THING ON THE FIRST PAGE (Oscar, 8 Oct 2026: "yes fix it i want to
+          see it in full"). DESIGN-SYSTEM.md, Flow 1, step 1: today's products and
+          the door "Post your own app". It reads its own data from /api/top and
+          opens /p/<id> and /post. */}
+      {tab === "available" && (
+        <div className="border-b border-gray-200 bg-white">
+          <TopProductsLive />
+        </div>
+      )}
+
       {tab === "available" && !loading && (
         <CampaignStageCards
           stage={campaignStage}

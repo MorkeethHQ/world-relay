@@ -110,8 +110,7 @@ Rules for both flows:
 Built on 8 Oct 2026, on a branch: flow 2 as `/post` with `/api/post-app`, and flow 1 as
 `TopProductsLive` (data from `/api/top`) and `/p/<id>` (data from `/api/product/<id>`, check by the
 existing `/api/verify-proof`). Flow 1 is three taps: the row, "Write your review", "Send for check".
-Not built yet: the mount of `TopProductsLive` on the first page. Until that mount, nothing links to
-`/post` or to `/p/<id>`.
+`TopProductsLive` is mounted at the top of the Campaigns tab in `Feed.tsx`.
 
 ## Change process
 

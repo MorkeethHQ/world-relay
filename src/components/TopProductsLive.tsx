@@ -14,7 +14,7 @@ import { TopProducts } from "./TopProducts";
 // app" opens /post. A tap on an outside launch opens the product's own page in a
 // new tab: the maker asked FAVOUR for nothing, so FAVOUR has no screen for it.
 //
-// Not mounted by any screen yet. `/look` shows it in development.
+// Mounted at the top of the Campaigns tab in Feed.tsx.
 
 type State = { kind: "loading" } | { kind: "error" } | { kind: "ready"; page: FirstPage };
 
