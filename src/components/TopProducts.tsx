@@ -32,7 +32,8 @@ type Lead =
   | { kind: "favour"; id: string; name: string; picture: string; points: number }
   | { kind: "vote"; row: VoteRow; picture: string };
 
-const host = (url: string) => new URL(url).hostname.replace(/^www\./, "");
+// A stored link may be malformed; that must not take the first page down.
+const host = (url: string) => { try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return ""; } };
 const voteWord = (row: VoteRow) => (row.mine ? (row.votes === null ? "Voted" : `Voted · ${row.votes}`) : "Vote");
 
 export function TopProducts({

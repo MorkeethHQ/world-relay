@@ -108,7 +108,7 @@ as the bottom nav, so a laptop shows one phone-wide column in the middle.
 | Post, step 1 | Heading "Post your own app", one line, one field, primary "Show my app". Under the field, an empty lead card frame that says where the app will appear |
 | Post, step 2 | The maker's app as the real lead card it will be on FAVOUR (same `LeadCard`), with the name editable under it, the picture link only when the page has none, the ask, the reward line, primary "Post for reviews" |
 | Post, step 3 | The same card with the pill "On FAVOUR", primary "See it on the first page", quiet "Post another" |
-| History | Header "History". Three counts in one white card. Then rows of results. Empty: one line |
+| History | Header "History". Three counts in one white card, only when the server gave all three. Then results in one card shape. Empty: one line |
 | Profile | One identity block (picture, name, sign-in level). `HunterCard`. Activity rows. Invite as a row. No level name, no rank, no streak flame (`ProofOfFavourCard` is not mounted here) |
 | Polls | Header through the kit. The feed is untouched |
 | Onboarding | The same five steps with product words and less text. Buttons stay the UI kit's (sign-in is not touched) |

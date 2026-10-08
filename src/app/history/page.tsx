@@ -69,7 +69,8 @@ export default function HistoryPage() {
     return () => { live = false; };
   }, []);
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [stats, setStats] = useState<Stats>({});
+  // null until the server answered: an unknown total is not shown as zero.
+  const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
   // The signed-in person's own results, from the session. Empty when signed out.
   const [reviews, setReviews] = useState<CompanyAppealHistory[]>([]);
@@ -85,7 +86,7 @@ export default function HistoryPage() {
         const d = await r.json(); if (!r.ok) throw new Error(d.error); setReviews(d.reviews || []);
       }).catch((e) => setReviewError(e.message || "Review history unavailable")),
       fetch("/api/history").then((r) => r.json()).then((d) => setTasks(d.tasks || [])),
-      fetch("/api/stats").then((r) => r.json()).then(setStats).catch(() => {}),
+      fetch("/api/stats").then((r) => (r.ok ? r.json() : null)).then((d) => { if (d && typeof d === "object" && !d.error) setStats(d); }).catch(() => {}),
       fetch("/api/me/contributions", { cache: "no-store" })
         .then((r) => (r.ok ? r.json() : null))
         .then((d) => setMine(Array.isArray(d?.contributions) ? d.contributions : []))
@@ -97,14 +98,25 @@ export default function HistoryPage() {
     <Screen label="History">
       <Heading size="display">History</Heading>
 
-      {/* Platform totals. Cached by the server; the points total covers closed favours only. */}
-      <Card label="FAVOUR totals">
-        <Counts items={[
-          { n: Math.round(stats.volume?.paidOutUsdc ?? 0), label: "USDC paid out" },
-          { n: Math.round(stats.volume?.pointsDistributed ?? 0), label: "points, closed favours" },
-          { n: stats.users?.reached ?? stats.users?.verified ?? 0, label: "people reached" },
-        ]} />
-      </Card>
+      {/* Platform totals. Cached by the server; the points total covers closed
+          favours only. Drawn only when the server gave all three numbers. */}
+      {(() => {
+        const paid = stats?.volume?.paidOutUsdc;
+        const points = stats?.volume?.pointsDistributed;
+        const people = stats?.users?.reached ?? stats?.users?.verified;
+        if (typeof paid !== "number" || typeof points !== "number" || typeof people !== "number") {
+          return loading ? null : <Note quiet>FAVOUR&apos;s totals could not be read.</Note>;
+        }
+        return (
+          <Card label="FAVOUR totals">
+            <Counts items={[
+              { n: Math.round(paid), label: "USDC paid out" },
+              { n: Math.round(points), label: "points, closed favours" },
+              { n: people, label: "people reached" },
+            ]} />
+          </Card>
+        );
+      })()}
 
       {reviewError && <Note kind="error">{reviewError}</Note>}
       {reviews.length > 0 && (

@@ -73,7 +73,9 @@ export default function ProfilePage() {
       <HunterCardLive name="Your work" />
 
       <Group>Your favours</Group>
-      {loading ? (
+      {!userId ? (
+        <Note quiet>Sign in to see your favours.</Note>
+      ) : loading ? (
         <Note kind="loading" quiet>Reading your favours…</Note>
       ) : myTasks.length === 0 ? (
         <Note quiet>No favour yet. Do one and it shows up here.</Note>

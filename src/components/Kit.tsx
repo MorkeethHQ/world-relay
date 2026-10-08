@@ -17,9 +17,10 @@ import styles from "./Kit.module.css";
 // knows what the number is. It holds no keyframe. A press scales to 0.98 and
 // nothing else moves.
 
-/** The page: one column, 512 wide, centred, on the page colour. */
+/** The page: one column, 512 wide, centred, on the page colour. A div, because
+ *  the app's layout already wraps every page in <main>. */
 export function Screen({ children, label }: { children: ReactNode; label?: string }) {
-  return <main className={styles.screen} aria-label={label}>{children}</main>;
+  return <div className={styles.screen} aria-label={label}>{children}</div>;
 }
 
 /** Back on the left, always the same corner. A title only when the screen needs one. */
