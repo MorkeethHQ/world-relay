@@ -1,59 +1,40 @@
-/* The app's UI kit resets native headings and the padding and margin of form
-   controls outside Tailwind's layers, so they are set here. */
-.title {
+/* The kit draws this screen. These few rules place what the kit does not know:
+   the site pill, the eyebrow in the ask card, the reward line and the big
+   points. Sizes are set here because the World UI kit resets native headings
+   and paragraph margins outside Tailwind's layers. */
+.siteRow {
   margin-top: 12px;
-  font-size: 24px;
-  font-weight: 800;
-  line-height: 1.15;
-  letter-spacing: -0.01em;
 }
-.heading {
-  margin-top: 4px;
-  font-size: 18px;
-  font-weight: 700;
-}
-.picture {
-  display: block;
-  width: 100%;
-  aspect-ratio: 1200 / 630;
-  object-fit: cover;
-  object-position: top;
-  border-radius: 16px;
-  border: 1px solid rgb(0 0 0 / 0.07);
-  background: #f9fafb;
-}
-.initial {
-  display: grid;
-  place-items: center;
-  font-size: 72px;
-  font-weight: 800;
-  color: rgb(17 24 39 / 0.82);
-}
-.area {
-  display: block;
-  margin-top: 4px;
-  padding: 10px 12px;
-}
-.area:focus-visible {
-  outline: 2px solid #111827;
-  outline-offset: 1px;
-}
-.action {
-  display: flex;
+.site {
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
+  min-height: 44px;
+  padding: 0 18px;
+  border-radius: 999px;
+  background: #f3f4f6;
+  color: #111827;
+  font-size: 14px;
+  font-weight: 600;
+}
+.site:active { transform: scale(0.98); }
+.eyebrow {
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #4b5563;
+}
+.reward {
   margin-top: 16px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #4b5563;
 }
 .won {
   margin-top: 8px;
-  font-size: 44px;
+  margin-bottom: 12px;
+  font-size: 56px;
   font-weight: 800;
   line-height: 1;
-}
-/* The UI kit also resets the margin of paragraphs, so the two gaps are set here. */
-.gap {
-  margin-top: 16px;
-}
-.gapSmall {
-  margin-top: 8px;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
 }

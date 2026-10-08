@@ -197,7 +197,7 @@
   object-position: center;
   background: #f3f4f6;
 }
-.wideIcon.initial { font-size: 64px; }
+.wideIcon.initial { display: grid; font-size: 64px; }
 .framed {
   border-radius: 16px;
   border: 1px solid rgb(0 0 0 / 0.07);

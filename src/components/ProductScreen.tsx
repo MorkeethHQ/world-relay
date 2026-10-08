@@ -1,18 +1,20 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { REVIEW_MAX, REVIEW_MIN_WORDS, reviewOutcome, reviewReason, reviewWords, type ProductView, type ReviewOutcome } from "@/lib/product-view";
+import { Body, Button, Caption, Card, Field, Heading, Note, Picture, Screen, TopBar } from "./Kit";
 import styles from "./ProductScreen.module.css";
 
 // THE PRODUCT SCREEN. DESIGN-SYSTEM.md, Flow 1, steps 2 to 4, on one route, /p/<id>.
+// Drawn with the one kit (8 Oct 2026 redesign).
 //
-//   1. product  the picture, what the maker asks, the reward. One button:
-//               "Write your review". A link opens the product, to try it.
+//   1. product  the picture, the name, the line, who made it. A card with what
+//               the maker asks. One line with the points and the count. One
+//               button: "Write your review". A quiet pill opens the product.
 //   2. write    the review, in the person's words, or a link to it. One button:
 //               "Send for check".
-//   3. result   accepted: the points, at once. Not accepted: the reason, and the
-//               way back to change it. Held: said plainly, nothing to resend.
+//   3. result   accepted: the points, large, at once. Not accepted: the reason,
+//               and the way back to change it. Held: said plainly, nothing to resend.
 //
 // Three taps from the first page to the result: the row, "Write your review",
 // "Send for check". The reward is points and the screen says so. No money is
@@ -25,9 +27,6 @@ import styles from "./ProductScreen.module.css";
 type Load = { kind: "loading" } | { kind: "missing" } | { kind: "error" } | { kind: "ready"; product: ProductView };
 type Step = "product" | "write" | "result";
 type Problem = Extract<ReviewOutcome, { kind: "problem" }>;
-
-const primary = "min-h-[44px] w-full rounded-xl bg-gray-900 px-5 text-sm font-semibold text-white active:scale-[0.98] disabled:opacity-60";
-const quiet = "inline-flex min-h-[44px] items-center text-sm font-semibold text-gray-900 underline underline-offset-2";
 
 async function sendReview(taskId: string, review: string): Promise<ReviewOutcome> {
   try {
@@ -82,61 +81,52 @@ export function ProductScreen({ id }: { id: string }) {
 
   const product = load.kind === "ready" ? load.product : null;
   const words = reviewWords(review);
+  const site = product && (
+    <a href={product.productUrl} target="_blank" rel="noopener noreferrer nofollow" className={styles.site}>Open {product.host}</a>
+  );
 
   return (
-    <main className="mx-auto min-h-screen max-w-md bg-gray-50 px-4 pb-28 pt-3 text-gray-900">
-      <Link href="/" className={quiet}>Back</Link>
+    <Screen label="Product">
+      {step === "product" ? <TopBar back="/" /> : <TopBar onBack={() => go(step === "write" ? "product" : "write")} title={product?.name} />}
 
-      {load.kind === "loading" && <p role="status" className="mt-6 text-sm text-gray-600">Reading this product…</p>}
+      {load.kind === "loading" && <Note kind="loading" quiet>Reading this product…</Note>}
 
       {load.kind === "missing" && (
         <section>
-          <h1 className={styles.heading}>This product is not on FAVOUR</h1>
-          <p className="mt-1 text-sm text-gray-600">It was removed, or the link is wrong.</p>
-          <Link href="/" className={`${styles.action} ${primary}`}>See today&apos;s products</Link>
+          <Heading line="It was removed, or the link is wrong.">This product is not on FAVOUR</Heading>
+          <Button href="/">See today&apos;s products</Button>
         </section>
       )}
 
       {load.kind === "error" && (
-        <section role="alert">
-          <h1 className={styles.heading}>This product could not be read</h1>
-          <button type="button" className={`min-h-[44px] ${styles.action} ${primary}`} onClick={() => { setLoad({ kind: "loading" }); setAttempt((n) => n + 1); }}>
-            Try again
-          </button>
+        <section>
+          <Heading>This product could not be read</Heading>
+          <Button onClick={() => { setLoad({ kind: "loading" }); setAttempt((n) => n + 1); }}>Try again</Button>
         </section>
       )}
 
       {product && step === "product" && (
         <section>
-          {product.picture.url ? (
-            // The product's own picture, from its own server. No referrer is sent.
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={product.picture.url} alt={`${product.name}: ${product.picture.credit.toLowerCase()}`} referrerPolicy="no-referrer" className={styles.picture} />
-          ) : (
-            <div className={`${styles.picture} ${styles.initial}`} style={{ backgroundColor: `hsl(${product.picture.fallback?.hue ?? 0} 12% 92%)` }} aria-hidden="true">
-              {product.picture.fallback?.initial ?? Array.from(product.name)[0]?.toUpperCase() ?? "?"}
-            </div>
-          )}
-          <h1 className={styles.title}>{product.name}</h1>
-          {product.line && <p className="mt-1 text-[15px] text-gray-600">{product.line}</p>}
-          <p className="mt-1 text-xs text-gray-400">{product.makerChecked ? `by ${product.company}` : "maker not checked"}</p>
-          <a href={product.productUrl} target="_blank" rel="noopener noreferrer nofollow" className={quiet}>Open {product.host}</a>
+          <Picture wide framed src={product.picture.url} name={product.name} initial={product.picture.fallback?.initial} hue={product.picture.fallback?.hue} alt={product.picture.url ? `${product.name}: ${product.picture.credit.toLowerCase()}` : ""} />
+          <Heading size="title" line={product.line ?? undefined}>{product.name}</Heading>
+          <Caption>{product.makerChecked ? `by ${product.company}` : "maker not checked"}</Caption>
+          <div className={styles.siteRow}>{site}</div>
 
-          <div className="mt-3 rounded-2xl border border-gray-200 bg-white p-4">
-            <p className="text-xs font-semibold text-gray-600">The maker asks</p>
-            <p className="mt-1 whitespace-pre-wrap break-words text-[15px] leading-6 text-gray-900">{product.ask}</p>
-          </div>
+          <Card label="The maker asks">
+            <p className={styles.eyebrow}>The maker asks</p>
+            <Body>{product.ask}</Body>
+          </Card>
 
-          <p className={`${styles.gap} text-sm text-gray-600`}>
-            <span className="font-semibold text-amber-600">{product.points} pts</span> for an accepted review.{" "}
-            <span className="tabular-nums">{product.accepted}{product.acceptedIsFloor ? "+" : ""}</span> accepted so far.
+          <p className={styles.reward}>
+            <span className="font-semibold text-amber-600">{product.points} pts</span> for an accepted review
+            {" · "}<span className="tabular-nums">{product.accepted}{product.acceptedIsFloor ? "+" : ""}</span> accepted so far
           </p>
           {product.reviewTaskId ? (
-            <button type="button" className={`min-h-[44px] ${styles.action} ${primary}`} onClick={() => go("write")}>Write your review</button>
+            <Button onClick={() => go("write")}>Write your review</Button>
           ) : (
             <>
-              <p className={`${styles.gap} text-sm text-gray-600`}>This product takes no review now.</p>
-              <Link href="/" className={`${styles.action} ${primary}`}>See today&apos;s products</Link>
+              <Note quiet>This product takes no review now.</Note>
+              <Button href="/">See today&apos;s products</Button>
             </>
           )}
         </section>
@@ -144,60 +134,54 @@ export function ProductScreen({ id }: { id: string }) {
 
       {product && step === "write" && (
         <section>
-          <h1 className={styles.heading}>Your review of {product.name}</h1>
-          <p className="mt-1 text-sm text-gray-600">Try it first. Say what worked and what did not.</p>
-          <a href={product.productUrl} target="_blank" rel="noopener noreferrer nofollow" className={quiet}>Open {product.host}</a>
-          <label className="mt-2 block text-xs font-semibold text-gray-600" htmlFor="product-review">Your review, or a link to it</label>
-          <textarea
-            id="product-review" value={review} onChange={(e) => { setReview(e.target.value); setProblem(null); }} maxLength={REVIEW_MAX} rows={7} disabled={busy}
-            className={`${styles.area} w-full rounded-xl border border-gray-200 bg-white text-[16px] text-gray-900`}
+          <Heading line="Try it first. Say what worked and what did not.">Your review</Heading>
+          <div className={styles.siteRow}>{site}</div>
+          <Field
+            id="product-review" label="Your review, or a link to it" area rows={7}
+            value={review} onChange={(v) => { setReview(v); setProblem(null); }} maxLength={REVIEW_MAX} disabled={busy}
+            count={words < REVIEW_MIN_WORDS ? `${words} of ${REVIEW_MIN_WORDS} words` : `${words} words`}
           />
-          <p className="mt-1 text-xs text-gray-400 tabular-nums">
-            {words < REVIEW_MIN_WORDS ? `${words} of ${REVIEW_MIN_WORDS} words` : `${words} words`}
-          </p>
-          <button type="button" className={`min-h-[44px] ${styles.action} ${primary}`} onClick={() => send(product)} disabled={busy}>
-            {busy ? "Checking your review…" : "Send for check"}
-          </button>
+          <Button onClick={() => send(product)} disabled={busy}>{busy ? "Checking your review…" : "Send for check"}</Button>
         </section>
       )}
 
       {product && step === "result" && outcome?.kind === "passed" && (
         <section>
-          <h1 className={styles.heading}>Accepted</h1>
+          <Heading>Accepted</Heading>
           {outcome.points !== null ? (
-            <p className={`${styles.won} tabular-nums text-amber-600`} aria-label={`${outcome.points} points`}>+{outcome.points} pts</p>
+            <p className={`${styles.won} text-amber-600`} aria-label={`${outcome.points} points`}>+{outcome.points} pts</p>
           ) : (
-            <p className="mt-1 text-sm text-gray-600">Your points are in History.</p>
+            <Note quiet>Your points are in History.</Note>
           )}
-          <p className={`${styles.gap} text-sm text-gray-600`}>Your review of {product.name} is with the maker.</p>
-          <Link href="/" className={`${styles.action} ${primary}`}>Review another product</Link>
+          <Caption>Your review of {product.name} is with the maker.</Caption>
+          <Button href="/">Review another product</Button>
         </section>
       )}
 
       {product && step === "result" && outcome?.kind === "not_passed" && (
         <section>
-          <h1 className={styles.heading}>Not accepted</h1>
-          <p className={`${styles.gapSmall} text-[15px] leading-6 text-gray-900`}>{outcome.reason}</p>
-          <p className={`${styles.gapSmall} text-sm text-gray-600`}>Your text is kept. Change it and send it again.</p>
-          <button type="button" className={`min-h-[44px] ${styles.action} ${primary}`} onClick={() => go("write")}>Change my review</button>
+          <Heading>Not accepted</Heading>
+          <Card><Body>{outcome.reason}</Body></Card>
+          <Caption>Your text is kept. Change it and send it again.</Caption>
+          <Button onClick={() => go("write")}>Change my review</Button>
         </section>
       )}
 
       {product && step === "result" && outcome?.kind === "held" && (
         <section>
-          <h1 className={styles.heading}>Held for a second look</h1>
-          <p className={`${styles.gapSmall} text-[15px] leading-6 text-gray-900`}>{outcome.reason}</p>
-          <p className={`${styles.gapSmall} text-sm text-gray-600`}>Your review is saved and waits for a second check. Do not send it again.</p>
-          <Link href="/" className={`${styles.action} ${primary}`}>Review another product</Link>
+          <Heading>Held for a second look</Heading>
+          <Card><Body>{outcome.reason}</Body></Card>
+          <Caption>Your review is saved and waits for a second check. Do not send it again.</Caption>
+          <Button href="/">Review another product</Button>
         </section>
       )}
 
       {problem && (
-        <div role="alert" className="mt-4 rounded-xl border border-gray-200 bg-white p-3 text-sm text-red-600">
+        <Note kind="error">
           {problem.text}
-          {problem.signIn && <Link href="/" className={`${quiet} mt-1 flex`}>Open FAVOUR and sign in</Link>}
-        </div>
+          {problem.signIn && <Button kind="quiet" wide href="/">Open FAVOUR and sign in</Button>}
+        </Note>
       )}
-    </main>
+    </Screen>
   );
 }

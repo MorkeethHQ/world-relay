@@ -106,7 +106,15 @@ describe("voting on the first page, and its route", () => {
   });
 
   it("keeps one dark button: every pill in a row is grey", () => {
-    expect((list.match(/bg-gray-900/g) || []).length).toBe(1);
+    // The dark pill is the kit's `tone="dark"` since the 8 Oct 2026 redesign, and
+    // only the lead card may ask for it. A row never names a tone of its own that is dark.
+    expect((list.match(/bg-gray-900/g) || []).length).toBe(0);
+    expect((list.match(/"dark"/g) || []).length).toBe(1);
+    expect(list).not.toMatch(/<Row[\s\S]*?pillTone=\{[^}]*"dark"/);
+  });
+
+  it("does not list a product to vote for that is already on FAVOUR", () => {
+    expect(list).toMatch(/!onFavour\.has\(v\.host\)/);
   });
 
   it("takes the voter from the session and the link from the fixed list", () => {

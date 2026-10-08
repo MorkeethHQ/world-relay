@@ -1,34 +1,8 @@
-/* The app's UI kit resets native headings outside Tailwind's layers, so the page
-   title is set here: 18 bold, as DESIGN-SYSTEM.md says. */
-.title {
-  margin-top: 4px;
-  font-size: 18px;
-  font-weight: 700;
-}
-.picture {
-  display: block;
-  width: 100%;
-  aspect-ratio: 1200 / 630;
-  object-fit: cover;
-  object-position: top;
-  border-bottom: 1px solid rgb(0 0 0 / 0.07);
-  background: #f9fafb;
-}
-/* The UI kit also resets the padding and margin of form controls, so they are set here. */
-.field {
-  display: block;
-  margin-top: 4px;
-  padding: 0 12px;
-}
-.area {
-  padding: 10px 12px;
-}
-.action {
-  display: block;
-  margin-top: 16px;
-}
-/* Focus is shown in ink. The browser's default ring is blue, and blue is not ours. */
-.field:focus-visible {
-  outline: 2px solid #111827;
-  outline-offset: 1px;
+/* The kit draws this screen. The one line it owns is the reward line, set here
+   because the World UI kit resets paragraph margins outside Tailwind's layers. */
+.terms {
+  margin-top: 20px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #4b5563;
 }

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { FirstPage } from "@/lib/first-page";
 import type { Launch } from "@/lib/launch-feed";
 import type { VoteRow } from "@/lib/product-votes";
+import { Note } from "./Kit";
 import { TopProducts } from "./TopProducts";
 
 // `TopProducts` WITH ITS DATA. DESIGN-SYSTEM.md, Flow 1, step 1. This is the one
@@ -77,19 +78,14 @@ export function TopProductsLive({
   }
 
   if (state.kind === "loading") {
-    return <p role="status" className="px-4 py-6 text-sm text-gray-600">Reading today&apos;s products…</p>;
+    return <div className="px-4 pb-4"><Note kind="loading" quiet>Reading today&apos;s products…</Note></div>;
   }
   if (state.kind === "error") {
     return (
-      <div role="alert" className="px-4 py-6">
-        <p className="text-sm text-gray-600">Today&apos;s products could not be read.</p>
-        <button
-          type="button"
-          className="mt-3 min-h-[44px] w-full rounded-full bg-gray-100 text-sm font-semibold text-gray-900 active:scale-[0.98]"
-          onClick={() => { setState({ kind: "loading" }); setAttempt((n) => n + 1); }}
-        >
-          Try again
-        </button>
+      <div className="px-4 pb-4">
+        <Note kind="error" action="Try again" onAction={() => { setState({ kind: "loading" }); setAttempt((n) => n + 1); }}>
+          Today&apos;s products could not be read.
+        </Note>
       </div>
     );
   }
