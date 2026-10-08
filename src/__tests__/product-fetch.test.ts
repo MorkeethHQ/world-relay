@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   MAX_BYTES, MAX_REDIRECTS, MAX_SCREENSHOTS,
   fetchProduct, fetchableUrl, isPrivateAddress, parseProductPage, type FetchDeps,
@@ -74,7 +74,13 @@ describe("which addresses and links are refused", () => {
       "100.64.0.1", "0.0.0.0", "224.0.0.1", "::1", "::", "fd00::1", "fe80::1", "::ffff:10.0.0.1", "64:ff9b::a00:1", "not-an-address"]) {
       expect(isPrivateAddress(a), a).toBe(true);
     }
-    for (const a of ["93.184.216.34", "8.8.8.8", "172.32.0.1", "2606:4700::1111", "::ffff:8.8.8.8"]) {
+    // The same private addresses in other written forms, and ranges that wrap or reach inside.
+    for (const a of ["::ffff:7f00:1", "::ffff:a9fe:a9fe", "0:0:0:0:0:ffff:7f00:1", "0:0:0:0:0:0:0:1", "0::1", "::127.0.0.1", "::7f00:1",
+      "::ffff:0:127.0.0.1", "2002:7f00:1::", "fec0::1", "100::1", "168.63.129.16", "2001:db8::1", "2001:0:1::1", "fe80::1%eth0",
+      "[::1]", "1::2::3", ":::", "12345::1", "::g", "1.2.3", "198.51.100.7", "203.0.113.7"]) {
+      expect(isPrivateAddress(a), a).toBe(true);
+    }
+    for (const a of ["93.184.216.34", "8.8.8.8", "172.32.0.1", "2606:4700::1111", "::ffff:8.8.8.8", "2606:4700:4700:0:0:0:0:1111", "2a00:1450:4001:81b::200e", "::ffff:808:808"]) {
       expect(isPrivateAddress(a), a).toBe(false);
     }
   });
@@ -82,7 +88,7 @@ describe("which addresses and links are refused", () => {
   it("accepts only a public-looking https link on the default port", () => {
     expect(fetchableUrl("acme.test/app")?.toString()).toBe("https://acme.test/app");
     for (const bad of ["http://acme.test", "https://acme.test:8443/", "https://localhost/", "https://10.0.0.1/",
-      "https://2130706433/", "https://user:pw@acme.test/", "https://printer.local/", "https://db.internal/", "ftp://acme.test", "", 7]) {
+      "https://2130706433/", "https://user:pw@acme.test/", "https://printer.local/", "https://db.internal/", "https://foo.localhost/", "https://acme.test./", "ftp://acme.test", "", 7]) {
       expect(fetchableUrl(bad), String(bad)).toBeNull();
     }
   });
@@ -169,6 +175,14 @@ describe("the fenced fetch", () => {
     expect([pdf.ok, gone.ok]).toEqual([false, false]);
   });
 
+  it("puts the lookup under the time limit too", async () => {
+    vi.useFakeTimers();
+    const slow = fetchProduct("https://acme.test/", deps({ resolve: () => new Promise(() => {}) }));
+    await vi.advanceTimersByTimeAsync(6000);
+    expect(await slow).toEqual({ ok: false, reason: "The site took too long to answer." });
+    vi.useRealTimers();
+  });
+
   it("never throws: a dead host and a failing request both come back as a reason", async () => {
     const dead = await fetchProduct("https://acme.test/", deps({ resolve: async () => { throw new Error("ENOTFOUND"); } }));
     const down = await fetchProduct("https://acme.test/", deps({ request: async () => { throw new Error("reset"); } }));
@@ -176,5 +190,42 @@ describe("the fenced fetch", () => {
     expect(dead).toEqual({ ok: false, reason: "The site could not be found." });
     expect(down.ok).toBe(false);
     expect(junk.ok).toBe(false);
+  });
+});
+
+// A hostile page must not hold the server's one thread. Each case is a page built
+// to make a careless pattern slow (measured before the fix: 48,000 bytes of "<" in
+// one meta tag took 3.4 seconds, and the cost grew four times per doubling).
+describe("a hostile page is read in bounded time", () => {
+  const size = MAX_BYTES;
+  const cases: Record<string, string> = {
+    "one meta full of <": `<meta name="description" content="${"<".repeat(size)}">`,
+    "one tag with no end": `<meta ${"a".repeat(size)}`,
+    "many meta starts": "<meta ".repeat(Math.floor(size / 6)),
+    "many meta starts, one end": "<meta ".repeat(Math.floor(size / 6)) + ">",
+    "many script starts": "<script type ".repeat(Math.floor(size / 13)),
+    "many open scripts": `<script type="application/ld+json">`.repeat(Math.floor(size / 35)),
+    "a title that never ends": `<title>${"<".repeat(size)}`,
+    "many attributes": `<meta ${"a=b ".repeat(Math.floor(size / 4))}>`,
+    "a huge list of screenshots": `<script type="application/ld+json">{"screenshot":[${Array(60000).fill('"https://a.test/1.png"').join(",")}]}</script>`,
+    "a deep structure": `<script type="application/ld+json">${"[".repeat(5000)}${"]".repeat(5000)}</script>`,
+  };
+  for (const [name, page] of Object.entries(cases)) {
+    it(name, () => {
+      const t = performance.now();
+      const p = parseProductPage(page.slice(0, size), "https://acme.test/");
+      expect(performance.now() - t, name).toBeLessThan(400);
+      expect(p.screenshots.length).toBeLessThanOrEqual(MAX_SCREENSHOTS);
+    });
+  }
+
+  it("still reads a normal page the same way after the bounds", () => {
+    const p = parseProductPage(PAGE, "https://acme.test/app");
+    expect(p).toMatchObject({ name: "Acme", line: "Track your runs & share them.", image: "https://acme.test/share.png", icon: "https://cdn.acme.test/touch.png", colour: "#5e6ad2" });
+    expect(p.screenshots).toHaveLength(MAX_SCREENSHOTS);
+  });
+
+  it("decodes an entity once: an escaped tag stays text and does not become a tag", () => {
+    expect(parseProductPage(`<meta name="description" content="&amp;lt;b&amp;gt; twice">`, "https://acme.test/").line).toBe("&lt;b&gt; twice");
   });
 });
