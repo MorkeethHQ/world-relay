@@ -189,6 +189,11 @@ Built on 8 Oct 2026, on a branch: flow 2 as `/post` with `/api/post-app`, and fl
 existing `/api/verify-proof`). Flow 1 is three taps: the row, "Write your review", "Send for check".
 `TopProductsLive` is mounted at the top of the Campaigns tab in `Feed.tsx`.
 
+Redesigned on 8 Oct 2026, at night, on the same branch: every product surface, the profile,
+history and polls draw with `Kit.tsx`. The first page has one dark button and one way to post.
+`/post` shows the maker's app as the lead card on every step. The profile shows no level name.
+Seen at 390 and 1440 with stand-in data; screenshots in `~/.local/state/favour-look-20261008/redesign/`.
+
 ## Change process
 
 New surface or restyle: check this doc first; if a rule must change, change the

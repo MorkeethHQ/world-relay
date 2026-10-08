@@ -261,16 +261,9 @@ export default function Home() {
           <h1 className="text-[56px] font-bold tracking-tight text-gray-900 leading-none animate-[countUp_0.6s_ease-out]">
             FAVOUR
           </h1>
-          <p className="text-[15px] text-gray-400 text-center leading-relaxed max-w-[240px] animate-[fadeSlideIn_0.5s_ease-out_0.2s_both]">
-            Real tasks. Real people.<br />Verified on-chain.
+          <p className="text-[15px] text-gray-400 text-center leading-relaxed max-w-[260px]">
+            Try new apps. Say what you think. Earn points.
           </p>
-          <div className="flex items-center gap-3 mt-2 animate-[fadeSlideIn_0.5s_ease-out_0.4s_both]">
-            <span className="text-[11px] text-gray-300 uppercase tracking-widest">Tasks</span>
-            <span className="w-1 h-1 rounded-full bg-gray-200" />
-            <span className="text-[11px] text-gray-300 uppercase tracking-widest">Polls</span>
-            <span className="w-1 h-1 rounded-full bg-gray-200" />
-            <span className="text-[11px] text-gray-300 uppercase tracking-widest">Campaigns</span>
-          </div>
         </div>
 
         <div className="w-full max-w-sm space-y-3 animate-[fadeSlideIn_0.5s_ease-out_0.5s_both]">
