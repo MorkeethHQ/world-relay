@@ -71,8 +71,8 @@ the one before. A heading has 8 to its line and 16 to the first thing to tap.
 field 14, pill 999.
 
 **Surfaces**: page #FAFAFA; card white with a 1px hairline `rgb(0 0 0 / 0.07)`, no shadow; a sheet
-is a white card that holds the one primary button; ink gray-900. No dark wall except the
-featured product's own colour (one door, above).
+is a white card that holds the one primary button; ink gray-900. Two dark surfaces only: the
+featured product's own colour (one door, above) and the hunt card on the first tab, which is ink.
 
 **Buttons**: one primary, dark, full width, 52 tall, radius 16, 16/600 white text, at most one
 per screen and it is the next step. One quiet pill, gray-100, 44 tall, 14/600 ink, for every
@@ -95,7 +95,8 @@ next) and error (one line, then "Try again" as a quiet pill). Nothing spins.
 **Width**: phone first at 390. Every screen is one column, `max-w-lg` (512), centred, the same
 as the bottom nav, so a laptop shows one phone-wide column in the middle.
 
-**Motion**: a press scales to 0.98. Nothing else moves.
+**Motion**: a press scales to 0.98. The sheet on the first tab slides up once, 280 ms ease-out, as a
+CSS transition, and not at all under reduced motion. Nothing else moves.
 
 ## Screens (what each one becomes)
 
