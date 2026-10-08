@@ -23,7 +23,7 @@ export const CANDIDATES: readonly Candidate[] = [
   { id: "wave-radio", url: "https://waveradio-five.vercel.app/" },
   { id: "oscar-labs", url: "https://oscar-labs.vercel.app/" },
 ];
-export const CANDIDATES_FROM = "From the maker of FAVOUR";
+export const CANDIDATES_FROM = "by the maker of FAVOUR";
 
 export const VOTE_PREFIX = "product:votes:";
 const WALLET = /^0x[0-9a-fA-F]{40}$/;

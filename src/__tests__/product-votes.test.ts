@@ -94,19 +94,19 @@ describe("the rows on the screen", () => {
   });
 });
 
-describe("VoteList and its route", () => {
-  const src = readFileSync(join(__dirname, "..", "components", "VoteList.tsx"), "utf8");
+describe("voting on the first page, and its route", () => {
+  const list = readFileSync(join(__dirname, "..", "components", "TopProducts.tsx"), "utf8");
+  const live = readFileSync(join(__dirname, "..", "components", "TopProductsLive.tsx"), "utf8");
   const route = readFileSync(join(__dirname, "..", "app", "api", "votes", "route.ts"), "utf8");
 
-  it("shows the server's count after a vote, and a dash for a count that is unknown", () => {
-    expect(src).toMatch(/votes: data\.votes, mine: true/);
-    expect(src).toMatch(/row\.votes \?\? "-"/);
-    expect(src).not.toMatch(/votes \+ 1|\(r\.votes \?\? 0\) \+/);
+  it("shows the server's count after a vote, and no number for a count that is unknown", () => {
+    expect(live).toMatch(/votes: data\.votes, mine: true/);
+    expect(live).not.toMatch(/votes \+ 1|\(r\.votes \?\? 0\) \+/);
+    expect(list).toMatch(/row\.votes === null \? "Voted"/);
   });
 
-  it("says a vote pays nothing, and names no money and no points", () => {
-    expect(src).toMatch(/A vote pays nothing/);
-    expect(src).not.toMatch(/USDC|>\$|pts|amber/);
+  it("keeps one dark button: every pill in a row is grey", () => {
+    expect((list.match(/bg-gray-900/g) || []).length).toBe(1);
   });
 
   it("takes the voter from the session and the link from the fixed list", () => {

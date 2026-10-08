@@ -93,7 +93,8 @@ describe("TopProducts shows only what is real", () => {
 
   it("names a company only when it is checked, and names the outside source on its number", () => {
     expect(src).toMatch(/row\.makerChecked \? `by \$\{row\.company\}` : "maker not checked"/);
-    expect(src).toMatch(/label="HN points"/);
+    expect(src).toMatch(/New on \{source\}/);
+    expect(src).toMatch(/`\$\{l\.score\} points · /);
   });
 
   it("shows points in amber and nothing that pulses or bounces", () => {

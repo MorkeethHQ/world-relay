@@ -1,30 +1,84 @@
-/* The app's UI kit resets native
-   headings outside Tailwind's layers, so heading sizes are set here. */
+/* The app's UI kit resets native headings and paragraph margins outside
+   Tailwind's layers, so sizes and gaps are set here. */
 .heading {
-  margin-top: 16px;
-  font-size: 18px;
-  font-weight: 700;
+  margin-top: 20px;
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
 }
-.thumb {
-  width: 56px;
-  height: 56px;
-  flex: none;
-  border-radius: 12px;
+.group {
+  margin-top: 22px;
+  margin-bottom: 2px;
+  font-size: 13px;
+  font-weight: 600;
+}
+/* The lead: one product, picture first. */
+.lead {
+  display: block;
+  margin-top: 14px;
+  overflow: hidden;
+  border-radius: 22px;
+  border: 1px solid rgb(0 0 0 / 0.07);
+  background: #fff;
+  text-align: left;
+}
+.leadPicture {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 10;
   object-fit: cover;
   object-position: top;
+  background: #f3f4f6;
+}
+.leadName {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+.leadLine {
+  margin-top: 2px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+/* A row: an icon, two lines, one quiet pill. */
+.icon {
+  width: 52px;
+  height: 52px;
+  flex: none;
+  border-radius: 13px;
+  object-fit: cover;
   border: 1px solid rgb(0 0 0 / 0.07);
+  background: #fff;
 }
 .initial {
   display: grid;
   place-items: center;
-  font-size: 26px;
+  font-size: 22px;
   font-weight: 800;
   color: rgb(17 24 39 / 0.82);
+  background: #f3f4f6;
 }
-.group {
-  margin-top: 14px;
-  font-size: 11px;
+.rule {
+  margin-left: 80px;
+  border-bottom: 1px solid rgb(0 0 0 / 0.07);
+}
+.pill {
+  min-width: 68px;
+  flex: none;
+  border-radius: 999px;
+  padding: 7px 14px;
+  text-align: center;
+  font-size: 14px;
   font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+}
+.post {
+  display: block;
+  margin-top: 22px;
+}
+.note {
+  margin-top: 10px;
 }

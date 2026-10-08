@@ -59,14 +59,13 @@ Guard: `design-components.guard.test.ts` reads this table.
 
 | Component | Its one job | It must never |
 |---|---|---|
-| `TopProducts.tsx` | The top of the first page: the day's products, three outside launches at most, and the door "Post your own app" | Mix FAVOUR's numbers with an outside source's numbers. Show a proposed pool as money. List a campaign that names no product |
+| `TopProducts.tsx` | The top of the first page, in one piece: the heading "Today", one lead card, one kind of row for products on FAVOUR, products to vote for and three outside launches at most, and the door "Post your own app" | Mix FAVOUR's numbers with an outside source's numbers. Show a proposed pool as money. List a campaign that names no product. Show a count the server did not give. Use a second dark button. Explain an empty group with a sentence |
 | `ProductCampaignCard.tsx` | One product in a list: its picture in a window, its name, one line, one button | Show green for a budget that is not funded. Use a picture from another product |
 | `FeaturedProduct.tsx` | One product fills the screen. Used for one product at a time | Take a colour except through `productColour()`. Use a gradient. Move |
 | `HunterCard.tsx` | The top of the profile: products reviewed, reviews accepted, products launched | Show a level, a rank or a badge with no rule behind it. Show a GitHub name that is not verified |
 | `TopProductsLive.tsx` | `TopProducts` with its data from `/api/top`, and its loading and error states. The one line a first page mounts | Draw a product row itself. Choose a link for the server to read |
 | `ProductScreen.tsx` | Flow 1 on one route, `/p/<id>`: the product, the review, the result of the check | Show a result the check did not give. Name money. Call a held review accepted or refused |
 | `HunterCardLive.tsx` | `HunterCard` with the signed-in person's own data, at the top of the profile page | Ask for another person's record. Show zeros to a person who is not signed in |
-| `VoteList.tsx` | A short list of real products a person can vote for. One tap on a row is one vote | Show a count the server did not give. Show a zero for a count that could not be read. Let one wallet vote twice. Call a product with votes a campaign |
 | `PostYourApp.tsx` | Flow 2 on one route, `/post`: paste the link, confirm what was read, write the ask, post | Publish what the maker did not see. Name money. Publish with no picture. Trust a picture link the server did not read, except the maker's own |
 | `RewardBadge.tsx` | Every reward amount, points or USDC | Be replaced by a hand-written amount |
 
