@@ -87,7 +87,9 @@ export function ProductScreen({ id }: { id: string }) {
 
   return (
     <Screen label="Product">
-      {step === "product" ? <TopBar back="/" /> : <TopBar onBack={() => go(step === "write" ? "product" : "write")} title={product?.name} />}
+      {/* Back from a result goes to the product, never to the text: a passed review
+          must not be sent twice, and "Change my review" is the way back for a refused one. */}
+      {step === "product" ? <TopBar back="/" /> : <TopBar onBack={() => go("product")} title={product?.name} />}
 
       {load.kind === "loading" && <Note kind="loading" quiet>Reading this product…</Note>}
 

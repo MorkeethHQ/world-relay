@@ -1,0 +1,89 @@
+/* The result card, the one shape for every result on this page. Sizes are set
+   here because the World UI kit resets paragraph margins outside Tailwind's layers. */
+.result {
+  display: block;
+  margin-top: 10px;
+  overflow: hidden;
+  border-radius: 20px;
+  border: 1px solid rgb(0 0 0 / 0.07);
+  background: #fff;
+  padding: 16px;
+}
+.resultMine { border-color: #111827; }
+.resultHead {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.resultText {
+  flex: 1;
+  min-width: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.4;
+  color: #111827;
+  overflow-wrap: anywhere;
+}
+.resultBadge {
+  flex: none;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #f3f4f6;
+  font-size: 12px;
+  font-weight: 700;
+  color: #111827;
+  font-variant-numeric: tabular-nums;
+}
+.resultImage {
+  display: block;
+  width: calc(100% + 32px);
+  height: 160px;
+  margin: 12px -16px 0;
+  object-fit: cover;
+  background: #f3f4f6;
+}
+.resultNote {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-top: 10px;
+  font-size: 14px;
+  line-height: 1.45;
+  color: #4b5563;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.resultMeta {
+  margin-top: 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  color: #9ca3af;
+}
+.verdict {
+  margin-top: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+}
+.details { margin-top: 10px; font-size: 14px; color: #4b5563; }
+.details summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; }
+.reasons { margin-top: 8px; padding-left: 20px; list-style: decimal; }
+.reasons li { margin-top: 6px; }
+.link {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  margin-top: 4px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}

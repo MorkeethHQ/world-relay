@@ -3,9 +3,10 @@
 import { useState, useEffect } from "react";
 import { PollsFeed } from "@/components/Polls";
 import { PredictionsSection } from "@/components/Predictions";
+import { Heading, Screen } from "@/components/Kit";
 
 // Polls as a first-class bottom-nav page (Oscar Jul 5: one navigation, not
-// two). The Feed keeps its inline poll cards; this is the full surface.
+// two). The header is the kit's; the feed itself is untouched (8 Oct 2026).
 export default function PollsPage() {
   const [userId, setUserId] = useState<string | null>(null);
 
@@ -14,20 +15,18 @@ export default function PollsPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gray-50 max-w-lg mx-auto">
-      <div className="sticky top-0 z-10 bg-white border-b border-gray-100 px-6 py-3">
-        <h1 className="text-[18px] font-bold tracking-tight text-gray-900">Polls</h1>
-      </div>
-      <div className="px-6 py-4 pb-28 flex flex-col gap-4">
+    <Screen label="Polls">
+      <Heading size="display">Polls</Heading>
+      <div className="mt-4 flex flex-col gap-4">
         {/* Open questions first. Closed polls and resolved predictions are
             history, each behind its own control (2026-10-05). */}
         <PollsFeed userId={userId} />
-        <details className="rounded-2xl border border-gray-200 p-4">
-          <summary className="cursor-pointer text-[13px] text-gray-500">Prediction archive & existing stakes</summary>
+        <details className="rounded-2xl border border-gray-200 bg-white p-4">
+          <summary className="cursor-pointer text-[13px] text-gray-500 min-h-[44px] flex items-center">Prediction archive and existing stakes</summary>
           <p className="mt-3 mb-4 text-[13px] text-gray-600">Predictions have closed. Past results and existing stakes stay available here.</p>
           <PredictionsSection userId={userId} />
         </details>
       </div>
-    </div>
+    </Screen>
   );
 }

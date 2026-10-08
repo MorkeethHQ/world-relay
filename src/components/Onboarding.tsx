@@ -273,6 +273,11 @@ export function Onboarding({
     return () => window.removeEventListener("favour:nav-reselect", onReselect);
   }, [isVerifying]);
 
+  // The stage the first screen leads with. Shown only when a campaign is open on
+  // it; with nothing open, the plain intro shows instead.
+  const stage = pickCampaignStage({ welcome: welcomeView, company: pieceToDo });
+  const stageShown = !!(stage.company || (stage.welcome && welcomeView));
+
   const next = () => setStep((s) => Math.min(s + 1, TOTAL_STEPS - 1));
   const back = () => setStep((s) => Math.max(s - 1, 0));
 
@@ -293,12 +298,12 @@ export function Onboarding({
   // claim "identity verified" / "unique human".
   const successBody =
     verificationLevel === "orb"
-      ? "You are verified as a unique human. Discover favours to complete and polls to vote on."
+      ? "You are verified as a unique human. The day's products are on the first page."
       : verificationLevel === "device"
-      ? "Your device is verified. Discover favours to complete and polls to vote on."
+      ? "Your device is verified. The day's products are on the first page."
       : verificationLevel === "wallet"
-      ? "You are signed in with your World wallet. Discover favours to complete and polls to vote on."
-      : "You are set up in preview mode. Pick an open favour below, tap Do it, and submit proof to earn points.";
+      ? "You are signed in with your World wallet. The day's products are on the first page."
+      : "You are in preview mode. The day's products are on the first page.";
 
   return (
     // Stops ABOVE the bottom nav instead of covering it (2026-09-21). This was
@@ -352,46 +357,40 @@ export function Onboarding({
             <DemoBrandView onBack={() => setDemoOpen(false)} onPlan={() => { setDemoOpen(false); startLaunch(); }} onWelcome={welcomeView ? startWelcome : null} />
           </div>
         )}
-        {step === 0 && !demoOpen && (mission || welcomeView) && (
+        {step === 0 && !demoOpen && (mission || stageShown) && (
           <div className="flex flex-col gap-3 -mx-7">
             <div className="px-7">
               <p className="text-[18px] font-bold tracking-tight text-gray-900">FAVOUR</p>
-              <p className="text-[14px] text-gray-500 mt-1">Campaigns made of small, useful contributions.</p>
+              <p className="text-[14px] text-gray-500 mt-1">Try new apps. Say what you think. Earn points.</p>
             </div>
             <div className="-mt-1">
+              {/* Quiet (8 Oct 2026 redesign): the campaigns themselves, not the
+                  "Build a campaign" entry. The one way to post is "Post your own
+                  app" on the first page, after sign-in. */}
               <CampaignStageCards
-                stage={pickCampaignStage({ welcome: welcomeView, company: pieceToDo })}
+                stage={stage}
                 welcome={welcomeView}
                 signedIn={false}
                 onOpenWelcome={startWelcome}
                 onOpenCompany={(id) => startPiece(id)}
                 onForCompanies={() => { if (!forCompanies) trackFunnelEvent("for_companies_tapped"); setForCompanies((v) => !v); }}
                 onOpenDemo={() => { trackFunnelEvent("demo_brand_tapped"); setDemoOpen(true); }}
+                quiet
               />
               {forCompanies && <CompanyVisionCard onLaunch={startLaunch} launchLabel="Plan a campaign" />}
             </div>
-            {!welcomeView && mission && <DailyMissionCard task={mission} proofs={proofs} onStart={startMission} />}
+            {!stageShown && mission && <DailyMissionCard task={mission} proofs={proofs} onStart={startMission} />}
           </div>
         )}
 
-        {step === 0 && !demoOpen && !mission && !welcomeView && (
+        {step === 0 && !demoOpen && !mission && !stageShown && (
           <div className="flex flex-col items-center text-center gap-5">
             <h1 className="text-[64px] font-bold tracking-tight text-gray-900 leading-none animate-[countUp_0.6s_ease-out]">
               FAVOUR
             </h1>
             <Typography variant="body" level={2} className="text-gray-500 max-w-[260px]">
-              Pick a small task, do it, send proof, earn points.
+              Try new apps. Say what you think. Earn points.
             </Typography>
-            <Typography variant="body" level={4} className="text-gray-400 max-w-[280px] mt-1">
-              A favour is a quick real-world ask — like photographing a shelf or sharing an honest opinion.
-            </Typography>
-            <div className="flex items-center gap-3 mt-1">
-              <span className="text-[11px] text-gray-300 uppercase tracking-widest">Favours</span>
-              <span className="w-1 h-1 rounded-full bg-gray-200" />
-              <span className="text-[11px] text-gray-300 uppercase tracking-widest">Polls</span>
-              <span className="w-1 h-1 rounded-full bg-gray-200" />
-              <span className="text-[11px] text-gray-300 uppercase tracking-widest">Points</span>
-            </div>
           </div>
         )}
 
@@ -402,14 +401,14 @@ export function Onboarding({
                 How it works
               </Typography>
               <Typography variant="body" level={3} className="text-gray-500">
-                Someone posts a small task. You do it, send proof, earn points when it passes.
+                A maker posts an app. You try it and write a review.
               </Typography>
             </div>
             <div className="flex flex-col gap-3">
               {[
-                { icon: <IconHandshake />, title: "Pick a favour", body: "Choose something quick from the board — opinions and check-ins are easiest." },
-                { icon: <IconPoll />, title: "Do it & send proof", body: "Follow the steps, write an answer or snap a photo, and submit." },
-                { icon: <IconCoin />, title: "Earn points", body: "AI checks your proof. Pass = points land in your account." },
+                { icon: <IconHandshake />, title: "Pick a product", body: "The day's products are on the first page." },
+                { icon: <IconPoll />, title: "Try it, write your review", body: "In your own words. Twenty words is enough." },
+                { icon: <IconCoin />, title: "The check runs", body: "Accepted: the points land at once." },
               ].map((row, i) => (
                 <div
                   key={row.title}
@@ -437,7 +436,7 @@ export function Onboarding({
                 A few ground rules
               </Typography>
               <Typography variant="body" level={3} className="text-gray-500 max-w-[300px]">
-                By continuing you agree to complete favours honestly, treat other people with respect, and follow the community guidelines. Rewards depend on genuine, verified work.
+                Review honestly. Treat people with respect. Rewards depend on genuine, checked work.
               </Typography>
             </div>
             <div className="flex flex-col items-center gap-2">
@@ -471,8 +470,8 @@ export function Onboarding({
               </Typography>
               <Typography variant="body" level={3} className="text-gray-500 max-w-[300px]">
                 {isInWorldApp
-                  ? "Sign in with your World wallet to start using FAVOUR. This links your account so you can complete favours and earn rewards."
-                  : "Try FAVOUR in your browser — no wallet needed. You can complete points favours and post your own. World App unlocks USDC payouts."}
+                  ? "Your World wallet is your account. Reviews and points are kept on it."
+                  : "Try FAVOUR in your browser, no wallet needed. World App unlocks payouts."}
               </Typography>
             </div>
           </div>
@@ -518,7 +517,7 @@ export function Onboarding({
             {!isInWorldApp && !authError && (
               <>
                 <p className="text-[12px] text-gray-400 text-center mt-3">
-                  Preview mode — points favours work; USDC needs World App
+                  Preview mode: points work, USDC needs World App
                 </p>
                 <div className="flex items-center gap-3 my-4" aria-hidden="true">
                   <span className="h-px flex-1 bg-gray-200" />
