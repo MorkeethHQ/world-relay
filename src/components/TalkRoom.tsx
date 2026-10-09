@@ -31,7 +31,7 @@ type Author = { kind: "person" | "agent"; name: string; picture: string | null }
 export type RoomMessage = { id: string; author: Author; text: string; ask: boolean; at: string; taken: { name: string } | null };
 type Room = { id: string; name: string; picture: { url: string | null; icon: string | null }; colour: string | null; kind: "favour" | "vote" | "launch" };
 type Read = { room: Room; messages: RoomMessage[]; pinned: RoomMessage | null; count: number; signedIn: boolean; you: string | null };
-type MakerAsk = { company: string; ask: string; points: number; reviewTaskId: string | null };
+type MakerAsk = { company: string; ask: string; points: number; reviewTaskId: string };
 type State = { kind: "loading" } | { kind: "error" } | { kind: "missing" } | { kind: "ready"; data: Read; readAt: number };
 
 const SIGN_IN_LINE = "Open FAVOUR in World App to write here.";
@@ -97,8 +97,10 @@ export function TalkRoom({ id }: { id: string }) {
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => {
         const p = d?.project;
+        // Funds only: a review the app takes now, with points above zero. Else no card.
         if (!live || !p || p.kind !== "favour" || !p.product || typeof p.product.ask !== "string" || typeof p.product.points !== "number") return;
-        setMaker({ company: String(p.product.company || ""), ask: p.product.ask, points: p.product.points, reviewTaskId: p.product.reviewTaskId ?? null });
+        if (!(p.product.points > 0) || typeof p.product.reviewTaskId !== "string" || !p.product.reviewTaskId) return;
+        setMaker({ company: String(p.product.company || ""), ask: p.product.ask, points: p.product.points, reviewTaskId: p.product.reviewTaskId });
       })
       .catch(() => {});
     return () => { live = false; };
@@ -203,13 +205,9 @@ export function TalkRoom({ id }: { id: string }) {
         <div className={styles.pinned} aria-label="The maker's ask">
           <div className={styles.pinnedWho}><span>{makerAsk.company ? `${makerAsk.company} asks` : "The maker asks"}</span></div>
           <p className={styles.pinnedLine}>{makerAsk.ask}</p>
-          {makerAsk.reviewTaskId ? (
-            <button type="button" className={`min-h-[44px] ${styles.pinnedButton}`} onClick={() => router.push(`/p/${encodeURIComponent(room.id)}`)}>
-              Review · <span className="text-amber-600">{makerAsk.points} pts</span>
-            </button>
-          ) : (
-            <p className={styles.pinnedTaken}>Not taking reviews right now.</p>
-          )}
+          <button type="button" className={`min-h-[44px] ${styles.pinnedButton}`} onClick={() => router.push(`/p/${encodeURIComponent(room.id)}`)}>
+            Review · <span className="text-amber-600">{makerAsk.points} pts</span>
+          </button>
         </div>
       )}
 
