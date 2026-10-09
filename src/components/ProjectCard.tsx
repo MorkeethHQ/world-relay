@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Button, Chip } from "@worldcoin/mini-apps-ui-kit-react";
 import { actionOf, contractLine, sourceText, type FeedCard } from "@/lib/feed";
 import { TalkPicture } from "@/components/TalkPicture";
@@ -26,6 +27,9 @@ export function ProjectCard({ card, stamped, voting = false, onOpen, onReview, o
   onContract: (card: FeedCard) => void;
 }) {
   const act = actionOf(card);
+  // A cover is the share picture or nothing: a link that failed to load drops the
+  // cover, so the card gets shorter instead of a tall box with a letter in it.
+  const [coverGone, setCoverGone] = useState(false);
   const voted = card.kind === "vote" && (card.mine || stamped);
   const pill = (
     act?.kind === "review" ? (
@@ -45,13 +49,14 @@ export function ProjectCard({ card, stamped, voting = false, onOpen, onReview, o
   return (
     <article className={styles.card} aria-label={card.name}>
       <button type="button" className={`min-h-[44px] ${styles.open}`} onClick={() => onOpen(card)} aria-label={`${card.name}: open`}>
-        {card.picture.url && (
+        {card.picture.url && !coverGone && (
           <span className={styles.cover}>
-            <TalkPicture name={card.name} url={card.picture.url} icon={card.picture.icon} colour={null} shape="cover" />
+            <TalkPicture name={card.name} url={card.picture.url} icon={card.picture.icon} colour={null} shape="cover" onStep={(k) => { if (k !== "picture") setCoverGone(true); }} />
           </span>
         )}
         <span className={styles.name}>
-          <TalkPicture name={card.name} url={card.picture.url} icon={card.picture.icon} colour={null} shape="squareSmall" />
+          {/* the small square takes the icon or the letter, never a strip cut from the wide picture */}
+          <TalkPicture name={card.name} url={null} icon={card.picture.icon} colour={null} shape="squareSmall" />
           <b>{card.name}</b>
           <Chip label={sourceText(card.source)} />
         </span>

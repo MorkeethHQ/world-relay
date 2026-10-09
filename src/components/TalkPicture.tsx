@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { inkOn, pictureSteps } from "@/lib/content-rules";
 import styles from "./Talk.module.css";
 
@@ -16,12 +16,14 @@ import styles from "./Talk.module.css";
 // "tile" (9 Oct 2026, the Hall): a square that fills its column, for a podium.
 export type PictureShape = "square" | "squareSmall" | "wide" | "cover" | "tile";
 
-export function TalkPicture({ name, url, icon, colour, shape = "square" }: {
+export function TalkPicture({ name, url, icon, colour, shape = "square", onStep }: {
   name: string;
   url: string | null;
   icon: string | null;
   colour: string | null;
   shape?: PictureShape;
+  /** Told which step of the chain is drawn, so a caller may drop a cover that fell to the icon or the letter. */
+  onStep?: (kind: "picture" | "icon" | "initial") => void;
 }) {
   const chain = pictureSteps({ url, icon, colour, name });
   // A share picture is wide. In a square it is cut to a strip of letters, so a
@@ -32,6 +34,8 @@ export function TalkPicture({ name, url, icon, colour, shape = "square" }: {
   const [failed, setFailed] = useState<string[]>([]);
   const step = steps.find((s) => s.kind === "initial" || !failed.includes(s.url)) ?? steps[steps.length - 1];
   const next = () => { if (step.kind !== "initial") setFailed((f) => [...f, step.url]); };
+  const kind = step.kind;
+  useEffect(() => { onStep?.(kind); }, [kind, onStep]);
   const cls = `${styles.frame} ${styles[shape]}`;
 
   if (step.kind === "picture") {

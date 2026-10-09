@@ -75,7 +75,7 @@ export function ProjectFeed({ cards, stamps, voting = false, voteProblem = null,
                 </div>
                 {contract.kind === "escrow" ? (
                   <>
-                    <p className={styles.line}>The maker&apos;s deposit for this favour sits in the escrow contract until a review is accepted.</p>
+                    <p className={styles.line}>The maker&apos;s deposit for this favour sits in the escrow contract on World Chain. The maker releases it when a review is accepted. After the deadline it can be refunded to the maker.</p>
                     {contract.address && (
                       <div className={styles.kvs}>
                         <div className={styles.kv}><span>Contract</span><b>{shortAddress(contract.address)}</b></div>
