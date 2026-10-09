@@ -35,6 +35,11 @@ export function groundOf(name: string, colour?: string | null): string {
   return own ? own.fill : `hsl(${hueOf(name)} 12% 92%)`;
 }
 
+/** The letter's colour on that ground: white on a dark colour of the app's own, ink on the rest. */
+export function inkOn(colour?: string | null): "white" | "ink" {
+  return productColour(colour)?.onFill ?? "ink";
+}
+
 export function initialOf(name: string): string {
   return Array.from(name.trim())[0]?.toUpperCase() ?? "?";
 }

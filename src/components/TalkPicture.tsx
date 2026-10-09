@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { pictureSteps } from "@/lib/content-rules";
+import { inkOn, pictureSteps } from "@/lib/content-rules";
 import styles from "./Talk.module.css";
 
 // THE SMALL PICTURE OF AN APP, one frame for every room (Oscar, 9 Oct 2026:
@@ -22,7 +22,11 @@ export function TalkPicture({ name, url, icon, colour, shape = "square" }: {
   colour: string | null;
   shape?: PictureShape;
 }) {
-  const steps = pictureSteps({ url, icon, colour, name });
+  const chain = pictureSteps({ url, icon, colour, name });
+  // A share picture is wide. In a square it is cut to a strip of letters, so a
+  // square frame takes the icon first when the app has one.
+  const square = shape === "square" || shape === "squareSmall";
+  const steps = square ? [...chain.filter((s) => s.kind === "icon"), ...chain.filter((s) => s.kind !== "icon")] : chain;
   // A link that failed to load is remembered by its address, so a new picture starts the chain again.
   const [failed, setFailed] = useState<string[]>([]);
   const step = steps.find((s) => s.kind === "initial" || !failed.includes(s.url)) ?? steps[steps.length - 1];
@@ -45,5 +49,5 @@ export function TalkPicture({ name, url, icon, colour, shape = "square" }: {
       </span>
     );
   }
-  return <span className={cls} style={{ background: step.ground }} aria-hidden="true">{step.letter}</span>;
+  return <span className={cls} style={{ background: step.ground, color: inkOn(colour) === "white" ? "#fff" : undefined }} aria-hidden="true">{step.letter}</span>;
 }

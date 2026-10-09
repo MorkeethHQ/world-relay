@@ -69,3 +69,13 @@ describe("text nobody controls", () => {
     expect(lineText("https://striverun.app/")).toBe("striverun.app");
   });
 });
+
+describe("the letter stays readable on the app's own colour", () => {
+  it("is white on a dark colour, ink on a light one, and ink when the colour is refused or missing", async () => {
+    const { inkOn } = await import("@/lib/content-rules");
+    expect(inkOn("#5b3a8c")).toBe("white");
+    expect(inkOn("#e8e8f5")).toBe("ink");
+    expect(inkOn("#00c230")).toBe("ink"); // money green is refused, so the pale ground and ink
+    expect(inkOn(null)).toBe("ink");
+  });
+});

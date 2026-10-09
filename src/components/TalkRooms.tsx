@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Chip, TopBar } from "@worldcoin/mini-apps-ui-kit-react";
-import { clamp } from "@/lib/content-rules";
+import { clamp, textOrNull } from "@/lib/content-rules";
 import { TalkFace } from "@/components/TalkFace";
 import { TalkPicture } from "@/components/TalkPicture";
 import styles from "./Talk.module.css";
@@ -33,7 +33,9 @@ export type RoomRow = {
 type State = { kind: "loading" } | { kind: "error" } | { kind: "ready"; rooms: RoomRow[] };
 
 function lastLine(r: RoomRow): string | null {
-  if (r.last) return clamp(`${r.last.name}: ${r.last.text}`, 80);
+  // A reply in a shape this screen does not know prints nothing, never the word "undefined".
+  const name = textOrNull(r.last?.name), text = textOrNull(r.last?.text);
+  if (name && text) return clamp(`${name}: ${text}`, 80);
   if (r.count === 0) return "Be the first to write";
   return null; // the store did not say: no line is drawn
 }
