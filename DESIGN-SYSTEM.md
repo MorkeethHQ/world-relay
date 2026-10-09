@@ -111,9 +111,12 @@ CSS transition, and not at all under reduced motion. Nothing else moves.
 | Post, step 1 | Heading "Post your own app", one line, one field, primary "Show my app". Under the field, an empty lead card frame that says where the app will appear |
 | Post, step 2 | The maker's app as the real lead card it will be on FAVOUR (same `LeadCard`), with the name editable under it, the picture link only when the page has none, the ask, the reward line, primary "Post for reviews" |
 | Post, step 3 | The same card with the pill "On FAVOUR", primary "See it on the first page", quiet "Post another" |
-| History | Header "History". Three counts in one white card, only when the server gave all three. Then results in one card shape. Empty: one line |
+| History (`/history`) | One thing: what happened. Header "History". When signed in, a group "Yours" first: the person's stamps, votes and accepted reviews as one row of counts (each drawn only when the server gave it) and then their results. Then "Across FAVOUR": the three platform counts in one white card, only when the server gave all three, and results in one card shape. The prediction archive is one quiet row at the end. Empty: one line and one pill to the hunt |
 | Profile | One identity block (picture, name, sign-in level). `HunterCard`. Activity rows. Invite as a row. No level name, no rank, no streak flame (`ProofOfFavourCard` is not mounted here) |
-| Polls | Header through the kit. The feed is untouched |
+| Polls (`/polls`) | One thing: one question, one tap. Header "Polls". Each open poll is one white card: the question as the heading, each option a full-width row of 44 or more, the count and the time left as one caption. After a vote the rows show their share as a grey bar and the chosen row is ink. One quiet pill, "Ask a question". Closed polls are plain rows under a group. Vote and stake logic is not touched |
+| Tab header (every tab) | The same block in the same place on all five tabs: the tab's word at display size on the left, at most one small thing on the right (points in amber on Today, a count elsewhere). No white bar, no second line. The tab's word equals its label in the bottom nav |
+| Project page (`/p/<id>`, 9 Oct 2026) | One full screen for any app in the rail: posted on FAVOUR, a vote candidate, or an outside launch. Back chevron, the picture wide, the name, one line, where it is from as a caption. Then the feedback round card when the app is on FAVOUR. Then one primary: "Review · N pts", "Vote" or "Open". A vote count is drawn only when the server gave one. The sheet on Today opens it from the picture and the name |
+| Feedback round (a card on the project page) | The maker's ask and what came back. Heading "Feedback round". The ask in the maker's words. One line of progress: "N reviews in" (only a review with verdict pass counts; "30+" when the list is full; "N of M" only when the campaign itself holds a target). Then the accepted reviews as plain rows, newest first, as far as the public results list gives them. Empty: "No review in yet. Be the first." No new reward, no new money field |
 | Onboarding | The same five steps with product words and less text. Buttons stay the UI kit's (sign-in is not touched) |
 | Old company-campaign screens | Untouched this run. Reached only from a row when a campaign is open |
 
@@ -188,6 +191,14 @@ A person who opens FAVOUR does one of two things. Every screen serves one of the
 3. The maker confirms or changes each one. Nothing is published that the maker did not see.
 4. A picture is required (`pictureAllowsLaunch()`). Then publish.
 5. Funding is a separate, later step. A campaign shows money only after the deposit is verified.
+
+**Flow 3: read a project and its feedback round.** (9 Oct 2026)
+
+1. Today: tap a tile; the sheet slides up. Tap the picture or the name.
+2. Project page: the app, where it is from, and the feedback round when it is on FAVOUR.
+3. The primary is the next step: review it, vote for it, or open it.
+4. A maker reaches the same page for an app they posted from "Your apps" on Profile, and reads the
+   accepted reviews there. The page shows only what the public results list holds.
 
 Rules for both flows:
 
