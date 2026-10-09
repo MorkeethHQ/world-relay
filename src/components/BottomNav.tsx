@@ -28,13 +28,13 @@ const ROUTES = [
     ),
   },
   {
-    value: "/polls",
-    label: "Polls",
+    // Talk (9 Oct 2026): one room per app, for people and agents. Polls left
+    // the nav (Oscar: "polls was never good"); the page stays, reached from History.
+    value: "/talk",
+    label: "Talk",
     icon: (
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <line x1="18" y1="20" x2="18" y2="10" />
-        <line x1="12" y1="20" x2="12" y2="4" />
-        <line x1="6" y1="20" x2="6" y2="14" />
+        <path d="M21 12a8 8 0 0 1-8 8H8l-5 3 1.5-4.5A8 8 0 1 1 21 12z" />
       </svg>
     ),
   },
