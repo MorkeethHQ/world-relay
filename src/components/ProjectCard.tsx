@@ -16,10 +16,11 @@ import styles from "./ProjectCard.module.css";
 // comes from the card the server built (lib/feed.ts); nothing is made here.
 // Black, white and gray only, the reward text included.
 
-export function ProjectCard({ card, stamped, voting = false, onOpen, onReview, onVote, onTalk, onContract }: {
+export function ProjectCard({ card, stamped, voting = false, problem = null, onOpen, onReview, onVote, onTalk, onContract }: {
   card: FeedCard;
   stamped: boolean; // this wallet voted or sent an accepted review today
   voting?: boolean;
+  problem?: string | null; // what the server said when this card's vote failed
   onOpen: (card: FeedCard) => void; // the project page
   onReview: (card: FeedCard) => void;
   onVote: (card: FeedCard) => void;
@@ -91,6 +92,7 @@ export function ProjectCard({ card, stamped, voting = false, onOpen, onReview, o
           {pill}
         </div>
       )}
+      {problem && <p role="alert" className={styles.problem}>{problem}</p>}
     </article>
   );
 }

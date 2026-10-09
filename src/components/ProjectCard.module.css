@@ -106,7 +106,7 @@
 .act .cap { flex: 1; min-width: 0; font-size: 14px; color: #6b7280; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .act > :last-child { flex: none; margin-left: auto; }
 
-.problem { margin: 0 4px 8px; font-size: 14px; line-height: 1.4; color: #dc2626; }
+.problem { margin: 4px 4px 8px; font-size: 14px; line-height: 1.4; color: #dc2626; }
 
 /* ---- the empty card ---- */
 .emptyCover {

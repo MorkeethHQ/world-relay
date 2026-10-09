@@ -30,6 +30,8 @@ export function ProjectFeed({ cards, stamps, voting = false, voteProblem = null,
 }) {
   const router = useRouter();
   const [about, setAbout] = useState<FeedCard | null>(null);
+  // The vote problem is printed in the card whose Vote was tapped, next to the pill.
+  const [asked, setAsked] = useState<string | null>(null);
   const open = (c: FeedCard) => router.push(`/p/${encodeURIComponent(c.id)}`);
   const contract = about?.contract ?? null;
 
@@ -53,12 +55,12 @@ export function ProjectFeed({ cards, stamps, voting = false, voteProblem = null,
           voting={voting}
           onOpen={open}
           onReview={open}
-          onVote={onVote}
+          onVote={(x) => { setAsked(x.id); onVote(x); }}
+          problem={asked === c.id ? voteProblem : null}
           onTalk={(x) => router.push(`/talk/${encodeURIComponent(x.id)}`)}
           onContract={setAbout}
         />
       ))}
-      {voteProblem && <p role="alert" className={styles.problem}>{voteProblem}</p>}
 
       <Drawer open={about !== null} onOpenChange={(o) => { if (!o) setAbout(null); }} height="fit">
         <DrawerContent>
