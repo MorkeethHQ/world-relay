@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { MiniKit } from "@worldcoin/minikit-js";
-import { Feed } from "@/components/Feed";
+import { FavoursBoard } from "@/components/FavoursBoard";
 import { HuntLive } from "@/components/HuntLive";
 import { Screen } from "@/components/Kit";
 import { Onboarding } from "@/components/Onboarding";
@@ -320,7 +320,7 @@ export function Home({ surface }: { surface: "hunt" | "favours" }) {
           <HuntLive />
         </Screen>
       ) : (
-        <Feed userId={userId} verificationLevel={verificationLevel} onLogout={handleLogout} onReauth={handleVerify} />
+        <FavoursBoard userId={userId} verificationLevel={verificationLevel} onLogout={handleLogout} onReauth={handleVerify} />
       )}
     </div>
   );

@@ -1,0 +1,148 @@
+/* THE FAVOURS BOARD, the Favours tab. DESIGN-SYSTEM.md, "Favours tab" (Oscar,
+   10 Oct 2026: "favour page is completly undesigned not good"; "we should have
+   like a loading state a fill up, we can gamify favour SO MUCH!"). Drawn with
+   World's kit on a white page like Talk and the Hall. One gutter of 16. Sizes
+   live here because the kit resets heading and paragraph margins outside
+   Tailwind's layers. Black, white and gray; the one green is funded USDC. */
+
+.body { padding: 4px 16px 128px; }
+
+/* ---- the loader: a track that fills while the board is read ---- */
+.loader { padding-top: 20px; }
+.loaderLine { margin: 0 0 12px; font-size: 15px; line-height: 1.5; color: #6b7280; }
+.loaderTrack { display: block; height: 10px; border-radius: 5px; background: #ebecef; overflow: hidden; }
+.loaderFill {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: 5px;
+  background: #111827;
+  transition: width 1600ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.loaderGo { width: 92%; }
+/* three still slots under the track, the shape of the rows to come */
+.ghosts { display: flex; flex-direction: column; gap: 8px; margin-top: 24px; }
+.ghost { display: block; height: 72px; border-radius: 16px; background: #f3f4f5; }
+
+/* ---- the day: the ink banner, as the Hall's totals, white numbers and gray labels ---- */
+.totals { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 1px; margin-top: 8px; border-radius: 16px; background: #111827; overflow: hidden; }
+.cell { min-width: 0; padding: 16px 12px 14px; background: #111827; }
+.cell b {
+  display: block;
+  font-size: 26px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+}
+.cell small { display: block; margin-top: 4px; font-size: 13px; line-height: 1.3; color: #9ca3af; }
+
+/* ---- a card: today's mission, the Welcome journey, review favours, the empty card ---- */
+.card { margin-top: 24px; padding: 16px; border-radius: 16px; background: #f9fafb; }
+.eyebrow { margin: 0; font-size: 13px; line-height: 1.3; color: #6b7280; }
+.card .eyebrow { margin-bottom: 8px; }
+.cardName {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 500;
+  line-height: 1.25;
+  color: #111827;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.cardHeading { margin: 0; font-size: 20px; font-weight: 700; letter-spacing: -0.01em; line-height: 1.2; color: #111827; }
+.cardLine { margin: 0; font-size: 15px; line-height: 1.5; color: #111827; }
+.cardHeading + .cardLine { margin-top: 8px; color: #6b7280; }
+.act { display: flex; align-items: center; gap: 12px; min-height: 52px; margin-top: 8px; }
+.act > :last-child { flex: none; margin-left: auto; }
+.cap { flex: 1; min-width: 0; font-size: 14px; color: #6b7280; display: flex; align-items: center; gap: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.primary { margin-top: 16px; }
+.problem { margin: 12px 0 0; font-size: 14px; line-height: 1.4; color: #dc2626; }
+
+/* the hero: today's mission, the one card with the dark button */
+.hero { padding: 20px 16px 16px; background: #fff; box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.07); }
+.heroAsk {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  color: #111827;
+  overflow-wrap: anywhere;
+}
+.heroLine { display: flex; align-items: center; gap: 12px; margin: 12px 0 0; font-size: 14px; line-height: 1.35; color: #6b7280; }
+.heroLine > span:first-child { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ---- a bar: a real fraction and its words. It fills to its value once on mount ---- */
+.bar { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
+.track { flex: 1; height: 6px; border-radius: 3px; background: #e5e7eb; overflow: hidden; }
+.fill { display: block; height: 100%; border-radius: 3px; background: #111827; transition: width 700ms cubic-bezier(0.2, 0.7, 0.2, 1); }
+.bar small { flex: none; font-size: 13px; color: #6b7280; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rowText .bar { margin-top: 8px; }
+@media (prefers-reduced-motion: reduce) {
+  .loaderFill, .fill { transition: none; }
+}
+
+/* ---- a group of rows under one small heading ---- */
+.group { display: flex; flex-direction: column; gap: 8px; margin-top: 24px; }
+.group .eyebrow { margin-bottom: 0; }
+.heading { display: flex; align-items: baseline; gap: 8px; margin: 0 0 4px; font-size: 20px; font-weight: 700; letter-spacing: -0.01em; line-height: 1.2; color: #111827; }
+.heading small { font-size: 14px; font-weight: 500; color: #6b7280; font-variant-numeric: tabular-nums; }
+
+/* ---- a row: one favour or one campaign, one tap ---- */
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 72px;
+  padding: 12px 16px;
+  border-radius: 16px;
+  background: #f9fafb;
+  text-align: left;
+  color: inherit;
+}
+.row:active { background: #f3f4f5; }
+.row:disabled { opacity: 0.6; }
+.mark {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: #f3f4f5;
+  color: #6b7280;
+}
+.rowText { flex: 1; min-width: 0; }
+.rowName { display: block; font-size: 16px; font-weight: 500; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rowAsk {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.3;
+}
+.rowLine { display: block; margin-top: 2px; font-size: 14px; line-height: 1.3; color: #6b7280; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ---- the reward: reward.ts writes it; ink for points, green for funded USDC only ---- */
+.reward { flex: none; display: flex; flex-direction: column; align-items: flex-end; }
+.reward b { font-size: 15px; font-weight: 500; color: #111827; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.reward small { margin-top: 2px; font-size: 12px; line-height: 1.2; color: #9ca3af; white-space: nowrap; }
+.money b { color: #16a34a; } /* real escrowed USDC only (isRealMoney) */
+.unfunded b { color: #9ca3af; }
+
+/* ---- lines, doors, the composer and the footer ---- */
+.line { margin: 24px 0 0; font-size: 15px; line-height: 1.5; color: #6b7280; }
+.action { margin-top: 16px; }
+.door { margin-top: 16px; }
+.door:first-of-type { margin-top: 24px; }
+.composer { padding: 16px; border-radius: 16px; background: #f9fafb; }
+.foot { margin: 24px 0 0; text-align: center; font-size: 12px; color: #d1d5db; }

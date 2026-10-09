@@ -2063,7 +2063,7 @@ async function retryAfterReauth(
 // server's refusal is the honest one (one free points favour a day, own words,
 // no gibberish). Posting is bound to the caller's session by POST /api/tasks
 // (PR 13), so a lapsed session re-authenticates once and the same ask is resent.
-function FeedComposer({
+export function FeedComposer({
   userId,
   onReauth,
   onPosted,
@@ -2233,7 +2233,7 @@ function ReviewEntryCard({
   );
 }
 
-function QuickPost({
+export function QuickPost({
   userId,
   onDone,
   onCancel,
@@ -3028,7 +3028,7 @@ function PostTask({
   );
 }
 
-function SubmitProof({
+export function SubmitProof({
   task,
   userId,
   onDone,
