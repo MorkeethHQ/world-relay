@@ -49,6 +49,9 @@ export type FeedCard = {
   mine: boolean;
 };
 
+/** What /api/feed answers: the first page, so the hunt's stamps keep working, plus the cards. */
+export type FeedPage = FirstPage & { cards: FeedCard[] };
+
 /** The review piece's task, as far as the feed reads it. */
 export type ReviewTask = Pick<Task, "rewardType" | "bountyUsdc" | "escrowTxHash" | "onChainId" | "escrowV2Address">;
 
