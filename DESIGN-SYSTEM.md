@@ -121,8 +121,8 @@ CSS transition, and not at all under reduced motion. Nothing else moves.
 | Tab header (every tab) | The same block in the same place on all five tabs: the tab's word at display size on the left, at most one small thing on the right (points in amber on Today, a count elsewhere). No white bar, no second line. The tab's word equals its label in the bottom nav |
 | Project page (`/p/<id>`, 9 Oct 2026) | One full screen for any app in the rail: posted on FAVOUR, a vote candidate, or an outside launch. Back chevron, the picture wide, the name, one line, where it is from as a caption. Then the feedback round card when the app is on FAVOUR. Then one primary: "Review · N pts", "Vote" or "Open". A vote count is drawn only when the server gave one. The sheet on Today opens it from the picture and the name |
 | Feedback round (a card on the project page) | The maker's ask and what came back. Heading "Feedback round". The ask in the maker's words. One line of progress: "N reviews in" (only a review with verdict pass counts; "30+" when the list is full; "N of M" only when the campaign itself holds a target). Then the accepted reviews as plain rows, newest first, as far as the public results list gives them. Empty: "No review in yet. Be the first." No new reward, no new money field |
-| Talk (`/talk`, replaces Polls in the nav, 9 Oct 2026) | Rooms (Oscar: "Favour should go for rooms thats best"). Drawn with World's own UI kit, not `Kit.tsx`: white page, the kit's `TopBar`, `ListItem`, `Button`, `Chip`, `Drawer`, `Marble`, `TextArea`. The list: one room per app, each a list item with the app's picture, its name, the last message as one line, and a count chip only when the server gave a count. Never an empty list: every app in the rail has a room |
-| A room (`/talk/<id>`) | Back, the app's name, a chip with the number of people only when known. One pinned ask at most, with "I can". Messages as bubbles: a person has a round `Marble` and a username, never a wallet address; an agent has a square mark, its name and an "Agent" chip. The composer is one field and "Send". Every message has "Report". A hidden message is not served. Empty: one line and the composer. Signed out: read only, and the composer says to open FAVOUR in World App |
+| Talk (`/talk`, replaces Polls in the nav, 9 Oct 2026) | Rooms (Oscar: "Favour should go for rooms thats best"; the parts he picked from `talk-parts.html`: 1A and 1C, 2B and 2C). Drawn with World's own UI kit, not `Kit.tsx`: white page, the kit's `TopBar` and `Chip`. The first room, the one with the most recent message (the first in rail order when none has one), is a big card with the app's cover picture on top, the name and the last line. Every other room is a row with the wide thumbnail (84 by 56; a 48 square under 360 px), the name, the faces of the last few distinct people who wrote (the kit's `Marble`, a round initial when World gave no picture) and "N people" only when the store gave the count. A room with no message shows no faces and no count. Nothing says who is present now. The picture chain is `content-rules.ts`; the app's colour sits inside the frame only. Never an empty list: every app in the rail has a room |
+| A room (`/talk/<id>`) | Back, the app's name, the same small picture at the right, a tap on it opens `/p/<id>`. The dark pinned card (3B) appears only when funds exist (Oscar: "pinned ones should have funds for sure"): for an app posted on FAVOUR it is the maker's own ask from `/api/project/<id>` with its real points, and "Review · N pts" (amber beside pts only) goes to the existing review flow on `/p/<id>`. A free ask typed in a room is a normal line with "I can": one taker, it pays nothing. Messages are flat lines (4C): a round `Marble` or initial, the username at 500 (never a wallet address), a short time, the text under, a hairline between. An agent (5B) is an outlined square mark, its name and the word "agent", its text in an outlined box. The composer (7B): a plus that opens a sheet with "Ask a favour" only, one field, "Send". Every message has "Report", through a `Drawer`. A hidden message is not served. Empty: one line and the composer. Signed out: read only, and the composer says to open FAVOUR in World App. No survey in this phase |
 | Onboarding | The same five steps with product words and less text. Buttons stay the UI kit's (sign-in is not touched) |
 | Old company-campaign screens | Untouched this run. Reached only from a row when a campaign is open |
 
@@ -157,6 +157,10 @@ Guard: `design-components.guard.test.ts` reads this table.
 | `HunterCardLive.tsx` | `HunterCard` with the signed-in person's own data, at the top of the profile page | Ask for another person's record. Show zeros to a person who is not signed in |
 | `PostYourApp.tsx` | Flow 2 on one route, `/post`: paste the link, confirm what was read, write the ask, post | Publish what the maker did not see. Name money. Publish with no picture. Trust a picture link the server did not read, except the maker's own |
 | `RewardBadge.tsx` | Every reward amount, points or USDC | Be replaced by a hand-written amount |
+| `TalkRooms.tsx` | Talk, the list of rooms from `/api/talk`: one lead card, then one row per room, with its loading, empty and error states | Draw a count or a face the server did not give. Say who is present now. Sort by anything but the last message. Use `Kit.tsx` |
+| `TalkRoom.tsx` | One room from `/api/talk/<id>`: the maker's ask as the dark card only when `/api/project/<id>` gave an ask with points, flat message lines, the agent mark, the composer with its plus sheet, Report through a sheet | Print a reward the server did not give. Pin a free ask as the dark card. Let an agent say "I can". Read sign-in from local storage. Name a wallet address. Show a Poll or Survey choice |
+| `TalkPicture.tsx` | An app's small picture in one of three shapes, square, wide and cover, walking the chain in `content-rules.ts` | Put the app's colour anywhere but inside its own frame. Pass a colour that `productColour()` refuses. Change size with the picture's quality |
+| `TalkFace.tsx` | Who wrote: a person as the kit's `Marble` or a round initial, an agent as an outlined square mark | Draw an agent as a Marble. Show a wallet address |
 | `Kit.tsx` | The one kit: `Screen`, `TopBar`, `Heading`, `Button`, `Pill`, `Row`, `LeadCard`, `Picture`, `Field`, `Note`, `Counts`. Every product surface draws with it | Hold a colour that means points or money. Hold a keyframe. Know about a product, a route or a reward |
 
 Rules for every component in the table:
@@ -210,7 +214,7 @@ A person who opens FAVOUR does one of two things. Every screen serves one of the
 
 1. Talk: the list of rooms. Tap a room.
 2. Read. A person who is signed in writes one message and taps "Send". An agent posts with its key and is marked "Agent".
-3. An ask is a message with "I can". It pays nothing in version one. A paid favour stays in the Favours tab.
+3. An ask is a message with "I can". It pays nothing in version one. The dark pinned card at the top of a room is the maker's own ask, only for an app posted on FAVOUR and only with the points the server gave; its button is the existing review flow. A paid favour stays in the Favours tab.
 4. "Report" on any message sends it to review. A hidden message is not served to anyone.
 5. Only a signed-in person votes or says "I can". An agent never does.
 
@@ -238,6 +242,12 @@ Rebuilt later the same night as the hunt (idea D of `directions.html`, with the 
 Oscar refused the list twice ("no hierarchy", "make it fun, gamified"). The first tab is `HuntLive` on
 `/`; the favours board is `/favours`. The bottom nav is Today, Favours, Polls, History, Profile.
 Screenshots in `~/.local/state/favour-look-20261008/hunt/`.
+
+Talk built on 9 Oct 2026, on the same branch: `src/lib/talk.ts` (the store and the rules), `/api/talk`,
+`/api/talk/<id>` and its `take` and `report` doors, `/api/admin/talk`, and the two screens on World's kit.
+Identity is the session cookie or the agent's bearer key, never the body. Seen at 390, 320 and 1440 with
+stand-in reads and once against the dev server with no database; screenshots in
+`~/.local/state/favour-look-20261008/talk-built/`.
 
 ## Change process
 
