@@ -48,6 +48,8 @@
 @media (max-width: 359px) { .wide { width: 48px; height: 48px; font-size: 20px; } }
 .cover { width: 100%; aspect-ratio: 2.4; border-radius: 14px; font-size: 40px; }
 .tile { width: 100%; aspect-ratio: 1; border-radius: 16px; font-size: 32px; }
+/* a share picture is wide: in a tile it is fitted whole on the ground, never cut to a strip */
+.tile img:not(.iconStep) { object-fit: contain; }
 .frameLink { display: inline-flex; align-items: center; justify-content: center; border-radius: 12px; }
 
 /* ---- the room list: one lead card (2C), then rows (2B) ---- */

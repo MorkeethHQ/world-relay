@@ -7,7 +7,7 @@
 
 /* ---- the totals banner: three cells, every number and label in ink and gray ---- */
 .totals { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-.cell { min-width: 0; padding: 14px 12px 12px; border-radius: 16px; background: #f3f4f5; }
+.cell { min-width: 0; padding: 14px 10px 12px; border-radius: 16px; background: #f3f4f5; }
 .cell b {
   display: block;
   font-size: 22px;
@@ -20,7 +20,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.cell small { display: block; margin-top: 2px; font-size: 13px; line-height: 1.3; color: #6b7280; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cell small { display: block; margin-top: 2px; font-size: 13px; line-height: 1.3; color: #6b7280; }
 
 /* ---- the switch: Top and New. The chosen half is the one dark element on this screen ---- */
 .seg { display: flex; height: 52px; margin-top: 16px; padding: 4px; border-radius: 999px; background: #f3f4f5; }
@@ -28,7 +28,7 @@
 .seg button[aria-selected="true"] { background: #111827; color: #fff; }
 
 /* ---- the podium: three picture tiles, the first raised ---- */
-.podium { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; align-items: end; margin-top: 24px; }
+.podium { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; align-items: end; margin-top: 16px; }
 .tile { display: block; width: 100%; min-width: 0; text-align: left; color: inherit; }
 .tile:active { opacity: 0.8; }
 .side { padding-top: 24px; }
@@ -75,7 +75,9 @@
   background: #fafafa;
   box-shadow: inset 0 0 0 1.5px #e5e7eb;
 }
-.slotWord { display: block; margin-top: 8px; font-size: 14px; font-weight: 500; color: #d1d5db; }
+.slotWord { display: block; margin-top: 8px; font-size: 14px; font-weight: 500; line-height: 1.3; color: #d1d5db; }
+/* the same footer height as a filled tile, so the three pictures sit level */
+.slotSpace { display: block; height: 30px; }
 
 /* ---- rows: rank 4 and on, the unranked, and the New list ---- */
 .rows { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }

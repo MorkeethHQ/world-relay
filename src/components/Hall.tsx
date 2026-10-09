@@ -45,7 +45,7 @@ export function totalsOf(stats: unknown): Totals | null {
   const s = stats as Stats | null;
   const paid = s?.volume?.paidOutUsdc, points = s?.volume?.pointsDistributed, people = s?.users?.reached ?? s?.users?.verified;
   if (typeof paid !== "number" || typeof points !== "number" || typeof people !== "number") return null;
-  return { paid: Math.round(paid), points: Math.round(points), people };
+  return { paid, points: Math.round(points), people };
 }
 
 /** The line under a name on the New list. A product says when it was posted, a launch where it is from. */
@@ -108,6 +108,7 @@ export function Hall() {
     <span key={`slot-${rank}`} className={`${styles.tile} ${side ? styles.side : ""}`} aria-label={`Rank ${rank}, open`}>
       <span className={styles.slot}><Rank n={rank} /></span>
       <span className={styles.slotWord}>Open</span>
+      <span className={styles.slotSpace} aria-hidden="true" />
     </span>
   );
   const place = (rank: number) => {
@@ -138,7 +139,7 @@ export function Hall() {
       <div className={styles.body}>
         {totals ? (
           <div className={styles.totals} aria-label="FAVOUR totals">
-            <div className={styles.cell}><b>{totals.paid.toLocaleString("en-US")}</b><small>USDC paid</small></div>
+            <div className={styles.cell}><b>{totals.paid.toLocaleString("en-US", { maximumFractionDigits: 2 })}</b><small>USDC paid</small></div>
             <div className={styles.cell}><b>{totals.points.toLocaleString("en-US")}</b><small>pts</small></div>
             <div className={styles.cell}><b>{totals.people.toLocaleString("en-US")}</b><small>people reached</small></div>
           </div>
