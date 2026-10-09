@@ -13,7 +13,8 @@ import styles from "./Talk.module.css";
 // and only when productColour() allows it (groundOf), so it is never the amber
 // of points or the green of money. A real picture gets no colour behind it.
 
-export type PictureShape = "square" | "squareSmall" | "wide" | "cover";
+// "tile" (9 Oct 2026, the Hall): a square that fills its column, for a podium.
+export type PictureShape = "square" | "squareSmall" | "wide" | "cover" | "tile";
 
 export function TalkPicture({ name, url, icon, colour, shape = "square" }: {
   name: string;
@@ -25,7 +26,7 @@ export function TalkPicture({ name, url, icon, colour, shape = "square" }: {
   const chain = pictureSteps({ url, icon, colour, name });
   // A share picture is wide. In a square it is cut to a strip of letters, so a
   // square frame takes the icon first when the app has one.
-  const square = shape === "square" || shape === "squareSmall";
+  const square = shape === "square" || shape === "squareSmall" || shape === "tile";
   const steps = square ? [...chain.filter((s) => s.kind === "icon"), ...chain.filter((s) => s.kind !== "icon")] : chain;
   // A link that failed to load is remembered by its address, so a new picture starts the chain again.
   const [failed, setFailed] = useState<string[]>([]);
