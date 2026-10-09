@@ -192,6 +192,12 @@ export default function HistoryPage() {
           )}
         </>
       )}
+
+      {/* Polls left the nav on 9 Oct 2026. The prediction archive holds existing
+          stakes, so the old page stays reachable from this one quiet row. */}
+      <div style={{ marginTop: 24 }}>
+        <Button kind="quiet" wide href="/polls">Old polls and predictions</Button>
+      </div>
     </Screen>
   );
 }
