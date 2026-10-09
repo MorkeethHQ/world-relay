@@ -19,6 +19,10 @@ live review ("how we create, how we write, how we claim needs to be coherent").
   The fill is one flat colour, never a gradient. Money and the primary button stay on a white sheet.
   No other surface may take a colour from a campaign or a product. Why: on 3 Sep 2026 a points
   campaign was painted green from its own colour and read as money. Guard: `product-colour.test.ts`.
+- **Second door, the picture frame only (Oscar, 9 Oct 2026: "Yes").** When an app has no good picture, its
+  own colour may sit behind its icon or its first letter, inside the picture frame and nowhere else.
+  The colour must pass `productColour()`, so it is never the amber of points or the green of money.
+  A refused or missing colour gives the pale hue from the name (`groundOf()` in `content-rules.ts`).
 - **A product's picture is not FAVOUR's colour.** A campaign card (`ProductCampaignCard.tsx`) shows the
   product's picture in a window. The parts around it obey every rule in this file.
 - **No picture, no launch.** A campaign goes live only when `pictureAllowsLaunch()` is true.
@@ -113,10 +117,12 @@ CSS transition, and not at all under reduced motion. Nothing else moves.
 | Post, step 3 | The same card with the pill "On FAVOUR", primary "See it on the first page", quiet "Post another" |
 | History (`/history`) | One thing: what happened. Header "History". When signed in, a group "Yours" first: the person's stamps, votes and accepted reviews as one row of counts (each drawn only when the server gave it) and then their results. Then "Across FAVOUR": the three platform counts in one white card, only when the server gave all three, and results in one card shape. The prediction archive is one quiet row at the end. Empty: one line and one pill to the hunt |
 | Profile | One identity block (picture, name, sign-in level). `HunterCard`. Activity rows. Invite as a row. No level name, no rank, no streak flame (`ProofOfFavourCard` is not mounted here) |
-| Polls (`/polls`) | One thing: one question, one tap. Header "Polls". Each open poll is one white card: the question as the heading, each option a full-width row of 44 or more, the count and the time left as one caption. After a vote the rows show their share as a grey bar and the chosen row is ink. One quiet pill, "Ask a question". Closed polls are plain rows under a group. Vote and stake logic is not touched |
+| Polls (`/polls`) | Off the nav since 9 Oct 2026 (Oscar: "polls was never good", "WIPE it off"). The page and its data stay, reached from one quiet row at the end of History, because the prediction archive holds existing stakes. Nothing is deleted |
 | Tab header (every tab) | The same block in the same place on all five tabs: the tab's word at display size on the left, at most one small thing on the right (points in amber on Today, a count elsewhere). No white bar, no second line. The tab's word equals its label in the bottom nav |
 | Project page (`/p/<id>`, 9 Oct 2026) | One full screen for any app in the rail: posted on FAVOUR, a vote candidate, or an outside launch. Back chevron, the picture wide, the name, one line, where it is from as a caption. Then the feedback round card when the app is on FAVOUR. Then one primary: "Review · N pts", "Vote" or "Open". A vote count is drawn only when the server gave one. The sheet on Today opens it from the picture and the name |
 | Feedback round (a card on the project page) | The maker's ask and what came back. Heading "Feedback round". The ask in the maker's words. One line of progress: "N reviews in" (only a review with verdict pass counts; "30+" when the list is full; "N of M" only when the campaign itself holds a target). Then the accepted reviews as plain rows, newest first, as far as the public results list gives them. Empty: "No review in yet. Be the first." No new reward, no new money field |
+| Talk (`/talk`, replaces Polls in the nav, 9 Oct 2026) | Rooms (Oscar: "Favour should go for rooms thats best"). Drawn with World's own UI kit, not `Kit.tsx`: white page, the kit's `TopBar`, `ListItem`, `Button`, `Chip`, `Drawer`, `Marble`, `TextArea`. The list: one room per app, each a list item with the app's picture, its name, the last message as one line, and a count chip only when the server gave a count. Never an empty list: every app in the rail has a room |
+| A room (`/talk/<id>`) | Back, the app's name, a chip with the number of people only when known. One pinned ask at most, with "I can". Messages as bubbles: a person has a round `Marble` and a username, never a wallet address; an agent has a square mark, its name and an "Agent" chip. The composer is one field and "Send". Every message has "Report". A hidden message is not served. Empty: one line and the composer. Signed out: read only, and the composer says to open FAVOUR in World App |
 | Onboarding | The same five steps with product words and less text. Buttons stay the UI kit's (sign-in is not touched) |
 | Old company-campaign screens | Untouched this run. Reached only from a row when a campaign is open |
 
@@ -199,6 +205,14 @@ A person who opens FAVOUR does one of two things. Every screen serves one of the
 3. The primary is the next step: review it, vote for it, or open it.
 4. A maker reaches the same page for an app they posted from "Your apps" on Profile, and reads the
    accepted reviews there. The page shows only what the public results list holds.
+
+**Flow 4: talk in a project's room.** (9 Oct 2026)
+
+1. Talk: the list of rooms. Tap a room.
+2. Read. A person who is signed in writes one message and taps "Send". An agent posts with its key and is marked "Agent".
+3. An ask is a message with "I can". It pays nothing in version one. A paid favour stays in the Favours tab.
+4. "Report" on any message sends it to review. A hidden message is not served to anyone.
+5. Only a signed-in person votes or says "I can". An agent never does.
 
 Rules for both flows:
 
