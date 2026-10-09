@@ -50,7 +50,7 @@ export async function listRooms(now: number = Date.now()): Promise<Room[]> {
       results: (id) => listCampaignResults(id),
       picture: getPictureRecord,
       launches: (n) => fetchLaunches(n),
-      readPage: (url) => fetchProduct(url),
+      readPage: (url) => page(url, now),
     }, now),
     Promise.all(CANDIDATES.map(async (c) => ({ c, read: await page(c.url, now) }))),
   ]);
