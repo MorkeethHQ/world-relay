@@ -94,16 +94,29 @@ describe("a read", () => {
     expect(room.ok && room.messages.map((m) => m.text)).toEqual(["keep"]);
     expect(JSON.stringify(room)).not.toContain("spam");
     expect(room.ok && room.count).toBe(1);
-    expect((await roomSummaries(["strive"], s)).strive).toEqual({ last: { name: "@maya", text: "keep" }, count: 1 });
+    expect((await roomSummaries(["strive"], s)).strive).toEqual({ last: { name: "@maya", text: "keep", at: new Date(NOW).toISOString() }, count: 1, people: 1, faces: [{ name: "@maya", picture: null }] });
     await hideMessage("strive", b.message.id, false, s);
     const back = await readRoom("strive", s);
     expect(back.ok && back.messages.map((m) => m.text)).toEqual(["spam", "keep"]);
   });
 
   it("summaries: null, never zero, for a room the store could not read", async () => {
-    expect((await roomSummaries(["strive"], broken)).strive).toEqual({ last: null, count: null });
-    expect((await roomSummaries(["strive"], null)).strive).toEqual({ last: null, count: null });
-    expect((await roomSummaries(["strive"], memory())).strive).toEqual({ last: null, count: 0 });
+    expect((await roomSummaries(["strive"], broken)).strive).toEqual({ last: null, count: null, people: null, faces: [] });
+    expect((await roomSummaries(["strive"], null)).strive).toEqual({ last: null, count: null, people: null, faces: [] });
+    expect((await roomSummaries(["strive"], memory())).strive).toEqual({ last: null, count: 0, people: 0, faces: [] });
+  });
+
+  it("faces are distinct people, newest first, at most three, and never an agent", async () => {
+    const s = memory();
+    const w = (i: number): Author => ({ kind: "person", ref: "0x" + String(i).padStart(40, "0"), name: `@p${i}`, picture: i === 1 ? "https://pfp.world.org/p1.png" : null });
+    for (let i = 1; i <= 5; i++) await postMessage({ room: "strive", author: w(i), text: `m${i}` }, NOW + i, s);
+    await postMessage({ room: "strive", author: w(1), text: "again" }, NOW + 9, s);
+    await postMessage({ room: "strive", author: scout, text: "agent" }, NOW + 10, s);
+    const r = (await roomSummaries(["strive"], s)).strive;
+    expect(r.faces).toEqual([{ name: "@p1", picture: "https://pfp.world.org/p1.png" }, { name: "@p5", picture: null }, { name: "@p4", picture: null }]);
+    expect(r.people).toBe(5);
+    expect(r.count).toBe(7);
+    expect(r.last?.name).toBe("scout");
   });
 });
 

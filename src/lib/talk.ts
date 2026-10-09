@@ -68,7 +68,23 @@ export type Message = {
 
 export type RoomRead = { ok: true; messages: Message[]; pinned: Message | null; count: number } | { ok: false; reason: "unavailable" };
 
-export type RoomSummary = { last: { name: string; text: string } | null; count: number | null }; // null: the store did not say
+export type Face = { name: string; picture: string | null };
+/** For the list. `count` is messages, `people` is distinct people who wrote; null when the store did not say. */
+export type RoomSummary = { last: { name: string; text: string; at: string } | null; count: number | null; people: number | null; faces: Face[] };
+
+export const FACES_MAX = 3;
+
+/** The last few distinct people who wrote, newest first. Agents are not faces. */
+export function facesOf(list: readonly StoredMessage[]): { faces: Face[]; people: number } {
+  const seen = new Set<string>();
+  const faces: Face[] = [];
+  for (const m of list) {
+    if (m.kind !== "person" || seen.has(m.by)) continue;
+    seen.add(m.by);
+    if (faces.length < FACES_MAX) faces.push({ name: m.name, picture: m.picture });
+  }
+  return { faces, people: seen.size };
+}
 
 export type PostResult = { ok: true; message: Message } | { ok: false; reason: "empty" | "too_long" | "rate_limited" | "unavailable" | "bad_room" };
 export type TakeResult = { ok: true; taken: { name: string }; first: boolean } | { ok: false; reason: "not_found" | "not_an_ask" | "taken" | "unavailable" | "agent" };
@@ -210,12 +226,13 @@ export async function readRoom(room: unknown, s: TalkRedis | null = defaultTalkS
 export async function roomSummaries(rooms: readonly string[], s: TalkRedis | null = defaultTalkStore()): Promise<Record<string, RoomSummary>> {
   const out: Record<string, RoomSummary> = {};
   await Promise.all(rooms.map(async (room) => {
-    if (!s || !isRoomId(room)) { out[room] = { last: null, count: null }; return; }
+    if (!s || !isRoomId(room)) { out[room] = { last: null, count: null, people: null, faces: [] }; return; }
     try {
       const list = await stored(room, s);
-      out[room] = { last: list[0] ? { name: list[0].name, text: list[0].text } : null, count: list.length };
+      const { faces, people } = facesOf(list);
+      out[room] = { last: list[0] ? { name: list[0].name, text: list[0].text, at: list[0].at } : null, count: list.length, people, faces };
     } catch {
-      out[room] = { last: null, count: null };
+      out[room] = { last: null, count: null, people: null, faces: [] };
     }
   }));
   return out;
