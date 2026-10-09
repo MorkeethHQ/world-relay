@@ -43,7 +43,7 @@ export function ProjectFeed({ cards, stamps, voting = false, voteProblem = null,
         <article className={styles.card} aria-label="No project yet">
           <span className={styles.emptyCover} aria-hidden="true">+</span>
           <span className={styles.name}><b className={styles.emptyName}>Your app here</b></span>
-          <div className={styles.act}><span className={styles.cap}>Nothing to check yet. Post your own app below.</span></div>
+          <div className={styles.act}><span className={styles.cap}>Nothing to check yet. Post your project at the top.</span></div>
         </article>
       )}
 

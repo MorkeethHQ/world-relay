@@ -7,22 +7,8 @@
 
 .body { padding: 4px 16px 128px; }
 
-/* ---- the loader: a track that fills while the board is read ---- */
-.loader { padding-top: 20px; }
-.loaderLine { margin: 0 0 12px; font-size: 15px; line-height: 1.5; color: #6b7280; }
-.loaderTrack { display: block; height: 10px; border-radius: 5px; background: #ebecef; overflow: hidden; }
-.loaderFill {
-  display: block;
-  width: 0;
-  height: 100%;
-  border-radius: 5px;
-  background: #111827;
-  transition: width 1600ms cubic-bezier(0.2, 0.7, 0.2, 1);
-}
-.loaderGo { width: 92%; }
-/* three still slots under the track, the shape of the rows to come */
-.ghosts { display: flex; flex-direction: column; gap: 8px; margin-top: 24px; }
-.ghost { display: block; height: 72px; border-radius: 16px; background: #f3f4f5; }
+/* The loader and the bar live in Fill.module.css since 10 Oct 2026 (shared
+   with Profile and the project page). */
 
 /* ---- the day: the ink banner, as the Hall's totals, white numbers and gray labels ---- */
 .totals { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 1px; margin-top: 8px; border-radius: 16px; background: #111827; overflow: hidden; }
@@ -77,15 +63,8 @@
 .heroLine { display: flex; align-items: center; gap: 12px; margin: 12px 0 0; font-size: 14px; line-height: 1.35; color: #6b7280; }
 .heroLine > span:first-child { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-/* ---- a bar: a real fraction and its words. It fills to its value once on mount ---- */
-.bar { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
-.track { flex: 1; height: 6px; border-radius: 3px; background: #e5e7eb; overflow: hidden; }
-.fill { display: block; height: 100%; border-radius: 3px; background: #111827; transition: width 700ms cubic-bezier(0.2, 0.7, 0.2, 1); }
-.bar small { flex: none; font-size: 13px; color: #6b7280; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.rowText .bar { margin-top: 8px; }
-@media (prefers-reduced-motion: reduce) {
-  .loaderFill, .fill { transition: none; }
-}
+/* a bar inside a row sits closer to the line above it */
+.rowBar { margin-top: 8px; }
 
 /* ---- a group of rows under one small heading ---- */
 .group { display: flex; flex-direction: column; gap: 8px; margin-top: 24px; }

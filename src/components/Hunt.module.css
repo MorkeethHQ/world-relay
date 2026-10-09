@@ -181,6 +181,8 @@
 .tilePillOn { color: #9ca3af; }
 
 .door { margin-top: 20px; }
+/* "Support builders" scrolls here; the feed starts a breath under the top edge */
+.projects { scroll-margin-top: 8px; }
 .problem {
   margin-top: 12px;
   font-size: 14px;

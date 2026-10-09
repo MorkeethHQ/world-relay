@@ -1,40 +1,38 @@
-/* The kit draws this screen. These few rules place what the kit does not know:
-   the site pill, the eyebrow in the ask card, the reward line and the big
-   points. Sizes are set here because the World UI kit resets native headings
-   and paragraph margins outside Tailwind's layers. */
-.siteRow {
-  margin-top: 12px;
-}
-.site {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  padding: 0 18px;
-  border-radius: 999px;
-  background: #f3f4f6;
-  color: #111827;
-  font-size: 14px;
-  font-weight: 600;
-}
-.site:active { transform: scale(0.98); }
-.eyebrow {
-  margin-bottom: 6px;
-  font-size: 13px;
-  font-weight: 600;
-  color: #4b5563;
-}
-.reward {
-  margin-top: 16px;
-  font-size: 14px;
-  line-height: 1.5;
-  color: #4b5563;
-}
-.won {
-  margin-top: 8px;
-  margin-bottom: 12px;
-  font-size: 56px;
-  font-weight: 800;
-  line-height: 1;
-  letter-spacing: -0.02em;
-  font-variant-numeric: tabular-nums;
-}
+/* THE PROJECT PAGE, /p/<id>. DESIGN-SYSTEM.md, "Project page" and "Feedback
+   round". Drawn like the Favours tab since 10 Oct 2026: World's kit on a white
+   page, one gutter of 16. Sizes live here because the kit resets heading and
+   paragraph margins outside Tailwind's layers. Black, white and gray only. */
+
+.body { padding: 4px 16px 128px; }
+
+/* ---- the app: name, line, where it is from ---- */
+.title { margin: 16px 0 0; font-size: 24px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.15; color: #111827; overflow-wrap: anywhere; }
+.heading { margin: 20px 0 0; font-size: 24px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.15; color: #111827; }
+.line { margin: 8px 0 0; font-size: 15px; line-height: 1.5; color: #6b7280; }
+.from { margin: 6px 0 0; font-size: 13px; line-height: 1.4; color: #9ca3af; font-variant-numeric: tabular-nums; }
+.quiet { margin: 16px 0 0; font-size: 15px; line-height: 1.5; color: #6b7280; }
+
+/* ---- the feedback round card ---- */
+.card { margin-top: 20px; padding: 16px; border-radius: 16px; background: #f9fafb; }
+.eyebrow { margin: 0 0 8px; font-size: 13px; line-height: 1.3; color: #6b7280; }
+.ask { margin: 0; font-size: 19px; font-weight: 500; line-height: 1.25; color: #111827; overflow-wrap: anywhere; }
+.progress { margin: 12px 0 0; font-size: 14px; color: #6b7280; font-variant-numeric: tabular-nums; }
+.empty { margin: 12px 0 0; font-size: 14px; line-height: 1.4; color: #9ca3af; }
+.reviews { margin: 8px 0 0; padding: 0; list-style: none; }
+.reviewRow { display: flex; align-items: center; gap: 10px; min-height: 44px; border-top: 1px solid #ebecef; font-size: 14px; }
+.reviewWho { flex: 1; min-width: 0; font-weight: 500; color: #111827; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.reviewWhat { flex: none; color: #6b7280; }
+.reviewAt { flex: none; color: #9ca3af; font-variant-numeric: tabular-nums; }
+
+/* ---- the buttons: one dark primary, then the quiet pills ---- */
+.primary { margin-top: 20px; }
+.pills { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.action { margin-top: 12px; }
+.field { margin-top: 16px; }
+
+/* ---- the result ---- */
+.won { margin: 12px 0 0; font-size: 56px; font-weight: 700; line-height: 1; letter-spacing: -0.02em; color: #111827; font-variant-numeric: tabular-nums; }
+
+/* ---- problems: the server's own words ---- */
+.problemBox { margin-top: 16px; }
+.problem { margin: 12px 0 0; font-size: 14px; line-height: 1.4; color: #dc2626; }

@@ -44,11 +44,17 @@ const answers: Record<string, unknown> = {
     signedIn: false,
     you: null,
   },
-  "/api/product/c1": {
-    product: {
-      id: "c1", name: "STRIVE", line: "Post agent runs as cards", ask: "Tell us where the sign-up breaks.", points: 10,
-      productUrl: "https://example.com", host: "example.com", reviewTaskId: "t-review",
-      picture: { url: null, icon: null, colour: null }, accepted: 0, acceptedIsFloor: false, makerChecked: false, company: "STRIVE",
+  // Since 10 Oct 2026 the product screen reads /api/project/<id> (one read for
+  // every kind of app); the product inside is the same ProductView as before.
+  "/api/project/c1": {
+    project: {
+      kind: "favour", id: "c1",
+      product: {
+        id: "c1", name: "STRIVE", line: "Post agent runs as cards", ask: "Tell us where the sign-up breaks.", points: 10,
+        productUrl: "https://example.com", host: "example.com", reviewTaskId: "t-review",
+        picture: { url: null, icon: null, colour: null }, accepted: 0, acceptedIsFloor: false, makerChecked: false, company: "STRIVE",
+      },
+      round: { ask: "Tell us where the sign-up breaks.", accepted: 0, acceptedIsFloor: false, target: null, progress: "0 reviews in", reviews: [] },
     },
   },
 };
@@ -108,18 +114,19 @@ describe("from the nav to a message in a room", () => {
 
 describe("a product that takes a review", () => {
   // Fault U4: the branch inverted, so every such product said it takes none.
-  it("offers Write your review", async () => {
+  // The dark button's label became "Review · N pts" on 10 Oct 2026 (the project page).
+  it("offers Review · N pts", async () => {
     render(<ProductScreen id="c1" />);
-    expect(await screen.findByText("Write your review")).toBeTruthy();
+    expect(await screen.findByText("Review · 10 pts")).toBeTruthy();
     expect(screen.queryByText(/takes no review now/i)).toBeNull();
   });
 
   it("says it takes no review when it has no review favour", async () => {
-    const base = (answers["/api/product/c1"] as { product: Record<string, unknown> }).product;
-    answers["/api/product/c2"] = { product: { ...base, id: "c2", reviewTaskId: null } };
+    const base = (answers["/api/project/c1"] as { project: { product: Record<string, unknown> } }).project;
+    answers["/api/project/c2"] = { project: { ...base, id: "c2", product: { ...base.product, id: "c2", reviewTaskId: null } } };
     render(<ProductScreen id="c2" />);
     expect(await screen.findByText(/takes no review now/i)).toBeTruthy();
-    expect(screen.queryByText("Write your review")).toBeNull();
-    delete answers["/api/product/c2"];
+    expect(screen.queryByText("Review · 10 pts")).toBeNull();
+    delete answers["/api/project/c2"];
   });
 });

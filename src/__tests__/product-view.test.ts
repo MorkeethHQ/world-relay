@@ -147,7 +147,9 @@ describe("ProductScreen keeps the flow's rules", () => {
   });
 
   it("ends every state with a next step", () => {
-    for (const label of ["Write your review", "Send for check", "Review another product", "Change my review", "Try again", "See today&apos;s products", "Open FAVOUR and sign in"]) {
+    // The labels of 10 Oct 2026 (the project page): "Review · N pts" opens the write step,
+    // and the way out names apps, since the page serves every kind of app.
+    for (const label of ["Review · {product.points} pts", "Send for check", "Review another app", "Change my review", "Try again", "See today&apos;s apps", "Open FAVOUR and sign in"]) {
       expect(src, label).toContain(label);
     }
   });

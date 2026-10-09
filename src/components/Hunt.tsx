@@ -6,6 +6,7 @@ import type { FeedCard } from "@/lib/feed";
 import { Button } from "./Kit";
 import kit from "./Kit.module.css";
 import { ProjectFeed } from "./ProjectFeed";
+import { ThreeDoors } from "./ThreeDoors";
 import styles from "./Hunt.module.css";
 
 // TODAY'S HUNT, THE FIRST TAB (Oscar, 8 Oct 2026: "make it fun, gamified. a
@@ -14,10 +15,14 @@ import styles from "./Hunt.module.css";
 //
 // Four things, top to bottom, and nothing else:
 //   the bar      the word FAVOUR, and the person's points when they are known
+//   the doors    three actions (ThreeDoors, 10 Oct 2026: "on top a 'post your
+//                project' and 'support builders' or do favours' 3 actions!"):
+//                Post your project (/post), Support builders (scrolls to the
+//                cards), Do favours (/favours). The old door "Post your own
+//                app" at the end of the tab went: the first door is that door.
 //   the card     "Today's hunt", three stamp slots, one status line
 //   the feed     one project card per app (ProjectFeed, 9 Oct 2026: "Project
 //                cards A for sure"), which replaced the sideways rail
-//   the door     "Post your own app"
 // A card's picture or name opens /p/<id>. "Vote" votes, "Review" goes to the
 // product screen, "Talk" to the room. The sheet of idea C is kept below but
 // nothing opens it since the cards replaced the rail.
@@ -54,7 +59,7 @@ function Stamp({ app, n }: { app: HuntApp | "unknown" | null; n: number }) {
 }
 
 export function Hunt({
-  apps, cards, hunt, points, open, voting = false, voteProblem = null, onClose, onVote, onPost,
+  apps, cards, hunt, points, open, voting = false, voteProblem = null, onClose, onVote,
 }: {
   apps: HuntApp[];
   cards: FeedCard[];
@@ -65,7 +70,7 @@ export function Hunt({
   voteProblem?: string | null;
   onClose: () => void;
   onVote: (app: HuntApp) => void;
-  onPost: () => void;
+  onPost?: () => void; // kept for callers; the first of the three doors opens /post itself
 }) {
   const stamps = hunt.stamps ?? [];
   const stamped = new Set(stamps);
@@ -100,6 +105,8 @@ export function Hunt({
         {points !== null && <span className={styles.pts} aria-label={`${points} points`}>{points} pts</span>}
       </div>
 
+      <ThreeDoors projectsId="projects" />
+
       <div className={styles.hunt}>
         <h2 className={styles.huntTitle}>Today&apos;s hunt</h2>
         <p className={styles.huntLine}>{huntLine(hunt.stamps)}</p>
@@ -109,16 +116,17 @@ export function Hunt({
         {hunt.streak !== null && hunt.streak >= 2 && <p className={styles.streak}>Day {hunt.streak} in a row</p>}
       </div>
 
-      <ProjectFeed
-        cards={cards}
-        stamps={stamped}
-        voting={voting}
-        voteProblem={open ? null : voteProblem}
-        onVote={(c) => { const a = apps.find((x) => x.kind === "vote" && x.id === c.id); if (a) onVote(a); }}
-      />
-
-      <div className={styles.door}>
-        <Button kind="quiet" wide onClick={onPost}>Post your own app</Button>
+      {/* "Support builders" scrolls here. The door "Post your own app" that
+          ended this tab went on 10 Oct 2026: the first of the three doors is
+          that door, so `onPost` is kept for the prop's callers and unused here. */}
+      <div id="projects" className={styles.projects}>
+        <ProjectFeed
+          cards={cards}
+          stamps={stamped}
+          voting={voting}
+          voteProblem={open ? null : voteProblem}
+          onVote={(c) => { const a = apps.find((x) => x.kind === "vote" && x.id === c.id); if (a) onVote(a); }}
+        />
       </div>
 
       {/* The sheet (idea C). Kept since 9 Oct 2026 though nothing opens it: the cards replaced the rail. */}

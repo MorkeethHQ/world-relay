@@ -19,6 +19,7 @@ import { hapticTap } from "@/lib/minikit-helpers";
 import { JuryMode, type JuryCard } from "@/components/JuryMode";
 import { FeedComposer, QuickPost, SubmitProof } from "@/components/Feed";
 import { CategoryIcon } from "@/components/CategoryIcon";
+import { Bar, Loader } from "@/components/Fill";
 import talk from "./Talk.module.css";
 import styles from "./FavoursBoard.module.css";
 
@@ -106,41 +107,9 @@ export function todayOf(contributions: readonly Contribution[], now: number = Da
 }
 export const doneToday = (contributions: readonly Contribution[], now?: number) => todayOf(contributions, now).done;
 
-// A bar mounts empty and fills to its value once (a width transition, none
-// under reduced motion), so a step done on return is seen to land.
-function Bar({ done, of, label }: { done: number; of: number; label: string }) {
-  const share = of > 0 ? Math.max(0, Math.min(1, done / of)) : 0;
-  const [go, setGo] = useState(false);
-  useEffect(() => {
-    const id = requestAnimationFrame(() => setGo(true));
-    return () => cancelAnimationFrame(id);
-  }, []);
-  return (
-    <div className={styles.bar} role="progressbar" aria-valuemin={0} aria-valuemax={of} aria-valuenow={done} aria-label={label}>
-      <span className={styles.track} aria-hidden="true"><span className={styles.fill} style={{ width: go ? `${Math.round(share * 100)}%` : "0%" }} /></span>
-      <small>{label}</small>
-    </div>
-  );
-}
-
-// The loader: a track that fills while the board is read. A CSS transition on
-// width, slow, and none under reduced motion (DESIGN-SYSTEM.md, rule 6).
-function Loader() {
-  const [go, setGo] = useState(false);
-  useEffect(() => {
-    const id = requestAnimationFrame(() => setGo(true));
-    return () => cancelAnimationFrame(id);
-  }, []);
-  return (
-    <div className={styles.loader} aria-busy="true" aria-label="Reading favours">
-      <p className={styles.loaderLine}>Reading favours…</p>
-      <span className={styles.loaderTrack} aria-hidden="true"><span className={`${styles.loaderFill} ${go ? styles.loaderGo : ""}`} /></span>
-      <div className={styles.ghosts} aria-hidden="true">
-        {[0, 1, 2].map((i) => <span key={i} className={styles.ghost} />)}
-      </div>
-    </div>
-  );
-}
+// The bar and the loader are the shared fill-up in Fill.tsx (lifted 10 Oct
+// 2026 so Profile and the project page fill the same way). A bar mounts empty
+// and fills to its value once; the loader's track fills while the board is read.
 
 function Reward({ task }: { task: Task }) {
   // reward.ts writes the amount. Ink for points. Green for funded USDC only;
@@ -366,7 +335,7 @@ export function FavoursBoard({ userId, onReauth }: Props) {
     <div className={talk.screen} aria-label="Favours">
       <TopBar title="Favours" />
       <div className={styles.body}>
-        {read.kind === "loading" && <Loader />}
+        {read.kind === "loading" && <Loader label="Reading favours" />}
 
         {read.kind === "error" && (
           <>
@@ -462,7 +431,7 @@ export function FavoursBoard({ userId, onReauth }: Props) {
                   <span className={styles.rowText}>
                     <span className={styles.rowAsk}>{t.description}</span>
                     <span className={styles.rowLine}>{mine ? "You asked" : t.status === "claimed" ? "Yours, in progress" : whoAsked(t, displayName)}{stale ? " · Open a while" : ""}</span>
-                    {target && <Bar done={target.done} of={target.of} label={`${target.done} of ${target.of} done`} />}
+                    {target && <Bar done={target.done} of={target.of} label={`${target.done} of ${target.of} done`} className={styles.rowBar} />}
                   </span>
                   <Reward task={t} />
                 </button>
