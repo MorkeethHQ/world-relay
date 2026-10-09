@@ -1,0 +1,240 @@
+/* TALK. DESIGN-SYSTEM.md, "Talk" and "A room". Drawn with World's own kit on a
+   white page, to the parts Oscar picked on 9 Oct 2026 (talk-parts.html: 1A and
+   1C, 2B and 2C, 3B, 4C, 5B, 7B). Margins and padding live here because the kit
+   resets heading and paragraph margins outside Tailwind's layers. */
+
+.screen {
+  margin: 0 auto;
+  width: 100%;
+  max-width: 32rem;
+  min-height: 100vh;
+  background: #fff;
+  color: #111827;
+}
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 16px 112px;
+}
+
+/* ---- the picture frame: the same frame whether the picture is good, white, broken or missing ---- */
+.frame {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex: none;
+  overflow: hidden;
+  border-radius: 12px;
+  background: #f3f4f5;
+  color: #111827;
+  font-weight: 500;
+  line-height: 1;
+  user-select: none;
+}
+.frame::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.06);
+  pointer-events: none;
+}
+.frame img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.frame .iconStep { width: 58%; height: 58%; object-fit: contain; border-radius: 8px; }
+.square { width: 48px; height: 48px; font-size: 20px; }
+.squareSmall { width: 36px; height: 36px; font-size: 15px; border-radius: 10px; }
+.wide { width: 84px; height: 56px; font-size: 22px; }
+@media (max-width: 359px) { .wide { width: 48px; height: 48px; font-size: 20px; } }
+.cover { width: 100%; aspect-ratio: 2.4; border-radius: 14px; font-size: 40px; }
+.frameLink { display: inline-flex; align-items: center; justify-content: center; border-radius: 12px; }
+
+/* ---- the room list: one lead card (2C), then rows (2B) ---- */
+.lead {
+  display: block;
+  width: 100%;
+  padding: 16px;
+  border-radius: 16px;
+  background: #f9fafb;
+  text-align: left;
+  color: inherit;
+}
+.lead:active, .row:active { background: #f3f4f5; }
+.leadRow { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 76px;
+  padding: 16px;
+  border-radius: 16px;
+  background: #f9fafb;
+  text-align: left;
+  color: inherit;
+}
+.rowText { flex: 1; min-width: 0; }
+.name { display: block; font-size: 16px; font-weight: 500; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.last { display: block; margin-top: 2px; font-size: 14px; line-height: 1.3; color: #6b7280; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.faces { display: flex; align-items: center; margin-top: 6px; }
+.faces > * + * { margin-left: -8px; }
+.people { flex: none; font-size: 13px; color: #6b7280; }
+
+/* ---- faces ---- */
+.face {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: #e5e7eb;
+  color: #111827;
+  font-size: 11px;
+  font-weight: 500;
+  box-shadow: 0 0 0 2px #fff;
+}
+.marble { width: 24px; height: 24px; padding: 0; border-width: 0; box-shadow: 0 0 0 2px #fff; }
+.marbleLarge { width: 32px; height: 32px; padding: 0; border-width: 0; }
+.faceLarge { width: 32px; height: 32px; font-size: 13px; box-shadow: none; }
+.agentMark {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  display: grid;
+  place-items: center;
+  background: #fff;
+  color: #111827;
+  font-size: 10px;
+  font-weight: 500;
+  box-shadow: inset 0 0 0 1.5px #111827;
+}
+
+/* ---- states ---- */
+.note {
+  margin: 24px 16px 0;
+  font-size: 15px;
+  line-height: 1.5;
+  color: #6b7280;
+}
+.noteAction { margin: 16px 16px 0; }
+
+/* ---- a room ---- */
+.room {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  padding-bottom: calc(160px + env(safe-area-inset-bottom, 0px));
+}
+
+/* the pinned ask (3B): the dark card */
+.pinned {
+  margin: 0 16px 8px;
+  padding: 16px;
+  border-radius: 16px;
+  background: #111827;
+  color: #fff;
+}
+.pinnedWho { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #d1d5db; }
+.pinnedWho .face { box-shadow: none; }
+.pinnedLine {
+  margin: 10px 0 14px;
+  font-size: 19px;
+  font-weight: 500;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.pinnedButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  height: 52px;
+  border-radius: 999px;
+  background: #fff;
+  color: #111827;
+  font-size: 16px;
+  font-weight: 500;
+}
+.pinnedButton:active { transform: scale(0.98); }
+.pinnedButton:disabled { opacity: 0.6; }
+.pinnedTaken { font-size: 15px; color: #d1d5db; }
+
+/* messages (4C): flat lines, a hairline between */
+.messages { padding: 0 16px; }
+.msg { padding: 12px 0; border-top: 1px solid #ebecef; }
+.msg:first-child { border-top: 0; }
+.msgHead { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.msgName { font-weight: 500; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.msgTime { font-size: 13px; color: #6b7280; flex: none; }
+.msgKind { font-size: 13px; color: #6b7280; flex: none; }
+.report {
+  margin-left: auto;
+  padding: 0 4px;
+  font-size: 13px;
+  color: #9ba3ae;
+  border-radius: 999px;
+  flex: none;
+}
+.report:active { background: #f3f4f5; }
+.text { margin-top: 4px; font-size: 16px; line-height: 1.4; overflow-wrap: anywhere; white-space: pre-wrap; }
+/* an agent's text (5B): inside an outlined box, so it never reads as a person */
+.agentText {
+  margin-top: 6px;
+  padding: 10px 14px;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: inset 0 0 0 1.5px #ebecef;
+  font-size: 16px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.askRow { display: flex; align-items: center; gap: 12px; margin-top: 10px; }
+.askTaken { font-size: 14px; color: #6b7280; }
+
+/* the composer (7B): a plus, the field, Send, above the bottom nav */
+.composer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(56px + env(safe-area-inset-bottom, 0px));
+  z-index: 40;
+  margin: 0 auto;
+  width: 100%;
+  max-width: 32rem;
+  padding: 8px 16px 12px;
+  background: #fff;
+  border-top: 1px solid rgb(0 0 0 / 0.06);
+}
+.composerRow { display: flex; align-items: flex-end; gap: 8px; }
+.plus {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  background: #f3f4f5;
+  color: #111827;
+  font-size: 24px;
+  line-height: 1;
+  display: grid;
+  place-items: center;
+}
+.plus:active { transform: scale(0.98); }
+.composerField { flex: 1; min-width: 0; }
+.composerField textarea { min-height: 44px; max-height: 140px; resize: none; padding: 11px 16px 10px; border-radius: 22px; }
+.composerLine { font-size: 15px; color: #6b7280; padding: 10px 4px; }
+.asking { display: flex; align-items: center; gap: 8px; margin: 0 0 8px 52px; font-size: 13px; color: #6b7280; }
+.counter { margin-left: auto; font-size: 12px; color: #9ba3ae; }
+
+/* ---- the sheets ---- */
+.sheet { padding: 12px 24px calc(24px + env(safe-area-inset-bottom, 0px)); }
+.sheetLine { margin: 8px 0 20px; font-size: 15px; line-height: 1.5; color: #6b7280; }
+.sheetActions { display: flex; flex-direction: column; gap: 8px; }
+.danger { color: #dc2626; }
