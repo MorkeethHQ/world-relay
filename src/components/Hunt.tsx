@@ -2,8 +2,10 @@
 
 import { useEffect, useRef, type ReactNode } from "react";
 import { HUNT_SIZE, huntLine, type HuntApp } from "@/lib/daily-hunt";
+import type { FeedCard } from "@/lib/feed";
 import { Button } from "./Kit";
 import kit from "./Kit.module.css";
+import { ProjectFeed } from "./ProjectFeed";
 import styles from "./Hunt.module.css";
 
 // TODAY'S HUNT, THE FIRST TAB (Oscar, 8 Oct 2026: "make it fun, gamified. a
@@ -13,18 +15,21 @@ import styles from "./Hunt.module.css";
 // Four things, top to bottom, and nothing else:
 //   the bar      the word FAVOUR, and the person's points when they are known
 //   the card     "Today's hunt", three stamp slots, one status line
-//   the rail     the apps, sideways: picture, name, one line, one grey pill
+//   the feed     one project card per app (ProjectFeed, 9 Oct 2026: "Project
+//                cards A for sure"), which replaced the sideways rail
 //   the door     "Post your own app"
-// One tap on a tile opens the app in a sheet: picture, name, line, and the
-// buttons. "Vote" is quiet and is shown only for an app that can take a vote.
-// The dark button is the next step: "Review · N pts" on FAVOUR, "Open" elsewhere.
+// A card's picture or name opens /p/<id>. "Vote" votes, "Review" goes to the
+// product screen, "Talk" to the room. The sheet of idea C is kept below but
+// nothing opens it since the cards replaced the rail.
 //
 // A stamp means one thing: this wallet voted for the app, or sent a review of
 // it that passed, today. The slots fill with the app's own picture. Days in a
 // row is printed only when the server gave 2 or more. Nothing here is a guess:
 // an unknown count draws as an empty card, never as a number.
 //
-// Movement: the sheet slides up once, slowly. Nothing else moves.
+// Colour (Oscar, 9 Oct 2026: "only black though"): ink, white and gray on this
+// tab, the points in the bar included. Movement: the sheet slides up once,
+// slowly. Nothing else moves.
 
 export type HuntState = {
   stamps: string[] | null; // null: unknown (signed out, or could not be read)
@@ -32,28 +37,6 @@ export type HuntState = {
 };
 
 const initialOf = (name: string) => Array.from(name.trim())[0]?.toUpperCase() ?? "?";
-const pillWord = (a: HuntApp, stamped: boolean) =>
-  stamped ? "Checked" : a.kind === "favour" ? `Review · ${a.points} pts` : a.kind === "vote" ? "Vote" : "Open";
-
-function Tile({ app, stamped, onOpen }: { app: HuntApp; stamped: boolean; onOpen: () => void }) {
-  return (
-    <li>
-      <button type="button" className={`${styles.tile} min-h-[72px]`} onClick={onOpen} aria-label={`${app.name}: open`}>
-        {app.picture ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={app.picture} alt="" loading="lazy" referrerPolicy="no-referrer" className={styles.tilePic} />
-        ) : (
-          <span className={styles.tileNone} aria-hidden="true">{initialOf(app.name)}</span>
-        )}
-        <span className={styles.tileText}>
-          <span className={styles.tileName}>{app.name}</span>
-          <span className={styles.tileLine}>{app.line ?? app.host}</span>
-          <span className={`${styles.tilePill} ${stamped ? styles.tilePillOn : ""}`}>{pillWord(app, stamped)}</span>
-        </span>
-      </button>
-    </li>
-  );
-}
 
 function Stamp({ app, n }: { app: HuntApp | "unknown" | null; n: number }) {
   if (!app) return <div className={styles.stamp} aria-label={`Stamp ${n}: empty`}>{n}</div>;
@@ -71,15 +54,15 @@ function Stamp({ app, n }: { app: HuntApp | "unknown" | null; n: number }) {
 }
 
 export function Hunt({
-  apps, hunt, points, open, voting = false, voteProblem = null, onOpen, onClose, onVote, onPost,
+  apps, cards, hunt, points, open, voting = false, voteProblem = null, onClose, onVote, onPost,
 }: {
   apps: HuntApp[];
+  cards: FeedCard[];
   hunt: HuntState;
   points: number | null; // the signed-in person's points, or null when not known
   open: HuntApp | null; // the app in the sheet
   voting?: boolean;
   voteProblem?: string | null;
-  onOpen: (app: HuntApp) => void;
   onClose: () => void;
   onVote: (app: HuntApp) => void;
   onPost: () => void;
@@ -114,7 +97,7 @@ export function Hunt({
     <section aria-label="Today's hunt">
       <div className={styles.bar}>
         <span className={styles.word}>FAVOUR</span>
-        {points !== null && <span className={`${styles.pts} text-amber-600`} aria-label={`${points} points`}>{points} pts</span>}
+        {points !== null && <span className={styles.pts} aria-label={`${points} points`}>{points} pts</span>}
       </div>
 
       <div className={styles.hunt}>
@@ -126,16 +109,19 @@ export function Hunt({
         {hunt.streak !== null && hunt.streak >= 2 && <p className={styles.streak}>Day {hunt.streak} in a row</p>}
       </div>
 
-      <h2 className={styles.label}>Apps to check</h2>
-      <ul className={styles.rail} aria-label="Apps to check">
-        {apps.map((a) => <Tile key={`${a.kind}:${a.id}`} app={a} stamped={!!a.stamp && stamped.has(a.stamp)} onOpen={() => onOpen(a)} />)}
-      </ul>
+      <ProjectFeed
+        cards={cards}
+        stamps={stamped}
+        voting={voting}
+        voteProblem={open ? null : voteProblem}
+        onVote={(c) => { const a = apps.find((x) => x.kind === "vote" && x.id === c.id); if (a) onVote(a); }}
+      />
 
       <div className={styles.door}>
         <Button kind="quiet" wide onClick={onPost}>Post your own app</Button>
       </div>
 
-      {/* The sheet (idea C). Always mounted so the slide can run; hidden when closed. */}
+      {/* The sheet (idea C). Kept since 9 Oct 2026 though nothing opens it: the cards replaced the rail. */}
       <button type="button" className={`${styles.scrim} ${open ? styles.scrimOpen : ""} min-h-[44px]`} onClick={onClose} aria-label="Close" tabIndex={open ? 0 : -1} />
       <div
         ref={sheetRef}

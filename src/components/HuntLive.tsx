@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { huntApps, type HuntApp } from "@/lib/daily-hunt";
-import type { FirstPage } from "@/lib/first-page";
+import type { FeedCard, FeedPage } from "@/lib/feed";
 import { hunterProfile } from "@/lib/hunter-profile";
 import type { VoteRow } from "@/lib/product-votes";
 import { Hunt, type HuntState } from "./Hunt";
@@ -11,8 +11,9 @@ import { Note } from "./Kit";
 
 // `Hunt` WITH ITS DATA. The one line the first tab mounts: <HuntLive />.
 //
-// It reads four things. /api/top (the products on FAVOUR and the outside
-// launches) must answer, or the tab shows "Try again". The others may fail
+// It reads four things. /api/feed (the first page, the products on FAVOUR and
+// the outside launches, plus one card per project) must answer, or the tab
+// shows "Try again". The others may fail
 // alone: /api/votes (then no vote candidates), /api/hunt (then the card is drawn
 // as unknown: three empty slots, no streak), /api/me/contributions (then no
 // points in the bar). The points are the same number the profile shows, from
@@ -24,7 +25,7 @@ import { Note } from "./Kit";
 // A review is on /p/<id>; the product screen stamps it after the check passes.
 
 type Votes = { from: string; rows: VoteRow[]; signedIn: boolean };
-type State = { kind: "loading" } | { kind: "error" } | { kind: "ready"; page: FirstPage; votes: Votes | null; hunt: HuntState; points: number | null };
+type State = { kind: "loading" } | { kind: "error" } | { kind: "ready"; page: FeedPage; votes: Votes | null; hunt: HuntState; points: number | null };
 
 const json = async <T,>(url: string): Promise<T | null> => {
   try {
@@ -37,10 +38,10 @@ const json = async <T,>(url: string): Promise<T | null> => {
 
 async function read(): Promise<State> {
   const [page, votes, hunt, me] = await Promise.all([
-    fetch("/api/top").then(async (res) => {
+    fetch("/api/feed").then(async (res) => {
       const data = await res.json();
-      if (!res.ok || !data?.top) throw new Error("unreadable");
-      return data as FirstPage;
+      if (!res.ok || !data?.top || !Array.isArray(data.cards)) throw new Error("unreadable");
+      return data as FeedPage;
     }),
     json<Votes>("/api/votes").then((v) => (v && Array.isArray(v.rows) ? v : null)),
     json<{ signedIn: boolean; stamps?: string[] | null; streak?: number | null }>("/api/hunt"),
@@ -61,6 +62,7 @@ export function HuntLive() {
   const router = useRouter();
   const [state, setState] = useState<State>({ kind: "loading" });
   const [attempt, setAttempt] = useState(0);
+  // The sheet is kept in Hunt but nothing opens it since the cards (9 Oct 2026).
   const [open, setOpen] = useState<HuntApp | null>(null);
   const [voting, setVoting] = useState(false);
   const [voteProblem, setVoteProblem] = useState<string | null>(null);
@@ -85,7 +87,7 @@ export function HuntLive() {
       const rows = state.votes.rows.map((r) => (r.id === app.id ? { ...r, votes: data.votes, mine: true } : r));
       const stamps = Array.isArray(data.stamps) ? (data.stamps as string[]) : state.hunt.stamps;
       setState({ ...state, votes: { ...state.votes, rows }, hunt: { ...state.hunt, stamps } });
-      setOpen({ ...app, votes: data.votes, mine: true });
+      setOpen((o) => (o ? { ...app, votes: data.votes, mine: true } : o)); // the sheet, only if it was open
       if (!Array.isArray(data.stamps)) setVoteProblem("Your vote is saved. The stamp was not.");
     } catch {
       setVoteProblem("FAVOUR could not be reached. Your vote was not saved.");
@@ -93,6 +95,14 @@ export function HuntLive() {
       setVoting(false);
     }
   }
+
+  // A vote's "mine" is private and comes from /api/votes; the public cards get it here.
+  const cards: FeedCard[] = state.kind === "ready"
+    ? state.page.cards.map((c) => {
+        const v = c.kind === "vote" ? state.votes?.rows.find((r) => r.id === c.id) : undefined;
+        return v ? { ...c, votes: v.votes, mine: v.mine } : c;
+      })
+    : [];
 
   if (state.kind === "loading") return <Note kind="loading" quiet>Reading today&apos;s apps…</Note>;
   if (state.kind === "error") {
@@ -105,12 +115,12 @@ export function HuntLive() {
   return (
     <Hunt
       apps={huntApps(state.page, state.votes?.rows ?? [])}
+      cards={cards}
       hunt={state.hunt}
       points={state.points}
       open={open}
       voting={voting}
       voteProblem={voteProblem}
-      onOpen={(a) => { setVoteProblem(null); setOpen(a); }}
       onClose={close}
       onVote={vote}
       onPost={() => router.push("/post")}

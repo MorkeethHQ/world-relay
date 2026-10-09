@@ -22,7 +22,8 @@
   min-height: 32px;
   padding: 0 12px;
   border-radius: 999px;
-  background: #fff7ed;
+  background: #f3f4f6;
+  color: #111827;
   font-size: 13px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
@@ -87,7 +88,7 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* ---- the rail ---- */
+/* ---- the rail (unmounted 9 Oct 2026: the project cards replaced it; kept) ---- */
 .label {
   margin-top: 24px;
   font-size: 20px;
