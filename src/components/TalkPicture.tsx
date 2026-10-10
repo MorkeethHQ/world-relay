@@ -17,7 +17,7 @@ import styles from "./Talk.module.css";
 // "tile" (9 Oct 2026, the Hall): a square that fills its column, for a podium.
 // "thumb" and "banner" (11 Oct 2026, the Talk list): 16 to 9 and 1.91 to 1, the
 // shapes of a share picture, so a share picture fills the frame and is not cut.
-export type PictureShape = "square" | "squareSmall" | "wide" | "cover" | "tile" | "thumb" | "banner";
+export type PictureShape = "square" | "squareSmall" | "wide" | "cover" | "tile" | "thumb" | "thumb72" | "banner";
 
 export function TalkPicture({ name, url, icon, colour, shape = "square", onStep, art }: {
   name: string;
@@ -33,7 +33,7 @@ export function TalkPicture({ name, url, icon, colour, shape = "square", onStep,
   const chain = pictureSteps({ url, icon, colour, name });
   // A share picture is wide. In a square it is cut to a strip of letters, so a
   // square frame takes the icon first when the app has one.
-  const square = shape === "square" || shape === "squareSmall" || shape === "tile";
+  const square = shape === "square" || shape === "squareSmall" || shape === "tile" || shape === "thumb72";
   const steps = square ? [...chain.filter((s) => s.kind === "icon"), ...chain.filter((s) => s.kind !== "icon")] : chain;
   // A link that failed to load is remembered by its address, so a new picture starts the chain again.
   const [failed, setFailed] = useState<string[]>([]);

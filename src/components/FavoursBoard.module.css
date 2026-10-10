@@ -12,7 +12,8 @@
    with Profile and the project page). */
 
 /* ---- the day: one strip of counts, the same strip as Profile and History ---- */
-.totals { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; margin-top: 4px; padding: 12px 8px 10px; border-radius: 16px; background: #fff; box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.07); }
+.lede { margin: 0 0 12px; font-size: 16px; line-height: 1.4; color: #6b7280; }
+.totals { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; margin-top: 20px; padding: 12px 8px 10px; border-radius: 16px; background: #fff; box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.07); }
 .cell { min-width: 0; padding: 0 8px; }
 .cell + .cell { box-shadow: inset 1px 0 0 #ebecef; }
 .cell b {
@@ -30,6 +31,7 @@
 .cell small { display: block; margin-top: 2px; font-size: 12px; line-height: 1.25; color: #6b7280; }
 
 /* ---- a card: today's mission, the Welcome journey, review favours, the empty card ---- */
+.lede + .card { margin-top: 0; }
 .card { margin-top: 12px; padding: 16px; border-radius: 16px; background: #fff; box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.07); }
 .eyebrow { margin: 0; font-size: 13px; line-height: 1.3; color: #6b7280; }
 .card .eyebrow { margin-bottom: 8px; }

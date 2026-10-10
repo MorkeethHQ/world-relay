@@ -49,6 +49,7 @@
 .cover { width: 100%; aspect-ratio: 2.4; border-radius: 14px; font-size: 40px; }
 /* the shapes of a share picture, so it fills the frame and is not cut (11 Oct 2026) */
 .thumb { width: 96px; height: 54px; font-size: 20px; }
+.thumb72 { width: 72px; height: 72px; border-radius: 14px; font-size: 24px; }
 .banner { width: 100%; aspect-ratio: 1.91; border-radius: 12px; font-size: 32px; }
 .frame .frameArt { position: absolute; inset: 0; width: 100%; height: 100%; }
 .frameLetter { position: relative; display: grid; place-items: center; width: 44%; max-width: 56px; aspect-ratio: 1; border-radius: 999px; background: #fff; color: #111827; font-style: normal; font-weight: 700; font-size: 0.8em; }
@@ -69,6 +70,14 @@
   color: inherit;
 }
 .lead:active, .row:active { background: #f3f4f5; }
+.leadHead { display: flex; align-items: center; gap: 10px; }
+.leadHead .name { flex: 1; min-width: 0; font-size: 15px; color: #6b7280; }
+.leadSays { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; margin-top: 12px; font-size: 20px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.25; color: #111827; }
+.leadBy { display: block; margin-top: 8px; font-size: 14px; line-height: 1.3; color: #6b7280; }
+.leadGo { display: flex; align-items: center; justify-content: center; min-height: 48px; margin-top: 14px; border-radius: 999px; background: #111827; color: #fff; font-size: 16px; font-weight: 500; transition: transform 120ms ease-out; }
+.lead:active .leadGo { transform: scale(0.98); }
+.last2 { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+@media (prefers-reduced-motion: reduce) { .leadGo { transition: none; } .lead:active .leadGo { transform: none; } }
 .leadRow { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
 .row {
   display: flex;

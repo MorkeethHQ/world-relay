@@ -100,18 +100,20 @@ describe("from the nav to a message in a room", () => {
   // 11 Oct 2026: a shortened wallet address is not a name, a room with no message
   // is a tile that asks for the first one, and the big card needs a real picture.
   it("prints no wallet address, and draws a quiet room as an invitation", async () => {
-    expect(personName("0x7e57...00d1")).toBe("Someone");
+    expect(personName("0x7e57...00d1")).toBe("Someone 00d1");
     expect(personName("@jonas")).toBe("@jonas");
     expect(personName("jonas")).toBe("jonas");
     const rooms = (answers["/api/talk"] as { rooms: Array<{ last: { name: string } | null }> }).rooms;
     const kept = rooms[0].last!.name;
     rooms[0].last!.name = "0x7e57...00d1";
     render(<TalkRooms />);
-    expect(await screen.findByText(/^Someone: /)).toBeTruthy();
+    expect(await screen.findByText(/^Someone 00d1 · /)).toBeTruthy();
+    expect(screen.getByText("Open conversation")).toBeTruthy();
+    expect(screen.getByText(SEEDED)).toBeTruthy();
     expect(document.body.textContent).not.toMatch(/0x[0-9a-f]{2}/i);
-    expect(screen.getByText("Quiet rooms")).toBeTruthy();
-    expect(screen.getByLabelText("Wave Radio room").textContent).toMatch(/Be the first to write/);
-    // STRIVE has no share picture here, so it is a row and no big empty card is drawn.
+    expect(screen.getByText("Start a conversation")).toBeTruthy();
+    expect(screen.getByLabelText("Wave Radio room").textContent).toMatch(/Ask about Wave Radio/);
+    // The lead card has the room's small mark and no cover picture.
     expect(screen.getByLabelText("STRIVE room").querySelector("[data-art]")).toBeTruthy();
     rooms[0].last!.name = kept;
   });

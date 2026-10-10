@@ -18,7 +18,7 @@ import { useWorldUsers } from "@/hooks/useWorldUser";
 import { hapticTap } from "@/lib/minikit-helpers";
 import { JuryMode, type JuryCard } from "@/components/JuryMode";
 import { FeedComposer, QuickPost, SubmitProof } from "@/components/Feed";
-import { FavourArt, artKind } from "@/components/FavourArt";
+import { FavourArt, artFor } from "@/components/FavourArt";
 import { Bar, Loader } from "@/components/Fill";
 import talk from "./Talk.module.css";
 import styles from "./FavoursBoard.module.css";
@@ -358,18 +358,12 @@ export function FavoursBoard({ userId, onReauth }: Props) {
           </>
         )}
 
-        {ready && (
-          <div className={styles.totals} aria-label="Today on FAVOUR">
-            <div className={styles.cell}><b>{openCount}</b><small>open</small></div>
-            {walletUser && <div className={styles.cell}><b>{today.done}</b><small>done today</small></div>}
-            {walletUser && <div className={styles.cell}><b>{today.points}</b><small>pts today</small></div>}
-          </div>
-        )}
+        {ready && <p className={styles.lede}>Make something better today.</p>}
 
         {ready && mission && (
           <section className={`${styles.card} ${styles.hero}`} aria-label="Today's mission">
             <div className={styles.heroArt}>
-              <FavourArt kind={artKind(mission.category)} seed={mission.id} />
+              <FavourArt kind={artFor(mission)} seed={mission.id} />
               <span className={styles.heroTag}>{missionDone ? "Today's mission · done" : "Today's mission"}</span>
               {missionDone && <svg className={styles.tick} viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="22" /><path d="M14 25l7 7 14-16" /></svg>}
             </div>
@@ -381,10 +375,34 @@ export function FavoursBoard({ userId, onReauth }: Props) {
                 <Bar done={1} of={1} label={`You earned ${Math.round(missionDone.points)} pts`} />
               ) : (
                 <div className={`${styles.primary} ${styles.press}`}>
-                  <Button variant="primary" size="lg" fullWidth className="min-h-[44px]" onClick={() => openProof(mission)} aria-label="Start today's mission">Start</Button>
+                  <Button variant="primary" size="lg" fullWidth className="min-h-[44px]" onClick={() => openProof(mission)} aria-label="Start today's mission">Do this favour</Button>
                 </div>
               )}
             </div>
+          </section>
+        )}
+
+        {ready && rows.length > 0 && (
+          <section className={styles.group} aria-label="Open favours">
+            <h2 className={styles.heading}>Open favours <small>{rows.length}</small></h2>
+            {rows.map((t) => {
+              const target = targetLine(t);
+              const stale = isStale(t, Date.now());
+              const mine = !!userId && t.poster === userId;
+              // A person's own open favour cannot be done by them: it opens its page.
+              const go = () => (mine && t.status === "open" ? router.push(`/task/${encodeURIComponent(t.id)}`) : openProof(t));
+              return (
+                <button key={t.id} type="button" className={`min-h-[44px] ${styles.row}`} onClick={go} aria-label={`Open favour: ${t.description}`}>
+                  <span className={styles.thumb}><FavourArt kind={artFor(t)} seed={t.id} /></span>
+                  <span className={styles.rowText}>
+                    <span className={styles.rowAsk}>{t.description}</span>
+                    <span className={styles.rowLine}>{mine ? "You asked" : t.status === "claimed" ? "Yours, in progress" : whoAsked(t, displayName)}{stale ? " · Open a while" : ""}</span>
+                    {target && <Bar done={target.done} of={target.of} label={`${target.done} of ${target.of} done`} className={styles.rowBar} />}
+                  </span>
+                  <Reward task={t} />
+                </button>
+              );
+            })}
           </section>
         )}
 
@@ -440,30 +458,6 @@ export function FavoursBoard({ userId, onReauth }: Props) {
           </section>
         )}
 
-        {ready && rows.length > 0 && (
-          <section className={styles.group} aria-label="Open favours">
-            <h2 className={styles.heading}>Open favours <small>{rows.length}</small></h2>
-            {rows.map((t) => {
-              const target = targetLine(t);
-              const stale = isStale(t, Date.now());
-              const mine = !!userId && t.poster === userId;
-              // A person's own open favour cannot be done by them: it opens its page.
-              const go = () => (mine && t.status === "open" ? router.push(`/task/${encodeURIComponent(t.id)}`) : openProof(t));
-              return (
-                <button key={t.id} type="button" className={`min-h-[44px] ${styles.row}`} onClick={go} aria-label={`Open favour: ${t.description}`}>
-                  <span className={styles.thumb}><FavourArt kind={artKind(t.category)} seed={t.id} /></span>
-                  <span className={styles.rowText}>
-                    <span className={styles.rowAsk}>{t.description}</span>
-                    <span className={styles.rowLine}>{mine ? "You asked" : t.status === "claimed" ? "Yours, in progress" : whoAsked(t, displayName)}{stale ? " · Open a while" : ""}</span>
-                    {target && <Bar done={target.done} of={target.of} label={`${target.done} of ${target.of} done`} className={styles.rowBar} />}
-                  </span>
-                  <Reward task={t} />
-                </button>
-              );
-            })}
-          </section>
-        )}
-
         {nothing && (
           <section className={styles.card} aria-label="No open favour">
             <h2 className={styles.cardHeading}>No open favour today</h2>
@@ -479,6 +473,14 @@ export function FavoursBoard({ userId, onReauth }: Props) {
             <p className={styles.eyebrow}>More company campaigns</p>
             {campaignCards.rest.map((c) => campaignRow(c, null))}
           </section>
+        )}
+
+        {ready && (
+          <div className={styles.totals} aria-label="Today on FAVOUR">
+            <div className={styles.cell}><b>{openCount}</b><small>open</small></div>
+            {walletUser && <div className={styles.cell}><b>{today.done}</b><small>done today</small></div>}
+            {walletUser && <div className={styles.cell}><b>{today.points}</b><small>pts today</small></div>}
+          </div>
         )}
 
         {/* A one-off favour is asked here, under the list, with the old board's own

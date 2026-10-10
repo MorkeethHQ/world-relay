@@ -6,6 +6,7 @@ import { Button, Chip, TopBar } from "@worldcoin/mini-apps-ui-kit-react";
 import { clamp, textOrNull } from "@/lib/content-rules";
 import { TalkFace } from "@/components/TalkFace";
 import { TalkPicture } from "@/components/TalkPicture";
+import { shownName, timeShort } from "@/components/TalkRoom";
 import styles from "./Talk.module.css";
 
 // TALK: the list of rooms, one per app. DESIGN-SYSTEM.md, "Talk" and Flow 4.
@@ -32,15 +33,14 @@ export type RoomRow = {
 
 type State = { kind: "loading" } | { kind: "error" } | { kind: "ready"; rooms: RoomRow[] };
 
-// A person with no username comes from the server as a shortened wallet
-// address. An address is not a name, so this screen says "Someone".
-const ADDRESS = /^0x[0-9a-f]{2,}(\.{3}|…)?[0-9a-f]*$/i;
-export const personName = (name: string): string => (ADDRESS.test(name.trim()) ? "Someone" : name);
+// A shortened wallet address is never printed as a name: "Someone 00d1".
+// The rule is shownName in TalkRoom.tsx; this is its name on this screen.
+export const personName = shownName;
 
 function lastLine(r: RoomRow): string | null {
   // A reply in a shape this screen does not know prints nothing, never the word "undefined".
   const name = textOrNull(r.last?.name), text = textOrNull(r.last?.text);
-  if (name && text) return clamp(`${personName(name)}: ${text}`, 80);
+  if (name && text) return clamp(`${personName(name)}: ${text}`, 120);
   if (r.count === 0) return "Be the first to write";
   return null; // the store did not say: no line is drawn
 }
@@ -80,10 +80,10 @@ export function TalkRooms() {
 
   const rooms = state.kind === "ready" ? state.rooms : [];
   const lead = leadOf(rooms);
-  // The lead is the big card only when it has a real share picture. With an icon
-  // or a letter it is a row like the others, so no big empty frame is drawn.
-  const [leadStep, setLeadStep] = useState<"picture" | "icon" | "initial">("picture");
-  const big = !!lead && !!lead.picture.url && leadStep === "picture";
+  // The lead is a conversation card: the room's mark, its last message in full
+  // view, who wrote it and when. It is drawn only for a room with a message, and
+  // it has no cover picture (11 Oct 2026: a pale share picture read as an empty box).
+  const big = !!lead && !!textOrNull(lead.last?.text);
   const others = lead ? rooms.filter((r) => r.id !== lead.id || !big) : [];
   // A room with a message is a row. A room with none is a tile that asks for the first one.
   const rest = others.filter((r) => r.count !== 0);
@@ -116,28 +116,28 @@ export function TalkRooms() {
 
       {lead && (
         <div className={styles.list}>
-          {big && (
+          {big && lead.last && (
             <button type="button" className={`min-h-[44px] ${styles.lead}`} onClick={() => open(lead.id)} aria-label={`${lead.name} room`}>
-              <TalkPicture name={lead.name} url={lead.picture.url} icon={lead.picture.icon} colour={lead.colour} shape="banner" onStep={setLeadStep} />
-              <span className={styles.leadRow}>
-                <span className={styles.rowText}>
-                  <span className={styles.name}>{lead.name}</span>
-                  {lastLine(lead) && <span className={styles.last}>{lastLine(lead)}</span>}
-                </span>
+              <span className={styles.leadHead}>
+                <TalkPicture name={lead.name} url={lead.picture.url} icon={lead.picture.icon} colour={lead.colour} shape="squareSmall" art={lead.id} />
+                <span className={styles.name}>{lead.name}</span>
                 <People n={lead.people} />
               </span>
+              <span className={styles.leadSays}>{clamp(lead.last.text, 180)}</span>
+              <span className={styles.leadBy}>{personName(textOrNull(lead.last.name) ?? "Someone")}{timeShort(lead.last.at) ? ` · ${timeShort(lead.last.at)}` : ""}</span>
+              <span className={styles.leadGo}>Open conversation</span>
             </button>
           )}
 
           {rest.map((r) => (
             <button key={r.id} type="button" className={`min-h-[44px] ${styles.row}`} onClick={() => open(r.id)} aria-label={`${r.name} room`}>
-              <TalkPicture name={r.name} url={r.picture.url} icon={r.picture.icon} colour={r.colour} shape="thumb" art={r.id} />
+              <TalkPicture name={r.name} url={r.picture.url} icon={r.picture.icon} colour={r.colour} shape="thumb72" art={r.id} />
               <span className={styles.rowText}>
                 <span className={styles.name}>{r.name}</span>
                 {r.faces.length > 0 ? (
                   <span className={styles.faces}>{r.faces.map((f, i) => <TalkFace key={`${f.name}-${i}`} who={{ kind: "person", ...f, name: personName(f.name) }} />)}</span>
                 ) : lastLine(r) ? (
-                  <span className={styles.last}>{lastLine(r)}</span>
+                  <span className={`${styles.last} ${styles.last2}`}>{lastLine(r)}</span>
                 ) : null}
               </span>
               <People n={r.people} />
@@ -146,7 +146,7 @@ export function TalkRooms() {
 
           {quiet.length > 0 && (
             <>
-              <h2 className={styles.quietHead}>Quiet rooms<small>No one has written in {quiet.length === 1 ? "this one" : "these"} yet.</small></h2>
+              <h2 className={styles.quietHead}>Start a conversation<small>No one has written in {quiet.length === 1 ? "this room" : "these rooms"} yet.</small></h2>
               <div className={styles.quiet}>
                 {quiet.map((r) => (
                   <button key={r.id} type="button" className={`min-h-[44px] ${styles.quietTile}`} onClick={() => open(r.id)} aria-label={`${r.name} room`}>
@@ -154,7 +154,7 @@ export function TalkRooms() {
                     <span className={styles.name}>{r.name}</span>
                     <span className={styles.invite}>
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>
-                      Be the first to write
+                      Ask about {clamp(r.name, 24)}
                     </span>
                   </button>
                 ))}

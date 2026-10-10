@@ -36,6 +36,17 @@ type State = { kind: "loading" } | { kind: "error" } | { kind: "missing" } | { k
 
 const SIGN_IN_LINE = "Open FAVOUR in World App to write here.";
 
+// A shortened wallet address is never printed as a name: "Someone 00d1". The
+// last four characters keep two people apart in one room. The room list uses
+// this same function (TalkRooms.tsx).
+const ADDRESS = /^0x[0-9a-f]{2,}(?:\.{3}|…)?([0-9a-f]*)$/i;
+export function shownName(name: string): string {
+  const m = ADDRESS.exec(name.trim());
+  if (!m) return name;
+  const tail = (m[1] || name.trim()).slice(-4);
+  return tail ? `Someone ${tail}` : "Someone";
+}
+
 export function timeShort(iso: string, now: number = Date.now()): string {
   const ms = now - (Date.parse(iso) || now);
   const m = Math.floor(ms / 60_000);
@@ -219,17 +230,17 @@ export function TalkRoom({ id }: { id: string }) {
             <div key={m.id} className={styles.msg}>
               <div className={styles.msgHead}>
                 <TalkFace who={m.author} />
-                <span className={styles.msgName}>{m.author.name}</span>
+                <span className={styles.msgName}>{shownName(m.author.name)}</span>
                 {m.author.kind === "agent" && <span className={styles.msgKind}>· agent</span>}
                 {m.ask && <span className={styles.msgKind}>· asks</span>}
                 <span className={styles.msgTime}>{timeShort(m.at, now)}</span>
-                <button type="button" className={`min-h-[44px] ${styles.report}`} onClick={() => setReporting(m)} aria-label={`Report message by ${m.author.name}`}>Report</button>
+                <button type="button" className={`min-h-[44px] ${styles.report}`} onClick={() => setReporting(m)} aria-label={`Report message by ${shownName(m.author.name)}`}>Report</button>
               </div>
               <p className={m.author.kind === "agent" ? styles.agentText : styles.text}>{m.text}</p>
               {m.ask && (
                 <div className={styles.askRow}>
                   {m.taken ? (
-                    <span className={styles.askTaken}>{m.taken.name} can</span>
+                    <span className={styles.askTaken}>{shownName(m.taken.name)} can</span>
                   ) : signedIn ? (
                     <Button variant="tertiary" size="sm" className="min-h-[44px]" disabled={taking !== null} onClick={() => take(m.id)}>I can</Button>
                   ) : null}
@@ -279,7 +290,7 @@ export function TalkRoom({ id }: { id: string }) {
         <DrawerContent>
           <div className={styles.sheet}>
             <DrawerHeader><DrawerTitle>Report this message?</DrawerTitle></DrawerHeader>
-            {reporting && <p className={styles.sheetLine}>{reporting.author.name}: {Array.from(reporting.text).length > 80 ? `${Array.from(reporting.text).slice(0, 80).join("")}…` : reporting.text}</p>}
+            {reporting && <p className={styles.sheetLine}>{shownName(reporting.author.name)}: {Array.from(reporting.text).length > 80 ? `${Array.from(reporting.text).slice(0, 80).join("")}…` : reporting.text}</p>}
             <div className={styles.sheetActions}>
               {signedIn ? (
                 <Button variant="secondary" fullWidth className={`min-h-[44px] ${styles.danger}`} onClick={() => reporting && report(reporting)}>Report</Button>

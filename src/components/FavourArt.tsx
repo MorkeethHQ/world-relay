@@ -8,7 +8,7 @@
 // picture. It scales to any box and crops from the middle. It is decoration
 // and says so to a screen reader (aria-hidden). No gradient, no keyframe.
 
-export type ArtKind = "say" | "photo" | "place" | "review" | "share" | "welcome" | "judge";
+export type ArtKind = "say" | "photo" | "place" | "review" | "share" | "welcome" | "judge" | "sound" | "air" | "door" | "cup";
 
 /** Ground, shape, second shape. Six flat sets; the id picks one. */
 export const ART_SETS = [
@@ -29,6 +29,22 @@ export function artKind(category: string | null | undefined): ArtKind {
     case "social": return "share";
     default: return "say";
   }
+}
+
+// The favour's own words pick the picture first, so a favour about a sound shows
+// a sound. A word list, not a model: a favour with none of these words falls to
+// its category.
+const WORDS: [RegExp, ArtKind][] = [
+  [/\b(sound|noise|hear|listen|loud|quiet|silence|music|song)\b/i, "sound"],
+  [/\b(smell|air|scent|wind|breath|weather)\b/i, "air"],
+  [/\b(door|gate|entrance|window)\b/i, "door"],
+  [/\b(drink|coffee|tea|cup|water|breakfast)\b/i, "cup"],
+];
+/** The picture for one favour: from its words, else from its category. */
+export function artFor(task: { description?: string | null; category?: string | null }): ArtKind {
+  const text = task.description ?? "";
+  for (const [re, kind] of WORDS) if (re.test(text)) return kind;
+  return artKind(task.category);
 }
 
 /** One number from a seed, the same on the server and in the browser. */
@@ -84,6 +100,38 @@ function Shapes({ kind, a, b, g, n }: { kind: ArtKind; a: string; b: string; g: 
           <path d="M160 34 V14 M98 58 L84 44 M222 58 L236 44 M70 118 H48 M250 118 H272" stroke={b} strokeWidth="8" strokeLinecap="round" />
           <path d={`M${92 + dx} 132 a68 68 0 0 1 136 0 Z`} fill={a} />
           <rect x="0" y="132" width="320" height="48" fill={b} />
+        </>
+      );
+    case "sound":
+      return (
+        <>
+          <path d={`M${74 + dx} 68 h34 l44 -34 v112 l-44 -34 h-34 Z`} fill={b} />
+          <path d={`M${178 + dx} 62 a40 40 0 0 1 0 56 M${200 + dx} 40 a70 70 0 0 1 0 100 M${222 + dx} 18 a100 100 0 0 1 0 144`} fill="none" stroke={a} strokeWidth="12" strokeLinecap="round" />
+        </>
+      );
+    case "air":
+      return (
+        <>
+          <path d={`M30 ${62 + dy} h150 a22 22 0 1 0 -22 -22 M30 ${98 + dy} h214 a24 24 0 1 1 -24 24 M30 ${134 + dy} h96 a18 18 0 1 1 -18 18`} fill="none" stroke={b} strokeWidth="12" strokeLinecap="round" />
+          <circle cx={262 + dx} cy={48 + dy} r="20" fill={a} />
+        </>
+      );
+    case "door":
+      return (
+        <>
+          <rect x="0" y="150" width="320" height="30" fill={b} opacity="0.5" />
+          <path d={`M${110 + dx} 150 V58 a50 50 0 0 1 100 0 V150 Z`} fill={b} />
+          <path d={`M${126 + dx} 150 V62 a34 34 0 0 1 68 0 V150 Z`} fill={a} />
+          <circle cx={180 + dx} cy="104" r="6" fill={g} />
+        </>
+      );
+    case "cup":
+      return (
+        <>
+          <path d={`M${104 + dx} 76 h112 v36 a56 56 0 0 1 -112 0 Z`} fill={b} />
+          <path d={`M${216 + dx} 86 h10 a20 20 0 0 1 0 40 h-14`} fill="none" stroke={b} strokeWidth="10" />
+          <path d={`M${136 + dx} 56 q-12 -14 0 -28 M${164 + dx} 56 q-12 -14 0 -28 M${192 + dx} 56 q-12 -14 0 -28`} fill="none" stroke={a} strokeWidth="8" strokeLinecap="round" />
+          <rect x={86 + dx} y="164" width="148" height="8" rx="4" fill={a} />
         </>
       );
     case "judge":
