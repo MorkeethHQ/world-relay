@@ -9,12 +9,13 @@ import type { CampaignDraft } from "@/lib/campaign-draft-shape";
 import { HUNT_SIZE } from "@/lib/daily-hunt";
 import { hunterProfile } from "@/lib/hunter-profile";
 import { ownApps } from "@/lib/project-view";
-import { initialOf } from "@/lib/content-rules";
+import { groundOf, markInk } from "@/lib/content-rules";
 import { rewardAmountLabel } from "@/lib/reward";
 import { shareInvite } from "@/lib/minikit-helpers";
 import { displayName, profilePicture, useWorldUsers } from "@/hooks/useWorldUser";
 import { Bar, Loader } from "@/components/Fill";
 import { TalkPicture } from "@/components/TalkPicture";
+import { CategoryIcon } from "@/components/CategoryIcon";
 import talk from "./Talk.module.css";
 import styles from "./Profile.module.css";
 
@@ -29,6 +30,14 @@ import styles from "./Profile.module.css";
 // "Your apps", the apps this person posted, each a row to /p/<id>; "Your
 // company responses" when the server lists any; "Your favours", the favours
 // this person posted or did; "Invite a friend" as a row; the footer.
+//
+// Since the evening of 10 Oct 2026 (Oscar: "we can't have empty spaces like
+// this", "borders are ot right, we're missing logos"): the counts and today's
+// hunt are one white card, not an ink banner and a second card; a person with
+// no accepted review yet gets one line and the way to a first review under the
+// counts; rows of one group share one card; an app row draws the app's own
+// picture from /api/feed; a favour row draws its kind; a person with no World
+// picture gets a mark made from their wallet, never the address itself.
 //
 // Every number is the server's for this person. A zero is a zero. The one
 // read whose failure is the error state is the contribution record; the rest
@@ -66,6 +75,27 @@ export function postedLine(host: string, publishedAt: string | null, now: number
   return `${when} · ${host}`;
 }
 
+/** A person's mark when World gives no picture: a 5 by 5 pattern, mirrored,
+ *  made from the wallet's own characters. It shows no character of the address. */
+export function faceCells(seed: string): boolean[] {
+  let h = 2166136261;
+  for (const ch of seed.toLowerCase()) h = Math.imul(h ^ ch.codePointAt(0)!, 16777619) >>> 0;
+  const half: boolean[] = [];
+  for (let i = 0; i < 15; i++) { h = Math.imul(h ^ (h >>> 13), 1274126177) >>> 0; half.push((h & 7) > 2); }
+  return Array.from({ length: 25 }, (_, i) => { const x = i % 5; return half[Math.floor(i / 5) * 3 + (x > 2 ? 4 - x : x)]; });
+}
+
+function Face({ seed }: { seed: string }) {
+  const cells = faceCells(seed);
+  return (
+    <span className={styles.face} style={{ background: groundOf(seed), color: markInk(seed) }} aria-hidden="true">
+      <svg viewBox="0 0 5 5" width="30" height="30" shapeRendering="crispEdges">
+        {cells.map((on, i) => on && <rect key={i} x={i % 5} y={Math.floor(i / 5)} width="1" height="1" fill="currentColor" />)}
+      </svg>
+    </span>
+  );
+}
+
 /** The sign-in level as plain words, never a colour. */
 export function levelLine(level: string | null): string {
   return (level && LEVEL[level]) || "Signed in";
@@ -80,6 +110,7 @@ export function Profile() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [referral, setReferral] = useState<Referral | null>(null);
   const [responses, setResponses] = useState<CompanyResponse[]>([]);
+  const [pictures, setPictures] = useState<Record<string, { url: string | null; icon: string | null }>>({});
 
   // The identity the app stored at sign-in, as the old page read it.
   useEffect(() => {
@@ -122,6 +153,11 @@ export function Profile() {
     let live = true;
     json<{ tasks?: Task[] }>("/api/tasks").then((d) => { if (live) setTasks(Array.isArray(d?.tasks) ? d!.tasks! : []); });
     json<{ campaigns?: CompanyResponse[] }>("/api/me/company-responses").then((d) => { if (live) setResponses(Array.isArray(d?.campaigns) ? d!.campaigns! : []); });
+    // The pictures of the apps on Today, so an app row draws the app's own picture.
+    json<{ cards?: Array<{ id: string; picture?: { url: string | null; icon: string | null } }> }>("/api/feed").then((d) => {
+      if (!live || !Array.isArray(d?.cards)) return;
+      setPictures(Object.fromEntries(d!.cards!.filter((c) => c.picture).map((c) => [c.id, c.picture!])));
+    });
     if (wallet) {
       json<Referral & { error?: string }>(`/api/referral/stats?address=${encodeURIComponent(userId!)}`).then((d) => { if (live && d && !d.error && typeof d.cap === "number") setReferral(d); });
     }
@@ -151,7 +187,7 @@ export function Profile() {
           {picture ? (
             <Marble src={picture} alt="" className={styles.marble} />
           ) : (
-            <span className={styles.face} aria-hidden="true">{userId ? initialOf((name ?? "You").replace(/^@/, "")) : "?"}</span>
+            <Face seed={userId ?? "favour"} />
           )}
           <div className={styles.identityText}>
             <h2 className={styles.name}>{!userId ? "Not signed in" : name ?? "You"}</h2>
@@ -181,19 +217,26 @@ export function Profile() {
         )}
 
         {ready && profile && (
-          <div className={styles.totals} aria-label="Your work on FAVOUR">
-            <div className={styles.cell}><b>{profile.points}</b><small>pts</small></div>
-            <div className={styles.cell}><b>{profile.reviews}</b><small>reviews accepted</small></div>
-            <div className={styles.cell}><b>{profile.products}</b><small>products reviewed</small></div>
-            <div className={styles.cell}><b>{apps.length}</b><small>apps launched</small></div>
+          <div className={styles.summary}>
+            <div className={styles.totals} aria-label="Your work on FAVOUR">
+              <div className={styles.cell}><b>{profile.points}</b><small>pts</small></div>
+              <div className={styles.cell}><b>{profile.reviews}</b><small>reviews accepted</small></div>
+              <div className={styles.cell}><b>{profile.products}</b><small>products reviewed</small></div>
+              <div className={styles.cell}><b>{apps.length}</b><small>apps launched</small></div>
+            </div>
+            {stamped !== null && (
+              <section className={styles.hunt} aria-label="Today's hunt">
+                <p className={styles.eyebrow}>Today&apos;s hunt</p>
+                <Bar done={stamped} of={HUNT_SIZE} label={`${stamped} of ${HUNT_SIZE} checked today`} />
+              </section>
+            )}
+            {profile.reviews === 0 && (
+              <button type="button" className={`min-h-[44px] ${styles.next}`} onClick={() => router.push("/")} aria-label="Review a project">
+                <span>No review accepted yet. Review one project to earn your first points.</span>
+                <i className={styles.chev} aria-hidden="true">›</i>
+              </button>
+            )}
           </div>
-        )}
-
-        {ready && stamped !== null && (
-          <section className={styles.card} aria-label="Today's hunt">
-            <p className={styles.eyebrow}>Today&apos;s hunt</p>
-            <Bar done={stamped} of={HUNT_SIZE} label={`${stamped} of ${HUNT_SIZE} checked today`} />
-          </section>
         )}
 
         {ready && (
@@ -209,9 +252,10 @@ export function Profile() {
               </div>
             ) : (
               <>
+                <div className={styles.rows}>
                 {apps.map((a) => (
                   <button key={a.id} type="button" className={`min-h-[44px] ${styles.row}`} onClick={() => router.push(`/p/${encodeURIComponent(a.id)}`)} aria-label={`${a.name}: your app`}>
-                    <TalkPicture name={a.name} url={null} icon={null} colour={null} shape="square" />
+                    <TalkPicture name={a.name} url={pictures[a.id]?.url ?? null} icon={pictures[a.id]?.icon ?? null} colour={null} shape="square" />
                     <span className={styles.rowText}>
                       <span className={styles.rowName}>{a.name}</span>
                       <span className={styles.rowLine}>{postedLine(a.host, a.publishedAt)}</span>
@@ -219,6 +263,7 @@ export function Profile() {
                     <i className={styles.chev} aria-hidden="true">›</i>
                   </button>
                 ))}
+                </div>
                 <div className={styles.door}>
                   <Button variant="tertiary" size="sm" fullWidth className="min-h-[44px]" onClick={() => router.push("/post")}>Post another</Button>
                 </div>
@@ -230,9 +275,10 @@ export function Profile() {
         {ready && responses.length > 0 && (
           <section className={styles.group} aria-label="Your company responses">
             <h2 className={styles.heading}>Your company responses</h2>
+            <div className={styles.rows}>
             {responses.map((r) => (
               <button key={r.id} type="button" className={`min-h-[44px] ${styles.row}`} onClick={() => router.push(`/companies/${encodeURIComponent(r.id)}/contributions`)} aria-label={`${r.company}: company responses`}>
-                <span className={styles.mark}>{initialOf(r.company)}</span>
+                <TalkPicture name={r.company} url={null} icon={null} colour={null} shape="square" />
                 <span className={styles.rowText}>
                   <span className={styles.rowName}>{r.company}</span>
                   <span className={styles.rowLine}>{r.pieces} {r.pieces === 1 ? "piece" : "pieces"} · {r.waiting} waiting · {r.role === "company" ? "you are the company" : "your work"}</span>
@@ -240,6 +286,7 @@ export function Profile() {
                 <i className={styles.chev} aria-hidden="true">›</i>
               </button>
             ))}
+            </div>
           </section>
         )}
 
@@ -249,16 +296,18 @@ export function Profile() {
             {myTasks.length === 0 ? (
               <p className={styles.quiet}>No favour yet. Do one and it shows up here.</p>
             ) : (
-              myTasks.map((t) => (
+              <div className={styles.rows}>
+              {myTasks.map((t) => (
                 <button key={t.id} type="button" className={`min-h-[44px] ${styles.row}`} onClick={() => router.push(`/task/${encodeURIComponent(t.id)}`)} aria-label={t.description}>
-                  <span className={styles.mark}>{t.poster === userId ? "P" : "D"}</span>
+                  <span className={styles.mark}><CategoryIcon category={t.category} size={20} /></span>
                   <span className={styles.rowText}>
                     <span className={styles.rowAsk}>{t.description}</span>
                     <span className={styles.rowLine}>{t.poster === userId ? "Posted" : "Done"} · {rewardAmountLabel(t)}</span>
                   </span>
                   <span className={styles.status}>{STATUS[t.status] ?? t.status}</span>
                 </button>
-              ))
+              ))}
+              </div>
             )}
           </section>
         )}
@@ -268,8 +317,11 @@ export function Profile() {
         {ready && wallet && (
           <section className={styles.group} aria-label="Friends">
             <h2 className={styles.heading}>Friends</h2>
+            <div className={styles.rows}>
             <button type="button" className={`min-h-[44px] ${styles.row}`} onClick={() => shareInvite(userId!)} aria-label="Invite a friend">
-              <span className={styles.mark}>+</span>
+              <span className={styles.mark}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M19 8v6M22 11h-6" /></svg>
+              </span>
               <span className={styles.rowText}>
                 <span className={styles.rowName}>Invite a friend</span>
                 <span className={styles.rowLine}>
@@ -281,6 +333,7 @@ export function Profile() {
               </span>
               <span className={styles.status}>Invite</span>
             </button>
+            </div>
           </section>
         )}
 

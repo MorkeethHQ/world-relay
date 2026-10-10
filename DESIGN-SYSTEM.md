@@ -71,12 +71,25 @@ tabular. Nothing is uppercase except a tiny source chip.
 **Spacing scale**: 4, 8, 12, 16, 20, 24, 32. The page gutter is 16. A section starts 24 below
 the one before. A heading has 8 to its line and 16 to the first thing to tap.
 
-**Radii**: row 0 (rows sit edge to edge with a hairline), picture 16, card 20, sheet 24, button 16,
+**Radii**: row 0 (rows sit edge to edge with a hairline), picture 12, card 16 (the hunt card too, since 10 Oct 2026; the code used 16, 20 and 24 before), sheet 24, button 16,
 field 14, pill 999.
 
 **Surfaces**: page #FAFAFA; card white with a 1px hairline `rgb(0 0 0 / 0.07)`, no shadow; a sheet
 is a white card that holds the one primary button; ink gray-900. Two dark surfaces only: the
 featured product's own colour (one door, above) and the hunt card on the first tab, which is ink.
+
+**One card, five tabs** (Oscar, 10 Oct 2026, evening: "we can't have empty spaces like this",
+"borders are ot right, we're missing logos and things, don't give too much white space either").
+Every card on Today, Favours, Talk, History and Profile is white on the page ground #FAFAFA with
+the one hairline and radius 16. The ink count banners on Favours and Profile are gone: counts are
+one white strip (`.totals`), the same on Favours, History and Profile. Rows of one group share one
+card with a hairline between them (History, Profile). A section starts 20 below the one before,
+a card 12. A picture is never a bare gray letter: with no picture and no icon, the letter sits on
+a tint from the name (blue, violet or rose; never amber or green, `markHue` in `content-rules.ts`)
+in a deep tone of the same hue; a real icon sits on plain gray. A person with no World picture
+gets a 5 by 5 mark made from their wallet (`faceCells` in `Profile.tsx`), never the address. On
+Profile the hunt bar is a line of the count card, and a person with no accepted review gets one
+line under it that opens Today.
 
 **Buttons**: one primary, dark, full width, 52 tall, radius 16, 16/600 white text, at most one
 per screen and it is the next step. One quiet pill, gray-100, 44 tall, 14/600 ink, for every

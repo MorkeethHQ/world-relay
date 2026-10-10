@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { campaignPicture } from "@/lib/campaign-picture";
-import { clamp, groundOf, hostIfLink, lineText, LINE_MAX, NAME_MAX, nameText, PICTURE_MIN_PX, pictureSteps, pictureTooSmall, stepsOf, textOrNull } from "@/lib/content-rules";
+import { clamp, groundOf, markHue, markInk, hostIfLink, lineText, LINE_MAX, NAME_MAX, nameText, PICTURE_MIN_PX, pictureSteps, pictureTooSmall, stepsOf, textOrNull } from "@/lib/content-rules";
 
 describe("the picture chain is one chain everywhere", () => {
   it("goes share picture, then icon on the app's ground, then the first letter", () => {
@@ -20,11 +20,27 @@ describe("the picture chain is one chain everywhere", () => {
   });
 
   it("refuses a ground that reads as points or money, and takes a pale tint from the name instead", () => {
-    expect(groundOf("Strive", "#16a34a")).toMatch(/^hsl\(\d+ 12% 92%\)$/); // green: money
+    expect(groundOf("Strive", "#16a34a")).toMatch(/^hsl\(\d+ 60% 91%\)$/); // green: money
     expect(groundOf("Strive", "#d97706")).toMatch(/^hsl\(/); // amber: points
     expect(groundOf("Strive", "not a colour")).toMatch(/^hsl\(/);
     expect(groundOf("Strive", "#1d4ed8")).toBe("#1d4ed8"); // blue is fine inside the picture window
     expect(groundOf("Strive")).toBe(groundOf("Strive")); // steady
+  });
+
+  // 10 Oct 2026 (Oscar: "we're missing logos"): the letter is on a tint, never on bare gray.
+  it("draws a mark's tint from blue, violet and rose only, never amber or green", () => {
+    for (const name of ["Strive", "Oscar Labs", "TEST DATA stoneware teapot", "A", "zz", "0x7e57", "Wave Radio", "kiln", "b", "Q9"]) {
+      const h = markHue(name);
+      expect(h >= 190 && h <= 345).toBe(true);
+      expect(groundOf(name)).toBe(`hsl(${h} 60% 91%)`);
+      expect(markInk(name)).toBe(`hsl(${h} 45% 32%)`);
+    }
+    expect(markInk("Strive", "#1d4ed8")).toBe("#fff");
+  });
+
+  it("puts a real icon on plain gray or the app's own colour, not on the mark's tint", () => {
+    expect(pictureSteps({ icon: "https://a.example/i.png", name: "A" })[0]).toMatchObject({ kind: "icon", ground: "#f3f4f5" });
+    expect(pictureSteps({ icon: "https://a.example/i.png", colour: "#1d4ed8", name: "A" })[0]).toMatchObject({ kind: "icon", ground: "#1d4ed8" });
   });
 
   it("reads a campaign picture the same way", () => {

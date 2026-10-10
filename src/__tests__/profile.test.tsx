@@ -19,7 +19,7 @@ vi.mock("next/navigation", () => ({
   }),
 }));
 
-import { Profile, levelLine, postedLine } from "@/components/Profile";
+import { Profile, faceCells, levelLine, postedLine } from "@/components/Profile";
 
 const ME = "0x1111111111111111111111111111111111111111";
 const NOW = Date.now();
@@ -108,6 +108,36 @@ describe("the profile, filled", () => {
     render(<Profile />);
     await screen.findByText(APP);
     expect(document.body.textContent).not.toMatch(/\bLevel\b|\bRank\b|in a row|streak/i);
+  });
+});
+
+describe("the profile, the evening pass of 10 Oct 2026", () => {
+  it("an app row draws the app's own icon when the feed gives one", async () => {
+    localStorage.setItem("relay_user_id", ME);
+    answers["/api/feed"] = { body: { cards: [{ id: "draft_1", picture: { url: null, icon: "https://waveradio.example/icon.png" } }] } };
+    render(<Profile />);
+    const row = await screen.findByLabelText(`${APP}: your app`);
+    await waitFor(() => expect(row.querySelector("img")?.getAttribute("src")).toBe("https://waveradio.example/icon.png"));
+  });
+
+  it("with no accepted review it gives one line and the way to Today; with one it does not", async () => {
+    localStorage.setItem("relay_user_id", ME);
+    render(<Profile />);
+    await screen.findByText(APP);
+    expect(screen.queryByLabelText("Review a project")).toBeNull();
+    cleanup();
+    answers["/api/me/contributions"] = { body: { authenticated: true, contributions: [] } };
+    render(<Profile />);
+    fireEvent.click(await screen.findByLabelText("Review a project"));
+    expect(nav.pushed).toEqual(["/"]);
+  });
+
+  it("a person's mark is steady, mirrored, and differs between wallets", () => {
+    const a = faceCells(ME);
+    expect(a).toHaveLength(25);
+    expect(faceCells(ME)).toEqual(a);
+    for (let y = 0; y < 5; y++) { expect(a[y * 5]).toBe(a[y * 5 + 4]); expect(a[y * 5 + 1]).toBe(a[y * 5 + 3]); }
+    expect(faceCells("0x2222222222222222222222222222222222222222")).not.toEqual(a);
   });
 });
 

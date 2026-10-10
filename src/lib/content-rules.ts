@@ -32,7 +32,20 @@ export type PictureStep =
  *  allowed, else a pale tint from the name. Never a colour that means points or money. */
 export function groundOf(name: string, colour?: string | null): string {
   const own = productColour(colour);
-  return own ? own.fill : `hsl(${hueOf(name)} 12% 92%)`;
+  return own ? own.fill : `hsl(${markHue(name)} 60% 91%)`;
+}
+
+/** The hues a mark may take when the app has no colour of its own: blue to
+ *  violet and rose. Amber (points) and green (money) are not in the list. */
+const MARK_HUES = [198, 212, 226, 240, 256, 272, 318, 338] as const;
+export function markHue(name: string): number {
+  return MARK_HUES[hueOf(name) % MARK_HUES.length];
+}
+
+/** The letter's colour on its ground, as CSS: white or ink on the app's own colour, else a deep tone of the mark's hue. */
+export function markInk(name: string, colour?: string | null): string {
+  const own = productColour(colour);
+  return own ? (own.onFill === "white" ? "#fff" : "#111827") : `hsl(${markHue(name)} 45% 32%)`;
 }
 
 /** The letter's colour on that ground: white on a dark colour of the app's own, ink on the rest. */
@@ -49,7 +62,8 @@ export function pictureSteps(input: { url?: string | null; icon?: string | null;
   const ground = groundOf(input.name, input.colour);
   const out: PictureStep[] = [];
   if (input.url) out.push({ kind: "picture", url: input.url });
-  if (input.icon && input.icon !== input.url) out.push({ kind: "icon", url: input.icon, ground });
+  // An icon has its own colours: it sits on the app's own colour or on plain gray, never on the mark's tint.
+  if (input.icon && input.icon !== input.url) out.push({ kind: "icon", url: input.icon, ground: productColour(input.colour)?.fill ?? "#f3f4f5" });
   out.push({ kind: "initial", letter: initialOf(input.name), ground });
   return out;
 }

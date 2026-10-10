@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { inkOn, pictureSteps } from "@/lib/content-rules";
+import { markInk, pictureSteps } from "@/lib/content-rules";
 import styles from "./Talk.module.css";
 
 // THE SMALL PICTURE OF AN APP, one frame for every room (Oscar, 9 Oct 2026:
@@ -54,5 +54,5 @@ export function TalkPicture({ name, url, icon, colour, shape = "square", onStep 
       </span>
     );
   }
-  return <span className={cls} style={{ background: step.ground, color: inkOn(colour) === "white" ? "#fff" : undefined }} aria-hidden="true">{step.letter}</span>;
+  return <span className={cls} style={{ background: step.ground, color: markInk(name, colour), fontWeight: 700 }} aria-hidden="true">{step.letter}</span>;
 }
