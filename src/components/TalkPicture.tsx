@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { markInk, pictureSteps } from "@/lib/content-rules";
+import { FavourArt } from "./FavourArt";
 import styles from "./Talk.module.css";
 
 // THE SMALL PICTURE OF AN APP, one frame for every room (Oscar, 9 Oct 2026:
@@ -14,14 +15,18 @@ import styles from "./Talk.module.css";
 // of points or the green of money. A real picture gets no colour behind it.
 
 // "tile" (9 Oct 2026, the Hall): a square that fills its column, for a podium.
-export type PictureShape = "square" | "squareSmall" | "wide" | "cover" | "tile";
+// "thumb" and "banner" (11 Oct 2026, the Talk list): 16 to 9 and 1.91 to 1, the
+// shapes of a share picture, so a share picture fills the frame and is not cut.
+export type PictureShape = "square" | "squareSmall" | "wide" | "cover" | "tile" | "thumb" | "banner";
 
-export function TalkPicture({ name, url, icon, colour, shape = "square", onStep }: {
+export function TalkPicture({ name, url, icon, colour, shape = "square", onStep, art }: {
   name: string;
   url: string | null;
   icon: string | null;
   colour: string | null;
   shape?: PictureShape;
+  /** A seed. With it, an app with no picture and no icon gets a favour-art drawing under its letter (DESIGN-SYSTEM.md, "Favour art"). */
+  art?: string;
   /** Told which step of the chain is drawn, so a caller may drop a cover that fell to the icon or the letter. */
   onStep?: (kind: "picture" | "icon" | "initial") => void;
 }) {
@@ -51,6 +56,14 @@ export function TalkPicture({ name, url, icon, colour, shape = "square", onStep 
       <span className={cls} style={{ background: step.ground }} aria-hidden="true">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={step.url} alt="" loading="lazy" referrerPolicy="no-referrer" className={styles.iconStep} onError={next} />
+      </span>
+    );
+  }
+  if (art) {
+    return (
+      <span className={cls} aria-hidden="true">
+        <FavourArt kind="say" seed={art} className={styles.frameArt} />
+        <i className={styles.frameLetter}>{step.letter}</i>
       </span>
     );
   }

@@ -32,10 +32,15 @@ export type RoomRow = {
 
 type State = { kind: "loading" } | { kind: "error" } | { kind: "ready"; rooms: RoomRow[] };
 
+// A person with no username comes from the server as a shortened wallet
+// address. An address is not a name, so this screen says "Someone".
+const ADDRESS = /^0x[0-9a-f]{2,}(\.{3}|…)?[0-9a-f]*$/i;
+export const personName = (name: string): string => (ADDRESS.test(name.trim()) ? "Someone" : name);
+
 function lastLine(r: RoomRow): string | null {
   // A reply in a shape this screen does not know prints nothing, never the word "undefined".
   const name = textOrNull(r.last?.name), text = textOrNull(r.last?.text);
-  if (name && text) return clamp(`${name}: ${text}`, 80);
+  if (name && text) return clamp(`${personName(name)}: ${text}`, 80);
   if (r.count === 0) return "Be the first to write";
   return null; // the store did not say: no line is drawn
 }
@@ -75,7 +80,14 @@ export function TalkRooms() {
 
   const rooms = state.kind === "ready" ? state.rooms : [];
   const lead = leadOf(rooms);
-  const rest = lead ? rooms.filter((r) => r.id !== lead.id) : [];
+  // The lead is the big card only when it has a real share picture. With an icon
+  // or a letter it is a row like the others, so no big empty frame is drawn.
+  const [leadStep, setLeadStep] = useState<"picture" | "icon" | "initial">("picture");
+  const big = !!lead && !!lead.picture.url && leadStep === "picture";
+  const others = lead ? rooms.filter((r) => r.id !== lead.id || !big) : [];
+  // A room with a message is a row. A room with none is a tile that asks for the first one.
+  const rest = others.filter((r) => r.count !== 0);
+  const quiet = others.filter((r) => r.count === 0);
   const open = (id: string) => router.push(`/talk/${encodeURIComponent(id)}`);
 
   return (
@@ -104,24 +116,26 @@ export function TalkRooms() {
 
       {lead && (
         <div className={styles.list}>
-          <button type="button" className={`min-h-[44px] ${styles.lead}`} onClick={() => open(lead.id)} aria-label={`${lead.name} room`}>
-            <TalkPicture name={lead.name} url={lead.picture.url} icon={lead.picture.icon} colour={lead.colour} shape="cover" />
-            <span className={styles.leadRow}>
-              <span className={styles.rowText}>
-                <span className={styles.name}>{lead.name}</span>
-                {lastLine(lead) && <span className={styles.last}>{lastLine(lead)}</span>}
+          {big && (
+            <button type="button" className={`min-h-[44px] ${styles.lead}`} onClick={() => open(lead.id)} aria-label={`${lead.name} room`}>
+              <TalkPicture name={lead.name} url={lead.picture.url} icon={lead.picture.icon} colour={lead.colour} shape="banner" onStep={setLeadStep} />
+              <span className={styles.leadRow}>
+                <span className={styles.rowText}>
+                  <span className={styles.name}>{lead.name}</span>
+                  {lastLine(lead) && <span className={styles.last}>{lastLine(lead)}</span>}
+                </span>
+                <People n={lead.people} />
               </span>
-              <People n={lead.people} />
-            </span>
-          </button>
+            </button>
+          )}
 
           {rest.map((r) => (
             <button key={r.id} type="button" className={`min-h-[44px] ${styles.row}`} onClick={() => open(r.id)} aria-label={`${r.name} room`}>
-              <TalkPicture name={r.name} url={r.picture.url} icon={r.picture.icon} colour={r.colour} shape="wide" />
+              <TalkPicture name={r.name} url={r.picture.url} icon={r.picture.icon} colour={r.colour} shape="thumb" art={r.id} />
               <span className={styles.rowText}>
                 <span className={styles.name}>{r.name}</span>
                 {r.faces.length > 0 ? (
-                  <span className={styles.faces}>{r.faces.map((f, i) => <TalkFace key={`${f.name}-${i}`} who={{ kind: "person", ...f }} />)}</span>
+                  <span className={styles.faces}>{r.faces.map((f, i) => <TalkFace key={`${f.name}-${i}`} who={{ kind: "person", ...f, name: personName(f.name) }} />)}</span>
                 ) : lastLine(r) ? (
                   <span className={styles.last}>{lastLine(r)}</span>
                 ) : null}
@@ -129,6 +143,24 @@ export function TalkRooms() {
               <People n={r.people} />
             </button>
           ))}
+
+          {quiet.length > 0 && (
+            <>
+              <h2 className={styles.quietHead}>Quiet rooms<small>No one has written in {quiet.length === 1 ? "this one" : "these"} yet.</small></h2>
+              <div className={styles.quiet}>
+                {quiet.map((r) => (
+                  <button key={r.id} type="button" className={`min-h-[44px] ${styles.quietTile}`} onClick={() => open(r.id)} aria-label={`${r.name} room`}>
+                    <TalkPicture name={r.name} url={r.picture.url} icon={r.picture.icon} colour={r.colour} shape="banner" art={r.id} />
+                    <span className={styles.name}>{r.name}</span>
+                    <span className={styles.invite}>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>
+                      Be the first to write
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>

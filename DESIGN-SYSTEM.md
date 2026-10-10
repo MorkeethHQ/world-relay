@@ -162,6 +162,7 @@ Oscar, 11 Oct 2026: "favours are so uninsipirational, just looks like vercel, i 
 - Points carry a yellow coin. The coin is the one yellow, and it is drawn only beside points. Funded USDC stays green text with no coin.
 - The mission says who asks and what happens to the answer: one answer, checked before it earns.
 - Motion: the hero picture settles once, the dark button gives under a press, and a done mission draws a tick. All three are transitions, and none runs under reduced motion.
+- Talk (Oscar, 11 Oct 00:40: "same here, it's a mess"): a share picture sits in a frame of its own shape (1.91 to 1, or 16 to 9 in a row) and is never cut to a strip. An app with no picture and no icon gets the drawing under its first letter. The big card is drawn only for a room with a real share picture. A room with no message is a tile under "Quiet rooms" that says "Be the first to write". A shortened wallet address is never printed as a name: the list says "Someone".
 - The shared kit at `~/.local/state/fleet/placeholder-kit-2026-10-11/` may replace the shapes later. The rules above stay.
 
 ## Components (strict, Oscar 8 Oct 2026: "We need strict rules on design, compeontsn and how flow swork")

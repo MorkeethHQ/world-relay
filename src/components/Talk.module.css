@@ -47,6 +47,12 @@
 .wide { width: 84px; height: 56px; font-size: 22px; }
 @media (max-width: 359px) { .wide { width: 48px; height: 48px; font-size: 20px; } }
 .cover { width: 100%; aspect-ratio: 2.4; border-radius: 14px; font-size: 40px; }
+/* the shapes of a share picture, so it fills the frame and is not cut (11 Oct 2026) */
+.thumb { width: 96px; height: 54px; font-size: 20px; }
+.banner { width: 100%; aspect-ratio: 1.91; border-radius: 12px; font-size: 32px; }
+.frame .frameArt { position: absolute; inset: 0; width: 100%; height: 100%; }
+.frameLetter { position: relative; display: grid; place-items: center; width: 44%; max-width: 56px; aspect-ratio: 1; border-radius: 999px; background: #fff; color: #111827; font-style: normal; font-weight: 700; font-size: 0.8em; }
+.thumb .frameLetter { width: auto; height: 62%; }
 .tile { width: 100%; aspect-ratio: 1; border-radius: 16px; font-size: 32px; }
 /* a share picture is wide: in a tile it is fitted whole on the ground, never cut to a strip */
 .tile img:not(.iconStep) { object-fit: contain; }
@@ -76,6 +82,16 @@
   text-align: left;
   color: inherit;
 }
+/* ---- quiet rooms: a grid of tiles, each an invitation to write first ---- */
+.quietHead { margin: 12px 0 0; font-size: 17px; font-weight: 700; letter-spacing: -0.01em; line-height: 1.2; color: #111827; }
+.quietHead small { display: block; margin-top: 2px; font-size: 14px; font-weight: 400; letter-spacing: 0; color: #6b7280; }
+.quiet { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.quietTile { display: flex; flex-direction: column; width: 100%; padding: 8px 8px 10px; border-radius: 16px; background: #fff; box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.07); text-align: left; color: inherit; transition: transform 120ms ease-out; }
+.quietTile:active { background: #f3f4f5; transform: scale(0.98); }
+.quietTile .name { margin: 8px 4px 0; font-size: 15px; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.invite { display: inline-flex; align-items: center; gap: 4px; margin: auto 4px 0; padding-top: 6px; font-size: 13px; font-weight: 500; color: #111827; }
+.invite svg { flex: none; }
+@media (prefers-reduced-motion: reduce) { .quietTile { transition: none; } .quietTile:active { transform: none; } }
 .rowText { flex: 1; min-width: 0; }
 .name { display: block; font-size: 16px; font-weight: 500; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .last { display: block; margin-top: 2px; font-size: 14px; line-height: 1.3; color: #6b7280; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
