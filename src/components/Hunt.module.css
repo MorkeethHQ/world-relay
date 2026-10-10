@@ -80,6 +80,12 @@
   object-fit: cover;
   object-position: top;
 }
+.stampOn img.stampIcon {
+  width: 56%;
+  height: 56%;
+  object-fit: contain;
+  object-position: center;
+}
 .streak {
   margin-top: 14px;
   font-size: 13px;

@@ -48,7 +48,11 @@ function Stamp({ app, n }: { app: HuntApp | "unknown" | null; n: number }) {
   if (app === "unknown") return <div className={`${styles.stamp} ${styles.stampOn}`} aria-label={`Stamp ${n}: filled`}>✓</div>;
   return (
     <div className={`${styles.stamp} ${styles.stampOn}`} aria-label={`Stamp ${n}: ${app.name}`}>
-      {app.picture ? (
+      {app.icon ? (
+        // The app's own icon, whole. A wide share picture cut to a square loses its words.
+        // eslint-disable-next-line @next/next/no-img-element
+        <img className={styles.stampIcon} src={app.icon} alt="" referrerPolicy="no-referrer" />
+      ) : app.picture ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={app.picture} alt="" referrerPolicy="no-referrer" />
       ) : (

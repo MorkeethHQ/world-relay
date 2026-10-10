@@ -45,7 +45,7 @@ export default function RootLayout({
           anything — it only hid the symptom on desktop while iOS still widened
           its layout viewport. The containment is on <main> below; without the
           decoy, a real overflow now shows up as a scrollbar in development. */}
-      <body className="min-h-full flex flex-col bg-gray-50 text-gray-900">
+      <body className={`min-h-full flex flex-col bg-gray-50 text-gray-900 ${process.env.NEXT_PUBLIC_FAVOUR_TEST_FIXTURE === "1" ? "pt-7" : ""}`}>
         <ErrorBoundary>
           <MiniKitProvider>
             {/* Shown only in the local TEST DATA fixture (scripts/REVIEW-FIXTURE.md).
