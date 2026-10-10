@@ -108,11 +108,12 @@ describe("the one screen", () => {
     render(<TryWithAgents id="strive" />);
     runTo("More finish");
     const stop = firstStop("base")!;
-    fireEvent.click(screen.getByLabelText(`Condition A, Today's version: Stopped at step ${stop.stopAt}. Open the trace`));
+    expect(stop).toMatchObject({ condition: "c", stopAt: 3 });
+    fireEvent.click(screen.getByLabelText("Condition A, Today's version: Stopped at step 4. Open the trace"));
     expect(screen.getByLabelText("Condition A trace, Today's version")).toBeTruthy();
     expect(screen.getByText(/No checker ran in this preview/)).toBeTruthy();
     expect(screen.getByLabelText(/^Condition A, With the change: Finished/)).toBeTruthy();
-    expect(screen.getByLabelText(/^Condition C, With the change: Stopped at step 6/)).toBeTruthy();
+    expect(screen.getByLabelText(/^Condition C, With the change: Stopped at step 3/)).toBeTruthy();
   });
 
   it("marks a claim with no trace as a hypothesis and gives no score", () => {
@@ -132,14 +133,14 @@ describe("the stand-in file", () => {
     for (const c of DEBATE) if (c.trace) expect(c.trace.step).toBeLessThanOrEqual(STEPS.length);
     expect(finished("base")).toBe(1);
     expect(finished("candidate")).toBe(2);
-    expect(failedSteps("base")).toEqual([4, 6]);
+    expect(failedSteps("base")).toEqual([3, 4]);
     expect(TRACKS.base).toHaveLength(3);
     expect(["up", "down", "none"]).toContain(FORECAST.panel);
     // The forecast covers the candidate's one change, and the second idea is apart from it.
     expect(CANDIDATE_LINE).toMatch(/picture step can be skipped/);
     expect(FORECAST.edit).toBe("Let the picture step be skipped.");
-    expect(FORECAST.edit).not.toMatch(/World App/);
-    expect(UNTESTED_IDEA).toMatch(/World App/);
+    expect(FORECAST.edit).not.toMatch(/sign-in/);
+    expect(UNTESTED_IDEA).toMatch(/sign-in/);
     expect(standinOutcome()).toBe("up");
   });
 });

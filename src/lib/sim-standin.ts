@@ -7,6 +7,14 @@
 // written by hand to show what a trial would look like. The screens say so on
 // every step with STANDIN_LINE. Nothing here is a measurement, and nothing here
 // may be read by a route, a count, a reward or a board.
+//
+// THE PAGE'S WORDS ARE REAL since 11 Oct 2026. A scripted browser did the post
+// flow on the local test fixture (object A, no model call), and the answers in
+// STEPS and the quoted words in TRACKS are what the page showed in that run:
+// signed out, "Show my app" answers "Sign in to post your app."; a page with no
+// share picture is asked for a picture link and "Post for reviews" answers "Your
+// app needs a picture. Add a link to one." WHICH agent stops WHERE is still
+// written by hand.
 
 /** The flag. Off everywhere but the local review fixture. */
 export function simPreviewOn(): boolean {
@@ -34,10 +42,10 @@ export type Track = { condition: Condition["id"]; stopAt: number | null; why: st
 export const STEPS: Step[] = [
   { n: 1, action: "Open the post page", response: "The page shows one field for a link." },
   { n: 2, action: "Paste the product URL", response: "The field takes the link." },
-  { n: 3, action: "Press \"Show my app\"", response: "The app's name and one line appear on a card." },
+  { n: 3, action: "Press \"Show my app\"", response: "The page asks \"Is this your app?\" and shows the app on a card." },
   { n: 4, action: "Check the picture", response: "The card asks for a picture link when the page has none." },
   { n: 5, action: "Write what to review", response: "The ask field takes the text and counts it." },
-  { n: 6, action: "Press \"Post for reviews\"", response: "The card says \"On FAVOUR\"." },
+  { n: 6, action: "Press \"Post for reviews\"", response: "The card says \"On FAVOUR\" and the button says \"Post another app\"." },
 ];
 
 /** Three agent conditions. The settings are placeholders: a real run fills and freezes them. */
@@ -50,14 +58,14 @@ export const CONDITIONS: Condition[] = [
 /** Where each stand-in track stops, on today's version and on the candidate. `null` is a finished task. */
 export const TRACKS: Record<Version, Track[]> = {
   base: [
-    { condition: "a", stopAt: 4, why: "The page had no share picture. The agent found no picture link to give and stopped." },
+    { condition: "a", stopAt: 4, why: "The card said \"Your page declares no picture. Add a link to one below.\" The agent had no picture link and stopped." },
     { condition: "b", stopAt: null, why: null },
-    { condition: "c", stopAt: 6, why: "The button answered \"Open FAVOUR in World App\". The agent had no sign-in." },
+    { condition: "c", stopAt: 3, why: "The button answered \"Sign in to post your app.\" The agent had no sign-in." },
   ],
   candidate: [
     { condition: "a", stopAt: null, why: null },
     { condition: "b", stopAt: null, why: null },
-    { condition: "c", stopAt: 6, why: "The button answered \"Open FAVOUR in World App\". The agent had no sign-in." },
+    { condition: "c", stopAt: 3, why: "The button answered \"Sign in to post your app.\" The agent had no sign-in." },
   ],
 };
 
@@ -86,9 +94,9 @@ export const DEBATE: Claim[] = [
     change: "Change nothing on step 4. Run more attempts first.",
   },
   {
-    condition: "c", says: "A builder outside World App will leave at the last button. That is the larger loss.",
-    trace: null, challenges: "b", challenge: "B finished with a sign-in already in place. That hides the last step.",
-    change: "Tell the person on step 1 that posting needs World App.",
+    condition: "c", says: "A builder with no sign-in will leave at the third step. That is the larger loss.",
+    trace: null, challenges: "b", challenge: "B finished with a sign-in already in place. That hides the sign-in step.",
+    change: "Tell the person on step 1 that posting needs a sign-in.",
   },
 ];
 
@@ -101,7 +109,7 @@ export const FORECAST: { panel: Outcome; diffReader: Outcome; edit: string } = {
   edit: "Let the picture step be skipped.",
 };
 /** The forecast and the candidate cover FORECAST.edit alone. This second idea is in no candidate and in no forecast. */
-export const UNTESTED_IDEA = "Say on step 1 that posting needs World App.";
+export const UNTESTED_IDEA = "Say on step 1 that posting needs a sign-in.";
 
 export function finished(version: Version): number {
   return TRACKS[version].filter((t) => t.stopAt === null).length;
