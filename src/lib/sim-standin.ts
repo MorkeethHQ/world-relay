@@ -14,6 +14,8 @@ export function simPreviewOn(): boolean {
 }
 
 export const STANDIN_LINE = "Illustrative stand-in traces. No model trial has run in this preview.";
+/** Step 1 says this beside Next: what a person enters there changes no trace, claim or forecast. */
+export const FIXED_LINE = "The two links are locked in this preview. A task you type changes only the text on the next steps. The traces, the debate and the forecast are fixed examples of FAVOUR's own post flow, and they read none of these fields.";
 export const DEFAULT_TASK = "Start a review request from this product URL.";
 
 export type Version = "base" | "candidate";
@@ -91,12 +93,15 @@ export const DEBATE: Claim[] = [
 ];
 
 export type Outcome = "up" | "down" | "none";
-/** The forecast for a held-out agent and the diff-reader's guess. Both are stand-ins; no forecast was sealed. */
+/** The forecast for a held-out agent and the diff-reader's guess. Both are stand-ins; no forecast was sealed.
+ * `edit` is the candidate's one change (CANDIDATE_LINE), and nothing more. */
 export const FORECAST: { panel: Outcome; diffReader: Outcome; edit: string } = {
   panel: "up",
   diffReader: "none",
-  edit: "Let the picture step be skipped, and say on step 1 that posting needs World App.",
+  edit: "Let the picture step be skipped.",
 };
+/** The forecast and the candidate cover FORECAST.edit alone. This second idea is in no candidate and in no forecast. */
+export const UNTESTED_IDEA = "Say on step 1 that posting needs World App.";
 
 export function finished(version: Version): number {
   return TRACKS[version].filter((t) => t.stopAt === null).length;

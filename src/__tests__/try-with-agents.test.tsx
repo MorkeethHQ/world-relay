@@ -15,7 +15,7 @@ vi.mock("next/navigation", () => ({
 
 import { TryWithAgents } from "@/components/TryWithAgents";
 import TryPage from "@/app/p/[id]/try/page";
-import { DEBATE, FORECAST, STANDIN_LINE, STEPS, TRACKS, failedSteps, finished, firstStop } from "@/lib/sim-standin";
+import { CANDIDATE_LINE, DEBATE, FIXED_LINE, FORECAST, UNTESTED_IDEA, STANDIN_LINE, STEPS, TRACKS, failedSteps, finished, firstStop } from "@/lib/sim-standin";
 
 const calls: string[] = [];
 let kept: string | undefined;
@@ -50,15 +50,25 @@ describe("the route", () => {
 describe("the five steps", () => {
   it("prints the stand-in line on every step, and ends on the project page", async () => {
     render(<TryWithAgents id="strive" />);
-    for (const title of ["Bring the thing", "Choose the panel", "Watch them try", "Hear the debate", "Choose a test"]) {
+    for (const title of ["Bring the thing", "Choose the panel", "Watch them try", "Hear the debate", "Compare the options"]) {
       expect(screen.getByRole("heading", { name: title })).toBeTruthy();
       expect(screen.getByText(STANDIN_LINE)).toBeTruthy();
-      if (title !== "Choose a test") fireEvent.click(screen.getByText(/^Next: /));
+      if (title !== "Compare the options") fireEvent.click(screen.getByText(/^Next: /));
     }
     expect(screen.getByText("Not run")).toBeTruthy();
+    expect(screen.getByText("Untested")).toBeTruthy();
     expect(screen.getByText(/makes no claim that a forecast is right/)).toBeTruthy();
     fireEvent.click(await screen.findByText("Back to STRIVE"));
     expect(nav.pushed).toEqual(["/p/strive"]);
+  });
+
+  it("locks the two links and says the fields change no trace", async () => {
+    render(<TryWithAgents id="strive" />);
+    expect(screen.getByText(FIXED_LINE)).toBeTruthy();
+    expect((await screen.findByDisplayValue("https://strive.example/") as HTMLInputElement).disabled).toBe(true);
+    expect((screen.getByLabelText(/^Candidate/) as HTMLInputElement).disabled).toBe(true);
+    fireEvent.click(screen.getByText(/^Next: /));
+    expect(screen.queryByText(FIXED_LINE)).toBeNull();
   });
 
   it("Back on the first step returns to the project page", () => {
@@ -108,5 +118,10 @@ describe("the stand-in file", () => {
     expect(failedSteps("base")).toEqual([4, 6]);
     expect(TRACKS.base).toHaveLength(3);
     expect(["up", "down", "none"]).toContain(FORECAST.panel);
+    // The forecast covers the candidate's one change, and the second idea is apart from it.
+    expect(CANDIDATE_LINE).toMatch(/picture step can be skipped/);
+    expect(FORECAST.edit).toBe("Let the picture step be skipped.");
+    expect(FORECAST.edit).not.toMatch(/World App/);
+    expect(UNTESTED_IDEA).toMatch(/World App/);
   });
 });

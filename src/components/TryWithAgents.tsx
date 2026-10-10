@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, TopBar } from "@worldcoin/mini-apps-ui-kit-react";
-import { CANDIDATE_LINE, CONDITIONS, DEBATE, DEFAULT_TASK, FORECAST, STANDIN_LINE, STEPS, TRACKS, failedSteps, finished, firstStop, type Condition, type Version } from "@/lib/sim-standin";
+import { CANDIDATE_LINE, CONDITIONS, DEBATE, DEFAULT_TASK, FIXED_LINE, FORECAST, STANDIN_LINE, STEPS, TRACKS, UNTESTED_IDEA, failedSteps, finished, firstStop, type Condition, type Version } from "@/lib/sim-standin";
 import { Field } from "./Kit";
 import talk from "./Talk.module.css";
 import styles from "./TryWithAgents.module.css";
@@ -13,7 +13,7 @@ import styles from "./TryWithAgents.module.css";
 // animations, debating multi model"). DESIGN-SYSTEM.md, "Try it with agents".
 //
 // Five steps on one route: bring the thing, choose the panel, watch them try,
-// hear the debate, choose a test. Back on step 1 returns to the project page.
+// hear the debate, compare the options. Back on step 1 returns to the project page.
 //
 // NOTHING HERE RAN. Every trace, stop, claim and forecast comes from
 // lib/sim-standin.ts, written by hand, and every step prints STANDIN_LINE. This
@@ -21,7 +21,7 @@ import styles from "./TryWithAgents.module.css";
 // writes nothing, and touches no reward, wallet or post. A real trial replaces
 // the stand-in file; this screen must never print a stand-in without the line.
 
-const TITLES = ["Bring the thing", "Choose the panel", "Watch them try", "Hear the debate", "Choose a test"] as const;
+const TITLES = ["Bring the thing", "Choose the panel", "Watch them try", "Hear the debate", "Compare the options"] as const;
 const VERSION: Record<Version, string> = { base: "Today's version", candidate: "Candidate" };
 const WORD = { up: "Up", down: "Down", none: "None" } as const;
 const TICK_MS = 650;
@@ -91,6 +91,9 @@ export function TryWithAgents({ id }: { id: string }) {
     return () => { live = false; };
   }, [id]);
 
+  // A new step starts at its top: the page keeps its scroll, and a long trace would hide the next heading.
+  useEffect(() => { try { window.scrollTo(0, 0); } catch { /* no scroll in this page */ } }, [step]);
+
   const stop = firstStop(version);
   const stopClock = () => { if (timer.current) clearInterval(timer.current); timer.current = null; setRunning(false); };
   useEffect(() => () => { if (timer.current) clearInterval(timer.current); }, []);
@@ -139,9 +142,9 @@ export function TryWithAgents({ id }: { id: string }) {
             <h1 className={styles.heading}>{TITLES[0]}</h1>
             <p className={styles.line}>{name ? `${name}: give` : "Give"} the link, one task, and the change you think of.</p>
             <div className={styles.fields}>
-              <Field id="try-url" label="Today's version, a live link" type="url" inputMode="url" value={url} onChange={setUrl} placeholder="https://" maxLength={300} />
-              <Field id="try-candidate" label="Candidate, a preview link" type="url" inputMode="url" value={candidate} onChange={setCandidate} placeholder="https://" maxLength={300} />
-              <Field id="try-task" label="One task" value={task} onChange={setTask} maxLength={140} />
+              <Field id="try-url" label="Today's version, a live link (example, locked)" type="url" inputMode="url" value={url} onChange={setUrl} placeholder="No link in this preview" maxLength={300} disabled />
+              <Field id="try-candidate" label="Candidate, a preview link (example, locked)" type="url" inputMode="url" value={candidate} onChange={setCandidate} placeholder="No link in this preview" maxLength={300} disabled />
+              <Field id="try-task" label="One task (example, shown as text only)" value={task} onChange={setTask} maxLength={140} />
             </div>
             <div className={styles.card}>
               <p className={styles.eyebrow}>What can be reached</p>
@@ -201,7 +204,12 @@ export function TryWithAgents({ id }: { id: string }) {
                         <i key={s.n} className={`${s.n <= reach ? styles.cellOn : ""} ${stopped && s.n === t.stopAt ? styles.cellStop : ""}`}>{stopped && s.n === t.stopAt ? "×" : s.n}</i>
                       ))}
                     </span>
-                    <span className={styles.now}>{at === 0 ? "Not started" : stopped ? t.why : STEPS[Math.max(0, reach - 1)].action}</span>
+                    {/* The step this track is on and the page's answer, both from STEPS. The key remounts the line, so it eases in. */}
+                    <span className={styles.now}>
+                      <span key={stopped ? "stop" : reach} className={stopped ? styles.nowStop : undefined}>
+                        {at === 0 ? "Not started" : (<><b>{STEPS[Math.max(0, reach - 1)].action}</b>{stopped ? t.why : STEPS[Math.max(0, reach - 1)].response}</>)}
+                      </span>
+                    </span>
                   </button>
                 );
               })}
@@ -252,7 +260,7 @@ export function TryWithAgents({ id }: { id: string }) {
         {step === 4 && (
           <section aria-label={TITLES[4]}>
             <h1 className={styles.heading}>{TITLES[4]}</h1>
-            <p className={styles.line}>Today&apos;s version and the candidate, side by side. Choose what to test with real people.</p>
+            <p className={styles.line}>Today&apos;s version and the candidate, side by side. The candidate has one change, and the forecast is for that change alone.</p>
             <div className={styles.compare}>
               {(["base", "candidate"] as const).map((v) => (
                 <div key={v} className={styles.card} aria-label={VERSION[v]}>
@@ -266,16 +274,20 @@ export function TryWithAgents({ id }: { id: string }) {
               ))}
             </div>
             <div className={styles.rows}>
-              <div className={styles.row}><span><b>Suggested edit</b><small>{FORECAST.edit}</small></span></div>
+              <div className={styles.row}><span><b>The candidate&apos;s one change</b><small>{FORECAST.edit}</small></span></div>
               <div className={styles.row}><span><b>Panel forecast for a held-out agent</b><small>Up, down or none. Not sealed: nothing ran.</small></span><em>{WORD[FORECAST.panel]} · stand-in</em></div>
               <div className={styles.row}><span><b>Diff reader&apos;s guess</b><small>A guess from the change alone, with no trial.</small></span><em>{WORD[FORECAST.diffReader]} · stand-in</em></div>
               <div className={styles.row}><span><b>Held-out run</b><small>The forecast is compared with this run, a tie or a failure included.</small></span><em>Not run</em></div>
+            </div>
+            <div className={styles.rows}>
+              <div className={styles.row}><span><b>A second idea, not tested</b><small>{UNTESTED_IDEA} No candidate has it, and no forecast covers it.</small></span><em>Untested</em></div>
             </div>
             <p className={styles.note}>No model trial has run in this preview. This screen makes no claim that a forecast is right.</p>
           </section>
         )}
 
         <div className={styles.foot}>
+          {step === 0 && <p className={styles.fixed} role="note">{FIXED_LINE}</p>}
           {step < TITLES.length - 1 ? (
             <Button variant="primary" size="lg" fullWidth className="min-h-[44px]" onClick={next}>Next: {TITLES[step + 1]}</Button>
           ) : (

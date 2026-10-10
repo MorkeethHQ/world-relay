@@ -74,7 +74,13 @@
 }
 .cells .cellOn { background: #111827; color: #fff; }
 .cells .cellStop { background: #fff; color: #dc2626; box-shadow: inset 0 0 0 2px #dc2626; transform: scale(1.06); }
-.now { display: block; margin-top: 8px; min-height: 19px; font-size: 13px; line-height: 1.4; color: #6b7280; }
+.now { display: block; margin-top: 8px; min-height: 55px; font-size: 13px; line-height: 1.4; color: #6b7280; }
+/* The line is remounted on each step, so it eases in from its starting style. No keyframe. */
+.now > span { display: block; transition: opacity 260ms ease-out, transform 260ms ease-out; }
+@starting-style { .now > span { opacity: 0; transform: translateY(6px); } }
+.now b { display: block; font-weight: 500; color: #111827; }
+.nowStop b { color: #dc2626; }
+.fixed { margin: 0 0 12px; padding: 10px 12px; border-radius: 12px; box-shadow: inset 0 0 0 1.5px #111827; font-size: 13px; line-height: 1.4; color: #111827; }
 .stopCard { margin-top: 12px; padding: 14px 16px; border-radius: 16px; background: #fff; box-shadow: inset 0 0 0 2px #dc2626; }
 .acts { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
 
@@ -106,6 +112,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .cells i { transition: none; }
+  .cells i, .now > span { transition: none; }
   .cells .cellStop { transform: none; }
 }
