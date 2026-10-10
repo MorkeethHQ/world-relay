@@ -1,0 +1,29 @@
+/* The favour's picture in the proof step, and the reward stamp.
+   DESIGN-SYSTEM.md, "Favour art". One mark, one motion, no keyframe: the stamp
+   is pressed once from its starting style, and it does not move after that. */
+
+.picture { position: relative; flex: none; height: 88px; border-radius: 16px; overflow: hidden; }
+.art { display: block; width: 100%; height: 100%; }
+
+.stamp {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 999px;
+  background: #fff;
+  /* two thin ink rings, like a postmark */
+  box-shadow: inset 0 0 0 2px #111827, inset 0 0 0 5px #fff, inset 0 0 0 6px #111827;
+  color: #111827;
+  transform: translateY(-50%) rotate(-8deg);
+  transition: transform 260ms ease-out, opacity 200ms ease-out;
+}
+@starting-style { .stamp { opacity: 0; transform: translateY(-50%) rotate(-8deg) scale(1.3); } }
+.stamp b { font-size: 20px; font-weight: 700; letter-spacing: -0.02em; line-height: 1; font-variant-numeric: tabular-nums; }
+.stamp small { margin-top: 1px; font-size: 10px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; line-height: 1; }
+
+@media (prefers-reduced-motion: reduce) { .stamp { transition: none; } }

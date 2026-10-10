@@ -1,5 +1,6 @@
 "use client";
 
+import { ProofPicture, stampPoints } from "@/components/FavourStamp";
 import { Fragment, useState, useEffect, useCallback, useRef, useMemo } from "react";
 import dynamic from "next/dynamic";
 import { MiniKit } from "@worldcoin/minikit-js";
@@ -3321,6 +3322,10 @@ export function SubmitProof({
       />
 
       <div className="flex-1 overflow-y-auto px-6 py-6 pb-[calc(env(safe-area-inset-bottom,0px)+32px)] flex flex-col gap-5">
+        {/* The favour's picture stays with it through the form, the check and the
+            result (11 Oct 2026). The stamp is drawn only for an accepted proof
+            with a points number from the server (FavourStamp.tsx, stampPoints). */}
+        <ProofPicture task={task} points={stampPoints(result, task.rewardType)} />
         {/* THE ENTRY FORM LEAVES WHEN A RESULT ARRIVES (2026-10-05). Measured in a
             real browser at 390 x 844: after a proof was sent, the whole brief,
             the answer box and the photo picker stayed above the result, so the
