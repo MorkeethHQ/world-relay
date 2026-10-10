@@ -9,6 +9,7 @@ import type { AcceptedReview, ProjectView } from "@/lib/project-view";
 import type { VoteRow } from "@/lib/product-votes";
 import { Bar, Loader } from "@/components/Fill";
 import { TalkPicture } from "@/components/TalkPicture";
+import { simPreviewOn } from "@/lib/sim-standin";
 import { Field } from "./Kit";
 import talk from "./Talk.module.css";
 import styles from "./ProductScreen.module.css";
@@ -253,6 +254,12 @@ export function ProductScreen({ id }: { id: string }) {
               {talkPill}
               {(project.kind === "favour" || project.kind === "vote") && sitePill}
             </div>
+            {/* The local preview of "Try it with agents" (10 Oct 2026). Drawn only with the flag, which production does not set. */}
+            {simPreviewOn() && (
+              <div className={styles.action}>
+                <Button variant="secondary" size="lg" fullWidth className="min-h-[44px]" onClick={() => router.push(`/p/${encodeURIComponent(id)}/try`)} aria-label={`Try ${name} with agents, a local preview`}>Try it with agents</Button>
+              </div>
+            )}
           </section>
         )}
 

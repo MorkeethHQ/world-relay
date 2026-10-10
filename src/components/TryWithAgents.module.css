@@ -1,0 +1,111 @@
+/* TRY IT WITH AGENTS, /p/<id>/try, a local preview behind a flag.
+   DESIGN-SYSTEM.md, "Try it with agents". The one card of the five tabs: white,
+   one hairline, radius 16. Black, white and gray; the one red is a stop, the
+   same red as a problem line. No keyframe: a cell fills with a transition, and
+   nothing moves under reduced motion. */
+
+.screen { max-width: 32rem; }
+.body { padding: 4px 16px 128px; }
+.standin { margin: 0; padding: 8px 12px; border-radius: 12px; background: #111827; color: #fff; font-size: 13px; line-height: 1.35; }
+
+/* ---- the rail: five steps, the present one in ink ---- */
+.rail { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; margin: 12px 0 0; padding: 0; list-style: none; }
+.railBtn { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 100%; padding: 4px 0; color: #9ca3af; text-align: center; }
+.railBtn i { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 999px; background: #f3f4f5; font-style: normal; font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.railBtn span { font-size: 11px; line-height: 1.2; }
+.rail li[aria-current="step"] .railBtn { color: #111827; }
+.rail li[aria-current="step"] .railBtn i { background: #111827; color: #fff; }
+.railDone .railBtn { color: #6b7280; }
+.railDone .railBtn i { background: #e5e7eb; color: #111827; }
+
+.heading { margin: 16px 0 0; font-size: 24px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.15; color: #111827; }
+.line { margin: 6px 0 0; font-size: 15px; line-height: 1.45; color: #6b7280; overflow-wrap: anywhere; }
+.note { margin: 12px 0 0; font-size: 13px; line-height: 1.4; color: #6b7280; }
+.eyebrow { margin: 0 0 6px; font-size: 13px; line-height: 1.3; color: #6b7280; }
+.fields { margin-top: 4px; }
+
+/* ---- the card and its parts ---- */
+.card { margin-top: 12px; padding: 14px 16px; border-radius: 16px; background: #fff; box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.07); }
+.cardName { margin: 0; font-size: 16px; font-weight: 700; line-height: 1.3; color: #111827; }
+.cardName small { margin-left: 6px; padding: 2px 8px; border-radius: 999px; background: #f3f4f5; font-size: 11px; font-weight: 500; color: #6b7280; vertical-align: middle; }
+.cardLine { margin: 6px 0 0; font-size: 14px; line-height: 1.45; color: #111827; }
+.cardLine b { font-weight: 700; }
+.says { margin: 8px 0 0; font-size: 16px; line-height: 1.4; color: #111827; }
+.kv { margin: 8px 0 0; }
+.kv div { display: flex; gap: 12px; padding: 6px 0; border-top: 1px solid #ebecef; font-size: 14px; line-height: 1.35; }
+.kv dt { flex: none; width: 96px; color: #6b7280; }
+.kv dd { flex: 1; min-width: 0; margin: 0; color: #111827; overflow-wrap: anywhere; }
+.compare .kv dt { width: 128px; }
+.grid, .compare { display: grid; grid-template-columns: 1fr; gap: 0; }
+
+/* ---- rows that share one card ---- */
+.rows { margin-top: 12px; border-radius: 16px; background: #fff; box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.07); overflow: hidden; }
+.row { display: flex; align-items: center; gap: 12px; min-height: 60px; padding: 10px 16px; }
+.row + .row { border-top: 1px solid #ebecef; }
+.row span { flex: 1; min-width: 0; }
+.row b { display: block; font-size: 15px; font-weight: 500; line-height: 1.3; color: #111827; }
+.row small { display: block; margin-top: 2px; font-size: 13px; line-height: 1.35; color: #6b7280; }
+.row em { flex: none; font-style: normal; font-size: 13px; font-weight: 500; color: #111827; white-space: nowrap; }
+
+/* ---- step 3: the version switch and the three tracks ---- */
+.seg { display: flex; height: 48px; margin-top: 12px; padding: 4px; border-radius: 999px; background: #f3f4f5; }
+.seg button { flex: 1; border-radius: 999px; font-size: 14px; font-weight: 500; color: #6b7280; }
+.seg button[aria-selected="true"] { background: #111827; color: #fff; }
+.tracks { display: grid; grid-template-columns: 1fr; gap: 8px; margin-top: 12px; }
+.track { display: block; width: 100%; padding: 12px 16px; border-radius: 16px; background: #fff; box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.07); text-align: left; color: #111827; }
+.track:active { background: #f3f4f5; }
+.trackOpen { box-shadow: inset 0 0 0 2px #111827; }
+.trackHead { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.trackHead b { font-size: 15px; font-weight: 700; }
+.trackHead small { font-size: 13px; color: #6b7280; font-variant-numeric: tabular-nums; }
+.cells { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; margin-top: 8px; }
+.cells i {
+  display: grid;
+  place-items: center;
+  height: 28px;
+  border-radius: 8px;
+  background: #f3f4f5;
+  color: #9ca3af;
+  font-style: normal;
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  transition: background-color 320ms ease-out, color 320ms ease-out, transform 320ms ease-out;
+}
+.cells .cellOn { background: #111827; color: #fff; }
+.cells .cellStop { background: #fff; color: #dc2626; box-shadow: inset 0 0 0 2px #dc2626; transform: scale(1.06); }
+.now { display: block; margin-top: 8px; min-height: 19px; font-size: 13px; line-height: 1.4; color: #6b7280; }
+.stopCard { margin-top: 12px; padding: 14px 16px; border-radius: 16px; background: #fff; box-shadow: inset 0 0 0 2px #dc2626; }
+.acts { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+
+/* ---- a trace: the steps one track took ---- */
+.trace { margin-top: 12px; padding: 14px 16px; border-radius: 16px; background: #fff; box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.07); text-align: left; }
+.card .trace { padding: 12px 0 0; border-radius: 0; box-shadow: none; border-top: 1px solid #ebecef; }
+.steps { margin: 0; padding: 0; list-style: none; }
+.steps li { padding: 8px 0; border-top: 1px solid #ebecef; font-size: 14px; line-height: 1.4; }
+.steps li b { display: block; font-weight: 500; color: #111827; }
+.steps li span { display: block; color: #6b7280; }
+.steps .stepStop b, .steps .stepStop span { color: #dc2626; }
+
+/* ---- step 4: a claim points to a trace, or it is a hypothesis ---- */
+.cite { display: flex; align-items: center; justify-content: space-between; width: 100%; margin-top: 8px; padding: 0 12px; border-radius: 12px; background: #f3f4f5; font-size: 14px; font-weight: 500; color: #111827; text-align: left; }
+.cite i { font-style: normal; font-size: 18px; color: #9ca3af; }
+.hypothesis { margin: 8px 0 0; padding: 10px 12px; border-radius: 12px; box-shadow: inset 0 0 0 1.5px #111827; font-size: 14px; font-weight: 500; line-height: 1.35; color: #111827; }
+
+.foot { margin-top: 20px; }
+
+/* ---- desktop: one wider column, the three conditions side by side ---- */
+@media (min-width: 900px) {
+  .screen { max-width: 60rem; }
+  .body { padding-left: 24px; padding-right: 24px; }
+  .grid, .tracks { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+  .compare { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .fields, .foot, .acts { max-width: 32rem; }
+  .railBtn { flex-direction: row; justify-content: center; gap: 8px; }
+  .railBtn span { font-size: 13px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cells i { transition: none; }
+  .cells .cellStop { transform: none; }
+}
