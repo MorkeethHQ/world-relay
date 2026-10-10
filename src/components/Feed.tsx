@@ -2153,7 +2153,7 @@ export function FeedComposer({
           type="button"
           onClick={post}
           disabled={!canPost}
-          className="shrink-0 min-h-[40px] px-4 rounded-full bg-gray-900 text-white text-[13px] font-semibold disabled:opacity-25 active:scale-95 transition-transform"
+          className="shrink-0 min-h-[44px] px-4 rounded-full bg-gray-900 text-white text-[13px] font-semibold disabled:opacity-25 active:scale-95 transition-transform"
         >
           {submitting ? "Posting" : "Post"}
         </button>

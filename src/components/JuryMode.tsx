@@ -184,7 +184,7 @@ export function JuryMode({
     <div className="fixed inset-0 z-[60] bg-gray-50 flex flex-col" style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}>
       {/* Header */}
       <div className="flex items-center justify-between px-5 py-4">
-        <button onClick={() => { hapticTap(); onClose(); }} className="w-9 h-9 rounded-full bg-white border border-gray-200 flex items-center justify-center active:scale-95 transition-transform" aria-label="Close">
+        <button onClick={() => { hapticTap(); onClose(); }} className="min-h-[44px] w-11 h-11 rounded-full bg-white border border-gray-200 flex items-center justify-center active:scale-95 transition-transform" aria-label="Close">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#111827" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
         </button>
         <p className="text-[13px] font-bold text-gray-900 tracking-widest">REAL OR NOT</p>
@@ -229,7 +229,7 @@ export function JuryMode({
       {/* Card stage */}
       <div className="flex-1 relative px-5 pb-2 overflow-hidden">
         {showIntro ? (
-          <div className="absolute inset-0 flex flex-col px-1">
+          <div className="absolute inset-0 flex flex-col px-5">
             <style>{`
               @keyframes juryDemoTilt {0%,12%{transform:translateX(0) rotate(0)}28%,40%{transform:translateX(34px) rotate(9deg)}56%,60%{transform:translateX(0) rotate(0)}76%,88%{transform:translateX(-34px) rotate(-9deg)}100%{transform:translateX(0) rotate(0)}}
               @keyframes juryStampReal {0%,16%{opacity:0}28%,44%{opacity:1}58%,100%{opacity:0}}
@@ -264,7 +264,7 @@ export function JuryMode({
                 </div>
               ))}
             </div>
-            <button onClick={dismissIntro} className="mb-6 mt-4 w-full py-3.5 rounded-xl bg-gray-900 text-white text-sm font-semibold active:scale-[0.98] transition-transform" style={{ marginBottom: "calc(env(safe-area-inset-bottom, 0px) + 24px)" }}>
+            <button onClick={dismissIntro} className="min-h-[48px] mb-6 mt-4 w-full py-3.5 rounded-xl bg-gray-900 text-white text-sm font-semibold active:scale-[0.98] transition-transform" style={{ marginBottom: "calc(env(safe-area-inset-bottom, 0px) + 24px)" }}>
               Start judging
             </button>
           </div>
@@ -314,7 +314,7 @@ export function JuryMode({
               <>
                 <p className="text-2xl font-bold text-gray-900">All judged</p>
                 <p className="text-sm text-gray-400">No proofs to judge right now. Complete some favours and come back.</p>
-                <button onClick={onClose} className="mt-3 px-6 py-3 rounded-xl bg-gray-900 text-white text-sm font-semibold active:scale-95 transition-transform">
+                <button onClick={onClose} className="min-h-[48px] mt-3 px-6 py-3 rounded-xl bg-gray-900 text-white text-sm font-semibold active:scale-95 transition-transform">
                   Back to favours
                 </button>
               </>
