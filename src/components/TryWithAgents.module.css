@@ -8,16 +8,6 @@
 .body { padding: 4px 16px 128px; }
 .standin { margin: 0; padding: 8px 12px; border-radius: 12px; background: #111827; color: #fff; font-size: 13px; line-height: 1.35; }
 
-/* ---- the rail: five steps, the present one in ink ---- */
-.rail { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; margin: 12px 0 0; padding: 0; list-style: none; }
-.railBtn { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 100%; padding: 4px 0; color: #9ca3af; text-align: center; }
-.railBtn i { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 999px; background: #f3f4f5; font-style: normal; font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
-.railBtn span { font-size: 11px; line-height: 1.2; }
-.rail li[aria-current="step"] .railBtn { color: #111827; }
-.rail li[aria-current="step"] .railBtn i { background: #111827; color: #fff; }
-.railDone .railBtn { color: #6b7280; }
-.railDone .railBtn i { background: #e5e7eb; color: #111827; }
-
 .heading { margin: 16px 0 0; font-size: 24px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.15; color: #111827; }
 .line { margin: 6px 0 0; font-size: 15px; line-height: 1.45; color: #6b7280; overflow-wrap: anywhere; }
 .note { margin: 12px 0 0; font-size: 13px; line-height: 1.4; color: #6b7280; }
@@ -48,11 +38,13 @@
 .row em { flex: none; font-style: normal; font-size: 13px; font-weight: 500; color: #111827; white-space: nowrap; }
 
 /* ---- step 3: the version switch and the three tracks ---- */
-.seg { display: flex; height: 48px; margin-top: 12px; padding: 4px; border-radius: 999px; background: #f3f4f5; }
+.seg { display: flex; height: 52px; margin-top: 8px; padding: 4px; border-radius: 999px; background: #f3f4f5; }
 .seg button { flex: 1; border-radius: 999px; font-size: 14px; font-weight: 500; color: #6b7280; }
-.seg button[aria-selected="true"] { background: #111827; color: #fff; }
+.seg button[aria-checked="true"] { background: #111827; color: #fff; }
+.seg button:disabled { opacity: 1; }
+.seg button:disabled:not([aria-checked="true"]) { color: #c4c7cc; }
 .tracks { display: grid; grid-template-columns: 1fr; gap: 8px; margin-top: 12px; }
-.track { display: block; width: 100%; padding: 12px 16px; border-radius: 16px; background: #fff; box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.07); text-align: left; color: #111827; }
+.track { display: block; width: 100%; padding: 10px 14px 12px; border-radius: 16px; background: #fff; box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.07); text-align: left; color: #111827; }
 .track:active { background: #f3f4f5; }
 .trackOpen { box-shadow: inset 0 0 0 2px #111827; }
 .trackHead { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
@@ -74,13 +66,13 @@
 }
 .cells .cellOn { background: #111827; color: #fff; }
 .cells .cellStop { background: #fff; color: #dc2626; box-shadow: inset 0 0 0 2px #dc2626; transform: scale(1.06); }
-.now { display: block; margin-top: 8px; min-height: 55px; font-size: 13px; line-height: 1.4; color: #6b7280; }
+.now { display: block; margin: 12px 0 0; min-height: 40px; font-size: 13px; line-height: 1.4; color: #6b7280; }
 /* The line is remounted on each step, so it eases in from its starting style. No keyframe. */
 .now > span { display: block; transition: opacity 260ms ease-out, transform 260ms ease-out; }
 @starting-style { .now > span { opacity: 0; transform: translateY(6px); } }
 .now b { display: block; font-weight: 500; color: #111827; }
 .nowStop b { color: #dc2626; }
-.fixed { margin: 0 0 12px; padding: 10px 12px; border-radius: 12px; box-shadow: inset 0 0 0 1.5px #111827; font-size: 13px; line-height: 1.4; color: #111827; }
+.fixed { margin: 12px 0 0; padding: 10px 12px; border-radius: 12px; box-shadow: inset 0 0 0 1.5px #111827; font-size: 13px; line-height: 1.4; color: #111827; }
 .stopCard { margin-top: 12px; padding: 14px 16px; border-radius: 16px; background: #fff; box-shadow: inset 0 0 0 2px #dc2626; }
 .acts { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
 
@@ -98,17 +90,32 @@
 .cite i { font-style: normal; font-size: 18px; color: #9ca3af; }
 .hypothesis { margin: 8px 0 0; padding: 10px 12px; border-radius: 12px; box-shadow: inset 0 0 0 1.5px #111827; font-size: 14px; font-weight: 500; line-height: 1.35; color: #111827; }
 
-.foot { margin-top: 20px; }
+/* ---- the one screen: the bet, then the run and its result ---- */
+.cols { display: grid; grid-template-columns: 1fr; }
+.label { margin: 16px 0 0; font-size: 14px; font-weight: 500; line-height: 1.35; color: #111827; }
+.task { margin: 20px 0 0; font-size: 15px; line-height: 1.4; color: #111827; }
+.task small { display: block; font-size: 13px; color: #6b7280; }
+.group { margin-top: 16px; }
+.groupHead { margin: 0; }
+.groupHead b { display: block; font-size: 16px; font-weight: 700; color: #111827; }
+.groupHead small { display: block; margin-top: 2px; font-size: 13px; line-height: 1.35; color: #6b7280; }
+.track:disabled { color: #111827; }
+.red { color: #dc2626 !important; }
+.runSide { scroll-margin-top: 56px; }
+.result { margin-top: 12px; padding: 16px; border-radius: 16px; background: #fff; box-shadow: inset 0 0 0 2px #111827; scroll-margin: 72px 0 96px; }
+.verdict { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.2; color: #111827; }
+.match { margin: 8px 0 4px; }
+.match i { display: inline-block; padding: 4px 10px; border-radius: 999px; background: #111827; color: #fff; font-style: normal; font-size: 13px; font-weight: 500; }
+.result .kv dt { width: 128px; }
+.srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 
-/* ---- desktop: one wider column, the three conditions side by side ---- */
+/* ---- desktop: the bet on the left, the run and the result on the right ---- */
 @media (min-width: 900px) {
-  .screen { max-width: 60rem; }
+  .screen { max-width: 64rem; }
   .body { padding-left: 24px; padding-right: 24px; }
+  .cols { grid-template-columns: minmax(0, 22rem) minmax(0, 1fr); gap: 40px; align-items: start; }
+  .task { margin-top: 16px; }
   .grid, .tracks { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
-  .compare { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-  .fields, .foot, .acts { max-width: 32rem; }
-  .railBtn { flex-direction: row; justify-content: center; gap: 8px; }
-  .railBtn span { font-size: 13px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

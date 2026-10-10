@@ -14,8 +14,8 @@ export function simPreviewOn(): boolean {
 }
 
 export const STANDIN_LINE = "Illustrative stand-in traces. No model trial has run in this preview.";
-/** Step 1 says this beside Next: what a person enters there changes no trace, claim or forecast. */
-export const FIXED_LINE = "The two links are locked in this preview. A task you type changes only the text on the next steps. The traces, the debate and the forecast are fixed examples of FAVOUR's own post flow, and they read none of these fields.";
+/** The screen says this above Run: the bet is the one thing a person sets, and it changes no trace. */
+export const FIXED_LINE = "The link and the change are fixed examples in this preview, and your bet is the one thing you set. The traces are fixed examples of FAVOUR's own post flow.";
 export const DEFAULT_TASK = "Start a review request from this product URL.";
 
 export type Version = "base" | "candidate";
@@ -115,4 +115,10 @@ export function failedSteps(version: Version): number[] {
 export function firstStop(version: Version): Track | null {
   const stopped = TRACKS[version].filter((t) => t.stopAt !== null);
   return stopped.length ? stopped.reduce((a, b) => ((a.stopAt as number) <= (b.stopAt as number) ? a : b)) : null;
+}
+
+/** What the stand-in tracks show for the candidate against today's version: more, fewer or the same number finish. */
+export function standinOutcome(): Outcome {
+  const d = finished("candidate") - finished("base");
+  return d > 0 ? "up" : d < 0 ? "down" : "none";
 }

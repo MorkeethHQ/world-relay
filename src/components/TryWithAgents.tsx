@@ -3,8 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, TopBar } from "@worldcoin/mini-apps-ui-kit-react";
-import { CANDIDATE_LINE, CONDITIONS, DEBATE, DEFAULT_TASK, FIXED_LINE, FORECAST, STANDIN_LINE, STEPS, TRACKS, UNTESTED_IDEA, failedSteps, finished, firstStop, type Condition, type Version } from "@/lib/sim-standin";
-import { Field } from "./Kit";
+import { CONDITIONS, DEBATE, DEFAULT_TASK, FIXED_LINE, FORECAST, STANDIN_LINE, STEPS, TRACKS, UNTESTED_IDEA, finished, standinOutcome, type Condition, type Outcome, type Version } from "@/lib/sim-standin";
 import talk from "./Talk.module.css";
 import styles from "./TryWithAgents.module.css";
 
@@ -12,19 +11,24 @@ import styles from "./TryWithAgents.module.css";
 // 2026: "maybe try Favour app or something usable", "if we keep it fun micro
 // animations, debating multi model"). DESIGN-SYSTEM.md, "Try it with agents".
 //
-// Five steps on one route: bring the thing, choose the panel, watch them try,
-// hear the debate, compare the options. Back on step 1 returns to the project page.
+// ONE SCREEN since 11 Oct 2026 (Oscar, 00:37: "still TOO many clicks, not
+// intuitive at all, weird way for users to input hypothesis and bets"). The
+// link, one change, one bet (up, same or down), Run, the tracks, and the result
+// against the bet. Three taps from the project page: the entry button, the bet,
+// Run. The traces and the debate sit under the result, one more tap, for a
+// person who wants the evidence.
 //
-// NOTHING HERE RAN. Every trace, stop, claim and forecast comes from
-// lib/sim-standin.ts, written by hand, and every step prints STANDIN_LINE. This
-// screen calls no model, opens no link, reads no route but the project's name,
-// writes nothing, and touches no reward, wallet or post. A real trial replaces
-// the stand-in file; this screen must never print a stand-in without the line.
+// NOTHING HERE RAN. Every trace, stop and claim comes from lib/sim-standin.ts,
+// written by hand, and the screen prints STANDIN_LINE. This screen calls no
+// model, opens no link, reads no route but the project's name, writes nothing,
+// and touches no reward, wallet or post. The bet is no money and no points, and
+// it stays on this screen. A real trial replaces the stand-in file; this screen
+// must never print a stand-in without the line.
 
-const TITLES = ["Bring the thing", "Choose the panel", "Watch them try", "Hear the debate", "Compare the options"] as const;
-const VERSION: Record<Version, string> = { base: "Today's version", candidate: "Candidate" };
-const WORD = { up: "Up", down: "Down", none: "None" } as const;
-const TICK_MS = 650;
+const VERSION: Record<Version, string> = { base: "Today's version", candidate: "With the change" };
+const BET: { id: Outcome; label: string }[] = [{ id: "up", label: "More finish" }, { id: "none", label: "Same" }, { id: "down", label: "Fewer finish" }];
+const WORD: Record<Outcome, string> = { up: "more", none: "the same number", down: "fewer" };
+const TICK_MS = 550;
 const nameOf = (id: Condition["id"]) => CONDITIONS.find((c) => c.id === id)!.name;
 
 function Back({ onBack }: { onBack: () => void }) {
@@ -60,19 +64,17 @@ function Trace({ condition, version }: { condition: Condition["id"]; version: Ve
 
 export function TryWithAgents({ id }: { id: string }) {
   const router = useRouter();
-  const [step, setStep] = useState(0);
   const [name, setName] = useState<string | null>(null);
   const [url, setUrl] = useState("");
-  const [candidate, setCandidate] = useState("");
-  const [task, setTask] = useState(DEFAULT_TASK);
-  const [version, setVersion] = useState<Version>("base");
-  // Step 3: how many steps the tracks have reached, and the pause at the first stop.
+  const runSide = useRef<HTMLElement | null>(null);
+  const [bet, setBet] = useState<Outcome | null>(null);
+  // How many steps the tracks have reached. 0 is before Run; STEPS.length is the end.
   const [at, setAt] = useState(0);
-  const [running, setRunning] = useState(false);
-  const [paused, setPaused] = useState(false);
-  const [open, setOpen] = useState<Condition["id"] | null>(null);
+  const [open, setOpen] = useState<{ version: Version; condition: Condition["id"] } | null>(null);
+  const [more, setMore] = useState(false);
   const [cited, setCited] = useState<number | null>(null);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const result = useRef<HTMLDivElement | null>(null);
 
   // The project's own name and link, for the heading and the first field. A failed read leaves both empty.
   useEffect(() => {
@@ -85,156 +87,127 @@ export function TryWithAgents({ id }: { id: string }) {
         const n = p.kind === "favour" ? p.product?.name : p.name;
         const u = p.kind === "favour" ? p.product?.productUrl : p.url;
         if (typeof n === "string") setName(n);
-        if (typeof u === "string") setUrl((v) => v || u);
+        if (typeof u === "string") setUrl(u);
       })
       .catch(() => {});
     return () => { live = false; };
   }, [id]);
 
-  // A new step starts at its top: the page keeps its scroll, and a long trace would hide the next heading.
-  useEffect(() => { try { window.scrollTo(0, 0); } catch { /* no scroll in this page */ } }, [step]);
-
-  const stop = firstStop(version);
-  const stopClock = () => { if (timer.current) clearInterval(timer.current); timer.current = null; setRunning(false); };
+  const stopClock = () => { if (timer.current) clearInterval(timer.current); timer.current = null; };
   useEffect(() => () => { if (timer.current) clearInterval(timer.current); }, []);
 
-  const run = (from: number) => {
+  const still = () => typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  const done = at >= STEPS.length;
+  const running = at > 0 && !done;
+
+  // The result is under the tracks. On a phone it is below the fold, so the screen brings it into view.
+  useEffect(() => {
+    if (done) result.current?.scrollIntoView?.({ behavior: still() ? "auto" : "smooth", block: "nearest" });
+  }, [done]);
+
+  const run = () => {
+    if (!bet) return;
     stopClock();
-    setPaused(false);
-    // With reduced motion the tracks are drawn at their end, with the first stop named, and nothing moves.
-    if (typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
-      setAt(STEPS.length);
-      return;
-    }
-    let n = from;
+    setOpen(null);
+    // With reduced motion the tracks are drawn at their end and nothing moves.
+    if (still()) { setAt(STEPS.length); return; }
+    // On a phone the tracks are under the bet, so the screen brings them into view before they move.
+    runSide.current?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+    let n = 1;
     setAt(n);
-    setRunning(true);
     timer.current = setInterval(() => {
       n = Math.min(n + 1, STEPS.length);
       setAt(n);
-      if (stop && n === stop.stopAt && from < n) { stopClock(); setPaused(true); setOpen(stop.condition); }
-      else if (n >= STEPS.length) stopClock();
+      if (n >= STEPS.length) stopClock();
     }, TICK_MS);
   };
-  const reset = (v: Version) => { stopClock(); setVersion(v); setAt(0); setPaused(false); setOpen(null); };
+  const again = () => { stopClock(); setAt(0); setOpen(null); setMore(false); setCited(null); };
+  const leave = () => { stopClock(); router.push(`/p/${encodeURIComponent(id)}`); };
 
-  const back = () => { stopClock(); if (step === 0) router.push(`/p/${encodeURIComponent(id)}`); else setStep(step - 1); };
-  const next = () => { stopClock(); setStep(Math.min(step + 1, TITLES.length - 1)); };
-  const done = at >= STEPS.length;
+  const out = standinOutcome();
+  const now = STEPS[Math.max(0, Math.min(at, STEPS.length) - 1)];
 
   return (
     <div className={`${talk.screen} ${styles.screen}`} aria-label="Try it with agents">
-      <TopBar startAdornment={<Back onBack={back} />} title="Try it with agents" />
+      <TopBar startAdornment={<Back onBack={leave} />} title="Try it with agents" />
       <div className={styles.body}>
         <p className={styles.standin} role="note">{STANDIN_LINE}</p>
-        <ol className={styles.rail} aria-label="Steps">
-          {TITLES.map((t, i) => (
-            <li key={t} aria-current={i === step ? "step" : undefined} className={i < step ? styles.railDone : undefined}>
-              <button type="button" className={`min-h-[44px] ${styles.railBtn}`} onClick={() => { stopClock(); setStep(i); }} aria-label={`Step ${i + 1}: ${t}`}>
-                <i>{i + 1}</i><span>{t}</span>
-              </button>
-            </li>
-          ))}
-        </ol>
 
-        {step === 0 && (
-          <section aria-label={TITLES[0]}>
-            <h1 className={styles.heading}>{TITLES[0]}</h1>
-            <p className={styles.line}>{name ? `${name}: give` : "Give"} the link, one task, and the change you think of.</p>
-            <div className={styles.fields}>
-              <Field id="try-url" label="Today's version, a live link (example, locked)" type="url" inputMode="url" value={url} onChange={setUrl} placeholder="No link in this preview" maxLength={300} disabled />
-              <Field id="try-candidate" label="Candidate, a preview link (example, locked)" type="url" inputMode="url" value={candidate} onChange={setCandidate} placeholder="No link in this preview" maxLength={300} disabled />
-              <Field id="try-task" label="One task (example, shown as text only)" value={task} onChange={setTask} maxLength={140} />
+        <div className={styles.cols}>
+          <section aria-label="Your bet" className={styles.ask}>
+            <h1 className={styles.heading}>{name ? `Will a change help ${name}?` : "Will a change help?"}</h1>
+            <p className={styles.line}>Three agents try one task on today&apos;s version and with one change. You bet first.</p>
+            <div className={styles.rows} aria-label="The example">
+              <div className={styles.row}><span><small>Project link</small><b>{url ? url.replace(/^https?:\/\//, "").replace(/\/$/, "") : "No link in this preview"}</b></span><em>Example</em></div>
+              <div className={styles.row}><span><small>The one change</small><b>{FORECAST.edit}</b></span><em>Example</em></div>
             </div>
-            <div className={styles.card}>
-              <p className={styles.eyebrow}>What can be reached</p>
-              <p className={styles.cardLine}>This preview opens no link. A real trial reads both links first and lists the pages and fields it can reach.</p>
-              <p className={styles.cardLine}>You name the task. No task and no checker is made from a link alone.</p>
+            <p className={styles.label} id="try-bet">Your bet: with the change, how many of the three finish?</p>
+            <div className={styles.seg} role="radiogroup" aria-labelledby="try-bet">
+              {BET.map((b) => (
+                <button key={b.id} type="button" role="radio" className="min-h-[44px]" aria-checked={bet === b.id} disabled={at > 0} onClick={() => setBet(b.id)}>{b.label}</button>
+              ))}
+            </div>
+            <p className={styles.note} role="note">No money and no points. {FIXED_LINE}</p>
+            <div className={styles.acts}>
+              {at === 0 && <Button variant="primary" size="lg" fullWidth className="min-h-[44px]" disabled={!bet} onClick={run}>{bet ? "Run the stand-in" : "Pick a bet to run"}</Button>}
+              {done && <Button variant="tertiary" size="lg" fullWidth className="min-h-[44px]" onClick={again}>Bet again</Button>}
             </div>
           </section>
-        )}
 
-        {step === 1 && (
-          <section aria-label={TITLES[1]}>
-            <h1 className={styles.heading}>{TITLES[1]}</h1>
-            <p className={styles.line}>Three agent conditions try the same task. Every setting is shown and frozen before a run.</p>
-            <div className={styles.grid}>
-              {CONDITIONS.map((c) => (
-                <div key={c.id} className={styles.card} aria-label={c.name}>
-                  <p className={styles.cardName}>{c.name} <small>stand-in</small></p>
-                  <dl className={styles.kv}>
-                    <div><dt>Model</dt><dd>{c.model}</dd></div>
-                    <div><dt>Tools</dt><dd>{c.tools}</dd></div>
-                    <div><dt>Task</dt><dd>{task || "No task named"}</dd></div>
-                    <div><dt>Controller</dt><dd>{c.controller}</dd></div>
-                    <div><dt>Cost cap</dt><dd>{c.cap}</dd></div>
-                  </dl>
+          <section aria-label="The run" className={styles.runSide} ref={runSide}>
+            <p className={styles.task}><small>The task</small>{DEFAULT_TASK}</p>
+            {(["base", "candidate"] as const).map((v) => (
+              <div key={v} className={styles.group} aria-label={VERSION[v]}>
+                <p className={styles.groupHead}><b>{VERSION[v]}</b><small>{v === "candidate" ? "The picture step can be skipped" : "The post flow as it is"} · stand-in</small></p>
+                <div className={styles.tracks}>
+                  {TRACKS[v].map((t) => {
+                    const reach = Math.min(at, t.stopAt ?? STEPS.length);
+                    const stopped = t.stopAt !== null && at >= t.stopAt;
+                    const state = at === 0 ? "Ready" : stopped ? `Stopped at step ${t.stopAt}` : reach >= STEPS.length ? "Finished" : `Step ${reach}`;
+                    const isOpen = open?.version === v && open.condition === t.condition;
+                    return (
+                      <button key={t.condition} type="button" className={`min-h-[44px] ${styles.track} ${isOpen ? styles.trackOpen : ""}`} disabled={at === 0} onClick={() => setOpen(isOpen ? null : { version: v, condition: t.condition })} aria-expanded={isOpen} aria-label={`${nameOf(t.condition)}, ${VERSION[v]}: ${state}. Open the trace`}>
+                        <span className={styles.trackHead}><b>{nameOf(t.condition)}</b><small className={stopped ? styles.red : undefined}>{stopped ? `Stop at ${t.stopAt}` : state}</small></span>
+                        <span className={styles.cells} aria-hidden="true">
+                          {STEPS.map((s) => (
+                            <i key={s.n} className={`${s.n <= reach ? styles.cellOn : ""} ${stopped && s.n === t.stopAt ? styles.cellStop : ""}`}>{stopped && s.n === t.stopAt ? "×" : s.n}</i>
+                          ))}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
-              ))}
-            </div>
-            <div className={styles.rows}>
-              <div className={styles.row}><span><b>Saved panel</b><small>None yet. A saved panel shows its last check date and its blind spots.</small></span><em>None</em></div>
-              <div className={styles.row}><span><b>New persona</b><small>A persona you write is not checked against people.</small></span><em>Uncalibrated</em></div>
-              <div className={styles.row}><span><b>Human customers</b><small>A separate arm. It needs people who agreed to be observed.</small></span><em>Not available</em></div>
-            </div>
-          </section>
-        )}
+                {open?.version === v && at > 0 && <Trace condition={open.condition} version={v} />}
+              </div>
+            ))}
+            {/* The step the tracks are on and the page's answer, both from STEPS. The key remounts the line, so it eases in. */}
+            <p className={styles.now} aria-live="off">
+              <span key={at}>{at === 0 ? "Not started. Pick a bet, then run." : done ? "The stand-in is at its end. Tap a track to read its trace." : (<><b>Step {now.n}: {now.action}</b>{now.response}</>)}</span>
+            </p>
 
-        {step === 2 && (
-          <section aria-label={TITLES[2]}>
-            <h1 className={styles.heading}>{TITLES[2]}</h1>
-            <p className={styles.line}>{task || "No task named"}</p>
-            <div className={styles.seg} role="tablist" aria-label="Version">
-              {(["base", "candidate"] as const).map((v) => (
-                <button key={v} type="button" role="tab" className="min-h-[44px]" aria-selected={version === v} onClick={() => reset(v)}>{VERSION[v]}</button>
-              ))}
-            </div>
-            {version === "candidate" && <p className={styles.note}>{CANDIDATE_LINE} A stand-in change.</p>}
-
-            <div className={styles.tracks}>
-              {TRACKS[version].map((t) => {
-                const reach = Math.min(at, t.stopAt ?? STEPS.length);
-                const stopped = t.stopAt !== null && at >= t.stopAt;
-                const state = at === 0 ? "Ready" : stopped ? `Stopped at step ${t.stopAt}` : reach >= STEPS.length ? "Finished" : `Step ${reach}`;
-                return (
-                  <button key={t.condition} type="button" className={`min-h-[72px] ${styles.track} ${open === t.condition ? styles.trackOpen : ""}`} onClick={() => setOpen(open === t.condition ? null : t.condition)} aria-expanded={open === t.condition} aria-label={`${nameOf(t.condition)}: ${state}. Open the trace`}>
-                    <span className={styles.trackHead}><b>{nameOf(t.condition)}</b><small>{state}</small></span>
-                    <span className={styles.cells} aria-hidden="true">
-                      {STEPS.map((s) => (
-                        <i key={s.n} className={`${s.n <= reach ? styles.cellOn : ""} ${stopped && s.n === t.stopAt ? styles.cellStop : ""}`}>{stopped && s.n === t.stopAt ? "×" : s.n}</i>
-                      ))}
-                    </span>
-                    {/* The step this track is on and the page's answer, both from STEPS. The key remounts the line, so it eases in. */}
-                    <span className={styles.now}>
-                      <span key={stopped ? "stop" : reach} className={stopped ? styles.nowStop : undefined}>
-                        {at === 0 ? "Not started" : (<><b>{STEPS[Math.max(0, reach - 1)].action}</b>{stopped ? t.why : STEPS[Math.max(0, reach - 1)].response}</>)}
-                      </span>
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-
-            {paused && stop && (
-              <div className={styles.stopCard} role="status">
-                <p className={styles.cardName}>First stop: {nameOf(stop.condition)}, step {stop.stopAt}</p>
-                <p className={styles.cardLine}>{STEPS[(stop.stopAt as number) - 1].action}. {stop.why}</p>
+            {done && bet && (
+              <div className={styles.result} role="status" ref={result}>
+                <p className={styles.eyebrow}>Result against your bet · stand-in</p>
+                <p className={styles.verdict}>You bet {WORD[bet]}. The stand-in shows {WORD[out]}.</p>
+                <p className={styles.match}><i>{bet === out ? "Your bet matches" : "Your bet does not match"}</i></p>
+                <dl className={styles.kv}>
+                  <div><dt>{VERSION.base}</dt><dd>{finished("base")} of {TRACKS.base.length} finished</dd></div>
+                  <div><dt>{VERSION.candidate}</dt><dd>{finished("candidate")} of {TRACKS.candidate.length} finished</dd></div>
+                  <div><dt>Evidence</dt><dd>Written by hand. One run each. Too few to rank.</dd></div>
+                  <div><dt>Held-out run</dt><dd>Not run</dd></div>
+                </dl>
+                <p className={styles.note}>No model trial has run in this preview. A match here says nothing about the change or about your judgement.</p>
+                <div className={styles.acts}>
+                  <Button variant="secondary" size="lg" fullWidth className="min-h-[44px]" onClick={() => setMore(!more)} aria-expanded={more}>{more ? "Hide what the agents said" : "See what the agents said"}</Button>
+                  <Button variant="primary" size="lg" fullWidth className="min-h-[44px]" onClick={leave}>Back to {name ?? "the project"}</Button>
+                </div>
               </div>
             )}
-            {done && !stop && <p className={styles.note}>No track stopped on this version.</p>}
-            {open && at > 0 && <Trace condition={open} version={version} />}
-
-            <div className={styles.acts}>
-              {at === 0 && <Button variant="secondary" size="lg" fullWidth className="min-h-[44px]" onClick={() => run(0)}>Play the stand-in</Button>}
-              {paused && <Button variant="secondary" size="lg" fullWidth className="min-h-[44px]" onClick={() => run(at)}>Continue</Button>}
-              {at > 0 && !running && !paused && <Button variant="tertiary" size="lg" fullWidth className="min-h-[44px]" onClick={() => reset(version)}>Play again</Button>}
-            </div>
           </section>
-        )}
+        </div>
 
-        {step === 3 && (
-          <section aria-label={TITLES[3]}>
-            <h1 className={styles.heading}>{TITLES[3]}</h1>
+        {done && more && (
+          <section aria-label="What the agents said">
             <p className={styles.line}>Each condition points to a trace, questions another reading, and gives one change. They do not agree, and nothing is added up.</p>
             <div className={styles.grid}>
               {DEBATE.map((c, i) => (
@@ -254,46 +227,12 @@ export function TryWithAgents({ id }: { id: string }) {
                 </article>
               ))}
             </div>
+            <div className={styles.rows}>
+              <div className={styles.row}><span><b>A second idea, not tested</b><small>{UNTESTED_IDEA} It is in no run here.</small></span><em>Untested</em></div>
+            </div>
           </section>
         )}
-
-        {step === 4 && (
-          <section aria-label={TITLES[4]}>
-            <h1 className={styles.heading}>{TITLES[4]}</h1>
-            <p className={styles.line}>Today&apos;s version and the candidate, side by side. The candidate has one change, and the forecast is for that change alone.</p>
-            <div className={styles.compare}>
-              {(["base", "candidate"] as const).map((v) => (
-                <div key={v} className={styles.card} aria-label={VERSION[v]}>
-                  <p className={styles.cardName}>{VERSION[v]} <small>stand-in</small></p>
-                  <dl className={styles.kv}>
-                    <div><dt>Finished the task</dt><dd>{finished(v)} of {TRACKS[v].length}</dd></div>
-                    <div><dt>Steps with a stop</dt><dd>{failedSteps(v).length ? failedSteps(v).join(", ") : "None"}</dd></div>
-                    <div><dt>Uncertainty</dt><dd>One run each. Too few to rank.</dd></div>
-                  </dl>
-                </div>
-              ))}
-            </div>
-            <div className={styles.rows}>
-              <div className={styles.row}><span><b>The candidate&apos;s one change</b><small>{FORECAST.edit}</small></span></div>
-              <div className={styles.row}><span><b>Panel forecast for a held-out agent</b><small>Up, down or none. Not sealed: nothing ran.</small></span><em>{WORD[FORECAST.panel]} · stand-in</em></div>
-              <div className={styles.row}><span><b>Diff reader&apos;s guess</b><small>A guess from the change alone, with no trial.</small></span><em>{WORD[FORECAST.diffReader]} · stand-in</em></div>
-              <div className={styles.row}><span><b>Held-out run</b><small>The forecast is compared with this run, a tie or a failure included.</small></span><em>Not run</em></div>
-            </div>
-            <div className={styles.rows}>
-              <div className={styles.row}><span><b>A second idea, not tested</b><small>{UNTESTED_IDEA} No candidate has it, and no forecast covers it.</small></span><em>Untested</em></div>
-            </div>
-            <p className={styles.note}>No model trial has run in this preview. This screen makes no claim that a forecast is right.</p>
-          </section>
-        )}
-
-        <div className={styles.foot}>
-          {step === 0 && <p className={styles.fixed} role="note">{FIXED_LINE}</p>}
-          {step < TITLES.length - 1 ? (
-            <Button variant="primary" size="lg" fullWidth className="min-h-[44px]" onClick={next}>Next: {TITLES[step + 1]}</Button>
-          ) : (
-            <Button variant="primary" size="lg" fullWidth className="min-h-[44px]" onClick={() => router.push(`/p/${encodeURIComponent(id)}`)}>Back to {name ?? "the project"}</Button>
-          )}
-        </div>
+        {running && <p className={styles.srOnly} role="status">Running the stand-in</p>}
       </div>
     </div>
   );

@@ -15,7 +15,7 @@ vi.mock("next/navigation", () => ({
 
 import { TryWithAgents } from "@/components/TryWithAgents";
 import TryPage from "@/app/p/[id]/try/page";
-import { CANDIDATE_LINE, DEBATE, FIXED_LINE, FORECAST, UNTESTED_IDEA, STANDIN_LINE, STEPS, TRACKS, failedSteps, finished, firstStop } from "@/lib/sim-standin";
+import { CANDIDATE_LINE, DEBATE, FIXED_LINE, FORECAST, UNTESTED_IDEA, STANDIN_LINE, STEPS, TRACKS, failedSteps, finished, firstStop, standinOutcome } from "@/lib/sim-standin";
 
 const calls: string[] = [];
 let kept: string | undefined;
@@ -47,65 +47,82 @@ describe("the route", () => {
   });
 });
 
-describe("the five steps", () => {
-  it("prints the stand-in line on every step, and ends on the project page", async () => {
+describe("the one screen", () => {
+  const runTo = (bet: string) => {
+    fireEvent.click(screen.getByRole("radio", { name: bet }));
+    fireEvent.click(screen.getByText("Run the stand-in"));
+    act(() => { vi.advanceTimersByTime(550 * STEPS.length * 2); });
+  };
+
+  it("needs a bet before Run, and two taps on this screen reach the result", () => {
+    vi.useFakeTimers();
     render(<TryWithAgents id="strive" />);
-    for (const title of ["Bring the thing", "Choose the panel", "Watch them try", "Hear the debate", "Compare the options"]) {
-      expect(screen.getByRole("heading", { name: title })).toBeTruthy();
-      expect(screen.getByText(STANDIN_LINE)).toBeTruthy();
-      if (title !== "Compare the options") fireEvent.click(screen.getByText(/^Next: /));
-    }
+    expect(screen.getByText(STANDIN_LINE)).toBeTruthy();
+    expect(screen.getByText(new RegExp(FIXED_LINE.slice(0, 40)))).toBeTruthy();
+    expect((screen.getByText("Pick a bet to run").closest("button") as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.queryByText(/^Result against your bet/)).toBeNull();
+    runTo("More finish");
+    expect(screen.getByText(/^Result against your bet/)).toBeTruthy();
+    expect(screen.getByText("You bet more. The stand-in shows more.")).toBeTruthy();
+    expect(screen.getByText("Your bet matches")).toBeTruthy();
     expect(screen.getByText("Not run")).toBeTruthy();
-    expect(screen.getByText("Untested")).toBeTruthy();
-    expect(screen.getByText(/makes no claim that a forecast is right/)).toBeTruthy();
-    fireEvent.click(await screen.findByText("Back to STRIVE"));
-    expect(nav.pushed).toEqual(["/p/strive"]);
+    expect(screen.getByText(/says nothing about the change or about your judgement/)).toBeTruthy();
+    expect(screen.getByText(STANDIN_LINE)).toBeTruthy();
   });
 
-  it("locks the two links and says the fields change no trace", async () => {
+  it("says so when the bet does not match", () => {
+    vi.useFakeTimers();
     render(<TryWithAgents id="strive" />);
-    expect(screen.getByText(FIXED_LINE)).toBeTruthy();
-    expect((await screen.findByDisplayValue("https://strive.example/") as HTMLInputElement).disabled).toBe(true);
-    expect((screen.getByLabelText(/^Candidate/) as HTMLInputElement).disabled).toBe(true);
-    fireEvent.click(screen.getByText(/^Next: /));
-    expect(screen.queryByText(FIXED_LINE)).toBeNull();
+    runTo("Fewer finish");
+    expect(screen.getByText("You bet fewer. The stand-in shows more.")).toBeTruthy();
+    expect(screen.getByText("Your bet does not match")).toBeTruthy();
   });
 
-  it("Back on the first step returns to the project page", () => {
+  it("shows the link and the change as examples, with no field to type in", async () => {
+    render(<TryWithAgents id="strive" />);
+    expect(await screen.findByText("strive.example")).toBeTruthy();
+    expect(screen.getByText(FORECAST.edit)).toBeTruthy();
+    expect(screen.getAllByText("Example")).toHaveLength(2);
+    expect(document.querySelectorAll("input, textarea")).toHaveLength(0);
+  });
+
+  it("Back and the last button return to the project page", async () => {
+    vi.useFakeTimers();
     render(<TryWithAgents id="strive" />);
     fireEvent.click(screen.getAllByLabelText("Back")[0]);
-    expect(nav.pushed).toEqual(["/p/strive"]);
+    runTo("Same");
+    fireEvent.click(screen.getByText(/^Back to /));
+    expect(nav.pushed).toEqual(["/p/strive", "/p/strive"]);
   });
 
   it("reads the project's name and nothing else: no model, no write", async () => {
     render(<TryWithAgents id="strive" />);
-    await screen.findByDisplayValue("https://strive.example/");
-    for (let i = 0; i < 4; i++) fireEvent.click(screen.getByText(/^Next: /));
+    await screen.findByText("strive.example");
+    fireEvent.click(screen.getByRole("radio", { name: "Same" }));
+    fireEvent.click(screen.getByText("Run the stand-in"));
     expect(calls).toEqual(["/api/project/strive"]);
   });
 
-  it("pauses at the first stop, opens its trace, and goes on to the end", () => {
+  it("shows each track's end and opens a trace", () => {
     vi.useFakeTimers();
     render(<TryWithAgents id="strive" />);
-    fireEvent.click(screen.getByLabelText("Step 3: Watch them try"));
-    fireEvent.click(screen.getByText("Play the stand-in"));
+    runTo("More finish");
     const stop = firstStop("base")!;
-    act(() => { vi.advanceTimersByTime(650 * STEPS.length * 2); });
-    expect(screen.getByText(`First stop: Condition A, step ${stop.stopAt}`)).toBeTruthy();
+    fireEvent.click(screen.getByLabelText(`Condition A, Today's version: Stopped at step ${stop.stopAt}. Open the trace`));
     expect(screen.getByLabelText("Condition A trace, Today's version")).toBeTruthy();
     expect(screen.getByText(/No checker ran in this preview/)).toBeTruthy();
-    fireEvent.click(screen.getByText("Continue"));
-    act(() => { vi.advanceTimersByTime(650 * STEPS.length * 2); });
-    expect(screen.getByLabelText(/^Condition B: Finished/)).toBeTruthy();
-    expect(screen.getByLabelText(/^Condition C: Stopped at step 6/)).toBeTruthy();
-    expect(screen.getByText("Play again")).toBeTruthy();
+    expect(screen.getByLabelText(/^Condition A, With the change: Finished/)).toBeTruthy();
+    expect(screen.getByLabelText(/^Condition C, With the change: Stopped at step 6/)).toBeTruthy();
   });
 
   it("marks a claim with no trace as a hypothesis and gives no score", () => {
+    vi.useFakeTimers();
     render(<TryWithAgents id="strive" />);
-    fireEvent.click(screen.getByLabelText("Step 4: Hear the debate"));
+    runTo("More finish");
+    fireEvent.click(screen.getByText("See what the agents said"));
     expect(screen.getAllByText(/^Hypothesis\. No trace supports this claim\.$/)).toHaveLength(DEBATE.filter((c) => !c.trace).length);
-    expect(document.body.textContent).not.toMatch(/consensus|score|accuracy|\d+ ?%/i);
+    expect(screen.getByText("Untested")).toBeTruthy();
+    expect(document.body.textContent).not.toMatch(/consensus|score|accuracy|\d+ ?%|\$|USDC/i);
   });
 });
 
@@ -123,5 +140,6 @@ describe("the stand-in file", () => {
     expect(FORECAST.edit).toBe("Let the picture step be skipped.");
     expect(FORECAST.edit).not.toMatch(/World App/);
     expect(UNTESTED_IDEA).toMatch(/World App/);
+    expect(standinOutcome()).toBe("up");
   });
 });
