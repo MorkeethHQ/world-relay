@@ -151,6 +151,19 @@ CSS transition, and not at all under reduced motion. Nothing else moves.
 8. Onboarding copy. Done when: a stranger's first five screens are seen at 390.
 9. Hostile review, fixes, push.
 
+## Favour art
+
+Oscar, 11 Oct 2026: "favours are so uninsipirational, just looks like vercel, i dont wanna give feedback here, users dont get inspired", and "we need placeholder images, graphics that work and scales. to not make the pages look boring or asymetrical".
+
+- A favour with no picture of its own gets a drawing from `FavourArt.tsx`: flat shapes on one flat ground, made from the favour's kind and its id. One favour keeps one picture.
+- The drawing is never shown as a product's picture or a photo. It is hidden from a screen reader. A company campaign draws its own product picture when `/api/feed` has one, and the drawing when it has none.
+- Six colour sets. No gradient and no keyframe. The art is the colour on the Favours tab; cards stay white.
+- The Favours tab has three shapes: one hero with a wide picture (today's mission), two smaller tiles side by side (Welcome favours, review favours), and rows with a square picture (campaigns, open favours).
+- Points carry a yellow coin. The coin is the one yellow, and it is drawn only beside points. Funded USDC stays green text with no coin.
+- The mission says who asks and what happens to the answer: one answer, checked before it earns.
+- Motion: the hero picture settles once, the dark button gives under a press, and a done mission draws a tick. All three are transitions, and none runs under reduced motion.
+- The shared kit at `~/.local/state/fleet/placeholder-kit-2026-10-11/` may replace the shapes later. The rules above stay.
+
 ## Components (strict, Oscar 8 Oct 2026: "We need strict rules on design, compeontsn and how flow swork")
 
 One job, one component. A screen that shows a product uses one of these and nothing else.

@@ -3,7 +3,8 @@
    like a loading state a fill up, we can gamify favour SO MUCH!"). Drawn with
    World's kit on a white page like Talk and the Hall. One gutter of 16. Sizes
    live here because the kit resets heading and paragraph margins outside
-   Tailwind's layers. Black, white and gray; the one green is funded USDC. */
+   Tailwind's layers. Ink on white; the one green is funded USDC, the one yellow
+   is the points coin, and the colour is in the favour art (FavourArt.tsx). */
 
 .body { padding: 4px 16px 128px; }
 
@@ -53,8 +54,52 @@
 .primary { margin-top: 12px; }
 .problem { margin: 12px 0 0; font-size: 14px; line-height: 1.4; color: #dc2626; }
 
-/* the hero: today's mission, the one card with the dark button */
-.hero { padding: 16px; }
+/* the hero: today's mission, the one card with a wide picture and the dark button */
+.hero { padding: 0; overflow: hidden; }
+.heroArt { position: relative; height: 148px; }
+.heroArt > svg:first-child { display: block; width: 100%; height: 100%; transition: transform 500ms ease-out; }
+@starting-style { .heroArt > svg:first-child { transform: scale(1.06); } }
+.heroTag { position: absolute; left: 12px; top: 12px; padding: 5px 10px; border-radius: 999px; background: #fff; font-size: 12px; font-weight: 500; line-height: 1.2; color: #111827; }
+.tick { position: absolute; right: 12px; bottom: 12px; width: 44px; height: 44px; }
+.tick circle { fill: #fff; }
+.tick path { fill: none; stroke: #111827; stroke-width: 4.5; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 34; stroke-dashoffset: 0; transition: stroke-dashoffset 480ms ease-out 160ms; }
+@starting-style { .tick path { stroke-dashoffset: 34; } }
+.heroBody { padding: 12px 16px 16px; }
+.invite { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; font-size: 14px; line-height: 1.3; color: #6b7280; }
+.invite > i { flex: none; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 999px; background: #111827; color: #fff; font-style: normal; font-size: 12px; font-weight: 700; }
+.invite > span:first-of-type { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.heroWhy { margin: 8px 0 0; font-size: 14px; line-height: 1.4; color: #6b7280; }
+/* a press is felt: the dark button gives a little under the thumb */
+.press button { transition: transform 120ms ease-out; }
+.press button:active { transform: scale(0.97); }
+
+/* ---- two smaller tiles side by side: the Welcome journey and review favours ---- */
+.duo { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-top: 12px; }
+.duo .card { margin-top: 0; }
+.tile { display: flex; flex-direction: column; padding: 0 12px 12px; overflow: hidden; }
+.tileArt { height: 84px; margin: 0 -12px 10px; }
+.tileArt svg { display: block; width: 100%; height: 100%; }
+.tile .eyebrow { margin-bottom: 4px; }
+.tile .cardName { font-size: 15px; -webkit-line-clamp: 3; }
+.tile .cardLine { font-size: 15px; line-height: 1.35; }
+.tile .act { flex-direction: column; align-items: stretch; gap: 6px; min-height: 0; margin-top: auto; padding-top: 10px; }
+.tile .act > :last-child { margin-left: 0; }
+.tile .act button { width: 100%; }
+.tile .cap:empty { display: none; }
+.tile .primary { margin-top: auto; padding-top: 10px; }
+
+/* ---- a picture for a row: the favour's art, or a campaign's own product picture ---- */
+.thumb { flex: none; width: 56px; height: 56px; border-radius: 12px; overflow: hidden; background: #f3f4f5; }
+.thumb svg, .thumb img { display: block; width: 100%; height: 100%; object-fit: cover; }
+
+/* ---- the points coin: the one yellow on the screen, and only beside points ---- */
+.coin { display: inline-block; width: 14px; height: 14px; margin-right: 5px; border-radius: 999px; background: #ffd23f; box-shadow: inset 0 0 0 2px #111827; vertical-align: -2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .heroArt > svg:first-child, .tick path, .press button { transition: none; }
+  .press button:active { transform: none; }
+}
+
 .heroAsk {
   margin: 0;
   font-size: 20px;
@@ -82,8 +127,8 @@
   align-items: center;
   gap: 12px;
   width: 100%;
-  min-height: 64px;
-  padding: 10px 16px;
+  min-height: 76px;
+  padding: 10px 14px 10px 10px;
   border-radius: 16px;
   background: #fff; box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.07);
   text-align: left;
@@ -117,7 +162,7 @@
 
 /* ---- the reward: reward.ts writes it; ink for points, green for funded USDC only ---- */
 .reward { flex: none; display: flex; flex-direction: column; align-items: flex-end; }
-.reward b { font-size: 15px; font-weight: 500; color: #111827; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.reward b { font-size: 15px; font-weight: 700; color: #111827; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .reward small { margin-top: 2px; font-size: 12px; line-height: 1.2; color: #9ca3af; white-space: nowrap; }
 .money b { color: #16a34a; } /* real escrowed USDC only (isRealMoney) */
 .unfunded b { color: #9ca3af; }

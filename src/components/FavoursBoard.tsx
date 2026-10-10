@@ -18,7 +18,7 @@ import { useWorldUsers } from "@/hooks/useWorldUser";
 import { hapticTap } from "@/lib/minikit-helpers";
 import { JuryMode, type JuryCard } from "@/components/JuryMode";
 import { FeedComposer, QuickPost, SubmitProof } from "@/components/Feed";
-import { CategoryIcon } from "@/components/CategoryIcon";
+import { FavourArt, artKind } from "@/components/FavourArt";
 import { Bar, Loader } from "@/components/Fill";
 import talk from "./Talk.module.css";
 import styles from "./FavoursBoard.module.css";
@@ -119,7 +119,7 @@ function Reward({ task }: { task: Task }) {
   const unfunded = !points && !isFunded(task);
   return (
     <span className={`${styles.reward} ${funded ? styles.money : ""} ${unfunded ? styles.unfunded : ""}`} data-funded={points ? "points" : funded ? "yes" : "no"}>
-      <b>{rewardAmountLabel(task)}</b>
+      <b>{points && <i className={styles.coin} aria-hidden="true" />}{rewardAmountLabel(task)}</b>
       {unfunded && <small>{task.rewardType === "usdc-v2" ? "Funds on accept" : "Not funded"}</small>}
     </span>
   );
@@ -132,6 +132,15 @@ export function FavoursBoard({ userId, onReauth }: Props) {
 
   const [read, setRead] = useState<Read>({ kind: "loading" });
   const [attempt, setAttempt] = useState(0);
+  // The pictures of the apps on Today, so a company campaign draws its own product picture when it has one.
+  const [pictures, setPictures] = useState<Record<string, { url: string | null; icon: string | null }>>({});
+  useEffect(() => {
+    let live = true;
+    json<{ cards?: Array<{ id: string; picture?: { url: string | null; icon: string | null } }> }>("/api/feed").then((d) => {
+      if (live && Array.isArray(d?.cards)) setPictures(Object.fromEntries(d!.cards!.filter((c) => c.picture).map((c) => [c.id, c.picture!])));
+    });
+    return () => { live = false; };
+  }, []);
   const [contributions, setContributions] = useState<Contribution[]>([]);
   const [welcome, setWelcome] = useState<WelcomeView | null>(null);
   const [welcomeBusy, setWelcomeBusy] = useState<string | null>(null);
@@ -315,7 +324,10 @@ export function FavoursBoard({ userId, onReauth }: Props) {
     const line = [open !== null ? `${open} ${open === 1 ? "piece" : "pieces"} open` : null, typeof c.rewardPerPiecePoints === "number" ? `${c.rewardPerPiecePoints} pts a piece` : null, c.companyChecked ? "Checked" : "Not checked"].filter(Boolean).join(" · ");
     return (
       <button key={c.id} type="button" className={`min-h-[44px] ${styles.row}`} onClick={() => piece && openProof(piece)} disabled={!piece} aria-label={`${c.company} campaign`}>
-        <span className={styles.mark}><CategoryIcon category="review" size={18} /></span>
+        <span className={styles.thumb}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          {pictures[c.id]?.url ? <img src={pictures[c.id].url as string} alt="" loading="lazy" /> : <FavourArt kind="review" seed={c.id} />}
+        </span>
         <span className={styles.rowText}>
           <span className={styles.rowName}>{c.company}</span>
           {line && <span className={styles.rowLine}>{line}</span>}
@@ -356,37 +368,23 @@ export function FavoursBoard({ userId, onReauth }: Props) {
 
         {ready && mission && (
           <section className={`${styles.card} ${styles.hero}`} aria-label="Today's mission">
-            <p className={styles.eyebrow}>{missionDone ? "Today's mission · done" : "Today's mission"}</p>
-            <p className={styles.heroAsk}>{mission.description}</p>
-            <p className={styles.heroLine}><span>{whoAsked(mission, displayName)}</span><Reward task={mission} /></p>
-            {missionDone ? (
-              <Bar done={1} of={1} label={`You earned ${Math.round(missionDone.points)} pts`} />
-            ) : (
-              <div className={styles.primary}>
-                <Button variant="primary" size="lg" fullWidth className="min-h-[44px]" onClick={() => openProof(mission)} aria-label="Start today's mission">Start</Button>
-              </div>
-            )}
-          </section>
-        )}
-
-        {ready && welcomeCard && stage.welcome && (
-          <section className={styles.card} aria-label="Welcome favours">
-            <p className={styles.eyebrow}>Welcome favours</p>
-            <p className={styles.cardName}>{stage.welcome.next ? stage.welcome.next.description : stage.welcome.finished ? "All done" : "Waiting for a check"}</p>
-            <Bar done={stage.welcome.done} of={stage.welcome.total} label={`${stage.welcome.done} of ${stage.welcome.total} done`} />
-            {stage.welcome.next && (
-              primary === "welcome" ? (
-                <div className={styles.primary}>
-                  <Button variant="primary" size="lg" fullWidth className="min-h-[44px]" disabled={!!welcomeBusy} onClick={() => startWelcomeStep(stage.welcome!.next!.sourceTaskId)} aria-label="Open the next Welcome favour">{welcomeBusy ? "Opening…" : `Open · ${stage.welcome.next.points} pts`}</Button>
-                </div>
+            <div className={styles.heroArt}>
+              <FavourArt kind={artKind(mission.category)} seed={mission.id} />
+              <span className={styles.heroTag}>{missionDone ? "Today's mission · done" : "Today's mission"}</span>
+              {missionDone && <svg className={styles.tick} viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="22" /><path d="M14 25l7 7 14-16" /></svg>}
+            </div>
+            <div className={styles.heroBody}>
+              <p className={styles.invite}><i aria-hidden="true">{whoAsked(mission, displayName).slice(0, 1).toUpperCase()}</i><span>{whoAsked(mission, displayName)}</span><Reward task={mission} /></p>
+              <p className={styles.heroAsk}>{mission.description}</p>
+              <p className={styles.heroWhy}>{isPointsReward(mission) ? "One answer from you. It is checked before it earns the points." : "One answer from you. It is checked before it earns the reward."}</p>
+              {missionDone ? (
+                <Bar done={1} of={1} label={`You earned ${Math.round(missionDone.points)} pts`} />
               ) : (
-                <div className={styles.act}>
-                  <span className={styles.cap}>{stage.welcome.next.points} pts</span>
-                  <Button variant="tertiary" size="sm" className="min-h-[44px]" disabled={!!welcomeBusy} onClick={() => startWelcomeStep(stage.welcome!.next!.sourceTaskId)} aria-label="Open the next Welcome favour">{welcomeBusy ? "Opening…" : "Open"}</Button>
+                <div className={`${styles.primary} ${styles.press}`}>
+                  <Button variant="primary" size="lg" fullWidth className="min-h-[44px]" onClick={() => openProof(mission)} aria-label="Start today's mission">Start</Button>
                 </div>
-              )
-            )}
-            {welcomeError && <p role="alert" className={styles.problem}>{welcomeError}</p>}
+              )}
+            </div>
           </section>
         )}
 
@@ -397,16 +395,42 @@ export function FavoursBoard({ userId, onReauth }: Props) {
           </section>
         )}
 
-        {ready && userId && (
-          <section className={styles.card} aria-label="Review favours">
-            <p className={styles.eyebrow}>{entry.title}</p>
-            <p className={styles.cardLine}>{entry.line}</p>
-            {reviewRecord && <Bar done={Math.min(reviewRecord.judged, JUDGE_MIN_GRADED)} of={JUDGE_MIN_GRADED} label={`${Math.min(reviewRecord.judged, JUDGE_MIN_GRADED)} of ${JUDGE_MIN_GRADED} graded calls`} />}
-            <div className={styles.act}>
-              <span className={styles.cap}>{entry.flagged ?? ""}</span>
-              <Button variant="tertiary" size="sm" className="min-h-[44px]" onClick={() => { hapticTap(); setView("jury"); }}>{entry.cta}</Button>
-            </div>
-          </section>
+        {ready && (welcomeCard || !!userId) && (
+          <div className={styles.duo}>
+          {welcomeCard && stage.welcome && (
+            <section className={`${styles.card} ${styles.tile}`} aria-label="Welcome favours">
+              <div className={styles.tileArt}><FavourArt kind="welcome" seed="welcome" /></div>
+              <p className={styles.eyebrow}>Welcome favours</p>
+              <p className={styles.cardName}>{stage.welcome.next ? stage.welcome.next.description : stage.welcome.finished ? "All done" : "Waiting for a check"}</p>
+              <Bar done={stage.welcome.done} of={stage.welcome.total} label={`${stage.welcome.done} of ${stage.welcome.total} done`} />
+              {stage.welcome.next && (
+                primary === "welcome" ? (
+                  <div className={`${styles.primary} ${styles.press}`}>
+                    <Button variant="primary" size="lg" fullWidth className="min-h-[44px]" disabled={!!welcomeBusy} onClick={() => startWelcomeStep(stage.welcome!.next!.sourceTaskId)} aria-label="Open the next Welcome favour">{welcomeBusy ? "Opening…" : `Open · ${stage.welcome.next.points} pts`}</Button>
+                  </div>
+                ) : (
+                  <div className={styles.act}>
+                    <span className={styles.cap}>{stage.welcome.next.points} pts</span>
+                    <Button variant="tertiary" size="sm" className="min-h-[44px]" disabled={!!welcomeBusy} onClick={() => startWelcomeStep(stage.welcome!.next!.sourceTaskId)} aria-label="Open the next Welcome favour">{welcomeBusy ? "Opening…" : "Open"}</Button>
+                  </div>
+                )
+              )}
+              {welcomeError && <p role="alert" className={styles.problem}>{welcomeError}</p>}
+            </section>
+          )}
+          {ready && userId && (
+            <section className={`${styles.card} ${styles.tile}`} aria-label="Review favours">
+              <div className={styles.tileArt}><FavourArt kind="judge" seed="judge" /></div>
+              <p className={styles.eyebrow}>{entry.title}</p>
+              <p className={styles.cardLine}>{entry.line}</p>
+              {reviewRecord && <Bar done={Math.min(reviewRecord.judged, JUDGE_MIN_GRADED)} of={JUDGE_MIN_GRADED} label={`${Math.min(reviewRecord.judged, JUDGE_MIN_GRADED)} of ${JUDGE_MIN_GRADED} graded calls`} />}
+              <div className={styles.act}>
+                <span className={styles.cap}>{entry.flagged ?? ""}</span>
+                <Button variant="tertiary" size="sm" className="min-h-[44px]" onClick={() => { hapticTap(); setView("jury"); }}>{entry.cta}</Button>
+              </div>
+            </section>
+          )}
+          </div>
         )}
 
         {ready && leadCampaigns.length > 0 && (
@@ -427,7 +451,7 @@ export function FavoursBoard({ userId, onReauth }: Props) {
               const go = () => (mine && t.status === "open" ? router.push(`/task/${encodeURIComponent(t.id)}`) : openProof(t));
               return (
                 <button key={t.id} type="button" className={`min-h-[44px] ${styles.row}`} onClick={go} aria-label={`Open favour: ${t.description}`}>
-                  <span className={styles.mark}><CategoryIcon category={t.category} size={18} /></span>
+                  <span className={styles.thumb}><FavourArt kind={artKind(t.category)} seed={t.id} /></span>
                   <span className={styles.rowText}>
                     <span className={styles.rowAsk}>{t.description}</span>
                     <span className={styles.rowLine}>{mine ? "You asked" : t.status === "claimed" ? "Yours, in progress" : whoAsked(t, displayName)}{stale ? " · Open a while" : ""}</span>
