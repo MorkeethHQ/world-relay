@@ -12,20 +12,100 @@ export function proofImagePath(taskId: string, index: number): string {
   return `/api/tasks/${taskId}/proof-image?i=${index}`;
 }
 
-export function toApiTask(task: Task): Task {
-  const hasBlob = isDataUrl(task.proofImageUrl) || (task.proofImages || []).some(isDataUrl);
-  if (!hasBlob) return task;
-  return {
-    ...task,
-    // submitProof keeps proofImageUrl === proofImages[0], so index 0 is the cover.
-    proofImageUrl: isDataUrl(task.proofImageUrl) ? proofImagePath(task.id, 0) : task.proofImageUrl,
-    proofImages: task.proofImages
-      ? task.proofImages.map((u, i) => (isDataUrl(u) ? proofImagePath(task.id, i) : u))
-      : null,
-  };
+// THE PUBLIC SHAPE OF A TASK IS AN ALLOW LIST (hardening pass, 2026-10-13).
+//
+// Before this, toApiTask returned {...task}: every stored key reached every
+// reader of the feed, the detail page, search and history. Measured on
+// production 2026-10-12: 40 keys per row, among them claimCode (the only lock
+// on a claim-coded task) and callbackUrl. Both were null on all 294 live rows
+// that day, so the first task to set one would have published it. The detail
+// route stripped claimCode alone, which is "all except X": the next private
+// field leaks by default.
+//
+// Now a key is public only if it is on PUBLIC_TASK_KEYS. A key added to Task
+// must be put on one of the two lists or `tsc` and `next build` fail on the
+// line below; src/__tests__/task-serializer-allowlist.test.ts parses types.ts
+// at run time so `vitest` fails on the same day.
+export const PUBLIC_TASK_KEYS = [
+  "id",
+  "poster",
+  "claimant",
+  "category",
+  "campaignId",
+  "companyCampaignId",
+  "description",
+  "location",
+  "lat",
+  "lng",
+  "bountyUsdc",
+  "deadline",
+  "status",
+  "proofImageUrl",
+  "proofImages",
+  "proofNote",
+  "verificationResult",
+  "humanReview",
+  "attestationTxHash",
+  "agent",
+  "aiFollowUp",
+  "recurring",
+  "onChainId",
+  "escrowTxHash",
+  "taskType",
+  "rewardType",
+  "donOnChainId",
+  "donStakeTxHash",
+  "claimantVerification",
+  "requiresClaim",
+  "pendingRelease",
+  "settlementTx",
+  "escrowV2Address",
+  "escrowV2Version",
+  "escrowV2RefundTx",
+  "maxCompletions",
+  "completionCount",
+  "createdAt",
+  "welcomeSourceId",
+] as const satisfies readonly (keyof Task)[];
+
+// Never sent to a client. claimCode is the lock; callbackUrl is the poster's
+// private endpoint; the hidden markers are the operator's; welcomeFor is the
+// owner's wallet on a private instance; welcomeReviewNote reaches its owner
+// through GET /api/welcome; proofSubmissionId is an internal id.
+export const PRIVATE_TASK_KEYS = [
+  "claimCode",
+  "callbackUrl",
+  "hiddenAt",
+  "hiddenReason",
+  "welcomeFor",
+  "welcomeReviewNote",
+  "proofSubmissionId",
+] as const satisfies readonly (keyof Task)[];
+
+export type PublicTaskKey = (typeof PUBLIC_TASK_KEYS)[number];
+type PrivateTaskKey = (typeof PRIVATE_TASK_KEYS)[number];
+type UnclassifiedTaskKey = Exclude<keyof Task, PublicTaskKey | PrivateTaskKey>;
+// A Task key in neither list makes this line a type error. That is the gate:
+// a new field is private by default until someone names it public.
+const everyTaskKeyIsClassified: [UnclassifiedTaskKey] extends [never] ? true : never = true;
+void everyTaskKeyIsClassified;
+
+export type ApiTask = Pick<Task, PublicTaskKey>;
+
+export function toApiTask(task: Task): ApiTask {
+  const out = {} as Record<string, unknown>;
+  for (const k of PUBLIC_TASK_KEYS) {
+    if (k in task) out[k] = task[k];
+  }
+  // submitProof keeps proofImageUrl === proofImages[0], so index 0 is the cover.
+  if (isDataUrl(task.proofImageUrl)) out.proofImageUrl = proofImagePath(task.id, 0);
+  if (task.proofImages && task.proofImages.some(isDataUrl)) {
+    out.proofImages = task.proofImages.map((u, i) => (isDataUrl(u) ? proofImagePath(task.id, i) : u));
+  }
+  return out as ApiTask;
 }
 
-export function toApiTasks(tasks: Task[]): Task[] {
+export function toApiTasks(tasks: Task[]): ApiTask[] {
   return tasks.map(toApiTask);
 }
 

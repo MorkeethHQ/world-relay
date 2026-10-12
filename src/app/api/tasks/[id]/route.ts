@@ -6,11 +6,9 @@ import { isEscrowTaskFunded } from "@/lib/escrow";
 import { toApiTask, isHiddenTask } from "@/lib/task-serializer";
 import { CUSTODY_RETIRED } from "@/lib/custody";
 
-/** Return full task detail, omitting only internal keys like claimCode. */
-function detailTask(task: Record<string, unknown>) {
-  const { claimCode, ...rest } = task;
-  return rest;
-}
+// The detail view is the same allow list as the feed (toApiTask). It used to
+// be "everything except claimCode", which published the next private field
+// by default (hardening pass, 2026-10-13).
 
 export async function GET(
   _req: NextRequest,
@@ -25,7 +23,7 @@ export async function GET(
     return NextResponse.json({ error: "Task not found" }, { status: 404 });
   }
 
-  return NextResponse.json({ task: detailTask(toApiTask(task) as unknown as Record<string, unknown>) });
+  return NextResponse.json({ task: toApiTask(task) });
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -96,5 +94,5 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
   }
 
-  return NextResponse.json({ ok: true, task: detailTask(task as unknown as Record<string, unknown>) });
+  return NextResponse.json({ ok: true, task: toApiTask(task) });
 }

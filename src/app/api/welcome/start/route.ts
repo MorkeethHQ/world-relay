@@ -20,8 +20,8 @@ export async function POST(req: NextRequest) {
   if (refusal) return NextResponse.json(refusal, { status: 403 });
   const got = await ensureWelcomeInstance(body.sourceTaskId, body.address);
   if (!got.ok) return NextResponse.json({ error: got.error, code: got.code }, { status: got.status });
-  // An internal key, never sent to a client (the same rule as detailTask).
-  const { claimCode, ...task } = toApiTask(got.task);
-  void claimCode;
+  // toApiTask is the allow list; claimCode and the other private keys never
+  // leave it (src/lib/task-serializer.ts).
+  const task = toApiTask(got.task);
   return NextResponse.json({ task, shared: got.shared }, { headers: { "Cache-Control": "private, no-store" } });
 }
