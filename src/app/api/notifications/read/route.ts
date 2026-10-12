@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { markRead, markAllRead } from "@/lib/notifications-store";
+import { ownershipError } from "@/lib/session";
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
@@ -8,6 +9,11 @@ export async function POST(req: NextRequest) {
   if (!user) {
     return NextResponse.json({ error: "Missing user" }, { status: 400 });
   }
+
+  // `user` is a public body field. The session must be that wallet
+  // (ownershipError, honours SESSION_ENFORCE) before anything is marked.
+  const owner = ownershipError(req, user, Date.now());
+  if (owner) return NextResponse.json({ error: owner }, { status: 403 });
 
   if (all) {
     await markAllRead(user);
