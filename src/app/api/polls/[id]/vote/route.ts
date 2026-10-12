@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { vote } from "@/lib/polls-store";
 import { trackEvent } from "@/lib/track";
 import { recordDailyActivity } from "@/lib/proof-of-favour";
+import { ownershipError } from "@/lib/session";
 
 // A vote is only counted per verified wallet. userId must be a wallet address;
 // this stops a client from minting fresh ids to vote repeatedly.
@@ -22,6 +23,14 @@ export async function POST(
   if (typeof userId !== "string" || !WALLET_RE.test(userId)) {
     return NextResponse.json({ error: "A valid wallet address is required to vote" }, { status: 400 });
   }
+
+  // A vote is attributed to userId and feeds the daily streak, so the session
+  // must be that wallet. ownershipError honours SESSION_ENFORCE: it ships dark
+  // and refuses a mismatched cookie today. (The 2026-09-20 rule puts a route
+  // that writes points on the unconditional ownerRefusal; this one is held on
+  // the switch so the owner can test the poll tap in World App first.)
+  const owner = ownershipError(req, userId, Date.now());
+  if (owner) return NextResponse.json({ error: owner }, { status: 403 });
 
   const { poll, error } = await vote(id, userId, option);
 

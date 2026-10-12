@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { listPolls, createPoll } from "@/lib/polls-store";
+import { ownershipError } from "@/lib/session";
 
 // Poll authorship is attributed to a verified wallet, so the creator field must
 // be a wallet address rather than an arbitrary client-supplied id.
@@ -30,6 +31,10 @@ export async function POST(req: NextRequest) {
   if (typeof creator !== "string" || !WALLET_RE.test(creator)) {
     return NextResponse.json({ error: "A valid wallet address is required to create a poll" }, { status: 400 });
   }
+
+  // `creator` is a public body field; the session must be that wallet.
+  const owner = ownershipError(req, creator, Date.now());
+  if (owner) return NextResponse.json({ error: owner }, { status: 403 });
 
   const poll = await createPoll({ question, options, creator, category, durationHours });
   return NextResponse.json({ poll }, { status: 201 });
