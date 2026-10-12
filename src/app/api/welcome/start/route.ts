@@ -21,7 +21,9 @@ export async function POST(req: NextRequest) {
   const got = await ensureWelcomeInstance(body.sourceTaskId, body.address);
   if (!got.ok) return NextResponse.json({ error: got.error, code: got.code }, { status: got.status });
   // toApiTask is the allow list; claimCode and the other private keys never
-  // leave it (src/lib/task-serializer.ts).
-  const task = toApiTask(got.task);
+  // leave it (src/lib/task-serializer.ts). welcomeFor is private on every
+  // public surface and is added back here only: this route answers the
+  // instance's own owner, whose session was just checked above.
+  const task = { ...toApiTask(got.task), welcomeFor: got.task.welcomeFor };
   return NextResponse.json({ task, shared: got.shared }, { headers: { "Cache-Control": "private, no-store" } });
 }
