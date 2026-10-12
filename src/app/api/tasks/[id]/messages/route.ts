@@ -24,6 +24,16 @@ export async function GET(
   }
 
   const refusal = readerRefusal(req, [task.poster, task.claimant], Date.now());
+  // The thread holds two kinds of message: the relay-bot briefing written at
+  // creation, which the task page shows to every viewer (task/[id]/page.tsx
+  // fetchData has no participant gate), and the chat between the two people.
+  // A signed-in wallet that is not a participant keeps the public part and
+  // loses the private part, instead of a 403 that would blank a page it could
+  // open yesterday. An anonymous caller is refused once SESSION_ENFORCE is on.
+  if (refusal?.status === 403) {
+    const publicOnly = (await getMessages(id)).filter((m) => m.sender === "relay-bot");
+    return NextResponse.json({ messages: publicOnly, participant: false }, { headers: PRIVATE });
+  }
   if (refusal) return NextResponse.json({ error: refusal.error, code: refusal.code }, { status: refusal.status, headers: PRIVATE });
 
   return NextResponse.json({ messages: await getMessages(id) }, { headers: PRIVATE });

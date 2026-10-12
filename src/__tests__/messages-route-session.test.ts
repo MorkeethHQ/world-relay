@@ -70,8 +70,16 @@ describe("GET /api/tasks/[id]/messages", () => {
     expect((await res.json()).messages).toBeUndefined();
   });
 
-  it("answers 403 to a signed-in wallet that is not a participant", async () => {
-    expect((await get(STRANGER)).status).toBe(403);
+  it("gives a signed-in non-participant the relay-bot briefing only, never the human chat", async () => {
+    // The task page shows the thread to every viewer (page.tsx fetchData has
+    // no participant gate), so a 403 would blank a page that opened yesterday.
+    messages.t1.push({ id: "m2", taskId: "t1", sender: "relay-bot", text: "briefing", timestamp: "t" });
+    const res = await get(STRANGER);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.participant).toBe(false);
+    expect(body.messages.map((m: any) => m.sender)).toEqual(["relay-bot"]);
+    expect(JSON.stringify(body)).not.toContain('"hi"');
   });
 
   it("answers 200 to the poster and to the claimant, and is never cached", async () => {
@@ -87,10 +95,12 @@ describe("GET /api/tasks/[id]/messages", () => {
     expect((await get()).status).toBe(404);
   });
 
-  it("ships dark: with the switch off an anonymous read still passes, a wrong wallet does not", async () => {
+  it("ships dark: with the switch off an anonymous read still gets the full thread; a signed-in stranger does not", async () => {
     delete process.env.SESSION_ENFORCE;
-    expect((await get()).status).toBe(200);
-    expect((await get(STRANGER)).status).toBe(403);
+    const anon = await (await get()).json();
+    expect(anon.messages).toHaveLength(1);
+    const stranger = await (await get(STRANGER)).json();
+    expect(stranger.messages).toHaveLength(0);
   });
 });
 
