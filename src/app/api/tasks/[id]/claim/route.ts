@@ -1,5 +1,5 @@
 import { campaignIntakePaused } from "@/lib/contribution-responses";
-import { ownerRefusal } from "@/lib/session";
+import { ownerRefusal, ownershipError } from "@/lib/session";
 import { NextRequest, NextResponse } from "next/server";
 import { claimTask, getTask } from "@/lib/store";
 import { postClaimNotification, postClaimBriefing, syncAndProcessMessages } from "@/lib/xmtp";
@@ -36,6 +36,15 @@ export async function POST(
   const task = await getTask(id);
   if (!task) {
     return NextResponse.json({ error: "Task not found" }, { status: 404 });
+  }
+
+  // `claimant` is a public body field and the claim writes points to it
+  // (recordFavourClaimed). A company task holds the unconditional gate; every
+  // other task holds the switched one, so the claim tap can be tested in
+  // World App before SESSION_ENFORCE is turned on (hardening pass 2026-10-13).
+  if (!task.companyCampaignId) {
+    const owner = ownershipError(req, claimant, Date.now());
+    if (owner) return NextResponse.json({ error: owner }, { status: 403 });
   }
 
   if (task.companyCampaignId) {
