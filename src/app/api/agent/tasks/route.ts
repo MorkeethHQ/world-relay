@@ -1,3 +1,4 @@
+import { coarse, publicIdOrSame } from "@/lib/public-id";
 import { NextRequest, NextResponse } from "next/server";
 import { createTask, listTasks, getTask } from "@/lib/store";
 import { generateLocationBriefing } from "@/lib/ai-chat";
@@ -76,8 +77,9 @@ export async function GET(req: NextRequest) {
         id: t.id,
         description: t.description,
         location: t.location,
-        lat: t.lat,
-        lng: t.lng,
+        // An agent reads the board, not where a person stands: about 1 km (lib/public-id.ts).
+        lat: coarse(t.lat, 2),
+        lng: coarse(t.lng, 2),
         bountyUsdc: t.bountyUsdc,
         deadline: t.deadline,
         status: t.status,
@@ -86,7 +88,8 @@ export async function GET(req: NextRequest) {
 
       // Include extra fields for completed/failed tasks
       if (t.status === "completed" || t.status === "failed") {
-        base.claimant = t.claimant;
+        // A public id, never the wallet: this list answers any key holder and any in-app request.
+        base.claimant = publicIdOrSame(t.claimant);
         base.proofImageUrl = toApiTask(t).proofImageUrl;
         base.attestationTxHash = t.attestationTxHash;
         if (t.verificationResult) {

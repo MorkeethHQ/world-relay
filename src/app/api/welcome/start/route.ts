@@ -24,6 +24,6 @@ export async function POST(req: NextRequest) {
   // leave it (src/lib/task-serializer.ts). welcomeFor is private on every
   // public surface and is added back here only: this route answers the
   // instance's own owner, whose session was just checked above.
-  const task = { ...toApiTask(got.task), welcomeFor: got.task.welcomeFor };
+  const task = { ...toApiTask(got.task, body.address), welcomeFor: got.task.welcomeFor };
   return NextResponse.json({ task, shared: got.shared }, { headers: { "Cache-Control": "private, no-store" } });
 }

@@ -1,3 +1,4 @@
+import { publicIdOrSame } from "@/lib/public-id";
 import { NextResponse } from "next/server";
 import { createPublicClient, http, formatUnits } from "viem";
 import { worldchain } from "viem/chains";
@@ -69,7 +70,7 @@ export async function GET() {
         bounty: formatUnits(bounty, 6),
         status,
         description: task.description.slice(0, 80),
-        claimant: task.claimant === "0x0000000000000000000000000000000000000000" ? "" : task.claimant,
+        claimant: task.claimant === "0x0000000000000000000000000000000000000000" ? "" : publicIdOrSame(task.claimant),
       });
     }
 

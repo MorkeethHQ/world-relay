@@ -12,7 +12,7 @@ import { getCampaign } from "@/lib/campaigns";
 import { isEscrowTaskFunded } from "@/lib/escrow";
 import { isTemplateCopy, MIN_DESCRIPTION_LENGTH } from "@/lib/post-templates";
 import { gibberishReason } from "@/lib/post-quality";
-import { toApiTasks, isPublicTask, isRetiredBetOffer } from "@/lib/task-serializer";
+import { toApiTasks, isPublicTask, isRetiredBetOffer, taskListCache } from "@/lib/task-serializer";
 import { orderBoardForApi } from "@/lib/board-rank";
 import { CUSTODY_RETIRED } from "@/lib/custody";
 import { escrowV2Enabled, escrowV2MaxUsd } from "@/lib/escrow-v2";
@@ -22,9 +22,9 @@ import {
   seedAuthEnforced,
   SEED_SECRET_HEADER,
 } from "@/lib/seeder";
-import { ownerRefusal } from "@/lib/session";
+import { getAuthedAddress, ownerRefusal } from "@/lib/session";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   trackEvent("feed_loaded").catch(() => {});
   const tasks = (await listTasks()).filter((t) => isPublicTask(t) && !isRetiredBetOffer(t));
   // BOARD-RULES.md R1+R5 are enforced here too, so API consumers (agents,
@@ -35,13 +35,14 @@ export async function GET() {
   // verificationResult.models here cuts ~24% off the list payload (~44KB across
   // ~85 tasks, measured on prod). The detail page (/task/[id]) fetches the full
   // task separately, so its model panel is unaffected.
-  const list = toApiTasks(ordered).map((t) =>
+  const viewer = getAuthedAddress(req, Date.now());
+  const list = toApiTasks(ordered, viewer).map((t) =>
     t.verificationResult?.models
       ? { ...t, verificationResult: { ...t.verificationResult, models: undefined } }
       : t
   );
   return NextResponse.json({ tasks: list }, {
-    headers: { "Cache-Control": "public, s-maxage=5, stale-while-revalidate=10" },
+    headers: taskListCache(viewer, "public, s-maxage=5, stale-while-revalidate=10"),
   });
 }
 

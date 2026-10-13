@@ -106,7 +106,8 @@ describe("every Task key is classified public or private", () => {
 describe("toApiTask sends the allow list and nothing else", () => {
   it("emits exactly the public keys, in list order", () => {
     const out = toApiTask(fullTask());
-    expect(Object.keys(out)).toEqual([...PUBLIC_TASK_KEYS]);
+    // The two role flags are worked out by the server and are not Task keys (2026-10-14).
+    expect(Object.keys(out)).toEqual([...PUBLIC_TASK_KEYS, "isOwnTask", "isClaimant"]);
   });
 
   it("never carries claimCode, callbackUrl, hidden markers or the welcome owner, even when set", () => {
@@ -135,6 +136,6 @@ describe("toApiTask sends the allow list and nothing else", () => {
 
   it("toApiTasks maps every row through the same list", () => {
     const rows = toApiTasks([fullTask(), { ...fullTask(), id: "t2" }]);
-    for (const r of rows) expect(Object.keys(r)).toEqual([...PUBLIC_TASK_KEYS]);
+    for (const r of rows) expect(Object.keys(r)).toEqual([...PUBLIC_TASK_KEYS, "isOwnTask", "isClaimant"]);
   });
 });

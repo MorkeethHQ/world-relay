@@ -1,4 +1,5 @@
 import type { Task } from "./types";
+import { coarse, isWallet, publicId, sameWallet, scrubAddresses } from "./public-id";
 
 // Proof images are stored in Redis as base64 data URLs (100-350KB each) and used
 // to be returned inline in task JSON. That made GET /api/tasks grow past 8MB and
@@ -90,9 +91,40 @@ type UnclassifiedTaskKey = Exclude<keyof Task, PublicTaskKey | PrivateTaskKey>;
 const everyTaskKeyIsClassified: [UnclassifiedTaskKey] extends [never] ? true : never = true;
 void everyTaskKeyIsClassified;
 
-export type ApiTask = Pick<Task, PublicTaskKey>;
+// WHO IS READING DECIDES WHAT A ROW SAYS ABOUT PEOPLE (2026-10-14, lib/public-id.ts).
+//
+//   a party    the session wallet is this task's poster or claimant. The row is
+//              whole: the two parties pay and write to each other and need the
+//              other's wallet (escrow funding, chat, a dispute).
+//   signed in  any other session wallet. poster and claimant are public ids,
+//              coordinates have two decimals (about 1 km).
+//   signed out no session. poster and claimant are public ids, coordinates have
+//              one decimal (about 11 km), and every 0x run of 40 hex characters
+//              or more that is left anywhere in the row (a contract address, a
+//              transaction hash, text a person typed) is replaced by "[hidden]".
+//              A settlement hash names the wallet that was paid, so it goes too.
+//
+// The viewer comes from the session cookie and never from a query or a body.
+// isOwnTask and isClaimant are worked out here, so a client never needs the
+// wallet of a stranger to know which rows are its own.
+//
+// Limit, stated: a signed-in stranger still receives transaction hashes, and a
+// hash can be looked up on chain. Closing that needs the receipts to move
+// behind a party-only read.
+export type Viewer = string | null;
+export const COORD_PLACES_SIGNED_OUT = 1;
+export const COORD_PLACES_SIGNED_IN = 2;
 
-export function toApiTask(task: Task): ApiTask {
+export type ApiTask = Pick<Task, PublicTaskKey> & { isOwnTask: boolean; isClaimant: boolean };
+
+/** Is this viewer the poster or the claimant? An agent viewer is "agent:<id>" and matches its own posts. */
+export function viewerRole(task: Pick<Task, "poster" | "claimant">, viewer: Viewer): { isOwnTask: boolean; isClaimant: boolean } {
+  if (!viewer) return { isOwnTask: false, isClaimant: false };
+  const same = (a: string | null | undefined) => !!a && (sameWallet(a, viewer) || (!isWallet(viewer) && a === viewer));
+  return { isOwnTask: same(task.poster), isClaimant: same(task.claimant) };
+}
+
+export function toApiTask(task: Task, viewer: Viewer = null): ApiTask {
   const out = {} as Record<string, unknown>;
   for (const k of PUBLIC_TASK_KEYS) {
     if (k in task) out[k] = task[k];
@@ -102,11 +134,27 @@ export function toApiTask(task: Task): ApiTask {
   if (task.proofImages && task.proofImages.some(isDataUrl)) {
     out.proofImages = task.proofImages.map((u, i) => (isDataUrl(u) ? proofImagePath(task.id, i) : u));
   }
-  return out as ApiTask;
+  const role = viewerRole(task, viewer);
+  out.isOwnTask = role.isOwnTask;
+  out.isClaimant = role.isClaimant;
+  if (role.isOwnTask || role.isClaimant) return out as ApiTask;
+
+  if (isWallet(out.poster)) out.poster = publicId(out.poster);
+  if (isWallet(out.claimant)) out.claimant = publicId(out.claimant);
+  const places = viewer ? COORD_PLACES_SIGNED_IN : COORD_PLACES_SIGNED_OUT;
+  out.lat = coarse(out.lat, places);
+  out.lng = coarse(out.lng, places);
+  return (viewer ? out : scrubAddresses(out)) as ApiTask;
 }
 
-export function toApiTasks(tasks: Task[]): ApiTask[] {
-  return tasks.map(toApiTask);
+export function toApiTasks(tasks: Task[], viewer: Viewer = null): ApiTask[] {
+  return tasks.map((t) => toApiTask(t, viewer));
+}
+
+/** The cache rule for a list of tasks. A signed-out answer may be shared; a signed-in one is that person's alone.
+ *  Vary: Cookie keeps a shared cache from handing the signed-out answer to a signed-in reader. */
+export function taskListCache(viewer: Viewer, shared: string): Record<string, string> {
+  return viewer ? { "Cache-Control": "private, no-store", Vary: "Cookie" } : { "Cache-Control": shared, Vary: "Cookie" };
 }
 
 // Development-era artifacts (dev_/demo_/e2e_ identities, security-audit

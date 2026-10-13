@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { listTasks } from "@/lib/store";
-import { toApiTasks, isPublicTask } from "@/lib/task-serializer";
+import { toApiTasks, isPublicTask, taskListCache } from "@/lib/task-serializer";
+import { getAuthedAddress } from "@/lib/session";
 
 const DEFAULT_LIMIT = 60;
 const MAX_LIMIT = 120;
@@ -20,7 +21,8 @@ export async function GET(req: NextRequest) {
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .slice(0, limit);
 
-  const list = toApiTasks(completed).map((t) =>
+  const viewer = getAuthedAddress(req, Date.now());
+  const list = toApiTasks(completed, viewer).map((t) =>
     t.verificationResult?.models
       ? { ...t, verificationResult: { ...t.verificationResult, models: undefined } }
       : t
@@ -28,6 +30,6 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json(
     { tasks: list },
-    { headers: { "Cache-Control": "public, s-maxage=15, stale-while-revalidate=30" } }
+    { headers: taskListCache(viewer, "public, s-maxage=15, stale-while-revalidate=30") }
   );
 }

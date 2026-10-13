@@ -1,3 +1,4 @@
+import { publicIdOrSame } from "@/lib/public-id";
 import { NextRequest, NextResponse } from "next/server";
 import { listPolls, createPoll } from "@/lib/polls-store";
 import { ownershipError } from "@/lib/session";
@@ -9,8 +10,10 @@ const WALLET_RE = /^0x[0-9a-fA-F]{40}$/;
 export async function GET(req: NextRequest) {
   const userId = req.nextUrl.searchParams.get("userId") || "";
   const polls = await listPolls();
+  // The creator is a wallet in the store and a public id on the wire (lib/public-id.ts).
   const sanitized = polls.map(({ voters, ...rest }) => ({
     ...rest,
+    creator: publicIdOrSame(rest.creator),
     voterCount: Object.keys(voters).length,
     // Tell the requesting user whether they already voted (and for what) so the
     // client can lock the poll persistently, not just for the current session.
