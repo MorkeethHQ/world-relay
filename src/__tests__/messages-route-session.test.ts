@@ -187,3 +187,21 @@ describe("POST /api/tasks/[id]/command (same shape, same gate)", () => {
     expect((await command({ sender: POSTER, message: "/status" }, POSTER)).status).toBe(200);
   });
 });
+
+// 14 Oct 2026: /command had the same soft gate. It writes the sender's message
+// and can drive commands, so it gets the same hard gate.
+describe("POST /api/tasks/[id]/command with SESSION_ENFORCE off", () => {
+  beforeEach(() => { delete process.env.SESSION_ENFORCE; });
+  it("a party cannot command as the other party", async () => {
+    expect((await command({ sender: POSTER, message: "/status" }, CLAIMANT)).status).toBe(403);
+    expect((await command({ sender: CLAIMANT, message: "/status" }, POSTER)).status).toBe(403);
+    expect(messages.t1.map((m) => m.text)).toEqual(["hi"]); // only the seeded one
+  });
+  it("no cookie cannot command as a party", async () => {
+    expect((await command({ sender: POSTER, message: "/status" })).status).toBe(403);
+    expect(messages.t1.map((m) => m.text)).toEqual(["hi"]);
+  });
+  it("a party still commands as themselves", async () => {
+    expect((await command({ sender: POSTER, message: "/status" }, POSTER)).status).toBe(200);
+  });
+});
