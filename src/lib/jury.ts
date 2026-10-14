@@ -3,6 +3,7 @@ import { getRedis } from "./redis";
 import { awardPoints } from "./proof-of-favour";
 import { DECOYS } from "./decoys";
 import { gibberishReason } from "./post-quality";
+import { recordJuryDay, type JuryDay } from "./jury-day";
 
 // REAL OR NOT — the peer jury game (decision-log 2026-07-05 night).
 // One-tap/swipe verdicts on proofs: "does this photo actually match this
@@ -217,6 +218,8 @@ export type JuryVerdictResult = {
   practice?: boolean;
   // Revealed only AFTER the call: this card was an AI-made decoy.
   decoy?: boolean;
+  // Today's verdict count and the streak, written by the server (lib/jury-day.ts).
+  day?: JuryDay | null;
 };
 
 // Resolves the answer SERVER-SIDE from the stored card. Rejects unknown cards
@@ -238,6 +241,8 @@ export async function recordJuryVerdict(
   const fresh = await redis.sadd(`jury:seen:${judge.toLowerCase()}`, cardId);
   if (!fresh) return { error: "Already judged" };
   await redis.del(`jury:card:${cardId}`).catch(() => {});
+  // The daily count and streak move on every accepted verdict, practice too.
+  const day = await recordJuryDay(judge, Date.now()).catch(() => null);
 
   // PRACTICE: graded so the player learns, and nothing else. No points, no daily
   // cap consumed, no stats, no judged-set write. Returned before any of those.
@@ -245,7 +250,7 @@ export async function recordJuryVerdict(
     const statsKey = `jury:stats:${judge.toLowerCase()}`;
     const judged = Number((await redis.hget(statsKey, "judged")) || 0);
     const correctTotal = Number((await redis.hget(statsKey, "correct")) || 0);
-    return { correct: saidMatch === answer.isMatch, isMatch: answer.isMatch, pointsAwarded: 0, judged, correctTotal, practice: true, ...(answer.decoy ? { decoy: true } : {}) };
+    return { correct: saidMatch === answer.isMatch, isMatch: answer.isMatch, pointsAwarded: 0, judged, correctTotal, practice: true, ...(answer.decoy ? { decoy: true } : {}), day };
   }
   // Record the underlying proof as judged so future decks never resurface it
   // (a proof is judged once per human, regardless of how many cards wrap it).
@@ -269,5 +274,5 @@ export async function recordJuryVerdict(
     }
   }
 
-  return { correct, isMatch: answer.isMatch, pointsAwarded, judged, correctTotal, ...(answer.decoy ? { decoy: true } : {}) };
+  return { correct, isMatch: answer.isMatch, pointsAwarded, judged, correctTotal, ...(answer.decoy ? { decoy: true } : {}), day };
 }

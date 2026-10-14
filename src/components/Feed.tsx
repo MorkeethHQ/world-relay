@@ -51,6 +51,8 @@ import {
   pickProofStrip,
 } from "@/lib/board-rank";
 import { JuryMode, type JuryCard } from "@/components/JuryMode";
+import { JuryGameCard } from "@/components/JuryGameCard";
+import { juryGameOn, type JuryDayView } from "@/lib/jury-game";
 import { ForCompaniesView, CompanyTrust, ProductLine, CampaignDraftForm, CampaignDraftList, CompanyCampaignCard, CompanyCampaignView } from "@/components/CompanyCampaign";
 import { pickCampaignToDo, rankCampaignCards } from "@/lib/company-door";
 import type { CampaignDraft, PublicCompanyCampaign, PieceKind } from "@/lib/campaign-draft-shape";
@@ -872,6 +874,8 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
   // record, both from the server (GET /api/jury/record). Counts only.
   const [reviewFlagged, setReviewFlagged] = useState(0);
   const [reviewRecord, setReviewRecord] = useState<{ judged: number; correct: number } | null>(null);
+  // Today's verdict count and streak for the jury game card (lib/jury-day.ts).
+  const [juryDay, setJuryDay] = useState<JuryDayView | null>(null);
   const [reviewDeckKey, setReviewDeckKey] = useState(0);
   useEffect(() => {
     // A preview identity has no record to read. The card does not use these
@@ -884,6 +888,7 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
         if (!live || !d) return;
         setReviewFlagged(typeof d.flaggedWaiting === "number" ? d.flaggedWaiting : 0);
         setReviewRecord(d.record && typeof d.record.judged === "number" ? d.record : null);
+        setJuryDay(d.day && typeof d.day.today === "number" ? d.day : null);
       })
       .catch(() => {});
     return () => { live = false; };
@@ -1251,6 +1256,12 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
         key={tab}
         className="flex-1 flex flex-col"
       >
+
+      {/* THE JURY GAME LEADS when its switch is on (lib/jury-game.ts). Off in a
+          production build, so this card is absent there and the screen is as before. */}
+      {juryGameOn() && tab === "available" && !loading && userId && (
+        <JuryGameCard day={juryDay} onPlay={() => { hapticTap(); setView("jury"); }} />
+      )}
 
       {/* THE MAIN ACTION (T3, 2026-09-22): do a piece for a company and earn.
           The company path, the example and "Plan a campaign", is behind the
