@@ -19,6 +19,7 @@
  * everything else — route logic, config parsing, builders — is real.
  */
 import { describe, it, expect, beforeEach, vi } from "vitest";
+import { NextRequest } from "next/server";
 
 // ---------------------------------------------------------------------------
 // Controllable chain state
@@ -119,7 +120,8 @@ vi.mock("@/lib/rate-limit", () => ({
 }));
 // Identity at POST /api/tasks is pinned by tasks-route-poster-auth.test.ts,
 // including the usdc-v2 cases. Here it passes so these cases reach the v2 branch.
-vi.mock("@/lib/session", () => ({ ownershipError: () => null, ownerRefusal: () => null }));
+const viewer = vi.hoisted(() => ({ wallet: null as string | null }));
+vi.mock("@/lib/session", () => ({ ownershipError: () => null, ownerRefusal: () => null, getAuthedAddress: () => viewer.wallet }));
 const recordCompletion = vi.fn(async () => ({}));
 vi.mock("@/lib/reputation", () => ({
   recordCompletion: (...a: unknown[]) => (recordCompletion as (...x: unknown[]) => unknown)(...a),
@@ -208,6 +210,7 @@ beforeEach(() => {
   chain.record = null;
   chain.eventTx = null;
   recordCompletion.mockClear();
+  viewer.wallet = null;
 });
 
 // ---------------------------------------------------------------------------
@@ -428,5 +431,63 @@ describe("class 6/7 — app state only ever follows verified chain state", () =>
     seedV2Task({ escrowTxHash: TX, escrowV2Address: CONTRACT });
     const res = await escrowPOST(escrowReq({ action: "refund-expired", taskId: "task-1" }));
     expect(res.status).toBe(401);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// R2 finding 2, 14 Oct 2026: GET ?taskId= and prepare-refund named the funder
+// and the recipient to anyone. Production held no funded v2 task that day, so
+// it did not leak yet; the path was open. Wallet fields now go to a signed-in
+// party only (the poster, the claimant, the funder or the recipient).
+// ---------------------------------------------------------------------------
+describe("escrow wallets reach a signed-in party only", () => {
+  // Exactly 40 hex: the escrow task id is 64 hex (bytes32), a hash, not a wallet.
+  const ADDRESS = /0x[0-9a-fA-F]{40}(?![0-9a-fA-F])/g;
+  // The route reads req.nextUrl, which a plain Request does not have.
+  const nget = (taskId: string) => new NextRequest(`http://localhost/api/escrow-v2?taskId=${taskId}`) as never;
+  const wallets = (text: string) => (text.match(ADDRESS) ?? []).map((w) => w.toLowerCase()).filter((w) => w !== CONTRACT.toLowerCase());
+  const names = (text: string) => [POSTER, CLAIMANT].filter((w) => text.toLowerCase().includes(w.toLowerCase()));
+
+  it("GET ?taskId: signed out and a signed-in stranger read the state, never a wallet", async () => {
+    seedV2Task({ escrowTxHash: TX, escrowV2Address: CONTRACT });
+    chain.record = { funder: POSTER, recipient: CLAIMANT, amount: BigInt(5_000_000), deadline: BigInt(1), status: 1 };
+    for (const who of [null, ATTACKER]) {
+      viewer.wallet = who;
+      const res = await escrowGET(nget("task-1"));
+      const text = await res.clone().text();
+      expect(wallets(text), String(who)).toEqual([]);
+      expect(names(text), String(who)).toEqual([]);
+      const body = await res.json();
+      expect(body.record).toMatchObject({ amount: "5000000", status: 1, refundable: true });
+      expect(body.record.funder).toBeUndefined();
+      expect(body.record.recipient).toBeUndefined();
+    }
+  });
+
+  it("GET ?taskId: the poster and the claimant read both wallets", async () => {
+    seedV2Task({ escrowTxHash: TX, escrowV2Address: CONTRACT });
+    chain.record = { funder: POSTER, recipient: CLAIMANT, amount: BigInt(5_000_000), deadline: BigInt(1), status: 1 };
+    for (const who of [POSTER, CLAIMANT.toLowerCase()]) {
+      viewer.wallet = who;
+      const body = await (await escrowGET(nget("task-1"))).json();
+      expect(body.record).toMatchObject({ funder: POSTER, recipient: CLAIMANT });
+    }
+  });
+
+  it("prepare-refund names the funder to a party only; the refund payload is the same for all", async () => {
+    seedV2Task({ escrowTxHash: TX, escrowV2Address: CONTRACT });
+    chain.record = { funder: POSTER, recipient: CLAIMANT, amount: BigInt(5_000_000), deadline: BigInt(1), status: 1 };
+    viewer.wallet = null;
+    const anon = await escrowPOST(escrowReq({ action: "prepare-refund", taskId: "task-1" }));
+    expect(anon.status).toBe(200);
+    const anonText = await anon.clone().text();
+    expect(wallets(anonText)).toEqual([]);
+    expect(names(anonText)).toEqual([]);
+    const anonBody = await anon.json();
+    expect(anonBody.funder).toBeUndefined();
+    viewer.wallet = POSTER;
+    const own = await (await escrowPOST(escrowReq({ action: "prepare-refund", taskId: "task-1" }))).json();
+    expect(own.funder).toBe(POSTER);
+    expect(own.payload).toEqual(anonBody.payload);
   });
 });

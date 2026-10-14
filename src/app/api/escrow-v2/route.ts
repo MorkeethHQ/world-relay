@@ -29,7 +29,7 @@ import {
   markEscrowV2Settled,
   markEscrowV2Refunded,
 } from "@/lib/store";
-import { ownershipError } from "@/lib/session";
+import { getAuthedAddress, ownershipError } from "@/lib/session";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { recordCompletion, getReputation } from "@/lib/reputation";
 import { recordFavourCompleted, completionPointsFor } from "@/lib/proof-of-favour";
@@ -75,6 +75,15 @@ function isOpenFundedV2(t: Task): boolean {
   );
 }
 
+// R2 finding 2, 14 Oct 2026: GET ?taskId= and prepare-refund named the funder
+// and the recipient to anyone. The wallets now go to a signed-in party only:
+// the task's poster or claimant, or the record's funder or recipient. Everyone
+// else reads the same state without them.
+function isParty(req: NextRequest, ...wallets: Array<string | null | undefined>): boolean {
+  const me = getAuthedAddress(req, Date.now())?.toLowerCase();
+  return !!me && wallets.some((w) => typeof w === "string" && w.toLowerCase() === me);
+}
+
 export async function GET(req: NextRequest) {
   if (!escrowV2Enabled()) return dark();
   const appTaskId = req.nextUrl.searchParams.get("taskId");
@@ -102,8 +111,9 @@ export async function GET(req: NextRequest) {
     taskId: escrowV2TaskId(appTaskId),
     disclosure: ESCROW_V2_FUND_DISCLOSURE,
     record: record && {
-      funder: record.funder,
-      recipient: record.recipient,
+      ...(isParty(req, task?.poster, task?.claimant, record.funder, record.recipient)
+        ? { funder: record.funder, recipient: record.recipient }
+        : {}),
       amount: record.amount.toString(),
       deadline: record.deadline.toString(),
       status: record.status,
@@ -352,7 +362,7 @@ export async function POST(req: NextRequest) {
       }
       return NextResponse.json({
         payload: buildRefundTransaction(taskId, pinnedAddress(task)),
-        funder: record.funder,
+        ...(isParty(req, task.poster, task.claimant, record.funder, record.recipient) ? { funder: record.funder } : {}),
         amount: record.amount.toString(),
       });
     }
