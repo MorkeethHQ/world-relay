@@ -100,8 +100,13 @@ describe("a verdict that was not saved comes back, and a stale celebration does 
   });
   it("the deck puts the card back and says so, and checks the day before it celebrates (source read)", () => {
     const deck = readFileSync(`${process.cwd()}/src/components/JuryMode.tsx`, "utf8");
-    expect(deck).toMatch(/if \(verdictRetryable\(res\.status, err\)\) \{\s*\/\/[^\n]*\n\s*setTimeout\(\(\) => setCards\(\(c\) => \(c\.some\(\(x\) => x\.cardId === cardId\) \? c : \[votedCard, \.\.\.c\]\)\), 140\);\s*setNotSaved\(true\);/);
+    expect(deck).toMatch(/if \(verdictRetryable\(res\.status, err\)\) \{\s*\/\/[^\n]*\n\s*setTimeout\(\(\) => setCards\(\(c\) => \(c\.some\(\(x\) => x\.cardId === cardId\) \? c : \[votedCard, \.\.\.c\]\)\), 140\);\s*setNotSaved\(cardId\);/);
     expect(deck).toContain("Not saved. Your last card is back on top: swipe it again.");
+    // R2e: no card leaves the deck by position.
+    expect(deck).not.toMatch(/setCards\(\(c\) => c\.slice\(1\)\)/);
+    expect(deck).toContain("setCards((c) => c.filter((x) => x.cardId !== cardId));");
+    // Only the returned card's own success clears its note.
+    expect(deck).toContain("setNotSaved((id) => (id === cardId ? null : id));");
     expect(deck).toContain("if (dayRef.current === next) { hapticSuccess(); setGoalMoment(next); }");
     expect(deck).toMatch(/if \(shown !== dayRef\.current\) \{ goalTimers\.current\.forEach\(clearTimeout\)/);
   });

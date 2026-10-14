@@ -57,7 +57,8 @@ export function JuryMode({
   const [needsAuth, setNeedsAuth] = useState(false);
   // R2d, 14 Oct 2026: a verdict the server could not save comes back to the top
   // of the deck with this note, so the person can send it again.
-  const [notSaved, setNotSaved] = useState(false);
+  // The id of the card that came back, so only ITS later success clears the note.
+  const [notSaved, setNotSaved] = useState<string | null>(null);
   // THE DAILY GAME (day bet, 14 Oct 2026), shown only with the switch on. Both
   // come from the server: GET /api/jury/record on open, then each verdict's `day`.
   const game = juryGameOn();
@@ -147,8 +148,10 @@ export function JuryMode({
 
     // Advance IMMEDIATELY — the deck must never wait on the network (the
     // v1 await here made every verdict lag and the card feel stuck).
+    // Removed BY ID, never by position (R2e, 14 Oct 2026): a card restored by a
+    // "not saved" answer can be on top when a later card's timer fires.
     setTimeout(() => {
-      setCards((c) => c.slice(1));
+      setCards((c) => c.filter((x) => x.cardId !== cardId));
       setDx(0);
       busy.current = false;
     }, 110);
@@ -182,7 +185,7 @@ export function JuryMode({
           if (verdictRetryable(res.status, err)) {
             // The card left the screen at 110 ms. Put it back on top after that.
             setTimeout(() => setCards((c) => (c.some((x) => x.cardId === cardId) ? c : [votedCard, ...c])), 140);
-            setNotSaved(true);
+            setNotSaved(cardId);
           }
           return null;
         }
@@ -191,7 +194,7 @@ export function JuryMode({
         .then((result: { correct: boolean; isMatch: boolean; pointsAwarded: number; practice?: boolean; decoy?: boolean; day?: JuryDayView | null } | null) => {
           if (!result) return;
           setNeedsAuth(false);
-          setNotSaved(false);
+          setNotSaved((id) => (id === cardId ? null : id));
           // The goal moment comes only from an answer acceptDay keeps.
           if (game && result.day && typeof result.day.today === "number") takeDay(result.day);
           if (result.correct) hapticSuccess(); else hapticError();
