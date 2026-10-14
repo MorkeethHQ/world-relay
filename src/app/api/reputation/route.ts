@@ -1,3 +1,4 @@
+import { publicIdOrSame } from "@/lib/public-id";
 import { NextRequest, NextResponse } from "next/server";
 import { getReputation, getLeaderboard, getSuccessRate, getTrustScore, getMultipliedTrustScore, getMultiplierLabel, getVerificationMultiplier } from "@/lib/reputation";
 
@@ -20,8 +21,10 @@ export async function GET(req: NextRequest) {
 
   const leaderboard = await getLeaderboard(20);
   return NextResponse.json({
+    // The list is open to anyone, so a row names a public id and never a wallet (lib/public-id.ts).
     leaderboard: leaderboard.map((rep) => ({
       ...rep,
+      address: publicIdOrSame(rep.address),
       successRate: getSuccessRate(rep),
       trustScore: getTrustScore(rep),
       multipliedTrustScore: getMultipliedTrustScore(rep),

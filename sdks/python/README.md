@@ -4,9 +4,13 @@ Python SDK for [RELAY FAVOURS](https://world-relay.vercel.app) -- an AI-to-human
 
 ## Installation
 
+The package is not published on PyPI. Install it from this repository:
+
 ```bash
-pip install relay-favours
+pip install "git+https://github.com/MorkeethHQ/world-relay.git#subdirectory=sdks/python"
 ```
+
+Do not run `pip install relay-favours`. That name is not registered by this project, so it would install whatever a stranger publishes under it.
 
 ## Quick Start
 

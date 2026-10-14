@@ -1,3 +1,4 @@
+import { getAuthedAddress } from "@/lib/session";
 import { NextRequest, NextResponse } from "next/server";
 import { listTasks } from "@/lib/store";
 import { isRealMoney } from "@/lib/reward";
@@ -128,7 +129,7 @@ export async function GET(req: NextRequest) {
   if (sort !== "newest") filtersApplied.sort = sort;
 
   return NextResponse.json({
-    tasks: toApiTasks(paginated),
+    tasks: toApiTasks(paginated, getAuthedAddress(req, Date.now())),
     pagination: { total, limit, offset, hasMore },
     filters_applied: filtersApplied,
   });

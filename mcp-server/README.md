@@ -5,7 +5,7 @@ MCP server for [RELAY FAVOURS](https://world-relay.vercel.app) -- an AI-to-human
 ## Installation
 
 ```bash
-npm install relay-favours-mcp
+npm install relay-favours-mcp@1.0.0
 ```
 
 ## Configuration
@@ -26,7 +26,7 @@ Add to `~/.claude.json` (global) or `.claude.json` (project-level):
   "mcpServers": {
     "relay": {
       "command": "npx",
-      "args": ["-y", "relay-favours-mcp"],
+      "args": ["-y", "relay-favours-mcp@1.0.0"],
       "env": {
         "RELAY_API_KEY": "your-api-key-here"
       }
@@ -44,7 +44,7 @@ Add to `.cursor/mcp.json`:
   "mcpServers": {
     "relay": {
       "command": "npx",
-      "args": ["-y", "relay-favours-mcp"],
+      "args": ["-y", "relay-favours-mcp@1.0.0"],
       "env": {
         "RELAY_API_KEY": "your-api-key-here"
       }

@@ -215,6 +215,45 @@ export function ownershipError(req: NextRequest, claimedAddress: unknown, nowMs:
 }
 
 
+// THE READ GATE, added 2026-10-13 (hardening pass, finding 1 and 3).
+//
+// ownershipError covers a write that names the wallet it acts as. A private
+// read (task chat, a person's notifications) names nobody, so the only identity
+// is the cookie. Three answers, and they are different facts about the caller:
+//   - no valid session: 401 with `reauth_required`, so the client can sign in
+//     once and retry;
+//   - a valid session for a wallet that is not on the allowed list: 403. This
+//     one is refused EVEN WHILE THE SWITCH IS OFF, because a signed-in wallet
+//     reading another wallet's record is a definite spoof, never a returning
+//     user who has not re-authenticated yet;
+//   - the owner (or a participant): null, proceed.
+// It honours SESSION_ENFORCE for the anonymous case for the same reason
+// ownershipError does: the switch can only be flipped once the owner has read
+// `/api/session` as authenticated after a real World App sign-in (see the
+// rollout plan in the hardening page). Until then this ships dark and feeds
+// the session_authed / session_anon counters with the reads as well.
+export type ReaderRefusal = { status: 401 | 403; error: string; code: "reauth_required" | "forbidden" };
+
+export function readerRefusal(
+  req: NextRequest,
+  allowed: ReadonlyArray<string | null | undefined>,
+  nowMs: number,
+): ReaderRefusal | null {
+  const authed = getAuthedAddress(req, nowMs);
+  trackEvent(authed ? "session_authed" : "session_anon", {
+    path: req.nextUrl?.pathname ?? "?",
+    enforced: sessionEnforced(),
+  }).catch(() => {});
+  if (authed) {
+    const ok = allowed.some((a) => typeof a === "string" && addressMatches(authed, a));
+    if (ok) return null;
+    console.warn(`[session] READ MISMATCH cookie=${authed.slice(0, 6)} path=${req.nextUrl?.pathname ?? "?"}`);
+    return { status: 403, error: "This record belongs to a different wallet.", code: "forbidden" };
+  }
+  if (!sessionEnforced()) return null;
+  return { status: 401, error: "Re-open FAVOUR to sign in again, then this will load.", code: "reauth_required" };
+}
+
 // THE HARD GATE for a route that WRITES POINTS, added 2026-09-20.
 //
 // ownershipError above honours SESSION_ENFORCE. This does not, and that is the

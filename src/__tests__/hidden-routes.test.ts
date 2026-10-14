@@ -33,7 +33,7 @@ const ids = (body: { tasks: Array<{ id: string }> }) => body.tasks.map((t) => t.
 describe("R16: no public read returns an operator-hidden task", () => {
   it("GET /api/tasks", async () => {
     const { GET } = await import("@/app/api/tasks/route");
-    expect(ids(await (await GET()).json())).toEqual(["ok"]);
+    expect(ids(await (await GET(new NextRequest("http://x/api/tasks"))).json())).toEqual(["ok"]);
   });
   it("GET /api/tasks/search", async () => {
     const { GET } = await import("@/app/api/tasks/search/route");

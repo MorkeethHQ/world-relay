@@ -129,7 +129,7 @@ afterEach(async () => { await new Promise((r) => setTimeout(r, 120)); });
 describe("Welcome is doable by a new person while the shared row is held", () => {
   it("the source row is held, and both new people still get the step", async () => {
     // The held row is not on anyone's board, exactly as on production.
-    const board = await (await publicTasks()).json();
+    const board = await (await publicTasks(req("/api/tasks", null))).json();
     expect(board.tasks.find((t: Task) => t.id === SOURCE_ID).status).toBe("claimed");
 
     // Signed out, and for each new person, the step reads "todo".
@@ -229,7 +229,7 @@ describe("Welcome is doable by a new person while the shared row is held", () =>
     expect(claim.status).toBe(404);
     // Not in any shared list, and the public detail route answers 404.
     expect((await listTasks()).some((t) => t.id === aId)).toBe(false);
-    expect(((await (await publicTasks()).json()).tasks as Task[]).some((t) => t.id === aId)).toBe(false);
+    expect(((await (await publicTasks(req("/api/tasks", null))).json()).tasks as Task[]).some((t) => t.id === aId)).toBe(false);
     const detail = await taskById(req(`/api/tasks/${aId}`, null), { params: Promise.resolve({ id: aId }) });
     expect(detail.status).toBe(404);
     // The same holds AFTER a proof is on it. (The first version of this test
@@ -240,7 +240,7 @@ describe("Welcome is doable by a new person while the shared row is held", () =>
     expect((await submit(ANA, aId, "TEST DATA Ana private note")).status).toBe(200);
     expect((await listTasks()).some((t) => t.id === aId)).toBe(false);
     expect(await mem.current!.client.sismember("task_ids", aId)).toBe(0);
-    expect(JSON.stringify(await (await publicTasks()).json())).not.toContain("Ana private note");
+    expect(JSON.stringify(await (await publicTasks(req("/api/tasks", null))).json())).not.toContain("Ana private note");
     expect((await taskById(req(`/api/tasks/${aId}`, null), { params: Promise.resolve({ id: aId }) })).status).toBe(404);
     // Ben, signed in, sees none of it in his own Welcome view.
     expect(JSON.stringify(await (await getWelcome(req("/api/welcome", BEN))).json())).not.toContain("Ana private note");

@@ -1,3 +1,4 @@
+import { getAuthedAddress } from "@/lib/session";
 import { NextRequest, NextResponse } from "next/server";
 import { getTask, setOnChainId } from "@/lib/store";
 import { getAgent } from "@/lib/agents";
@@ -6,14 +7,12 @@ import { isEscrowTaskFunded } from "@/lib/escrow";
 import { toApiTask, isHiddenTask } from "@/lib/task-serializer";
 import { CUSTODY_RETIRED } from "@/lib/custody";
 
-/** Return full task detail, omitting only internal keys like claimCode. */
-function detailTask(task: Record<string, unknown>) {
-  const { claimCode, ...rest } = task;
-  return rest;
-}
+// The detail view is the same allow list as the feed (toApiTask). It used to
+// be "everything except claimCode", which published the next private field
+// by default (hardening pass, 2026-10-13).
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
@@ -25,7 +24,8 @@ export async function GET(
     return NextResponse.json({ error: "Task not found" }, { status: 404 });
   }
 
-  return NextResponse.json({ task: detailTask(toApiTask(task) as unknown as Record<string, unknown>) });
+  const viewer = getAuthedAddress(req, Date.now());
+  return NextResponse.json({ task: toApiTask(task, viewer) }, { headers: { "Cache-Control": "private, no-store", Vary: "Cookie" } });
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -96,5 +96,5 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     }
   }
 
-  return NextResponse.json({ ok: true, task: detailTask(task as unknown as Record<string, unknown>) });
+  return NextResponse.json({ ok: true, task: toApiTask(task, getAuthedAddress(req, Date.now())) });
 }

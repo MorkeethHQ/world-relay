@@ -42,6 +42,46 @@ const nextConfig: NextConfig = {
   },
   async headers() {
     return [
+      // PAGE LOCK (hardening pass, 2026-10-13). Production answered GET / with
+      // no frame, sniff, referrer or CSP header on 2026-10-12.
+      //
+      // Frames are refused everywhere. FAVOUR runs inside World App, and
+      // docs.world.org/mini-apps/more/webview-spec (read 2026-10-12) says the
+      // app is opened in a native WebView (Android WebView, iOS WKWebView),
+      // which is a top-level context and not a frame, so 'none' is safe there.
+      // The enforced CSP carries frame-ancestors ONLY: it cannot break a script
+      // or an image. The full policy below is REPORT-ONLY until it has been
+      // read in World App with zero violations (rollout step on the hardening
+      // page); only then does it move to the enforced header.
+      {
+        source: "/:path*",
+        headers: [
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "Content-Security-Policy", value: "frame-ancestors 'none'" },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          {
+            key: "Content-Security-Policy-Report-Only",
+            value: [
+              "default-src 'self'",
+              // Next.js hydrates with inline scripts; a nonce or hash scheme is
+              // the step after report-only shows this list is complete.
+              "script-src 'self' 'unsafe-inline'",
+              "style-src 'self' 'unsafe-inline'",
+              // Proof photos: data: URLs from the store, Vercel Blob uploads,
+              // and the streaming path on this origin. Map tiles from Carto.
+              "img-src 'self' data: blob: https://*.public.blob.vercel-storage.com https://*.basemaps.cartocdn.com",
+              // Usernames are resolved client side (src/hooks/useWorldUser.ts).
+              "connect-src 'self' https://usernames.worldcoin.org",
+              "font-src 'self' data:",
+              "object-src 'none'",
+              "base-uri 'self'",
+              "form-action 'self'",
+              "frame-ancestors 'none'",
+            ].join("; "),
+          },
+        ],
+      },
       {
         source: "/",
         headers: [{ key: "Cache-Control", value: "no-store, must-revalidate" }],

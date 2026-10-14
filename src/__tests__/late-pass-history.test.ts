@@ -50,7 +50,9 @@ vi.mock("@/lib/attestation", () => ({ postAttestation: async () => null }));
 vi.mock("@/lib/webhooks", () => ({ fireWebhook: async () => {} }));
 vi.mock("@/lib/escrow", () => ({ releaseEscrow: async () => null }));
 vi.mock("@/lib/sse", () => ({ broadcastEvent: () => {} }));
-vi.mock("@/lib/session", () => ({ ownershipError: () => null }));
+// The follow-up route now runs the read gate too (readerRefusal); this test is
+// about History rows, not identity, so both gates pass here.
+vi.mock("@/lib/session", () => ({ ownershipError: () => null, readerRefusal: () => null }));
 
 import { createTask, claimTask, submitProof, completeTask, setFollowUp, getTask } from "@/lib/store";
 import { listContributions } from "@/lib/completions";
