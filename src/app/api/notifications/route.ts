@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getNotifications, getUnreadCount } from "@/lib/notifications-store";
-import { readerRefusal } from "@/lib/session";
+import { getAuthedAddress, ownerRefusal } from "@/lib/session";
 
 const PRIVATE = { "Cache-Control": "private, no-store" };
 
@@ -17,8 +17,15 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Missing user param" }, { status: 400 });
   }
 
-  const refusal = readerRefusal(req, [user], Date.now());
-  if (refusal) return NextResponse.json({ error: refusal.error, code: refusal.code }, { status: refusal.status, headers: PRIVATE });
+  // Hard gate (14 Oct 2026): readerRefusal let a caller with no cookie read
+  // any user's notifications while SESSION_ENFORCE is off. Only the user's own
+  // session reads them now, whatever the switch says.
+  const refusal = ownerRefusal(req, user, Date.now());
+  if (refusal) {
+    // 401 when there is no session at all (sign in again), 403 when it is someone else's.
+    const status = getAuthedAddress(req, Date.now()) ? 403 : 401;
+    return NextResponse.json(refusal, { status, headers: PRIVATE });
+  }
 
   const [notifications, unreadCount] = await Promise.all([
     getNotifications(user, 20),
