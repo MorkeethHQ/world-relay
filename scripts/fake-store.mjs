@@ -340,8 +340,9 @@ function fixturePage(req, res) {
     ${testProductLinks()}`);
 }
 
-// THE TEST PRODUCT (14 Oct 2026, scripts/TEST-PRODUCT.md). A poster has no menu
-// entry to a favour they posted once it holds a proof; its page is /task/<id>.
+// THE TEST PRODUCT (14 Oct 2026, scripts/TEST-PRODUCT.md). A poster cannot open
+// a favour they posted from any menu: Profile lists it, but the row cannot be
+// tapped. Approve and the chat are on its page, /task/<id>.
 // This lists every favour whose words start "FAVOUR TEST" with that link.
 function testProductLinks() {
   const rows = [];
