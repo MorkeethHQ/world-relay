@@ -7,11 +7,24 @@
 // reauthSilently): MiniKit walletAuth, then POST /api/verify-identity, which
 // sets a fresh session cookie. Only for the wallet already signed in here.
 import { MiniKit } from "@worldcoin/minikit-js";
+import { trackReauthOncePerDay } from "./funnel-events";
 
 /** True when a fresh session for `address` was set. Never throws. */
 export async function reauthWallet(address: string): Promise<boolean> {
   try {
     if (!MiniKit.isInstalled()) return false;
+    trackReauthOncePerDay("reauth_asked");
+    const ok = await signAndExchange(address);
+    trackReauthOncePerDay(ok ? "reauth_ok" : "reauth_failed");
+    return ok;
+  } catch {
+    trackReauthOncePerDay("reauth_failed");
+    return false;
+  }
+}
+
+async function signAndExchange(address: string): Promise<boolean> {
+  try {
     const result = await MiniKit.walletAuth({
       nonce: crypto.randomUUID().replace(/-/g, ""),
       statement: "Sign in to FAVOUR",
