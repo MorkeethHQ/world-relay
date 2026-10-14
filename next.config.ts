@@ -17,6 +17,11 @@ const nextConfig: NextConfig = {
   // width, so a tap on the tab opened the dev menu instead (review, 5 Oct 2026).
   // It never exists in a production build; this only clears it in `next dev`.
   devIndicators: false,
+  // THE TEST PRODUCT ON A PHONE (14 Oct 2026). `next dev` serves its scripts only
+  // to origins it is told about, so a phone on the same Wi-Fi gets a page that
+  // never starts. Only with the fixture on (never in a production build), and
+  // only for the one address scripts/test-product.sh passes.
+  ...(fixtureStoreOrigin() && process.env.FAVOUR_FIXTURE_LAN_HOST ? { allowedDevOrigins: [process.env.FAVOUR_FIXTURE_LAN_HOST] } : {}),
   // Bind test evidence to the code that Next actually compiled. Vercel supplies
   // its commit SHA; local production builds derive it from the checkout.
   env: {
