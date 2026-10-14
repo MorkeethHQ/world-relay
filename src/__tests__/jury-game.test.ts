@@ -73,7 +73,7 @@ describe("newerDay keeps the latest answer when replies arrive out of order", ()
     expect(deck).toContain("acceptDay(dayRef.current, next)");
     // The goal moment is set in one place, inside takeDay, and only on celebrate.
     expect(deck.match(/setGoalMoment\((?!null)/g)?.length).toBe(1);
-    expect(deck).toMatch(/if \(celebrate\) \{\s*goalTimers\.current = \[\s*setTimeout\(\(\) => \{ if \(dayRef\.current === next\) \{ hapticSuccess\(\); setGoalMoment\(next\)/);
+    expect(deck).toMatch(/if \(celebrate\) \{\s*goalTimers\.current = \[\s*setTimeout\(\(\) => \{ if \(dayRef\.current\?\.date === next\.date\) \{ hapticSuccess\(\); setGoalMoment\(next\)/);
     expect(deck.match(/takeDay\(/g)?.length).toBe(2); // called for the GET and for each verdict
   });
   // R2c, 14 Oct 2026: yesterday's late 10/10 stamped over today's 1/10.
@@ -107,7 +107,17 @@ describe("a verdict that was not saved comes back, and a stale celebration does 
     expect(deck).toContain("setCards((c) => c.filter((x) => x.cardId !== cardId));");
     // Only the returned card's own success clears its note.
     expect(deck).toContain("setNotSaved((id) => (id === cardId ? null : id));");
-    expect(deck).toContain("if (dayRef.current === next) { hapticSuccess(); setGoalMoment(next); }");
-    expect(deck).toMatch(/if \(shown !== dayRef\.current\) \{ goalTimers\.current\.forEach\(clearTimeout\)/);
+    expect(deck).toContain("if (dayRef.current?.date === next.date) { hapticSuccess(); setGoalMoment(next); }");
+    expect(deck).toMatch(/if \(shown\.date !== dayRef\.current\?\.date\) \{\s*goalTimers\.current\.forEach\(clearTimeout\)/);
+  });
+});
+
+// Edge 2, 14 Oct 2026: the 11th verdict, landing inside the 700 ms before the
+// stamp, cancelled the 10/10. Only a new DATE cancels a queued stamp.
+describe("a later count on the same day keeps the queued stamp", () => {
+  it("source read: the stamp is cancelled on a date change and fires while the date is the same", () => {
+    const deck = readFileSync(`${process.cwd()}/src/components/JuryMode.tsx`, "utf8");
+    expect(deck).toContain("if (shown.date !== dayRef.current?.date) {");
+    expect(deck).toContain("if (dayRef.current?.date === next.date) { hapticSuccess(); setGoalMoment(next); }");
   });
 });

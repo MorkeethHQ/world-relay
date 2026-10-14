@@ -73,12 +73,16 @@ export function JuryMode({
   const goalTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const takeDay = useCallback((next: JuryDayView) => {
     const { day: shown, celebrate } = acceptDay(dayRef.current, next);
-    if (shown !== dayRef.current) { goalTimers.current.forEach(clearTimeout); goalTimers.current = []; setGoalMoment(null); }
+    // Only a new date cancels a queued stamp: verdict 11 landing inside the
+    // 700 ms must not swallow the 10/10 (edge ruled 14 Oct 2026).
+    if (shown.date !== dayRef.current?.date) {
+      goalTimers.current.forEach(clearTimeout); goalTimers.current = []; setGoalMoment(null);
+    }
     dayRef.current = shown;
     setDay(shown);
     if (celebrate) {
       goalTimers.current = [
-        setTimeout(() => { if (dayRef.current === next) { hapticSuccess(); setGoalMoment(next); } }, 700),
+        setTimeout(() => { if (dayRef.current?.date === next.date) { hapticSuccess(); setGoalMoment(next); } }, 700),
         setTimeout(() => setGoalMoment(null), 3200),
       ];
     }
