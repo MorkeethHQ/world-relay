@@ -36,6 +36,10 @@ export function liveStreak(s: JuryStreak, day: string): number {
 
 const countKey = (judge: string, day: string) => `jury:day:${judge.toLowerCase()}:${day}`;
 const daysKey = (judge: string) => `jury:days:${judge.toLowerCase()}`;
+// The UTC day each member was first counted on. HSETNX makes the first writer
+// win, so a retry after midnight, or two cards on one proof sent either side of
+// it, count on that one day (edges ruled 14 Oct 2026).
+const memberDayKey = (judge: string) => `jury:dayof:${judge.toLowerCase()}`;
 
 /** The streak from the set of days played. Pure. A set only grows, so a late
  *  or repeated write can never move the streak backward. */
@@ -63,16 +67,20 @@ export async function recordJuryDay(judge: string, nowMs: number, member: string
   const redis = getRedis();
   if (!redis) return null;
   const day = utcDay(nowMs);
+  // Which day this member counts on: today, unless it was already given a day.
+  await redis.hsetnx(memberDayKey(judge), member, day);
+  const counted = String((await redis.hget(memberDayKey(judge), member)) ?? day);
   const tx = redis.multi();
-  tx.sadd(countKey(judge, day), member);
-  tx.expire(countKey(judge, day), 48 * 3600);
-  tx.sadd(daysKey(judge), day);
+  tx.sadd(countKey(judge, counted), member);
+  tx.expire(countKey(judge, counted), 48 * 3600);
+  tx.sadd(daysKey(judge), counted);
   tx.scard(countKey(judge, day));
   tx.smembers(daysKey(judge));
-  const [added, , , count, days] = (await tx.exec()) as [number, unknown, unknown, number, string[]];
+  tx.expire(memberDayKey(judge), 72 * 3600);
+  const [added, , , count, days] = (await tx.exec()) as [number, unknown, unknown, number, string[], unknown];
   const today = Number(count);
   const streak = streakFromDays((days ?? []).map(String));
-  return { date: day, today, goal: JURY_DAILY_GOAL, streak: liveStreak(streak, day), best: streak.best, goalReachedNow: Number(added) === 1 && today === JURY_DAILY_GOAL };
+  return { date: day, today, goal: JURY_DAILY_GOAL, streak: liveStreak(streak, day), best: streak.best, goalReachedNow: Number(added) === 1 && counted === day && today === JURY_DAILY_GOAL };
 }
 
 /** Read today's count and the live streak. Writes nothing. */
