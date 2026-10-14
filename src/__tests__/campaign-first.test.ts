@@ -364,8 +364,12 @@ describe("the one Review favours entry", () => {
   it("is the only door to the deck on the board", () => {
     const feed = readFileSync(join(root, "src", "components", "Feed.tsx"), "utf8");
     const board = feed.slice(feed.indexOf("  return (\n    <div\n      ref={feedContainerRef}"), feed.indexOf("function ReviewEntryCard("));
-    expect((board.match(/setView\("jury"\)/g) || []).length).toBe(1);
+    // Two doors are written, and the jury game switch picks exactly one of them
+    // (day bet, 14 Oct 2026): the game card when it is on, the Review entry when it is off.
+    expect((board.match(/setView\("jury"\)/g) || []).length).toBe(2);
     expect((board.match(/<ReviewEntryCard/g) || []).length).toBe(1);
+    expect(board).toMatch(/\{juryGameOn\(\) && tab === "available" && !loading && userId && \(\s*<JuryGameCard/);
+    expect(board).toMatch(/\{!juryGameOn\(\) && tab === "available" && !loading && userId && \(\s*<ReviewEntryCard/);
     expect(feed).not.toMatch(/REAL OR NOT — hidden on first visit/);
     expect(feed).not.toMatch(/function ReviewProofCard/);
   });

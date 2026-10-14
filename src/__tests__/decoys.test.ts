@@ -17,6 +17,7 @@ const fakeRedis = {
   expire: async () => 1,
   sadd: async (k: string, m: string) => { const s = sets.get(k) ?? new Set(); const had = s.has(m); s.add(m); sets.set(k, s); return had ? 0 : 1; },
   smembers: async (k: string) => [...(sets.get(k) ?? [])],
+  sismember: async (k: string, m: string) => (sets.get(k)?.has(m) ? 1 : 0),
   hincrby: async (k: string, f: string, n: number) => { const h = hashes.get(k) ?? new Map(); h.set(f, (h.get(f) ?? 0) + n); hashes.set(k, h); return h.get(f); },
   hget: async (k: string, f: string) => hashes.get(k)?.get(f) ?? null,
 };
