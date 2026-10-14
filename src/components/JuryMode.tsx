@@ -415,7 +415,7 @@ export function JuryMode({
             {goalMoment && (
               <div className="absolute inset-0 z-10 flex items-center justify-center bg-gray-50/90 jury-goal" role="status">
                 <style>{`@keyframes juryGoalIn{from{opacity:0;transform:scale(1.25) rotate(-8deg)}to{opacity:1;transform:scale(1) rotate(-6deg)}}.jury-goal>div{animation:juryGoalIn .28s ease-out both}@media (prefers-reduced-motion: reduce){.jury-goal>div{animation:none;transform:rotate(-6deg)}}`}</style>
-                <div className="rounded-2xl border-[5px] border-gray-900 bg-white px-7 py-5 text-center" style={{ transform: "rotate(-6deg)" }}>
+                <div className="rounded-2xl bg-white px-7 py-5 text-center" style={{ transform: "rotate(-6deg)", border: "5px solid #111827" }}>
                   <p className="text-[13px] font-bold tracking-widest text-gray-500">TODAY</p>
                   <p className="text-[52px] font-black leading-none text-gray-900 tabular-nums">{goalMoment.today}/{goalMoment.goal}</p>
                   <p className="mt-1 text-[15px] font-bold text-gray-900">{goalMoment.streak >= 2 ? `${goalMoment.streak} days in a row` : "Day one"}</p>

@@ -30,7 +30,7 @@ export function JuryGameCard({ day, onPlay }: { day: JuryDayView | null; onPlay:
           ))}
         </div>
       )}
-      <p className="mt-3 text-[13px] text-white/70">{dayLine(day)}</p>
+      <p className="mt-4 text-[13px] text-white/70">{dayLine(day)}</p>
       <button
         type="button"
         onClick={onPlay}
