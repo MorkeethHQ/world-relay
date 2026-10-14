@@ -70,16 +70,15 @@ describe("GET /api/tasks/[id]/messages", () => {
     expect((await res.json()).messages).toBeUndefined();
   });
 
-  it("gives a signed-in non-participant the relay-bot briefing only, never the human chat", async () => {
+  it("gives a signed-in non-participant 200 and no message, never the human chat", async () => {
     // The task page shows the thread to every viewer (page.tsx fetchData has
     // no participant gate), so a 403 would blank a page that opened yesterday.
+    // An empty list keeps the page; the bot part is private too (14 Oct review).
     messages.t1.push({ id: "m2", taskId: "t1", sender: "relay-bot", text: "briefing", timestamp: "t" });
     const res = await get(STRANGER);
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.participant).toBe(false);
-    expect(body.messages.map((m: any) => m.sender)).toEqual(["relay-bot"]);
-    expect(JSON.stringify(body)).not.toContain('"hi"');
+    expect(body).toEqual({ messages: [], participant: false });
   });
 
   it("answers 200 to the poster and to the claimant, and is never cached", async () => {
@@ -95,12 +94,43 @@ describe("GET /api/tasks/[id]/messages", () => {
     expect((await get()).status).toBe(404);
   });
 
-  it("ships dark: with the switch off an anonymous read still gets the full thread; a signed-in stranger does not", async () => {
+  // R2 finding 3, measured on production e1cd732 on 14 Oct: with the switch
+  // off, a caller with NO cookie read the whole thread of any task (10 tasks of
+  // private chat, 13 messages with a wallet as sender), and the bot briefing
+  // named wallets in 29 messages. The thread is now for a signed-in participant
+  // only, whatever the switch says.
+  it("switch off: a caller with no cookie gets no message", async () => {
     delete process.env.SESSION_ENFORCE;
     const anon = await (await get()).json();
-    expect(anon.messages).toHaveLength(1);
-    const stranger = await (await get(STRANGER)).json();
-    expect(stranger.messages).toHaveLength(0);
+    expect(anon).toEqual({ messages: [], participant: false });
+  });
+
+  // Codex review of cc2b5d6, 14 Oct: the bot is not a public speaker. It echoes
+  // the proof note and names people by a shortened wallet (lib/xmtp.ts).
+  it("a non-participant reads nothing of a thread the bot wrote into, signed in or not", async () => {
+    delete process.env.SESSION_ENFORCE;
+    const short = (w: string) => `${w.slice(0, 6)}...${w.slice(-4)}`;
+    messages.t1.push(
+      { id: "m2", taskId: "t1", sender: "relay-bot", text: `New task posted by ${short(POSTER)}\nWater the plants`, timestamp: "t" },
+      { id: "m3", taskId: "t1", sender: "relay-bot", text: `Claimed by ${short(CLAIMANT)}\nWater the plants`, timestamp: "t" },
+      { id: "m4", taskId: "t1", sender: "relay-bot", text: `Proof submitted: "my door code is 4471"\nVerifying...`, timestamp: "t" },
+      { id: "m5", taskId: "t1", sender: CLAIMANT, text: "on my way", timestamp: "t" },
+    );
+    for (const as of [undefined, STRANGER]) {
+      const res = await get(as);
+      expect(res.status).toBe(200);
+      const text = await res.clone().text();
+      expect(text).not.toContain("4471");
+      expect(text).not.toContain(short(POSTER));
+      expect(text).not.toContain(short(CLAIMANT));
+      expect(text).not.toMatch(/0x[0-9a-fA-F]{4}/);
+      expect(await res.json()).toEqual({ messages: [], participant: false });
+    }
+    // Both participants read the whole thread, exactly as stored.
+    for (const who of [POSTER, CLAIMANT]) {
+      const own = await (await get(who)).json();
+      expect(own.messages).toEqual(messages.t1);
+    }
   });
 });
 
