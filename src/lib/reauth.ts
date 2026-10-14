@@ -58,7 +58,9 @@ export async function ensureSession(address: string | null, reauth: (address: st
   try {
     const res = await fetch("/api/session", { cache: "no-store" });
     const s = await res.json().catch(() => null);
-    if (s?.authenticated) return true;
+    // Only a session for THIS wallet counts (Codex, 14 Oct 2026): another
+    // wallet's session on this device would act in the wrong name.
+    if (s?.authenticated && typeof s.address === "string" && s.address.toLowerCase() === address.toLowerCase()) return true;
   } catch { /* fall through to a signature */ }
   return reauth(address);
 }

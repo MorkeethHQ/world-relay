@@ -147,3 +147,26 @@ describe("review 2 minors", () => {
     expect(h).toMatch(/if \(Number\(wroteRow\) === 1\) noteCompleted\(/);
   });
 });
+
+// CODEX MERGE VERDICT on cf26146, one minor: ensureSession accepted any
+// session, also another wallet's. It must belong to the wallet asked for.
+describe("ensureSession accepts only this wallet's session", () => {
+  const W = "0x" + "a".repeat(40), OTHER = "0x" + "b".repeat(40);
+  const answer = (body: unknown) => vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify(body)));
+  it("another wallet's session asks for a signature", async () => {
+    const { ensureSession } = await import("@/lib/reauth");
+    answer({ authenticated: true, address: OTHER });
+    const reauth = vi.fn(async () => true);
+    expect(await ensureSession(W, reauth)).toBe(true);
+    expect(reauth).toHaveBeenCalledWith(W);
+    vi.restoreAllMocks();
+  });
+  it("this wallet's own session, in any case, needs no signature", async () => {
+    const { ensureSession } = await import("@/lib/reauth");
+    answer({ authenticated: true, address: W.toUpperCase().replace("0X", "0x") });
+    const reauth = vi.fn(async () => true);
+    expect(await ensureSession(W, reauth)).toBe(true);
+    expect(reauth).not.toHaveBeenCalled();
+    vi.restoreAllMocks();
+  });
+});
