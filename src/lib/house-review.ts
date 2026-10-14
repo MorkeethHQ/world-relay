@@ -284,10 +284,12 @@ export async function recordHouseReviewVote(
             proofImageUrl: t.proofImageUrl, proofNote: t.proofNote,
             campaignId: t.campaignId ?? null, campaignLabel: t.campaignId ? "Welcome" : null, now,
           });
-          await redis.eval(RECORD_HISTORY_ONCE, [historyKey(c), contributionsKey(person)], [at, JSON.stringify(row), CONTRIBUTIONS_MAX, MARKER_TTL]);
+          const wroteRow = await redis.eval(RECORD_HISTORY_ONCE, [historyKey(c), contributionsKey(person)], [at, JSON.stringify(row), CONTRIBUTIONS_MAX, MARKER_TTL]);
           // North star: this path writes the History row itself, not through
-          // recordTaskCompletion, so it counts the completion here. Not awaited.
-          noteCompleted(t.id, person, now);
+          // recordTaskCompletion, so it counts the completion here, and only
+          // when the script wrote the row now (1). A retry that finds the row
+          // already written (0), maybe after midnight, counts nothing. Not awaited.
+          if (Number(wroteRow) === 1) noteCompleted(t.id, person, now);
         }
       }
     } catch (err) {

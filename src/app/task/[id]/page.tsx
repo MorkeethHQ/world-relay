@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import type { Task, VerificationResult, AiFollowUp } from "@/lib/types";
 import { VerificationBadge } from "@/components/VerificationBadge";
-import { sendWithReauth } from "@/lib/reauth";
+import { reauthWallet, sendWithReauth } from "@/lib/reauth";
 import { hapticTap, hapticSuccess, hapticError, shareTask } from "@/lib/minikit-helpers";
 import { MiniKit } from "@worldcoin/minikit-js";
 import { rewardAmountLabel, isPointsReward, isRealMoney } from "@/lib/reward";
@@ -1279,11 +1279,12 @@ function DisputeActions({ task, onAction }: { task: Task; onAction: () => void }
     setActing(approved ? "approve" : "reject");
     setResult(null);
     try {
-      const res = await fetch(`/api/tasks/${task.id}/confirm`, {
+      // Hard gate since 14 Oct 2026: an expired session signs in once and sends again.
+      const res = await sendWithReauth(() => fetch(`/api/tasks/${task.id}/confirm`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ poster: task.poster, approved }),
-      });
+      }), task.poster);
       if (res.ok) {
         setResult({ type: "success", message: approved ? "Proof approved — USDC released" : "Proof rejected" });
         onAction();
@@ -1302,11 +1303,12 @@ function DisputeActions({ task, onAction }: { task: Task; onAction: () => void }
     setActing("mediate");
     setResult(null);
     try {
-      const res = await fetch(`/api/tasks/${task.id}/dispute`, {
+      // Hard gate since 14 Oct 2026: an expired session signs in once and sends again.
+      const res = await sendWithReauth(() => fetch(`/api/tasks/${task.id}/dispute`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ poster: task.poster }),
-      });
+      }), task.poster);
       if (res.ok) {
         const data = await res.json();
         const verdict = data.dispute?.approved ? "Approved" : "Rejected";
@@ -1505,6 +1507,7 @@ export default function TaskDetailPage() {
   useEffect(() => {
     try { setUserId(localStorage.getItem("relay_user_id")); } catch { /* no storage */ }
   }, []);
+  const triedReauth = useRef(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -1518,9 +1521,10 @@ export default function TaskDetailPage() {
         fetch(`/api/tasks/${id}/messages`),
       ]);
 
+      let current: Task | null = task;
       if (taskRes.ok) {
         const data = await taskRes.json();
-        if (data.task) setTask(data.task as Task);
+        if (data.task) { current = data.task as Task; setTask(current); }
         else if (!task) setError("Task not found");
       } else if (!task) {
         setError("Task not found");
@@ -1529,13 +1533,25 @@ export default function TaskDetailPage() {
       if (msgsRes.ok) {
         const data = await msgsRes.json();
         setMessages(data.messages || []);
+        // A party with an expired session gets an empty thread, not a refusal
+        // (the read answers non-participants that way). Sign in once per page
+        // load and read again, so the poster or doer is not shown a blank chat.
+        const t = current;
+        const isParty = !!userId && !!t && [t.poster, t.claimant].some((w) => !!w && w.toLowerCase() === userId.toLowerCase());
+        if (data.participant === false && isParty && !triedReauth.current) {
+          triedReauth.current = true;
+          if (await reauthWallet(userId)) {
+            const again = await fetch(`/api/tasks/${id}/messages`);
+            if (again.ok) setMessages((await again.json()).messages || []);
+          }
+        }
       }
     } catch {
       if (!task) setError("Failed to load task");
     } finally {
       setLoading(false);
     }
-  }, [id, task]);
+  }, [id, task, userId]);
 
   const sendMessage = useCallback(
     async (text: string) => {

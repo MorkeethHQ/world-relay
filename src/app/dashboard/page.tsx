@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { sendWithReauth } from "@/lib/reauth";
 import type { Task } from "@/lib/types";
 import { ProofOfFavourCard } from "@/components/ProofOfFavourCard";
 import { VerificationBadge } from "@/components/VerificationBadge";
@@ -87,7 +88,8 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (!userId || !userId.startsWith("0x")) return;
-    fetch(`/api/referral/stats?address=${userId}`)
+    // Own data only since 14 Oct 2026: an expired session signs in once and reads again.
+    sendWithReauth(() => fetch(`/api/referral/stats?address=${userId}`), userId)
       .then((r) => r.json())
       .then((d) => { if (!d.error) setReferral(d); })
       .catch(() => {});

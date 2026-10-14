@@ -98,3 +98,35 @@ describe("blocker 3: a hard gate can be recovered from any page", () => {
     expect(card).toContain("Sign in again");
   });
 });
+
+// SECOND CODEX REVIEW (030631e): one blocker, two minors.
+describe("review 2: every hard-gated call on the favour page can recover", () => {
+  const page = () => src("src/app/task/[id]/page.tsx");
+  it("approve and mediation send through sendWithReauth as the poster", () => {
+    const p = page();
+    const confirm = p.slice(p.indexOf("const handleConfirm = async"), p.indexOf("const handleConfirm = async") + 700);
+    const mediate = p.slice(p.indexOf("const handleMediation = async"), p.indexOf("const handleMediation = async") + 700);
+    expect(confirm).toMatch(/sendWithReauth\(\(\) => fetch\(`\/api\/tasks\/\$\{task\.id\}\/confirm`/);
+    expect(confirm).toContain("}), task.poster)");
+    expect(mediate).toMatch(/sendWithReauth\(\(\) => fetch\(`\/api\/tasks\/\$\{task\.id\}\/dispute`/);
+    expect(mediate).toContain("}), task.poster)");
+  });
+  it("the chat read signs in again once when a party gets no thread", () => {
+    const p = page();
+    const load = p.slice(p.indexOf("const fetchData = useCallback("), p.indexOf("const sendMessage = useCallback("));
+    expect(load).toMatch(/data\.participant === false/);
+    expect(load).toMatch(/!triedReauth\.current/);
+    expect(load).toMatch(/await reauthWallet\(userId\)/);
+  });
+});
+
+describe("review 2 minors", () => {
+  it("dashboard referral stats load through sendWithReauth", () => {
+    expect(src("src/app/dashboard/page.tsx")).toMatch(/sendWithReauth\(\(\) => fetch\(`\/api\/referral\/stats\?address=\$\{userId\}`\), userId\)/);
+  });
+  it("house review counts only when its History script wrote the row", () => {
+    const h = src("src/lib/house-review.ts");
+    expect(h).toMatch(/const wroteRow = await redis\.eval\(RECORD_HISTORY_ONCE/);
+    expect(h).toMatch(/if \(Number\(wroteRow\) === 1\) noteCompleted\(/);
+  });
+});
