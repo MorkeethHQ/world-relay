@@ -144,7 +144,10 @@ export function toApiTask(task: Task, viewer: Viewer = null): ApiTask {
   const places = viewer ? COORD_PLACES_SIGNED_IN : COORD_PLACES_SIGNED_OUT;
   out.lat = coarse(out.lat, places);
   out.lng = coarse(out.lng, places);
-  return (viewer ? out : scrubAddresses(out)) as ApiTask;
+  // R2 finding 5, 14 Oct 2026: every non-party gets the scrub, signed in or
+  // not. A wallet typed into a note, and a receipt hash that names the wallet
+  // that was paid, belong to the two parties only.
+  return scrubAddresses(out) as ApiTask;
 }
 
 export function toApiTasks(tasks: Task[], viewer: Viewer = null): ApiTask[] {

@@ -15,15 +15,16 @@ describe("juryGameOn", () => {
     process.env[ENV] = "";
     expect(juryGameOn()).toBe(false);
   });
-  it("is on in a preview build, and on with the variable", () => {
+  // R2 finding 6, 14 Oct 2026: unset means off in EVERY environment. A
+  // preview build no longer turns it on by itself.
+  it("is on only with the variable, also in a preview build", () => {
     process.env[ENV] = "preview";
-    expect(juryGameOn()).toBe(true);
-    process.env[ENV] = "production";
+    expect(juryGameOn()).toBe(false);
     process.env[FLAG] = "1";
     expect(juryGameOn()).toBe(true);
   });
-  it("next.config copies VERCEL_ENV into the variable the switch reads", () => {
-    expect(readFileSync(`${process.cwd()}/next.config.ts`, "utf8")).toMatch(/NEXT_PUBLIC_FAVOUR_DEPLOY_ENV: process\.env\.VERCEL_ENV \?\? ""/);
+  it("the switch reads no deploy environment", () => {
+    expect(readFileSync(`${process.cwd()}/src/lib/jury-game.ts`, "utf8")).not.toMatch(/DEPLOY_ENV|VERCEL_ENV/);
   });
   it("the home card and the deck's day marks are drawn only behind the switch", () => {
     const feed = readFileSync(`${process.cwd()}/src/components/Feed.tsx`, "utf8");

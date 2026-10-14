@@ -62,8 +62,10 @@ export async function recordJuryDay(judge: string, nowMs: number): Promise<JuryD
   const today = Number(await redis.incr(countKey(judge, day)));
   if (today === 1) await redis.expire(countKey(judge, day), 48 * 3600).catch(() => {});
   let streak = parseStreak(await redis.get(streakKey(judge)));
-  // The INCR above is the guard: only the first verdict of the day moves the streak.
-  if (today === 1) {
+  // Any verdict of the day moves the streak while it does not yet name today.
+  // nextStreak is the same on a repeat, so two writers agree, and a write lost
+  // to a store error is made by the next verdict (R2 finding 7, 14 Oct 2026).
+  if (streak.last !== day) {
     streak = nextStreak(streak, day);
     await redis.set(streakKey(judge), JSON.stringify(streak));
   }

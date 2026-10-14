@@ -1,11 +1,11 @@
 // THE SWITCH FOR THE JURY GAME ON THE HOME (day bet, 14 Oct 2026).
 //
-// On: a Vercel preview build, or any build with NEXT_PUBLIC_FAVOUR_JURY_GAME=1
-// (the local fixture sets it). Off: a production build without that variable,
-// so merging this code changes nothing in production until the variable is set.
-// NEXT_PUBLIC_FAVOUR_DEPLOY_ENV is VERCEL_ENV, copied in at build by next.config.ts.
+// On only with NEXT_PUBLIC_FAVOUR_JURY_GAME=1, in every environment (R2 finding
+// 6, 14 Oct 2026: a preview build no longer turns it on by itself). The server
+// reads the same switch, so with it unset no day count or streak is written or
+// served, and merging this code changes nothing until the variable is set.
 export function juryGameOn(): boolean {
-  return process.env.NEXT_PUBLIC_FAVOUR_JURY_GAME === "1" || process.env.NEXT_PUBLIC_FAVOUR_DEPLOY_ENV === "preview";
+  return process.env.NEXT_PUBLIC_FAVOUR_JURY_GAME === "1";
 }
 
 export type JuryDayView = { today: number; goal: number; streak: number; best: number; goalReachedNow?: boolean };

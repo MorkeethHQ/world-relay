@@ -21,9 +21,6 @@ const nextConfig: NextConfig = {
   // its commit SHA; local production builds derive it from the checkout.
   env: {
     NEXT_PUBLIC_BUILD_REVISION: buildRevision(),
-    // "production", "preview" or "" (local). The jury game switch reads it, so a
-    // branch preview shows the game and production does not (lib/jury-game.ts).
-    NEXT_PUBLIC_FAVOUR_DEPLOY_ENV: process.env.VERCEL_ENV ?? "",
   },
   // Never CDN-cache the HTML documents. The app is a client-rendered SPA whose
   // shell was getting pinned to an old bundle at the edge (x-vercel-cache HIT),

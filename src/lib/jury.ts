@@ -4,6 +4,7 @@ import { awardPoints } from "./proof-of-favour";
 import { DECOYS } from "./decoys";
 import { gibberishReason } from "./post-quality";
 import { recordJuryDay, type JuryDay } from "./jury-day";
+import { juryGameOn } from "./jury-game";
 
 // REAL OR NOT — the peer jury game (decision-log 2026-07-05 night).
 // One-tap/swipe verdicts on proofs: "does this photo actually match this
@@ -218,6 +219,8 @@ export type JuryVerdictResult = {
   practice?: boolean;
   // Revealed only AFTER the call: this card was an AI-made decoy.
   decoy?: boolean;
+  // A second card on a proof this person already judged: graded, no credit.
+  repeat?: boolean;
   // Today's verdict count and the streak, written by the server (lib/jury-day.ts).
   day?: JuryDay | null;
 };
@@ -241,12 +244,14 @@ export async function recordJuryVerdict(
   const fresh = await redis.sadd(`jury:seen:${judge.toLowerCase()}`, cardId);
   if (!fresh) return { error: "Already judged" };
   await redis.del(`jury:card:${cardId}`).catch(() => {});
-  // The daily count and streak move on every accepted verdict, practice too.
-  const day = await recordJuryDay(judge, Date.now()).catch(() => null);
+  // The daily count and streak (lib/jury-day.ts) are kept only while the jury
+  // game switch is on (R2 finding 6). Practice counts as play, never as credit.
+  const countDay = () => (juryGameOn() ? recordJuryDay(judge, Date.now()).catch(() => null) : Promise.resolve(null));
 
   // PRACTICE: graded so the player learns, and nothing else. No points, no daily
   // cap consumed, no stats, no judged-set write. Returned before any of those.
   if (answer.practice) {
+    const day = await countDay();
     const statsKey = `jury:stats:${judge.toLowerCase()}`;
     const judged = Number((await redis.hget(statsKey, "judged")) || 0);
     const correctTotal = Number((await redis.hget(statsKey, "correct")) || 0);
@@ -254,7 +259,19 @@ export async function recordJuryVerdict(
   }
   // Record the underlying proof as judged so future decks never resurface it
   // (a proof is judged once per human, regardless of how many cards wrap it).
-  await redis.sadd(`jury:judged:${judge.toLowerCase()}`, answer.proofTaskId).catch(() => {});
+  // R2 finding 1, 14 Oct 2026: two decks dealt before any verdict give one proof
+  // two card ids, and the answer learned on the first card could be replayed on
+  // the second, which graded it again (25 verdicts on one proof read 25/25 and
+  // qualified the judge). SADD is the atomic check: a proof already judged by
+  // this person is graded for the player and moves no stat, point or day count.
+  const firstOnProof = await redis.sadd(`jury:judged:${judge.toLowerCase()}`, answer.proofTaskId);
+  if (!firstOnProof) {
+    const statsKey = `jury:stats:${judge.toLowerCase()}`;
+    const judged = Number((await redis.hget(statsKey, "judged")) || 0);
+    const correctTotal = Number((await redis.hget(statsKey, "correct")) || 0);
+    return { correct: saidMatch === answer.isMatch, isMatch: answer.isMatch, pointsAwarded: 0, judged, correctTotal, practice: true, repeat: true, ...(answer.decoy ? { decoy: true } : {}), day: null };
+  }
+  const day = await countDay();
 
   const correct = saidMatch === answer.isMatch;
 

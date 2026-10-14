@@ -4,6 +4,7 @@ import { listTasks } from "@/lib/store";
 import { getJudgeStats, isAppealable, isQualifiedJudge } from "@/lib/jury-appeal";
 import { houseReviewWaiting } from "@/lib/house-review";
 import { getJuryDay } from "@/lib/jury-day";
+import { juryGameOn } from "@/lib/jury-game";
 
 const WALLET_RE = /^0x[0-9a-fA-F]{40}$/;
 
@@ -18,7 +19,7 @@ export async function GET(req: NextRequest) {
   const flaggedWaiting = tasks.filter((t) => isAppealable(t)).length + houseWaiting;
   const record = judge ? await getJudgeStats(judge) : null;
   // Today's verdict count and streak, for the home card and the deck header.
-  const day = judge ? await getJuryDay(judge, Date.now()).catch(() => null) : null;
+  const day = judge && juryGameOn() ? await getJuryDay(judge, Date.now()).catch(() => null) : null;
   return NextResponse.json(
     { authenticated: !!judge, record, qualified: record ? isQualifiedJudge(record) : false, flaggedWaiting, day },
     { headers: { "Cache-Control": "private, no-store" } },
