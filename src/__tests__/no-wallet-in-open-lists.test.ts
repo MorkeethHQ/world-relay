@@ -162,6 +162,19 @@ describe("signed in", () => {
     const { GET: history } = await import("@/app/api/history/route");
     expect((await history(get("/api/history", ANA))).headers.get("cache-control")).toBe("private, no-store");
   });
+  // R2 finding 5, 14 Oct 2026: only poster and claimant were replaced for a
+  // signed-in stranger, so a wallet inside proofNote (and a receipt hash)
+  // reached any signed-in wallet.
+  it("a signed-in stranger reads no wallet anywhere in a row that is not theirs", async () => {
+    const { GET } = await import("@/app/api/tasks/route");
+    const rows = await rowsOf(await GET(get("/api/tasks", EVE)));
+    const notMine = rows.filter((r) => !r.isOwnTask && !r.isClaimant);
+    expect(notMine.map((r) => r.id)).toContain("done-by-ben"); // the row with a wallet in its note and receipts
+    expect(JSON.stringify(notMine)).not.toMatch(ADDRESS);
+    const { GET: history } = await import("@/app/api/history/route");
+    const hrows = await rowsOf(await history(get("/api/history", EVE)));
+    expect(JSON.stringify(hrows.filter((r) => !r.isOwnTask && !r.isClaimant))).not.toMatch(ADDRESS);
+  });
   it("a bad cookie is a stranger, not a party", async () => {
     const { GET } = await import("@/app/api/tasks/route");
     const req = new NextRequest("http://localhost/api/tasks", { headers: { cookie: `${SESSION_COOKIE}=not-a-token` } });

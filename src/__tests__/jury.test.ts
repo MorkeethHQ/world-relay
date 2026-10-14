@@ -16,6 +16,7 @@ vi.mock("@/lib/redis", () => ({
       s.add(member); mockSets.set(key, s); return added;
     },
     smembers: async (key: string) => Array.from(mockSets.get(key) || []),
+    sismember: async (key: string, member: string) => (mockSets.get(key)?.has(member) ? 1 : 0),
     incr: async (key: string) => {
       const next = Number(mockStore.get(key) || 0) + 1;
       mockStore.set(key, next); return next;
@@ -144,10 +145,12 @@ describe("verdicts (opaque cards)", () => {
   });
 
   it("daily cap stops payouts but not play", async () => {
-    // Issue many single-match cards by staking known answers directly.
+    // Issue many single-match cards by staking known answers directly. Each card
+    // carries its own proof: one proof judged twice earns nothing the second
+    // time (R2 finding 1, 14 Oct 2026), and this test is about the cap.
     for (let i = 0; i < JURY_DAILY_POINTS_CAP + 5; i++) {
       const id = `c${i}`;
-      mockStore.set(`jury:card:${id}`, JSON.stringify({ judge: JUDGE, proofTaskId: "a", descTaskId: "a", isMatch: true }));
+      mockStore.set(`jury:card:${id}`, JSON.stringify({ judge: JUDGE, proofTaskId: `a${i}`, descTaskId: `a${i}`, isMatch: true }));
       await recordJuryVerdict(JUDGE, id, true); // always correct
     }
     expect(awards.length).toBe(JURY_DAILY_POINTS_CAP);

@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { hapticTap, hapticSuccess, hapticError } from "@/lib/minikit-helpers";
 import { CategoryIcon } from "@/components/CategoryIcon";
+import { acceptDay, juryGameOn, pips, verdictRetryable, type JuryDayView } from "@/lib/jury-game";
 
 export type JuryCard = {
   cardId: string;
@@ -54,6 +55,44 @@ export function JuryMode({
   // must not be asked again on every swipe.
   const authTried = useRef(false);
   const [needsAuth, setNeedsAuth] = useState(false);
+  // R2d, 14 Oct 2026: a verdict the server could not save comes back to the top
+  // of the deck with this note, so the person can send it again.
+  // The id of the card that came back, so only ITS later success clears the note.
+  const [notSaved, setNotSaved] = useState<string | null>(null);
+  // THE DAILY GAME (day bet, 14 Oct 2026), shown only with the switch on. Both
+  // come from the server: GET /api/jury/record on open, then each verdict's `day`.
+  const game = juryGameOn();
+  const [day, setDay] = useState<JuryDayView | null>(null);
+  const [goalMoment, setGoalMoment] = useState<JuryDayView | null>(null);
+  // Every server answer goes through acceptDay, in arrival order. The ref holds
+  // the day shown, so the goal moment is decided on the same answer that wins.
+  const dayRef = useRef<JuryDayView | null>(null);
+  // R2d, 14 Oct 2026: a queued celebration fired after a newer day landed. A
+  // newer accepted day now cancels it, and on firing it checks it is still the
+  // day shown.
+  const goalTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const takeDay = useCallback((next: JuryDayView) => {
+    const { day: shown, celebrate } = acceptDay(dayRef.current, next);
+    if (shown !== dayRef.current) { goalTimers.current.forEach(clearTimeout); goalTimers.current = []; setGoalMoment(null); }
+    dayRef.current = shown;
+    setDay(shown);
+    if (celebrate) {
+      goalTimers.current = [
+        setTimeout(() => { if (dayRef.current === next) { hapticSuccess(); setGoalMoment(next); } }, 700),
+        setTimeout(() => setGoalMoment(null), 3200),
+      ];
+    }
+  }, []);
+  useEffect(() => () => goalTimers.current.forEach(clearTimeout), []);
+  useEffect(() => {
+    if (!game || !userId) return;
+    let live = true;
+    fetch("/api/jury/record", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (live && d?.day && typeof d.day.today === "number") takeDay(d.day); })
+      .catch(() => {});
+    return () => { live = false; };
+  }, [game, userId, takeDay]);
 
   // PLAYABLE FOREVER (2026-09-21). `practice` is set by the server when this judge
   // has ruled on every live proof: the deck is a replay of real, verified proofs
@@ -105,11 +144,14 @@ export function JuryMode({
     hapticTap();
     setDx(saidMatch ? 500 : -500);
     const cardId = card.cardId;
+    const votedCard = card;
 
     // Advance IMMEDIATELY — the deck must never wait on the network (the
     // v1 await here made every verdict lag and the card feel stuck).
+    // Removed BY ID, never by position (R2e, 14 Oct 2026): a card restored by a
+    // "not saved" answer can be on top when a later card's timer fires.
     setTimeout(() => {
-      setCards((c) => c.slice(1));
+      setCards((c) => c.filter((x) => x.cardId !== cardId));
       setDx(0);
       busy.current = false;
     }, 110);
@@ -138,11 +180,23 @@ export function JuryMode({
             return null;
           }
         }
-        return res.ok ? res.json() : null;
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({} as Record<string, unknown>));
+          if (verdictRetryable(res.status, err)) {
+            // The card left the screen at 110 ms. Put it back on top after that.
+            setTimeout(() => setCards((c) => (c.some((x) => x.cardId === cardId) ? c : [votedCard, ...c])), 140);
+            setNotSaved(cardId);
+          }
+          return null;
+        }
+        return res.json();
       })()
-        .then((result: { correct: boolean; isMatch: boolean; pointsAwarded: number; practice?: boolean; decoy?: boolean } | null) => {
+        .then((result: { correct: boolean; isMatch: boolean; pointsAwarded: number; practice?: boolean; decoy?: boolean; day?: JuryDayView | null } | null) => {
           if (!result) return;
           setNeedsAuth(false);
+          setNotSaved((id) => (id === cardId ? null : id));
+          // The goal moment comes only from an answer acceptDay keeps.
+          if (game && result.day && typeof result.day.today === "number") takeDay(result.day);
           if (result.correct) hapticSuccess(); else hapticError();
           setFlash({ correct: result.correct, isMatch: result.isMatch, points: result.pointsAwarded, decoy: !!result.decoy });
           setSession((s) => ({
@@ -155,7 +209,7 @@ export function JuryMode({
         })
         .catch(() => {});
     }
-  }, [card, userId, onReauth]);
+  }, [card, userId, onReauth, game, takeDay]);
 
   const onTouchStart = (e: React.TouchEvent) => {
     if (busy.current) return;
@@ -189,15 +243,29 @@ export function JuryMode({
         </button>
         <p className="text-[13px] font-bold text-gray-900 tracking-widest">REAL OR NOT</p>
         <div className="text-right min-w-[36px]">
-          {session.judged > 0 && (
+          {game && day ? (
+            <p className="text-[13px] font-bold text-gray-900 tabular-nums">{day.today}/{day.goal}</p>
+          ) : session.judged > 0 && (
             <p className="text-[11px] text-gray-400">{session.correct}/{session.judged}{session.points > 0 ? ` · +${session.points}` : ""}</p>
           )}
         </div>
       </div>
 
+      {game && day && (
+        <div className="mx-5 -mt-1 mb-3 grid gap-1" style={{ gridTemplateColumns: `repeat(${day.goal}, minmax(0, 1fr))` }} aria-label={`${day.today} of ${day.goal} today`}>
+          {pips(day).map((on, i) => <span key={i} className={`h-1.5 rounded-full transition-colors duration-200 ${on ? "bg-gray-900" : "bg-gray-200"}`} />)}
+        </div>
+      )}
+
       {/* Inside the one Review feature: proofs the automatic check flagged, which
           qualified reviewers decide. Not a second entry on the board. */}
       <a href="/jury/appeals" className="mx-5 mb-3 min-h-[44px] flex items-center justify-center rounded-full border border-gray-300 bg-white text-[14px] font-semibold text-gray-900">Decide flagged proofs</a>
+
+      {notSaved && (
+        <div className="mx-5 mb-2 rounded-2xl bg-gray-900 px-4 py-3" role="alert">
+          <p className="text-[12px] text-white leading-snug">Not saved. Your last card is back on top: swipe it again.</p>
+        </div>
+      )}
 
       {needsAuth && (
         <div className="mx-5 mb-2 rounded-2xl bg-gray-900 px-4 py-3 flex items-center gap-3" role="alert">
@@ -379,6 +447,17 @@ export function JuryMode({
             )}
           </>
         )}
+            {/* The goal moment: ten verdicts today, from the server's count. */}
+            {goalMoment && (
+              <div className="absolute inset-0 z-10 flex items-center justify-center bg-gray-50/90 jury-goal" role="status">
+                <style>{`@keyframes juryGoalIn{from{opacity:0;transform:scale(1.25) rotate(-8deg)}to{opacity:1;transform:scale(1) rotate(-6deg)}}.jury-goal>div{animation:juryGoalIn .28s ease-out both}@media (prefers-reduced-motion: reduce){.jury-goal>div{animation:none;transform:rotate(-6deg)}}`}</style>
+                <div className="rounded-2xl bg-white px-7 py-5 text-center" style={{ transform: "rotate(-6deg)", border: "5px solid #111827" }}>
+                  <p className="text-[13px] font-bold tracking-widest text-gray-500">TODAY</p>
+                  <p className="text-[52px] font-black leading-none text-gray-900 tabular-nums">{goalMoment.today}/{goalMoment.goal}</p>
+                  <p className="mt-1 text-[15px] font-bold text-gray-900">{goalMoment.streak >= 2 ? `${goalMoment.streak} days in a row` : "Day one"}</p>
+                </div>
+              </div>
+            )}
       </div>
 
       {/* Verdict buttons */}
