@@ -15,7 +15,7 @@ stops it and removes all of it. Nothing is written to production.
 
 3. Wait for the line "On your phone: http://...:3220/__fixture/". Open that
    link in Safari on the phone. This is the START PAGE. You come back to it
-   to change person.
+   to change person: open the same link again (keep it in a second tab).
 
 If macOS asks to let "node" accept connections, tap Allow.
 
@@ -74,9 +74,8 @@ On the Mac, press Ctrl-C. Everything is gone.
 - A real model. The precheck and the proof check are stand-ins:
   `TEST FLAG` flags, `TEST FAIL` rejects, `TEST DOWN` fails the check,
   anything else passes.
-- Production. A preview in the "Perfect" World App test app cannot work
-  today: the store, the session key and the World App id are set for
-  Production only in Vercel.
+- Production. A preview cannot run in the "Perfect" World App test app
+  today. The details are in the private status file.
 
 ## The same script, run by a machine
 
