@@ -15,3 +15,22 @@ describe("the Profile does not wait on data it never shows", () => {
     expect(page()).toMatch(/fetch\("\/api\/tasks"\)[\s\S]{0,200}\.finally\(\(\) => setLoading\(false\)\)/);
   });
 });
+
+// Codex ASTRA on 217a13f (MINOR): a failed task read ended the spinner and
+// showed "No favours yet", so an outage read as an empty history.
+describe("a failed task read says so, and offers a retry", () => {
+  it("the read marks a failure on a bad answer or a network error", () => {
+    const p = page();
+    expect(p).toMatch(/if \(!r\.ok\) throw new Error/);
+    expect(p).toMatch(/\.catch\(\(\) => setTasksFailed\(true\)\)/);
+  });
+  it("the empty state is not shown for a failed read; a Try again button is", () => {
+    const p = page();
+    const empty = p.indexOf("No favours yet");
+    const failed = p.indexOf("Could not load your favours");
+    expect(failed).toBeGreaterThan(0);
+    expect(failed).toBeLessThan(empty);
+    expect(p).toMatch(/if \(tasksFailed\)/);
+    expect(p).toMatch(/onClick=\{retryTasks\}[\s\S]{0,200}Try again/);
+  });
+});
