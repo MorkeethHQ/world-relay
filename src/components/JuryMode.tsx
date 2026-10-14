@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { hapticTap, hapticSuccess, hapticError } from "@/lib/minikit-helpers";
 import { CategoryIcon } from "@/components/CategoryIcon";
-import { juryGameOn, pips, type JuryDayView } from "@/lib/jury-game";
+import { juryGameOn, newerDay, pips, type JuryDayView } from "@/lib/jury-game";
 
 export type JuryCard = {
   cardId: string;
@@ -65,7 +65,7 @@ export function JuryMode({
     let live = true;
     fetch("/api/jury/record", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => { if (live && d?.day && typeof d.day.today === "number") setDay(d.day); })
+      .then((d) => { if (live && d?.day && typeof d.day.today === "number") setDay((prev) => newerDay(prev, d.day)); })
       .catch(() => {});
     return () => { live = false; };
   }, [game, userId]);
@@ -159,7 +159,8 @@ export function JuryMode({
           if (!result) return;
           setNeedsAuth(false);
           if (game && result.day && typeof result.day.today === "number") {
-            setDay(result.day);
+            const next = result.day;
+            setDay((prev) => newerDay(prev, next));
             // The goal moment: the server says this verdict was the tenth today.
             if (result.day.goalReachedNow) {
               const reached = result.day;

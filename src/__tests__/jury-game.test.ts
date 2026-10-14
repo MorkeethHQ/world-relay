@@ -51,3 +51,25 @@ describe("pips and dayLine", () => {
     expect(dayLine({ today: 12, goal: 10, streak: 2, best: 2 })).toBe("Done for today · 2 days in a row");
   });
 });
+
+// R2 re-review, 14 Oct 2026: a slow first GET landed after the tenth verdict
+// and the deck went from 10 back to 9.
+describe("newerDay keeps the latest answer when replies arrive out of order", () => {
+  const d = (date: string, today: number) => ({ date, today, goal: 10, streak: 1, best: 1 });
+  it("a late, smaller count on the same day does not replace a larger one", async () => {
+    const { newerDay } = await import("@/lib/jury-game");
+    expect(newerDay(d("2026-10-14", 10), d("2026-10-14", 9)).today).toBe(10);
+    expect(newerDay(d("2026-10-14", 9), d("2026-10-14", 10)).today).toBe(10);
+    expect(newerDay(null, d("2026-10-14", 3)).today).toBe(3);
+  });
+  it("a new day replaces yesterday, and yesterday never replaces today", async () => {
+    const { newerDay } = await import("@/lib/jury-game");
+    expect(newerDay(d("2026-10-13", 10), d("2026-10-14", 1)).date).toBe("2026-10-14");
+    expect(newerDay(d("2026-10-14", 1), d("2026-10-13", 10)).date).toBe("2026-10-14");
+  });
+  it("the deck sets the day only through newerDay", () => {
+    const deck = readFileSync(`${process.cwd()}/src/components/JuryMode.tsx`, "utf8");
+    expect(deck.match(/setDay\(/g)?.length).toBe(2);
+    expect(deck.match(/setDay\(\(prev\) => newerDay\(prev, /g)?.length).toBe(2);
+  });
+});

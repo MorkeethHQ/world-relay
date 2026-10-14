@@ -5,12 +5,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // them; it never counts by itself.
 
 const kv = new Map<string, any>();
-let failSetOnce = false;
+let failTxOnce = false;
 const sets = new Map<string, Set<string>>();
 const hashes = new Map<string, Map<string, number>>();
 const fakeRedis = {
   get: async (k: string) => kv.get(k) ?? null,
-  set: async (k: string, v: any) => { if (failSetOnce) { failSetOnce = false; throw new Error("store blip"); } kv.set(k, v); return "OK"; },
+  set: async (k: string, v: any) => { kv.set(k, v); return "OK"; },
   del: async (k: string) => (kv.delete(k) ? 1 : 0),
   incr: async (k: string) => { const n = Number(kv.get(k) ?? 0) + 1; kv.set(k, n); return n; },
   expire: async () => 1,
@@ -18,31 +18,41 @@ const fakeRedis = {
   smembers: async (k: string) => [...(sets.get(k) ?? [])],
   hincrby: async (k: string, f: string, n: number) => { const h = hashes.get(k) ?? new Map(); h.set(f, (h.get(f) ?? 0) + n); hashes.set(k, h); return h.get(f); },
   hget: async (k: string, f: string) => hashes.get(k)?.get(f) ?? null,
+  // A transaction: every queued command runs, or (with failTxOnce) none does.
+  multi: () => {
+    const ops: (() => Promise<unknown>)[] = [];
+    const tx: any = {
+      incr: (k: string) => { ops.push(() => fakeRedis.incr(k)); return tx; },
+      expire: (k: string) => { ops.push(() => fakeRedis.expire()); return tx; },
+      sadd: (k: string, m: string) => { ops.push(() => fakeRedis.sadd(k, m)); return tx; },
+      smembers: (k: string) => { ops.push(() => fakeRedis.smembers(k)); return tx; },
+      exec: async () => { if (failTxOnce) { failTxOnce = false; throw new Error("store blip"); } const out = []; for (const op of ops) out.push(await op()); return out; },
+    };
+    return tx;
+  },
 };
 vi.mock("@/lib/redis", () => ({ getRedis: () => fakeRedis }));
 const awarded: any[] = [];
 vi.mock("@/lib/proof-of-favour", () => ({ awardPoints: async (...a: any[]) => { awarded.push(a); } }));
 
-import { JURY_DAILY_GOAL, getJuryDay, liveStreak, nextStreak, recordJuryDay, utcDay } from "@/lib/jury-day";
+import { JURY_DAILY_GOAL, getJuryDay, liveStreak, recordJuryDay, streakFromDays, utcDay } from "@/lib/jury-day";
 import { issueJuryDeckWithMode, recordJuryVerdict } from "@/lib/jury";
 
 const JUDGE = "0xcccccccccccccccccccccccccccccccccccccccc";
 const D = (iso: string) => Date.parse(`${iso}T12:00:00Z`);
 
-beforeEach(() => { kv.clear(); sets.clear(); hashes.clear(); awarded.length = 0; failSetOnce = false; process.env.NEXT_PUBLIC_FAVOUR_JURY_GAME = "1"; });
+beforeEach(() => { kv.clear(); sets.clear(); hashes.clear(); awarded.length = 0; failTxOnce = false; process.env.NEXT_PUBLIC_FAVOUR_JURY_GAME = "1"; });
 
-describe("nextStreak and liveStreak", () => {
-  it("a first day is 1, the next day is 2, a missed day starts again at 1 and keeps the best", () => {
-    let s = nextStreak({ last: null, current: 0, best: 0 }, "2026-10-10");
-    expect(s).toEqual({ last: "2026-10-10", current: 1, best: 1 });
-    s = nextStreak(s, "2026-10-11");
-    expect(s).toEqual({ last: "2026-10-11", current: 2, best: 2 });
-    expect(nextStreak(s, "2026-10-11")).toBe(s); // the same day changes nothing
-    s = nextStreak(s, "2026-10-13");
-    expect(s).toEqual({ last: "2026-10-13", current: 1, best: 2 });
+describe("streakFromDays and liveStreak", () => {
+  it("counts the run that ends on the last day played, and keeps the best", () => {
+    expect(streakFromDays([])).toEqual({ last: null, current: 0, best: 0 });
+    expect(streakFromDays(["2026-10-10"])).toEqual({ last: "2026-10-10", current: 1, best: 1 });
+    expect(streakFromDays(["2026-10-11", "2026-10-10"])).toEqual({ last: "2026-10-11", current: 2, best: 2 });
+    expect(streakFromDays(["2026-10-10", "2026-10-11", "2026-10-13"])).toEqual({ last: "2026-10-13", current: 1, best: 2 });
+    expect(streakFromDays(["2026-10-11", "2026-10-11", "junk"])).toEqual({ last: "2026-10-11", current: 1, best: 1 });
   });
   it("crosses a month end", () => {
-    expect(nextStreak({ last: "2026-10-31", current: 4, best: 4 }, "2026-11-01").current).toBe(5);
+    expect(streakFromDays(["2026-10-30", "2026-10-31", "2026-11-01"]).current).toBe(3);
   });
   it("reads 0 once a whole day is missed, and stays alive through yesterday", () => {
     const s = { last: "2026-10-12", current: 3, best: 3 };
@@ -99,15 +109,29 @@ describe("a verdict carries the day, and the points rule is unchanged", () => {
   });
 });
 
-// R2 finding 7, 14 Oct 2026: the INCR landed, the streak write failed, and no
-// later verdict repaired it (today=2, streak=0).
-describe("a failed streak write is repaired by the next verdict", () => {
-  it("today=2 after a blip still reads the right streak", async () => {
+// R2 finding 7 and its re-review, 14 Oct 2026: the count landed and the
+// streak write failed, so a day was played and never marked (3 days gave a
+// streak of 1). The count and the day mark are now one transaction.
+describe("the count and the day mark land together or not at all", () => {
+  it("three days, one verdict each, read a streak of 3", async () => {
+    await recordJuryDay(JUDGE, D("2026-10-12"));
     await recordJuryDay(JUDGE, D("2026-10-13"));
-    failSetOnce = true;
-    await recordJuryDay(JUDGE, D("2026-10-14")).catch(() => null);
-    const d = await recordJuryDay(JUDGE, D("2026-10-14"));
-    expect(d).toMatchObject({ today: 2, streak: 2, best: 2 });
+    expect(await recordJuryDay(JUDGE, D("2026-10-14"))).toMatchObject({ today: 1, streak: 3, best: 3 });
+  });
+  it("a failed transaction leaves no half state: no count without its day", async () => {
+    await recordJuryDay(JUDGE, D("2026-10-13"));
+    failTxOnce = true;
+    await expect(recordJuryDay(JUDGE, D("2026-10-14"))).rejects.toThrow();
+    expect(await getJuryDay(JUDGE, D("2026-10-14"))).toMatchObject({ today: 0, streak: 1 });
+    expect(await recordJuryDay(JUDGE, D("2026-10-14"))).toMatchObject({ today: 1, streak: 2 });
+  });
+  // Re-review, new finding: a delayed write from before midnight moved the
+  // stored last day backward. A set of days cannot move back.
+  it("a late write for yesterday, after today's, leaves today's streak as it was", async () => {
+    await recordJuryDay(JUDGE, D("2026-10-13"));
+    await recordJuryDay(JUDGE, D("2026-10-14"));
+    await recordJuryDay(JUDGE, D("2026-10-13")); // the delayed request
+    expect(await getJuryDay(JUDGE, D("2026-10-14"))).toMatchObject({ today: 1, streak: 2, best: 2 });
   });
 });
 
@@ -146,7 +170,7 @@ describe("one graded verdict per proof, however many cards carried it", () => {
 // R2 finding 6, 14 Oct 2026: with the switch unset, the server still wrote and
 // served the day count and streak.
 describe("with the switch unset the server keeps no day count", () => {
-  it("a verdict carries no day and writes no jury:day or jury:streak key", async () => {
+  it("a verdict carries no day and writes no jury:day or jury:days key", async () => {
     delete process.env.NEXT_PUBLIC_FAVOUR_JURY_GAME;
     let n = 0;
     const pool = ["a queue at a bakery", "a bus timetable", "a shelf of milk", "a sunset"].map((d, i) => ({ id: `q${i}`, status: "completed", proofImageUrl: `/p/q${i}.jpg`, proofNote: null, description: d, category: "photo", location: "x",
@@ -155,7 +179,7 @@ describe("with the switch unset the server keeps no day count", () => {
     expect(cards.length).toBeGreaterThan(0);
     const r: any = await recordJuryVerdict(JUDGE, cards[0].cardId, true);
     expect(r.day ?? null).toBeNull();
-    expect([...kv.keys()].filter((k) => k.startsWith("jury:day:") || k.startsWith("jury:streak:"))).toEqual([]);
+    expect([...kv.keys(), ...sets.keys()].filter((k) => k.startsWith("jury:day"))).toEqual([]);
   });
 });
 

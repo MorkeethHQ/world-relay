@@ -8,7 +8,17 @@ export function juryGameOn(): boolean {
   return process.env.NEXT_PUBLIC_FAVOUR_JURY_GAME === "1";
 }
 
-export type JuryDayView = { today: number; goal: number; streak: number; best: number; goalReachedNow?: boolean };
+export type JuryDayView = { date?: string; today: number; goal: number; streak: number; best: number; goalReachedNow?: boolean };
+
+/** Which of two server answers to show. Pure. Answers can arrive out of order
+ *  (a slow GET after a verdict), and within one UTC day the count only grows,
+ *  so the later day wins, and on the same day the larger count wins. */
+export function newerDay(prev: JuryDayView | null, next: JuryDayView): JuryDayView {
+  if (!prev) return next;
+  const a = prev.date ?? "", b = next.date ?? "";
+  if (b !== a) return b > a ? next : prev;
+  return next.today >= prev.today ? next : prev;
+}
 
 /** The pips of today's card: one per verdict up to the goal. Pure. */
 export function pips(day: Pick<JuryDayView, "today" | "goal">): boolean[] {
