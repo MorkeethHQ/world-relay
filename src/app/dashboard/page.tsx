@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import type { Task } from "@/lib/types";
 import { ProofOfFavourCard } from "@/components/ProofOfFavourCard";
 import { VerificationBadge } from "@/components/VerificationBadge";
@@ -213,10 +214,14 @@ export default function ProfilePage() {
                 <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
                   {myTasks.slice().reverse().map((t, i) => {
                     const role = t.poster === userId ? "Posted" : "Completed";
+                    // Each row opens the favour page, where a poster finds
+                    // Approve and the chat (test product walk, 14 Oct 2026:
+                    // the row could not be tapped, so no menu led there).
                     return (
-                      <div
+                      <Link
                         key={t.id}
-                        className={`px-4 py-3.5 flex items-center gap-3 ${
+                        href={`/task/${t.id}`}
+                        className={`px-4 py-3.5 flex items-center gap-3 active:bg-gray-50 ${
                           i < myTasks.length - 1 ? "border-b border-gray-100" : ""
                         }`}
                       >
@@ -245,7 +250,7 @@ export default function ProfilePage() {
                           <Typography variant="number" level={4} className="text-gray-900">{rewardAmountLabel(t)}</Typography>
                           <StatusPill status={t.status} />
                         </div>
-                      </div>
+                      </Link>
                     );
                   })}
                 </div>

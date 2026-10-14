@@ -42,12 +42,20 @@ A flagged proof keeps the favour open, so Ana and Ben can talk.
 **3. Ben writes to Ana.**
 - Tap the FAVOUR TEST favour again.
 - At the bottom, type a message and send it.
-- Known gap: this screen does not show the message. Ana gets it (step 4).
+- You see your message under **Messages**, marked **You**.
 
-**4. Ana reads, answers and approves.**
+**4. Ana reads and answers.**
 - Start page: tap **Sign in as TEST Ana**.
-- Start page again: under **TEST favours**, tap **Open the favour page**.
-- Tap **XMTP CHAT**. You see Ben's message. Type an answer and send it.
+- Tap **Profile**. Under **Your activity**, tap the FAVOUR TEST favour.
+- The favour page opens. Tap **XMTP CHAT**. You see Ben's message.
+- Type an answer and send it.
+
+**4b. Ben reads the answer.**
+- Start page: tap **Sign in as TEST Ben**. Tap the FAVOUR TEST favour.
+- You see Ana's answer, marked **Poster**.
+
+**4c. Ana approves.**
+- Start page: tap **Sign in as TEST Ana**. Profile, tap the favour.
 - Tap **Approve**. You see: **Completed**.
 
 **5. Ben gets his points.**
@@ -61,8 +69,8 @@ A flagged proof keeps the favour open, so Ana and Ben can talk.
 - You see the count go to **1/10**.
 
 **7. A stranger sees no chat.** (optional)
-- Still as Reviewer 1: start page, **Open the favour page**.
-- You see the favour and the proof. You see no message.
+- Still as Reviewer 1: start page, under **TEST favours**, tap **Open the favour page**.
+- You see the favour and the proof. You see no message and no message box.
 
 ## When you are done
 
@@ -79,7 +87,7 @@ On the Mac, press Ctrl-C. Everything is gone.
 
 ## The same script, run by a machine
 
-    sh scripts/test-product.sh --browser-walk   # taps steps 1 to 7 in a phone-size browser
+    sh scripts/test-product.sh --browser-walk   # taps every step above in a phone-size browser
     sh scripts/test-product.sh --walk           # the same loop through the API, with the jury card of Ben's own proof
 
 Each prints PASS or FAIL per step. Each starts clean and stops when done.

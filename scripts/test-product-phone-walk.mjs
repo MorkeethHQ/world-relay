@@ -68,22 +68,38 @@ if (await has(benBox)) { await benBox.fill("TEST: hi Ana, here is my cup"); awai
 await page.waitForTimeout(1500);
 const saved = await page.evaluate(async (id) => (await (await fetch(`/api/tasks/${id}/messages`)).json()).messages?.map((m) => m.text) ?? [], page.url().split("/task/")[1] ?? (await (await fetch(`${APP}/api/tasks`)).json()).tasks.find((t) => t.description.startsWith(ASK)).id);
 await step("3a", saved.includes("TEST: hi Ana, here is my cup"), "Ben sends Ana a message, and it is saved");
-// KNOWN GAP, found by this walk on 14 Oct 2026: the in-app favour screen
-// (TaskDetail in src/components/Feed.tsx) has a message box but draws no
-// messages, so the doer cannot read the poster's answer there.
-await step("3b", await has(page.getByText("TEST: hi Ana, here is my cup"), 3000), "Ben's own favour screen shows the message", "known gap: TaskDetail draws no messages");
+// Fixed 14 Oct 2026: the in-app favour screen draws the thread again.
+await step("3b", await has(page.getByText("TEST: hi Ana, here is my cup"), 5000), "Ben's own favour screen shows the message");
 
-// 4. Ana opens the favour page from the start page, reads, answers, approves.
+// 4. Ana opens her favour from her Profile, reads, answers.
+const openFromProfile = async () => {
+  await page.getByRole("button", { name: "Profile" }).click();
+  const row = page.getByRole("link", { name: /FAVOUR TEST, not real/ });
+  if (!(await has(row, 25000))) return false;
+  await row.first().click();
+  await page.waitForURL(/\/task\//, { timeout: 15000 }).catch(() => {});
+  await page.waitForTimeout(2500);
+  return /\/task\//.test(page.url());
+};
 await signIn("ana");
-await page.goto(`${APP}/__fixture/`);
-await page.getByRole("link", { name: /Open the favour page/ }).first().click();
-await page.waitForTimeout(3000);
+await step("4a", await openFromProfile(), "Ana taps the favour on her Profile and its page opens", page.url());
 const taskUrl = page.url();
+const pageText = await page.locator("body").innerText();
+await step("4s", !/Access Code Required|Device Required|Chainlink/i.test(pageText), "The favour page has no access code, Device Required or Chainlink line");
 await page.getByText("XMTP CHAT", { exact: false }).first().click();
-await step("4a", await has(page.getByText("TEST: hi Ana, here is my cup")), "Ana sees Ben's message on her favour page");
+await step("4t", await has(page.getByText("TEST: hi Ana, here is my cup")), "Ana sees Ben's message on her favour page");
 const anaBox = page.getByPlaceholder("Type a message...");
-await anaBox.fill("TEST: thanks Ben, approved"); await anaBox.press("Enter");
-await step("4b", await has(page.getByText("TEST: thanks Ben, approved")), "Ana answers");
+await anaBox.fill("TEST: thanks Ben, approving now"); await anaBox.press("Enter");
+await step("4b", await has(page.getByText("TEST: thanks Ben, approving now")), "Ana answers");
+
+// 4r. Ben reads Ana's answer in the app.
+await signIn("ben");
+await page.getByText("FAVOUR TEST, not real").first().click();
+await step("4r", await has(page.getByText("TEST: thanks Ben, approving now")) && await has(page.getByText("Poster", { exact: true })), "Ben reads Ana's answer on his favour screen, named Poster");
+
+// 4c. Ana approves.
+await signIn("ana");
+await openFromProfile();
 const before = await reputation();
 await page.getByRole("button", { name: "Approve" }).click();
 let after = before;

@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import type { Task, VerificationResult, AiFollowUp } from "@/lib/types";
-import { VerificationBadge, RequiredTierBadge } from "@/components/VerificationBadge";
+import { VerificationBadge } from "@/components/VerificationBadge";
 import { hapticTap, hapticSuccess, hapticError, shareTask } from "@/lib/minikit-helpers";
 import { MiniKit } from "@worldcoin/minikit-js";
 import { rewardAmountLabel, isPointsReward, isRealMoney } from "@/lib/reward";
@@ -1473,11 +1473,6 @@ function DisputeActions({ task, onAction }: { task: Task; onAction: () => void }
           </Button>
         )}
 
-        {/* Chainlink badge */}
-        <div className="flex items-center justify-center gap-2 pt-1">
-          <span className="text-xs text-gray-400">Dispute resolution powered by</span>
-          <span className="text-xs font-bold text-gray-400">AI + UMA + Chainlink</span>
-        </div>
       </div>
 
       {/* Result feedback */}
@@ -1500,6 +1495,12 @@ export default function TaskDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [task, setTask] = useState<Task | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
+  // Who is looking, read as EscrowV2Panel reads it. Messages are sent as this
+  // person, and the box shows only to the poster or the doer.
+  const [userId, setUserId] = useState<string | null>(null);
+  useEffect(() => {
+    try { setUserId(localStorage.getItem("relay_user_id")); } catch { /* no storage */ }
+  }, []);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -1534,8 +1535,11 @@ export default function TaskDetailPage() {
 
   const sendMessage = useCallback(
     async (text: string) => {
-      if (!task) return;
-      const sender = task.claimant || task.poster;
+      // Send as the signed-in person. This was "task.claimant || task.poster",
+      // so a poster's message was saved under the doer's wallet (test product
+      // walk, 14 Oct 2026). The server let it through while SESSION_ENFORCE is off.
+      if (!task || !userId) return;
+      const sender = userId;
       const res = await fetch(`/api/tasks/${id}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1546,7 +1550,7 @@ export default function TaskDetailPage() {
         setMessages(data.messages || []);
       }
     },
-    [id, task],
+    [id, task, userId],
   );
 
   useEffect(() => {
@@ -1827,15 +1831,9 @@ export default function TaskDetailPage() {
           )}
         </div>
 
-        {/* Restricted badge */}
-        {task.claimCode !== null && (
-          <div className="bg-gray-100 border border-gray-200 rounded-xl px-3 py-2 flex items-center gap-2">
-            <span className="text-sm">{"\u{1F512}"}</span>
-            <span className="text-xs text-gray-400 font-medium uppercase tracking-wider">
-              Access Code Required
-            </span>
-          </div>
-        )}
+        {/* The access-code badge was removed on 14 Oct 2026: claimCode
+            is never sent to a client (lib/task-serializer), so the check
+            "claimCode !== null" was true on every favour. */}
 
         {/* ===== AGENT CARD ===== */}
         {task.agent && (
@@ -1873,7 +1871,6 @@ export default function TaskDetailPage() {
                   {rewardAmountLabel(task)}
                 </p>
               )}
-              <RequiredTierBadge bountyUsdc={task.bountyUsdc} />
             </div>
             <div>
               <p className="text-xs text-gray-400 uppercase tracking-wider">Category</p>
@@ -2030,7 +2027,7 @@ export default function TaskDetailPage() {
           <WorldChatThread
             messages={messages}
             agent={task.agent}
-            userId={task.claimant || task.poster}
+            userId={userId && [task.poster, task.claimant].some((w) => !!w && w.toLowerCase() === userId.toLowerCase()) ? userId : null}
             onSend={sendMessage}
           />
         </CollapsibleSection>
