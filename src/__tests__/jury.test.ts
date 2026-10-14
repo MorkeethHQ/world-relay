@@ -16,6 +16,7 @@ vi.mock("@/lib/redis", () => ({
       s.add(member); mockSets.set(key, s); return added;
     },
     smembers: async (key: string) => Array.from(mockSets.get(key) || []),
+    sismember: async (key: string, member: string) => (mockSets.get(key)?.has(member) ? 1 : 0),
     incr: async (key: string) => {
       const next = Number(mockStore.get(key) || 0) + 1;
       mockStore.set(key, next); return next;

@@ -240,18 +240,30 @@ export async function recordJuryVerdict(
   if (answer.appeal) return { error: "Appeal cards are ruled through /api/jury/appeal" };
   if (answer.judge && answer.judge.toLowerCase() !== judge.toLowerCase()) return { error: "Not your card" };
 
+  if (await redis.sismember(`jury:seen:${judge.toLowerCase()}`, cardId)) return { error: "Already judged" };
+
+  // The daily count and streak (lib/jury-day.ts), kept only while the jury game
+  // switch is on (R2 finding 6). Written BEFORE the card is spent and counted by
+  // proof (or by card for practice), so it is idempotent: a failure answers an
+  // error with the card still live, and the retry lands it once (R2c, 14 Oct).
+  // Many cards on one proof still count once (R2 finding 1).
+  let day: JuryDay | null = null;
+  if (juryGameOn()) {
+    try {
+      day = await recordJuryDay(judge, Date.now(), answer.practice ? `c:${cardId}` : `p:${answer.proofTaskId}`);
+    } catch {
+      return { error: "Your verdict was not saved. Try again." };
+    }
+  }
+
   // One verdict per card, forever (also single-use: consume the answer).
   const fresh = await redis.sadd(`jury:seen:${judge.toLowerCase()}`, cardId);
   if (!fresh) return { error: "Already judged" };
   await redis.del(`jury:card:${cardId}`).catch(() => {});
-  // The daily count and streak (lib/jury-day.ts) are kept only while the jury
-  // game switch is on (R2 finding 6). Practice counts as play, never as credit.
-  const countDay = () => (juryGameOn() ? recordJuryDay(judge, Date.now()).catch(() => null) : Promise.resolve(null));
 
   // PRACTICE: graded so the player learns, and nothing else. No points, no daily
   // cap consumed, no stats, no judged-set write. Returned before any of those.
   if (answer.practice) {
-    const day = await countDay();
     const statsKey = `jury:stats:${judge.toLowerCase()}`;
     const judged = Number((await redis.hget(statsKey, "judged")) || 0);
     const correctTotal = Number((await redis.hget(statsKey, "correct")) || 0);
@@ -269,9 +281,8 @@ export async function recordJuryVerdict(
     const statsKey = `jury:stats:${judge.toLowerCase()}`;
     const judged = Number((await redis.hget(statsKey, "judged")) || 0);
     const correctTotal = Number((await redis.hget(statsKey, "correct")) || 0);
-    return { correct: saidMatch === answer.isMatch, isMatch: answer.isMatch, pointsAwarded: 0, judged, correctTotal, practice: true, repeat: true, ...(answer.decoy ? { decoy: true } : {}), day: null };
+    return { correct: saidMatch === answer.isMatch, isMatch: answer.isMatch, pointsAwarded: 0, judged, correctTotal, practice: true, repeat: true, ...(answer.decoy ? { decoy: true } : {}), day };
   }
-  const day = await countDay();
 
   const correct = saidMatch === answer.isMatch;
 

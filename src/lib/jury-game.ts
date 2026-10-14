@@ -20,6 +20,15 @@ export function newerDay(prev: JuryDayView | null, next: JuryDayView): JuryDayVi
   return next.today >= prev.today ? next : prev;
 }
 
+/** Apply one server answer: the day to show, and whether this answer may set
+ *  off the goal moment. Pure. Only an answer that newerDay keeps may celebrate,
+ *  so a late answer from yesterday never stamps 10/10 over today's count
+ *  (R2c, 14 Oct 2026). */
+export function acceptDay(prev: JuryDayView | null, next: JuryDayView): { day: JuryDayView; celebrate: boolean } {
+  const day = newerDay(prev, next);
+  return { day, celebrate: day === next && !!next.goalReachedNow };
+}
+
 /** The pips of today's card: one per verdict up to the goal. Pure. */
 export function pips(day: Pick<JuryDayView, "today" | "goal">): boolean[] {
   return Array.from({ length: day.goal }, (_, i) => i < day.today);

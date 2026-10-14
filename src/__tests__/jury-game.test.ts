@@ -67,9 +67,22 @@ describe("newerDay keeps the latest answer when replies arrive out of order", ()
     expect(newerDay(d("2026-10-13", 10), d("2026-10-14", 1)).date).toBe("2026-10-14");
     expect(newerDay(d("2026-10-14", 1), d("2026-10-13", 10)).date).toBe("2026-10-14");
   });
-  it("the deck sets the day only through newerDay", () => {
+  it("the deck sets the day and the goal moment only through acceptDay", () => {
     const deck = readFileSync(`${process.cwd()}/src/components/JuryMode.tsx`, "utf8");
-    expect(deck.match(/setDay\(/g)?.length).toBe(2);
-    expect(deck.match(/setDay\(\(prev\) => newerDay\(prev, /g)?.length).toBe(2);
+    expect(deck.match(/setDay\(/g)?.length).toBe(1);
+    expect(deck).toContain("acceptDay(dayRef.current, next)");
+    // The goal moment is set in one place, inside takeDay, and only on celebrate.
+    expect(deck.match(/setGoalMoment\((?!null)/g)?.length).toBe(1);
+    expect(deck).toMatch(/if \(celebrate\) \{\s*setTimeout\(\(\) => \{ hapticSuccess\(\); setGoalMoment\(next\)/);
+    expect(deck.match(/takeDay\(/g)?.length).toBe(2); // called for the GET and for each verdict
+  });
+  // R2c, 14 Oct 2026: yesterday's late 10/10 stamped over today's 1/10.
+  it("a late answer from yesterday that reached the goal does not celebrate", async () => {
+    const { acceptDay } = await import("@/lib/jury-game");
+    const today = { date: "2026-10-14", today: 1, goal: 10, streak: 2, best: 2 };
+    const lateGoal = { date: "2026-10-13", today: 10, goal: 10, streak: 1, best: 2, goalReachedNow: true };
+    expect(acceptDay(today, lateGoal)).toEqual({ day: today, celebrate: false });
+    const nowGoal = { ...lateGoal, date: "2026-10-14" };
+    expect(acceptDay({ ...today, today: 9 }, nowGoal)).toEqual({ day: nowGoal, celebrate: true });
   });
 });

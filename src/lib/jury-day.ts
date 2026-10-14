@@ -53,23 +53,26 @@ export function streakFromDays(days: readonly string[]): JuryStreak {
   return { last, current: run, best };
 }
 
-/** Count one verdict. Called once per accepted verdict, after the one-verdict-per-card check.
- *  R2 finding 7 and its re-review, 14 Oct 2026: the count and the day mark are
- *  one transaction (MULTI/EXEC), so a day is never counted without being marked,
- *  and the streak is read from the marked days, so no write can move it back. */
-export async function recordJuryDay(judge: string, nowMs: number): Promise<JuryDay | null> {
+/** Count one verdict. `member` names what was judged: `p:<proof id>` for a live
+ *  card, `c:<card id>` for practice. Today's count is the number of distinct
+ *  members, so running this twice for the same verdict counts it once. That
+ *  makes it safe to run BEFORE the card is spent, and to run again on a retry
+ *  (R2c, 14 Oct 2026: a failed day write after the card was spent could never
+ *  be repaired). The count and the day mark are one MULTI/EXEC. */
+export async function recordJuryDay(judge: string, nowMs: number, member: string): Promise<JuryDay | null> {
   const redis = getRedis();
   if (!redis) return null;
   const day = utcDay(nowMs);
   const tx = redis.multi();
-  tx.incr(countKey(judge, day));
+  tx.sadd(countKey(judge, day), member);
   tx.expire(countKey(judge, day), 48 * 3600);
   tx.sadd(daysKey(judge), day);
+  tx.scard(countKey(judge, day));
   tx.smembers(daysKey(judge));
-  const [count, , , days] = (await tx.exec()) as [number, unknown, unknown, string[]];
+  const [added, , , count, days] = (await tx.exec()) as [number, unknown, unknown, number, string[]];
   const today = Number(count);
   const streak = streakFromDays((days ?? []).map(String));
-  return { date: day, today, goal: JURY_DAILY_GOAL, streak: liveStreak(streak, day), best: streak.best, goalReachedNow: today === JURY_DAILY_GOAL };
+  return { date: day, today, goal: JURY_DAILY_GOAL, streak: liveStreak(streak, day), best: streak.best, goalReachedNow: Number(added) === 1 && today === JURY_DAILY_GOAL };
 }
 
 /** Read today's count and the live streak. Writes nothing. */
@@ -77,7 +80,7 @@ export async function getJuryDay(judge: string, nowMs: number): Promise<JuryDay 
   const redis = getRedis();
   if (!redis) return null;
   const day = utcDay(nowMs);
-  const [count, days] = await Promise.all([redis.get(countKey(judge, day)), redis.smembers(daysKey(judge))]);
+  const [count, days] = await Promise.all([redis.scard(countKey(judge, day)), redis.smembers(daysKey(judge))]);
   const streak = streakFromDays((days ?? []).map(String));
   return { date: day, today: Number(count) || 0, goal: JURY_DAILY_GOAL, streak: liveStreak(streak, day), best: streak.best, goalReachedNow: false };
 }

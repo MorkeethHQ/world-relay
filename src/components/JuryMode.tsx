@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { hapticTap, hapticSuccess, hapticError } from "@/lib/minikit-helpers";
 import { CategoryIcon } from "@/components/CategoryIcon";
-import { juryGameOn, newerDay, pips, type JuryDayView } from "@/lib/jury-game";
+import { acceptDay, juryGameOn, pips, type JuryDayView } from "@/lib/jury-game";
 
 export type JuryCard = {
   cardId: string;
@@ -60,15 +60,27 @@ export function JuryMode({
   const game = juryGameOn();
   const [day, setDay] = useState<JuryDayView | null>(null);
   const [goalMoment, setGoalMoment] = useState<JuryDayView | null>(null);
+  // Every server answer goes through acceptDay, in arrival order. The ref holds
+  // the day shown, so the goal moment is decided on the same answer that wins.
+  const dayRef = useRef<JuryDayView | null>(null);
+  const takeDay = useCallback((next: JuryDayView) => {
+    const { day: shown, celebrate } = acceptDay(dayRef.current, next);
+    dayRef.current = shown;
+    setDay(shown);
+    if (celebrate) {
+      setTimeout(() => { hapticSuccess(); setGoalMoment(next); }, 700);
+      setTimeout(() => setGoalMoment(null), 3200);
+    }
+  }, []);
   useEffect(() => {
     if (!game || !userId) return;
     let live = true;
     fetch("/api/jury/record", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => { if (live && d?.day && typeof d.day.today === "number") setDay((prev) => newerDay(prev, d.day)); })
+      .then((d) => { if (live && d?.day && typeof d.day.today === "number") takeDay(d.day); })
       .catch(() => {});
     return () => { live = false; };
-  }, [game, userId]);
+  }, [game, userId, takeDay]);
 
   // PLAYABLE FOREVER (2026-09-21). `practice` is set by the server when this judge
   // has ruled on every live proof: the deck is a replay of real, verified proofs
@@ -158,16 +170,8 @@ export function JuryMode({
         .then((result: { correct: boolean; isMatch: boolean; pointsAwarded: number; practice?: boolean; decoy?: boolean; day?: JuryDayView | null } | null) => {
           if (!result) return;
           setNeedsAuth(false);
-          if (game && result.day && typeof result.day.today === "number") {
-            const next = result.day;
-            setDay((prev) => newerDay(prev, next));
-            // The goal moment: the server says this verdict was the tenth today.
-            if (result.day.goalReachedNow) {
-              const reached = result.day;
-              setTimeout(() => { hapticSuccess(); setGoalMoment(reached); }, 700);
-              setTimeout(() => setGoalMoment(null), 3200);
-            }
-          }
+          // The goal moment comes only from an answer acceptDay keeps.
+          if (game && result.day && typeof result.day.today === "number") takeDay(result.day);
           if (result.correct) hapticSuccess(); else hapticError();
           setFlash({ correct: result.correct, isMatch: result.isMatch, points: result.pointsAwarded, decoy: !!result.decoy });
           setSession((s) => ({
@@ -180,7 +184,7 @@ export function JuryMode({
         })
         .catch(() => {});
     }
-  }, [card, userId, onReauth, game]);
+  }, [card, userId, onReauth, game, takeDay]);
 
   const onTouchStart = (e: React.TouchEvent) => {
     if (busy.current) return;
