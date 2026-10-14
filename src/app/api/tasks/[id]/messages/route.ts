@@ -3,7 +3,7 @@ import { addMessage, getMessages } from "@/lib/messages";
 import { getTask } from "@/lib/store";
 import { postUserMessage } from "@/lib/xmtp";
 import { processIncomingMessage } from "@/lib/xmtp-commands";
-import { ownershipError, readerRefusal } from "@/lib/session";
+import { getAuthedAddress, ownershipError, readerRefusal } from "@/lib/session";
 
 const PRIVATE = { "Cache-Control": "private, no-store" };
 
@@ -30,9 +30,17 @@ export async function GET(
   // A signed-in wallet that is not a participant keeps the public part and
   // loses the private part, instead of a 403 that would blank a page it could
   // open yesterday. An anonymous caller is refused once SESSION_ENFORCE is on.
-  if (refusal?.status === 403) {
-    const publicOnly = (await getMessages(id)).filter((m) => m.sender === "relay-bot");
-    return NextResponse.json({ messages: publicOnly, participant: false }, { headers: PRIVATE });
+  // R2 finding 3, 14 Oct 2026: with the switch off, readerRefusal let a caller
+  // with no cookie through, and production served whole threads to anyone. A
+  // caller with no session is now a non-participant whatever the switch says.
+  // A non-participant gets NO messages. The bot part is not public either: the
+  // bot echoes the proof note (lib/xmtp.ts postProofSubmitted) and names the
+  // poster and claimant by a shortened wallet, and a stored message carries no
+  // type that would mark a briefing as safe. Everything a stranger may read
+  // about the task is already on the task itself.
+  const anonymous = !refusal && !getAuthedAddress(req, Date.now());
+  if (refusal?.status === 403 || anonymous) {
+    return NextResponse.json({ messages: [], participant: false }, { headers: PRIVATE });
   }
   if (refusal) return NextResponse.json({ error: refusal.error, code: refusal.code }, { status: refusal.status, headers: PRIVATE });
 
