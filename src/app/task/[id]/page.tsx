@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import type { Task, VerificationResult, AiFollowUp } from "@/lib/types";
 import { VerificationBadge } from "@/components/VerificationBadge";
-import { reauthWallet, sendWithReauth } from "@/lib/reauth";
+import { ensureSession, sendWithReauth } from "@/lib/reauth";
 import { hapticTap, hapticSuccess, hapticError, shareTask } from "@/lib/minikit-helpers";
 import { MiniKit } from "@worldcoin/minikit-js";
 import { rewardAmountLabel, isPointsReward, isRealMoney } from "@/lib/reward";
@@ -30,6 +30,14 @@ type Message = {
 const LEGACY_ESCROW_ADDRESS = "0x274C38eA9944f57D24A59fbEf558bba2264f9351";
 const WORLDSCAN_TX = "https://worldscan.org/tx";
 const WORLDSCAN_ADDR = "https://worldscan.org/address";
+
+// Whether the viewer is the poster or the doer, as the server says it
+// (toApiTask isOwnTask / isClaimant, from the session). The row's wallets are
+// masked when there is no session, so a wallet compare here was wrong.
+function isParty(task: Task): boolean {
+  const t = task as Task & { isOwnTask?: boolean; isClaimant?: boolean };
+  return !!(t.isOwnTask || t.isClaimant);
+}
 
 function truncate(addr: string): string {
   return displayName(addr);
@@ -1261,7 +1269,7 @@ type UmaState = {
   } | null;
 };
 
-function DisputeActions({ task, onAction }: { task: Task; onAction: () => void }) {
+function DisputeActions({ task, viewer, onAction }: { task: Task; viewer: string | null; onAction: () => void }) {
   const [acting, setActing] = useState<string | null>(null);
   const [umaState, setUmaState] = useState<UmaState | null>(null);
   const [result, setResult] = useState<{ type: "success" | "error"; message: string } | null>(null);
@@ -1283,8 +1291,10 @@ function DisputeActions({ task, onAction }: { task: Task; onAction: () => void }
       const res = await sendWithReauth(() => fetch(`/api/tasks/${task.id}/confirm`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ poster: task.poster, approved }),
-      }), task.poster);
+        // The server takes the poster from the session; the field is only a
+        // hint. task.poster is a masked public id when the session has expired.
+        body: JSON.stringify({ poster: viewer, approved }),
+      }), viewer);
       if (res.ok) {
         setResult({ type: "success", message: approved ? "Proof approved — USDC released" : "Proof rejected" });
         onAction();
@@ -1307,8 +1317,8 @@ function DisputeActions({ task, onAction }: { task: Task; onAction: () => void }
       const res = await sendWithReauth(() => fetch(`/api/tasks/${task.id}/dispute`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ poster: task.poster }),
-      }), task.poster);
+        body: JSON.stringify({ poster: viewer }),
+      }), viewer);
       if (res.ok) {
         const data = await res.json();
         const verdict = data.dispute?.approved ? "Approved" : "Rejected";
@@ -1507,7 +1517,17 @@ export default function TaskDetailPage() {
   useEffect(() => {
     try { setUserId(localStorage.getItem("relay_user_id")); } catch { /* no storage */ }
   }, []);
-  const triedReauth = useRef(false);
+  // A favour opened by link does not pass through the home page, which is
+  // where an expired session is renewed. Do the same here once, then read
+  // again: the task row, the thread and the poster's buttons all depend on
+  // the session (the row is masked without one). Codex, 14 Oct 2026.
+  const [sessionChecked, setSessionChecked] = useState(false);
+  useEffect(() => {
+    if (!userId || sessionChecked) return;
+    setSessionChecked(true);
+    ensureSession(userId).then((ok) => { if (ok) fetchDataRef.current?.(); });
+  }, [userId, sessionChecked]);
+  const fetchDataRef = useRef<(() => Promise<void>) | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -1521,10 +1541,9 @@ export default function TaskDetailPage() {
         fetch(`/api/tasks/${id}/messages`),
       ]);
 
-      let current: Task | null = task;
       if (taskRes.ok) {
         const data = await taskRes.json();
-        if (data.task) { current = data.task as Task; setTask(current); }
+        if (data.task) setTask(data.task as Task);
         else if (!task) setError("Task not found");
       } else if (!task) {
         setError("Task not found");
@@ -1533,25 +1552,14 @@ export default function TaskDetailPage() {
       if (msgsRes.ok) {
         const data = await msgsRes.json();
         setMessages(data.messages || []);
-        // A party with an expired session gets an empty thread, not a refusal
-        // (the read answers non-participants that way). Sign in once per page
-        // load and read again, so the poster or doer is not shown a blank chat.
-        const t = current;
-        const isParty = !!userId && !!t && [t.poster, t.claimant].some((w) => !!w && w.toLowerCase() === userId.toLowerCase());
-        if (data.participant === false && isParty && !triedReauth.current) {
-          triedReauth.current = true;
-          if (await reauthWallet(userId)) {
-            const again = await fetch(`/api/tasks/${id}/messages`);
-            if (again.ok) setMessages((await again.json()).messages || []);
-          }
-        }
       }
     } catch {
       if (!task) setError("Failed to load task");
     } finally {
       setLoading(false);
     }
-  }, [id, task, userId]);
+  }, [id, task]);
+  fetchDataRef.current = fetchData;
 
   const sendMessage = useCallback(
     async (text: string) => {
@@ -2032,6 +2040,7 @@ export default function TaskDetailPage() {
         {task.verificationResult?.verdict === "flag" && task.status !== "completed" && task.status !== "failed" && (
           <DisputeActions
             task={task}
+            viewer={userId}
             onAction={fetchData}
           />
         )}
@@ -2050,7 +2059,7 @@ export default function TaskDetailPage() {
           <WorldChatThread
             messages={messages}
             agent={task.agent}
-            userId={userId && [task.poster, task.claimant].some((w) => !!w && w.toLowerCase() === userId.toLowerCase()) ? userId : null}
+            userId={isParty(task) ? userId : null}
             onSend={sendMessage}
           />
         </CollapsibleSection>

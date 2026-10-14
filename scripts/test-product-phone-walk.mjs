@@ -117,7 +117,7 @@ await step("4e", await has(page.getByText("Nice work!")), "Ben is told he comple
 await page.getByRole("button", { name: "Maybe later" }).click().catch(() => {});
 await page.getByRole("button", { name: "Profile" }).click();
 let profile = "";
-for (let i = 0; i < 25 && profile.length < 200; i++) { await page.waitForTimeout(1000); profile = (await page.locator("body").innerText()).replace(/\s+/g, " "); }
+for (let i = 0; i < 45 && !/Your activity/.test(profile); i++) { await page.waitForTimeout(1000); profile = (await page.locator("body").innerText()).replace(/\s+/g, " "); }
 await step("4f", /FAVOUR TEST, not[^]{0,120}?5 pts Completed/.test(profile), "Ben's Profile lists the TEST favour: 5 pts, Completed", profile.match(/FAVOUR TEST, not.{0,40}/)?.[0] ?? "no TEST favour row");
 
 // 5. Reviewer 1 is not a party: no messages on the favour page.

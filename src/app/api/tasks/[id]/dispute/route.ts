@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTask, posterConfirm, setAttestationHash, markSettled, markSettlementPending } from "@/lib/store";
-import { ownerRefusal } from "@/lib/session";
+import { addressMatches, getAuthedAddress } from "@/lib/session";
 import { getMessages } from "@/lib/messages";
 import { mediateDispute } from "@/lib/ai-chat";
 import { postDisputeVerdict } from "@/lib/xmtp";
@@ -18,7 +18,6 @@ export async function POST(
 ) {
   const { id } = await params;
   const body = await req.json();
-  const { poster } = body;
 
   const task = await getTask(id);
   if (!task) {
@@ -30,14 +29,19 @@ export async function POST(
   if (task.verificationResult?.verdict !== "flag") {
     return NextResponse.json({ error: "Task not in flagged state" }, { status: 400 });
   }
-  if (task.poster !== poster) {
+  // THE POSTER IS WHOEVER THE SESSION SAYS (14 Oct 2026), never the body
+  // field, and the session is checked first. Since the task API masks wallets
+  // for a viewer without a session, a poster whose cookie had expired sent a
+  // public id here and was told "Only poster can request mediation" instead of being asked to sign in
+  // again. A doer naming the poster is refused as before (hard gate).
+  const actor = getAuthedAddress(req, Date.now());
+  if (!actor) {
+    return NextResponse.json({ error: "Re-open FAVOUR to sign in again, then this will go through.", code: "reauth_required" }, { status: 401 });
+  }
+  if (!addressMatches(actor, task.poster)) {
     return NextResponse.json({ error: "Only poster can request mediation" }, { status: 403 });
   }
-  // Hard gate (ownerRefusal), 14 Oct 2026: ownershipError let a mismatched or
-  // missing session through while SESSION_ENFORCE is off, and a doer approved
-  // their own flagged proof in the poster's name on the local fixture.
-  const refusal = ownerRefusal(req, poster, Date.now());
-  if (refusal) return NextResponse.json(refusal, { status: 403 });
+  const poster = task.poster;
 
   // A flag can be decided once (2026-10-05). A single-reply favour keeps its
   // "flag" verdict after it is approved, so a second mediation used to run the

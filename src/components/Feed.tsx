@@ -812,7 +812,7 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
     });
     try {
       let res = await send();
-      if (res.status === 403 && onReauth) {
+      if ((res.status === 401 || res.status === 403) && onReauth) {
         const peek = await res.clone().json().catch(() => ({} as Record<string, unknown>));
         if (peek.code === "reauth_required") { await onReauth(); res = await send(); }
       }
@@ -2106,7 +2106,8 @@ async function retryAfterReauth(
   send: () => Promise<Response>,
   onReauth?: () => void | Promise<void>,
 ): Promise<Response> {
-  if (res.status !== 403 || !onReauth) return res;
+  // 401 too (14 Oct 2026): the hard gates answer 401 when there is no session at all.
+  if ((res.status !== 401 && res.status !== 403) || !onReauth) return res;
   const peek = await res.clone().json().catch(() => ({} as Record<string, unknown>));
   if (peek.code !== "reauth_required") return res;
   await onReauth();
@@ -3298,7 +3299,7 @@ function SubmitProof({
       // `reauth_required` means the session expired, not that the proof is bad.
       // One signature, then the SAME proof goes again. Only once: a loop here
       // would ask a person who declined to keep declining.
-      if (res.status === 403 && onReauth) {
+      if ((res.status === 401 || res.status === 403) && onReauth) {
         const peek = await res.clone().json().catch(() => ({} as Record<string, unknown>));
         if (peek.code === "reauth_required") {
           await onReauth();

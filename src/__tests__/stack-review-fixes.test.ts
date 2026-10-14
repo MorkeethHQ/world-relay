@@ -99,24 +99,41 @@ describe("blocker 3: a hard gate can be recovered from any page", () => {
   });
 });
 
-// SECOND CODEX REVIEW (030631e): one blocker, two minors.
-describe("review 2: every hard-gated call on the favour page can recover", () => {
+// SECOND CODEX REVIEW (030631e) and FINAL PASS (c391018): the task API masks
+// wallets for a viewer without a session, so the page may never compare or
+// send task.poster. It asks the server (isOwnTask / isClaimant), sends as the
+// viewer, and renews an expired session when it opens.
+describe("review 2 and final: the favour page works from the session", () => {
   const page = () => src("src/app/task/[id]/page.tsx");
-  it("approve and mediation send through sendWithReauth as the poster", () => {
+  it("approve and mediation send as the viewer, through sendWithReauth", () => {
     const p = page();
-    const confirm = p.slice(p.indexOf("const handleConfirm = async"), p.indexOf("const handleConfirm = async") + 700);
-    const mediate = p.slice(p.indexOf("const handleMediation = async"), p.indexOf("const handleMediation = async") + 700);
+    const confirm = p.slice(p.indexOf("const handleConfirm = async"), p.indexOf("const handleConfirm = async") + 900);
+    const mediate = p.slice(p.indexOf("const handleMediation = async"), p.indexOf("const handleMediation = async") + 900);
     expect(confirm).toMatch(/sendWithReauth\(\(\) => fetch\(`\/api\/tasks\/\$\{task\.id\}\/confirm`/);
-    expect(confirm).toContain("}), task.poster)");
-    expect(mediate).toMatch(/sendWithReauth\(\(\) => fetch\(`\/api\/tasks\/\$\{task\.id\}\/dispute`/);
-    expect(mediate).toContain("}), task.poster)");
+    expect(confirm).toContain("body: JSON.stringify({ poster: viewer, approved }),");
+    expect(confirm).toContain("}), viewer);");
+    expect(mediate).toContain("body: JSON.stringify({ poster: viewer }),");
+    expect(mediate).toContain("}), viewer);");
+    expect(p).not.toMatch(/poster: task\.poster/);
   });
-  it("the chat read signs in again once when a party gets no thread", () => {
+  it("the page renews an expired session on open and reads again", () => {
+    expect(page()).toMatch(/ensureSession\(userId\)\.then\(\(ok\) => \{ if \(ok\) fetchDataRef\.current\?\.\(\); \}\)/);
+  });
+  it("who is a party comes from the server's flags, never a wallet compare", () => {
     const p = page();
-    const load = p.slice(p.indexOf("const fetchData = useCallback("), p.indexOf("const sendMessage = useCallback("));
-    expect(load).toMatch(/data\.participant === false/);
-    expect(load).toMatch(/!triedReauth\.current/);
-    expect(load).toMatch(/await reauthWallet\(userId\)/);
+    expect(p).toContain("userId={isParty(task) ? userId : null}");
+    expect(p).not.toMatch(/\[task\.poster, task\.claimant\]\.some\(/);
+  });
+  it("the dashboard renews the session first and lists by the server's flags", () => {
+    const d = src("src/app/dashboard/page.tsx");
+    expect(d).toMatch(/ensureSession\(/);
+    expect(d).not.toMatch(/t\.poster === userId|t\.claimant === userId/);
+  });
+  it("Feed and CompanyCampaign start recovery on 401 too", () => {
+    for (const f of ["src/components/Feed.tsx", "src/components/CompanyCampaign.tsx"]) {
+      expect(src(f), f).not.toMatch(/res\.status === 403 && onReauth/);
+    }
+    expect(src("src/components/Feed.tsx")).not.toContain("if (res.status !== 403 || !onReauth) return res;");
   });
 });
 

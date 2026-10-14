@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { sendWithReauth } from "@/lib/reauth";
+import { ensureSession, sendWithReauth } from "@/lib/reauth";
 import type { Task } from "@/lib/types";
 import { ProofOfFavourCard } from "@/components/ProofOfFavourCard";
 import { VerificationBadge } from "@/components/VerificationBadge";
@@ -76,6 +76,7 @@ export default function ProfilePage() {
   const [chain, setChain] = useState<EscrowStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
+  const [sessionReady, setSessionReady] = useState(false);
   const [verificationLevel, setVerificationLevel] = useState<string | null>(null);
   const [referral, setReferral] = useState<{ invited: number; activated: number; cap: number; capReached: boolean } | null>(null);
 
@@ -87,26 +88,37 @@ export default function ProfilePage() {
   }, []);
 
   useEffect(() => {
-    if (!userId || !userId.startsWith("0x")) return;
+    if (!sessionReady || !userId || !userId.startsWith("0x")) return;
     // Own data only since 14 Oct 2026: an expired session signs in once and reads again.
     sendWithReauth(() => fetch(`/api/referral/stats?address=${userId}`), userId)
       .then((r) => r.json())
       .then((d) => { if (!d.error) setReferral(d); })
       .catch(() => {});
-  }, [userId]);
+  }, [userId, sessionReady]);
 
+  // The task rows say who is a party only with a session (toApiTask masks
+  // wallets without one). Opened directly, this page renews an expired
+  // session first, as the home page does, then loads (Codex, 14 Oct 2026).
   useEffect(() => {
+    const stored = (() => { try { return localStorage.getItem("relay_user_id"); } catch { return null; } })();
+    ensureSession(stored && stored.startsWith("0x") ? stored : null).finally(() => setSessionReady(true));
+  }, []);
+  useEffect(() => {
+    if (!sessionReady) return;
     Promise.all([
       fetch("/api/tasks").then(r => r.json()).then(d => setTasks(d.tasks || [])),
       fetch("/api/escrow-stats").then(r => r.json()).then(d => { if (!d.error) setChain(d); }),
     ]).finally(() => setLoading(false));
-  }, []);
+  }, [sessionReady]);
 
   const addresses = userId ? [userId] : [];
   useWorldUsers(addresses);
 
-  const appCompleted = tasks.filter(t => t.claimant === userId && t.status === "completed");
-  const openTasks = tasks.filter(t => t.poster === userId);
+  // Party by the server's flags (from the session), never a wallet compare.
+  const mine = (t: Task) => (t as Task & { isOwnTask?: boolean }).isOwnTask === true;
+  const doing = (t: Task) => (t as Task & { isClaimant?: boolean }).isClaimant === true;
+  const appCompleted = tasks.filter(t => doing(t) && t.status === "completed");
+  const openTasks = tasks.filter(mine);
   const funded = tasks.filter(t => t.status === "open");
 
   const userName = userId ? displayName(userId) : "Anonymous";
@@ -178,7 +190,7 @@ export default function ProfilePage() {
           {/* Your activity — only the current user's own tasks (posted or completed) */}
           {(() => {
             const myTasks = userId
-              ? tasks.filter((t) => t.poster === userId || t.claimant === userId)
+              ? tasks.filter((t) => mine(t) || doing(t))
               : [];
             // A user can have a streak (from polls/jury/daily activity) with zero
             // favours. Show an honest empty-state so that reads as intentional,
@@ -215,7 +227,7 @@ export default function ProfilePage() {
                 </div>
                 <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
                   {myTasks.slice().reverse().map((t, i) => {
-                    const role = t.poster === userId ? "Posted" : "Completed";
+                    const role = mine(t) ? "Posted" : "Completed";
                     // Each row opens the favour page, where a poster finds
                     // Approve and the chat (test product walk, 14 Oct 2026:
                     // the row could not be tapped, so no menu led there).

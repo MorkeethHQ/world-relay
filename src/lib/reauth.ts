@@ -49,3 +49,16 @@ export async function sendWithReauth(
   if (!(await reauth(address))) return res;
   return send();
 }
+
+/** On opening a page: if the session is gone, sign in again once. True when
+ *  a session is there afterwards. Same check the home page makes on load
+ *  (page.tsx, GET /api/session). Never throws. */
+export async function ensureSession(address: string | null, reauth: (address: string) => Promise<boolean> = reauthWallet): Promise<boolean> {
+  if (!address) return false;
+  try {
+    const res = await fetch("/api/session", { cache: "no-store" });
+    const s = await res.json().catch(() => null);
+    if (s?.authenticated) return true;
+  } catch { /* fall through to a signature */ }
+  return reauth(address);
+}

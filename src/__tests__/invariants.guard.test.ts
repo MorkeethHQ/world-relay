@@ -70,11 +70,14 @@ describe("invariant guards", () => {
 
   it("Inv 4: spoofable poster/claimant routes enforce session ownership", () => {
     // confirm/cancel/dispute release or refund escrow off a public address; they
-    // must call ownershipError (the SESSION_ENFORCE gate).
+    // must check the session. Since 14 Oct 2026 that is the hard gate:
+    // ownerRefusal, or the poster read from the session (getAuthedAddress) and
+    // matched with addressMatches. ownershipError (the SESSION_ENFORCE gate) is
+    // still accepted, as the weakest form.
     for (const route of ["confirm", "cancel", "dispute"]) {
       const f = files.find((p) => p.endsWith(join(route, "route.ts")));
       expect(f, `${route}/route.ts not found`).toBeTruthy();
-      expect(read(f!), `${route} route must enforce session ownership`).toMatch(/ownershipError/);
+      expect(read(f!), `${route} route must enforce session ownership`).toMatch(/(?:ownershipError|ownerRefusal)\(|getAuthedAddress\(req[\s\S]*addressMatches\(/);
     }
   });
 

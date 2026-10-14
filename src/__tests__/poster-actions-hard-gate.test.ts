@@ -82,7 +82,7 @@ describe("confirm: only the poster's own session approves", () => {
     expect(spy.posterConfirm).not.toHaveBeenCalled();
   });
   it("no cookie is refused", async () => {
-    expect((await CONFIRM(req("/api/tasks/t1/confirm", { poster: POSTER, approved: true }), { params })).status).toBe(403);
+    expect([401, 403]).toContain((await CONFIRM(req("/api/tasks/t1/confirm", { poster: POSTER, approved: true }), { params })).status);
     expect(spy.posterConfirm).not.toHaveBeenCalled();
   });
   it("the poster's own cookie gets through", async () => {
@@ -113,5 +113,28 @@ describe("feedback-tasks: points only to the session's own wallet", () => {
     const res = await FEEDBACK(req("/api/feedback-tasks", { address: POSTER, templateId: "tpl", response: "an honest answer" }, DOER));
     expect(res.status).toBe(403);
     expect(spy.awardPoints).not.toHaveBeenCalled();
+  });
+});
+
+// FINAL CODEX PASS (14 Oct 2026): the task API masks wallets for a viewer
+// without a session, so a poster whose cookie expired sent a public id as
+// `poster` and got "Only poster can ..." (403, no recovery). The poster is now
+// taken from the session, and no session answers reauth_required first.
+describe("confirm and dispute take the poster from the session", () => {
+  it("no cookie: reauth_required, so the page can ask for a signature", async () => {
+    for (const call of [
+      () => CONFIRM(req("/api/tasks/t1/confirm", { poster: "p_masked", approved: true }), { params }),
+      () => DISPUTE(req("/api/tasks/t1/dispute", { poster: "p_masked" }), { params }),
+    ]) {
+      const res = await call();
+      expect(res.status).toBe(401);
+      expect((await res.json()).code).toBe("reauth_required");
+    }
+    expect(spy.posterConfirm).not.toHaveBeenCalled();
+    expect(spy.mediateDispute).not.toHaveBeenCalled();
+  });
+  it("the poster's own cookie works whatever the body says (a masked public id)", async () => {
+    await CONFIRM(req("/api/tasks/t1/confirm", { poster: "p_masked", approved: true }, POSTER), { params });
+    expect(spy.posterConfirm).toHaveBeenCalled();
   });
 });

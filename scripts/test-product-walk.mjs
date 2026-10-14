@@ -13,6 +13,7 @@
 //      gets no messages.
 //   7. TEST Reviewer 1 gets Ben's proof in the swipe jury, judges it, and the
 //      day count moves.
+//   8. A poster without a session: masked row, a signature asked, then approve.
 // Every step prints PASS or FAIL. The exit code is the number of FAILs.
 //
 //   node scripts/test-product-walk.mjs [--app http://localhost:3220] [--store http://127.0.0.1:8089]
@@ -129,6 +130,28 @@ const verdict = card ? await api("/api/jury", { method: "POST", as: REV, body: {
 step("7b", verdict.ok && verdict.body.correct === true && verdict.body.pointsAwarded > 0, `Reviewer 1 calls it "${rightCall}", it is saved, graded right, and earns a point`, `${verdict.status} ${short(verdict.body)}`);
 const dayAfter = (await api(`/api/jury/record?address=${REV.address}`, { as: REV })).body.day;
 step("7c", !!dayAfter && dayAfter.today === (dayBefore?.today ?? 0) + 1, "The jury day count moved by one", `${dayBefore?.today ?? "none"} to ${dayAfter?.today ?? "none"} of ${dayAfter?.goal ?? "?"}; needs NEXT_PUBLIC_FAVOUR_JURY_GAME=1`);
+
+// 8. A poster whose session has expired (Codex, 14 Oct 2026). The task API
+//    masks wallets without a session, so the page holds a public id, not the
+//    poster's wallet. The server must ask for a signature, not refuse the
+//    poster, and must take the poster from the session afterwards.
+//    TEST Reviewer 2 posts (Ana already used today's one free favour).
+const R2 = who("rev2");
+const p2 = await api("/api/tasks", { method: "POST", as: R2, body: { poster: R2.address, description: "FAVOUR TEST, not real: a photo of any window near you, taken from inside", location: "Anywhere", category: "photo", rewardType: "points", bountyUsdc: 5, deadlineHours: 24 } });
+const t2 = p2.body.task;
+await api(`/api/tasks/${t2.id}/claim`, { method: "POST", as: BEN, body: { claimant: BEN.address } });
+const photo2 = readFileSync(join(here, "..", "public", "hero", "desk.jpg")).toString("base64");
+const flagged = await api("/api/verify-proof", { method: "POST", as: BEN, body: { taskId: t2.id, submitter: BEN.address, proofImageBase64: photo2, proofNote: "My window. TEST FLAG" } });
+step("8a", flagged.body.verification?.verdict === "flag", "Ben's proof on Reviewer 2's favour is flagged", `${flagged.status}`);
+const masked = (await api(`/api/tasks/${t2.id}`)).body.task ?? {};
+step("8b", typeof masked.poster === "string" && !/^0x[0-9a-f]{40}$/i.test(masked.poster) && masked.isOwnTask === false, "Without a session the row shows a public id, not the poster's wallet", `poster=${masked.poster}`);
+const noSession = await api(`/api/tasks/${t2.id}/confirm`, { method: "POST", body: { poster: masked.poster, approved: true } });
+step("8c", noSession.status === 401 && noSession.body.code === "reauth_required", "Approving with no session asks for a signature", `${noSession.status} ${short(noSession.body)}`);
+const withSession = await api(`/api/tasks/${t2.id}/confirm`, { method: "POST", as: R2, body: { poster: masked.poster, approved: true } });
+const after2 = (await api(`/api/tasks/${t2.id}`, { as: R2 })).body.task ?? {};
+step("8d", withSession.ok && after2.status === "completed" && after2.isOwnTask === true, "After signing in, the poster approves while the page still holds the public id", `${withSession.status} status=${after2.status}`);
+const doerTry = await api(`/api/tasks/${t2.id}/confirm`, { method: "POST", as: BEN, body: { poster: R2.address, approved: true } });
+step("8e", doerTry.status === 403, "The doer naming the poster is still refused", `${doerTry.status}`);
 
 console.log(`\n${fails === 0 ? "ALL PASS" : `${fails} FAIL`}. Task ${task.id}. Nothing here left this machine.`);
 process.exit(fails);
