@@ -1258,7 +1258,9 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
       >
 
       {/* THE JURY GAME LEADS when its switch is on (lib/jury-game.ts). Off in a
-          production build, so this card is absent there and the screen is as before. */}
+          production build, so this card is absent there and the screen is as before.
+          With the switch on it REPLACES the Review favours entry below: the board
+          keeps one door to the deck (campaign-first.test.ts). */}
       {juryGameOn() && tab === "available" && !loading && userId && (
         <JuryGameCard day={juryDay} onPlay={() => { hapticTap(); setView("jury"); }} />
       )}
@@ -1311,7 +1313,7 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
           deck. Flagged proofs that need a human decision are reached from inside
           it, so this is the only door. Illustrated from the REAL proof strip,
           never from the deck: the deck is opaque and may hold AI-made decoys. */}
-      {tab === "available" && !loading && userId && (
+      {!juryGameOn() && tab === "available" && !loading && userId && (
         <ReviewEntryCard
           entry={reviewEntryFor({ waiting: reviewWaiting, flaggedWaiting: reviewFlagged, record: reviewRecord, walletUser })}
           proof={reviewDeck.length > 0 && reviewWaiting > 0 ? (pickProofStrip(tasks)[0] ?? null) : null}
