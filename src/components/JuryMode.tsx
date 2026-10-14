@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { hapticTap, hapticSuccess, hapticError } from "@/lib/minikit-helpers";
 import { CategoryIcon } from "@/components/CategoryIcon";
-import { acceptDay, juryGameOn, pips, type JuryDayView } from "@/lib/jury-game";
+import { acceptDay, juryGameOn, pips, verdictRetryable, type JuryDayView } from "@/lib/jury-game";
 
 export type JuryCard = {
   cardId: string;
@@ -55,6 +55,9 @@ export function JuryMode({
   // must not be asked again on every swipe.
   const authTried = useRef(false);
   const [needsAuth, setNeedsAuth] = useState(false);
+  // R2d, 14 Oct 2026: a verdict the server could not save comes back to the top
+  // of the deck with this note, so the person can send it again.
+  const [notSaved, setNotSaved] = useState(false);
   // THE DAILY GAME (day bet, 14 Oct 2026), shown only with the switch on. Both
   // come from the server: GET /api/jury/record on open, then each verdict's `day`.
   const game = juryGameOn();
@@ -63,15 +66,23 @@ export function JuryMode({
   // Every server answer goes through acceptDay, in arrival order. The ref holds
   // the day shown, so the goal moment is decided on the same answer that wins.
   const dayRef = useRef<JuryDayView | null>(null);
+  // R2d, 14 Oct 2026: a queued celebration fired after a newer day landed. A
+  // newer accepted day now cancels it, and on firing it checks it is still the
+  // day shown.
+  const goalTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const takeDay = useCallback((next: JuryDayView) => {
     const { day: shown, celebrate } = acceptDay(dayRef.current, next);
+    if (shown !== dayRef.current) { goalTimers.current.forEach(clearTimeout); goalTimers.current = []; setGoalMoment(null); }
     dayRef.current = shown;
     setDay(shown);
     if (celebrate) {
-      setTimeout(() => { hapticSuccess(); setGoalMoment(next); }, 700);
-      setTimeout(() => setGoalMoment(null), 3200);
+      goalTimers.current = [
+        setTimeout(() => { if (dayRef.current === next) { hapticSuccess(); setGoalMoment(next); } }, 700),
+        setTimeout(() => setGoalMoment(null), 3200),
+      ];
     }
   }, []);
+  useEffect(() => () => goalTimers.current.forEach(clearTimeout), []);
   useEffect(() => {
     if (!game || !userId) return;
     let live = true;
@@ -132,6 +143,7 @@ export function JuryMode({
     hapticTap();
     setDx(saidMatch ? 500 : -500);
     const cardId = card.cardId;
+    const votedCard = card;
 
     // Advance IMMEDIATELY — the deck must never wait on the network (the
     // v1 await here made every verdict lag and the card feel stuck).
@@ -165,11 +177,21 @@ export function JuryMode({
             return null;
           }
         }
-        return res.ok ? res.json() : null;
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({} as Record<string, unknown>));
+          if (verdictRetryable(res.status, err)) {
+            // The card left the screen at 110 ms. Put it back on top after that.
+            setTimeout(() => setCards((c) => (c.some((x) => x.cardId === cardId) ? c : [votedCard, ...c])), 140);
+            setNotSaved(true);
+          }
+          return null;
+        }
+        return res.json();
       })()
         .then((result: { correct: boolean; isMatch: boolean; pointsAwarded: number; practice?: boolean; decoy?: boolean; day?: JuryDayView | null } | null) => {
           if (!result) return;
           setNeedsAuth(false);
+          setNotSaved(false);
           // The goal moment comes only from an answer acceptDay keeps.
           if (game && result.day && typeof result.day.today === "number") takeDay(result.day);
           if (result.correct) hapticSuccess(); else hapticError();
@@ -235,6 +257,12 @@ export function JuryMode({
       {/* Inside the one Review feature: proofs the automatic check flagged, which
           qualified reviewers decide. Not a second entry on the board. */}
       <a href="/jury/appeals" className="mx-5 mb-3 min-h-[44px] flex items-center justify-center rounded-full border border-gray-300 bg-white text-[14px] font-semibold text-gray-900">Decide flagged proofs</a>
+
+      {notSaved && (
+        <div className="mx-5 mb-2 rounded-2xl bg-gray-900 px-4 py-3" role="alert">
+          <p className="text-[12px] text-white leading-snug">Not saved. Your last card is back on top: swipe it again.</p>
+        </div>
+      )}
 
       {needsAuth && (
         <div className="mx-5 mb-2 rounded-2xl bg-gray-900 px-4 py-3 flex items-center gap-3" role="alert">

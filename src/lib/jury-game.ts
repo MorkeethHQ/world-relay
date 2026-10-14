@@ -43,3 +43,10 @@ export function dayLine(day: JuryDayView | null): string {
   if (left === 0) return `Done for today${streak}`;
   return `${left} to go${streak}`;
 }
+
+/** Whether a refused verdict should come back to the deck for another try.
+ *  Pure. Only the server's "not saved" answer qualifies: the card is still live
+ *  on the server (lib/jury.ts writes nothing before it answers that). */
+export function verdictRetryable(status: number, body: { error?: unknown } | null | undefined): boolean {
+  return status === 409 && typeof body?.error === "string" && /not saved/i.test(body.error);
+}

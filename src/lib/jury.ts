@@ -247,8 +247,12 @@ export async function recordJuryVerdict(
   // proof (or by card for practice), so it is idempotent: a failure answers an
   // error with the card still live, and the retry lands it once (R2c, 14 Oct).
   // Many cards on one proof still count once (R2 finding 1).
+  // R2d, 14 Oct 2026: two live cards for one proof, answered either side of
+  // midnight, counted the proof on both days. A proof this person already
+  // judged is a repeat (below) and never touches the day.
+  const repeatProof = !answer.practice && !!(await redis.sismember(`jury:judged:${judge.toLowerCase()}`, answer.proofTaskId));
   let day: JuryDay | null = null;
-  if (juryGameOn()) {
+  if (juryGameOn() && !repeatProof) {
     try {
       day = await recordJuryDay(judge, Date.now(), answer.practice ? `c:${cardId}` : `p:${answer.proofTaskId}`);
     } catch {

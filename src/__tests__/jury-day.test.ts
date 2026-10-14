@@ -235,3 +235,36 @@ describe("a verdict whose day write fails can be sent again, and lands once", ()
     expect(d).toMatchObject({ today: 1, goalReachedNow: false });
   });
 });
+
+// R2d, 14 Oct 2026: two live cards for one proof, answered either side of
+// midnight, counted that proof on both days.
+describe("a proof judged yesterday does not count today", () => {
+  it("the second card on the same proof, after midnight, moves neither count nor streak", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      const pool = ["a queue at a bakery", "a bus timetable", "a shelf of milk", "a sunset"].map((d, i) => ({ id: `mid${i}`, status: "completed", proofImageUrl: `/p/m${i}.jpg`, proofNote: null, description: d, category: "photo", location: "x",
+        claimant: "0x1111111111111111111111111111111111111111", poster: "0x2222222222222222222222222222222222222222", verificationResult: { verdict: "pass", confidence: 0.9, reasoning: "ok" } }) as any);
+      let n = 0;
+      vi.setSystemTime(new Date("2026-10-13T23:59:00Z"));
+      const deck1 = await issueJuryDeckWithMode(pool, JUDGE, () => `m1-${++n}`);
+      const deck2 = await issueJuryDeckWithMode(pool, JUDGE, () => `m2-${++n}`);
+      const { getCardAnswer } = await import("@/lib/jury");
+      const live = async (cards: { cardId: string }[]) => {
+        const out: { cardId: string; proof: string }[] = [];
+        for (const c of cards) { const a = await getCardAnswer(c.cardId); if (a && !a.decoy && !a.practice) out.push({ cardId: c.cardId, proof: a.proofTaskId }); }
+        return out;
+      };
+      const one = await live(deck1.cards), two = await live(deck2.cards);
+      const first = one.find((c) => two.some((d) => d.proof === c.proof))!;
+      expect(first).toBeTruthy();
+      const twin = two.find((d) => d.proof === first.proof)!;
+      await recordJuryVerdict(JUDGE, first.cardId, true);
+      vi.setSystemTime(new Date("2026-10-14T00:01:00Z"));
+      const after: any = await recordJuryVerdict(JUDGE, twin.cardId, true);
+      expect(after.repeat).toBe(true);
+      expect(await getJuryDay(JUDGE, Date.now())).toMatchObject({ today: 0, streak: 1 });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});

@@ -73,7 +73,7 @@ describe("newerDay keeps the latest answer when replies arrive out of order", ()
     expect(deck).toContain("acceptDay(dayRef.current, next)");
     // The goal moment is set in one place, inside takeDay, and only on celebrate.
     expect(deck.match(/setGoalMoment\((?!null)/g)?.length).toBe(1);
-    expect(deck).toMatch(/if \(celebrate\) \{\s*setTimeout\(\(\) => \{ hapticSuccess\(\); setGoalMoment\(next\)/);
+    expect(deck).toMatch(/if \(celebrate\) \{\s*goalTimers\.current = \[\s*setTimeout\(\(\) => \{ if \(dayRef\.current === next\) \{ hapticSuccess\(\); setGoalMoment\(next\)/);
     expect(deck.match(/takeDay\(/g)?.length).toBe(2); // called for the GET and for each verdict
   });
   // R2c, 14 Oct 2026: yesterday's late 10/10 stamped over today's 1/10.
@@ -84,5 +84,25 @@ describe("newerDay keeps the latest answer when replies arrive out of order", ()
     expect(acceptDay(today, lateGoal)).toEqual({ day: today, celebrate: false });
     const nowGoal = { ...lateGoal, date: "2026-10-14" };
     expect(acceptDay({ ...today, today: 9 }, nowGoal)).toEqual({ day: nowGoal, celebrate: true });
+  });
+});
+
+// R2d, 14 Oct 2026: the deck dropped a "not saved" answer, and a queued
+// celebration fired after a newer day landed.
+describe("a verdict that was not saved comes back, and a stale celebration does not fire", () => {
+  it("verdictRetryable is true for the server's not-saved answer only", async () => {
+    const { verdictRetryable } = await import("@/lib/jury-game");
+    expect(verdictRetryable(409, { error: "Your verdict was not saved. Try again." })).toBe(true);
+    expect(verdictRetryable(409, { error: "Already judged" })).toBe(false);
+    expect(verdictRetryable(409, { error: "Card expired or was never issued" })).toBe(false);
+    expect(verdictRetryable(500, { error: "not saved" })).toBe(false);
+    expect(verdictRetryable(409, null)).toBe(false);
+  });
+  it("the deck puts the card back and says so, and checks the day before it celebrates (source read)", () => {
+    const deck = readFileSync(`${process.cwd()}/src/components/JuryMode.tsx`, "utf8");
+    expect(deck).toMatch(/if \(verdictRetryable\(res\.status, err\)\) \{\s*\/\/[^\n]*\n\s*setTimeout\(\(\) => setCards\(\(c\) => \(c\.some\(\(x\) => x\.cardId === cardId\) \? c : \[votedCard, \.\.\.c\]\)\), 140\);\s*setNotSaved\(true\);/);
+    expect(deck).toContain("Not saved. Your last card is back on top: swipe it again.");
+    expect(deck).toContain("if (dayRef.current === next) { hapticSuccess(); setGoalMoment(next); }");
+    expect(deck).toMatch(/if \(shown !== dayRef\.current\) \{ goalTimers\.current\.forEach\(clearTimeout\)/);
   });
 });
