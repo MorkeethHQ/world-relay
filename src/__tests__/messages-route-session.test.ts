@@ -95,12 +95,35 @@ describe("GET /api/tasks/[id]/messages", () => {
     expect((await get()).status).toBe(404);
   });
 
-  it("ships dark: with the switch off an anonymous read still gets the full thread; a signed-in stranger does not", async () => {
+  // R2 finding 3, measured on production e1cd732 on 14 Oct: with the switch
+  // off, a caller with NO cookie read the whole thread of any task (10 tasks of
+  // private chat, 13 messages with a wallet as sender), and the bot briefing
+  // named wallets in 29 messages. The thread is now for a signed-in participant
+  // only, whatever the switch says.
+  it("switch off: a caller with no cookie gets the bot part only, never the people's chat", async () => {
     delete process.env.SESSION_ENFORCE;
     const anon = await (await get()).json();
-    expect(anon.messages).toHaveLength(1);
+    expect(anon.messages).toHaveLength(0);
+    expect(anon.participant).toBe(false);
     const stranger = await (await get(STRANGER)).json();
     expect(stranger.messages).toHaveLength(0);
+  });
+
+  it("a non-participant never reads a wallet, even inside the bot briefing", async () => {
+    delete process.env.SESSION_ENFORCE;
+    messages.t1.push({ id: "m2", taskId: "t1", sender: "relay-bot", text: `New task posted by ${POSTER}\nWater the plants`, timestamp: "t" });
+    for (const as of [undefined, STRANGER]) {
+      const res = await get(as);
+      const text = await res.clone().text();
+      expect(text).not.toMatch(/0x[0-9a-fA-F]{40}/);
+      const body = await res.json();
+      expect(body.messages).toHaveLength(1);
+      expect(body.messages[0].text).toContain("Water the plants");
+    }
+    // A participant still reads the whole thread as it is stored.
+    const own = await (await get(POSTER)).json();
+    expect(own.messages).toHaveLength(2);
+    expect(own.messages[1].text).toContain(POSTER);
   });
 });
 
