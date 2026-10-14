@@ -132,9 +132,22 @@ const dayBefore = await dayText();
 await page.getByRole("button", { name: /^(Play|Continue|Keep swiping)$/ }).first().click();
 for (const label of ["Got it", "Let's go", "Start"]) { const b = page.getByRole("button", { name: label }); if (await b.count()) await b.first().click().catch(() => {}); }
 const matches = page.getByRole("button", { name: "Matches" });
-if (await has(matches)) { await matches.click(); await page.waitForTimeout(1500); }
-const header = (await page.locator("p.tabular-nums").first().innerText().catch(() => "")).replace(/\s+/g, " ");
-await step(6, /^1\b/.test(header), "Reviewer 1 swipes once and the day count reads 1", `home said "${dayBefore}", deck says "${header}"`);
+// Wait for the verdict's own answer, not a fixed time: on a dev server the
+// first verdict also compiles the route (step 6 failed 1 of 4 runs on a fixed
+// 1.5 s wait, 14 Oct 2026). The answer's status is printed with the step.
+let verdictStatus = "no verdict sent";
+if (await has(matches)) {
+  const answer = page.waitForResponse((r) => r.url().endsWith("/api/jury") && r.request().method() === "POST", { timeout: 30000 }).catch(() => null);
+  await matches.click();
+  const r = await answer;
+  verdictStatus = r ? `verdict ${r.status()}` : "no verdict answer in 30 s";
+}
+let header = "";
+for (let i = 0; i < 20 && !/^1\b/.test(header); i++) {
+  await page.waitForTimeout(500);
+  header = (await page.locator("p.tabular-nums").first().innerText().catch(() => "")).replace(/\s+/g, " ");
+}
+await step(6, /^1\b/.test(header), "Reviewer 1 swipes once and the day count reads 1", `home said "${dayBefore}", ${verdictStatus}, deck says "${header}"`);
 
 console.log(`\n${fails === 0 ? "ALL PASS" : `${fails} FAIL`}. Nothing here left this machine.`);
 await browser.close();
