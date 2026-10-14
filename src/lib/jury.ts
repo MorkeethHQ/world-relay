@@ -5,6 +5,7 @@ import { DECOYS } from "./decoys";
 import { gibberishReason } from "./post-quality";
 import { recordJuryDay, type JuryDay } from "./jury-day";
 import { juryGameOn } from "./jury-game";
+import { noteJuror } from "./north-star";
 
 // REAL OR NOT — the peer jury game (decision-log 2026-07-05 night).
 // One-tap/swipe verdicts on proofs: "does this photo actually match this
@@ -281,6 +282,9 @@ export async function recordJuryVerdict(
   // qualified the judge). SADD is the atomic check: a proof already judged by
   // this person is graded for the player and moves no stat, point or day count.
   const firstOnProof = await redis.sadd(`jury:judged:${judge.toLowerCase()}`, answer.proofTaskId);
+  // North star (lib/north-star.ts): a live verdict is saved, count the juror
+  // for today. It swallows its own errors and changes no answer above.
+  await noteJuror(judge);
   if (!firstOnProof) {
     const statsKey = `jury:stats:${judge.toLowerCase()}`;
     const judged = Number((await redis.hget(statsKey, "judged")) || 0);

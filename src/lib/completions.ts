@@ -1,4 +1,5 @@
 import { getRedis } from "./redis";
+import { noteCompleted } from "./north-star";
 
 // THE PER-PERSON COMPLETION RECORD, added 2026-09-21.
 //
@@ -94,6 +95,9 @@ export async function recordTaskCompletion(address: string, c: Contribution): Pr
   const addr = address.toLowerCase();
   await redis.lpush(contributionsKey(addr), JSON.stringify(c));
   await redis.ltrim(contributionsKey(addr), 0, CONTRIBUTIONS_MAX - 1);
+  // North star (lib/north-star.ts): one credited (favour, person) pair on the
+  // row's own day. It swallows its own errors.
+  await noteCompleted(c.taskId, addr, Date.parse(c.at));
 }
 
 // THE HISTORY ROW FOR A LATE PASS (2026-10-05). A flagged proof can be accepted

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getRedis } from "@/lib/redis";
+import { readNorthStar } from "@/lib/north-star";
 import type { Task } from "@/lib/types";
 import { BOARD_MIN_OPEN, isBoardBelowFloor } from "@/lib/board-replenish";
 
@@ -205,5 +206,11 @@ async function computeStats(redis: NonNullable<ReturnType<typeof getRedis>>) {
       yesterday: visitorsYesterday,
       reachedToday: reachToday,
     },
+    // THE NUMBER TO WATCH (lib/north-star.ts): outside jurors and completed
+    // favours per UTC day, last 14 days, newest first. Counts only. Kept from
+    // the deploy of 14 Oct 2026 on; earlier days read 0 because nothing
+    // recorded them. users.verified above counts verified:* records of any
+    // level and is not this number.
+    northStar: await readNorthStar(14),
   };
 }
