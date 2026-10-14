@@ -10,6 +10,7 @@
 // Every step prints PASS or FAIL, and a screenshot goes to --shots (default: a
 // new folder in the system temp dir). The exit code is the number of FAILs.
 import { mkdtempSync, readFileSync } from "node:fs";
+import { createHmac } from "node:crypto";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -37,7 +38,9 @@ const step = async (n, ok, what, detail = "") => {
 };
 const signIn = async (who) => { await page.goto(`${APP}/__fixture/signin?as=${who}`); await page.waitForURL(`${APP}/`); await page.waitForTimeout(3500); };
 const has = async (loc, ms = 8000) => loc.first().waitFor({ timeout: ms }).then(() => true, () => false);
-const reputation = async () => (await (await fetch(`${APP}/api/reputation?address=${BEN}`)).json()).totalPointsEarned ?? 0;
+// Ben's own record needs Ben's own session (14 Oct 2026), signed with the fixture's made-up secret.
+const benCookie = () => { const p = `${BEN.toLowerCase()}.${Date.now() + 3600_000}`; return `favour_session=${Buffer.from(p).toString("base64url")}.${createHmac("sha256", fx.sessionSecret).update(p).digest("base64url")}`; };
+const reputation = async () => (await (await fetch(`${APP}/api/reputation?address=${BEN}`, { headers: { Cookie: benCookie() } })).json()).totalPointsEarned ?? 0;
 
 console.log(`TEST DATA phone walk, in a browser. App ${APP}. Screenshots: ${SHOTS}\n`);
 

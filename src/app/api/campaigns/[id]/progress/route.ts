@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isOwnSession } from "@/lib/session";
 import { getUnlockProgress } from "@/lib/campaign-unlock";
 import { getCampaign } from "@/lib/campaigns";
 
@@ -15,7 +16,10 @@ export async function GET(
   if (!campaign) return NextResponse.json({ error: "Unknown campaign" }, { status: 404 });
   if (!campaign.unlock) return NextResponse.json({ unlock: null });
 
-  const address = new URL(req.url).searchParams.get("address");
+  const asked = new URL(req.url).searchParams.get("address");
+  // Own data only (14 Oct 2026): with SESSION_ENFORCE off, naming any wallet
+  // here returned that person's progress, payout and its tx. Another viewer gets the anonymous view.
+  const address = asked && isOwnSession(req, asked, Date.now()) ? asked : null;
   if (!address || !address.startsWith("0x") || address.length !== 42) {
     // No (or non-wallet) viewer: static config only, no per-user state.
     return NextResponse.json({
