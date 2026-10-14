@@ -3,7 +3,7 @@ import { addMessage, getMessages } from "@/lib/messages";
 import { getTask } from "@/lib/store";
 import { postUserMessage } from "@/lib/xmtp";
 import { processIncomingMessage } from "@/lib/xmtp-commands";
-import { getAuthedAddress, ownershipError, readerRefusal } from "@/lib/session";
+import { getAuthedAddress, ownerRefusal, readerRefusal } from "@/lib/session";
 
 const PRIVATE = { "Cache-Control": "private, no-store" };
 
@@ -64,11 +64,13 @@ export async function POST(
     return NextResponse.json({ error: "Task not found" }, { status: 404 });
   }
 
-  // `sender` is a public body field. The session must be the wallet it names
-  // (ownershipError, honours SESSION_ENFORCE), and that wallet must be a
-  // participant. Both checks run before anything is written.
-  const owner = ownershipError(req, sender, Date.now());
-  if (owner) return NextResponse.json({ error: owner }, { status: 403 });
+  // `sender` is a public body field. The session must be the wallet it names,
+  // and that wallet must be a participant. Both checks run before anything is
+  // written. ownerRefusal is the hard gate (as post, claim and verify): it was
+  // ownershipError, which honours SESSION_ENFORCE, and with the switch off the
+  // favour page stored a poster's message under the doer's wallet (14 Oct 2026).
+  const refusal = ownerRefusal(req, sender, Date.now());
+  if (refusal) return NextResponse.json(refusal, { status: 403 });
 
   if (sender !== task.poster && sender !== task.claimant) {
     return NextResponse.json({ error: "Not a participant" }, { status: 403 });
