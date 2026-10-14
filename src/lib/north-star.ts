@@ -91,18 +91,37 @@ export function noteCompleted(favourId: string, wallet: string, atMs = Date.now(
   });
 }
 
+/** Of the outside jurors on one day, how many judged again the next day.
+ *  Pure; a count, never a wallet (DEEP 3, 15 Oct 2026). */
+export function jurorsBackNextDay(day: string[], next: string[], exclude: Set<string>): number {
+  const back = new Set(next.map((j) => j.toLowerCase()));
+  return new Set(day.map((j) => j.toLowerCase()).filter((j) => isOutside(j, exclude) && back.has(j))).size;
+}
+
+export type NorthStarRow = NorthStarDay & {
+  /** Outside jurors of this day who judged again the next day; null for the
+   *  newest day, whose next day has not happened. */
+  jurorsBackNextDay: number | null;
+};
+
 /** Read side: the last `days` UTC days, newest first. Counts only, no wallet. */
-export async function readNorthStar(days = 14, nowMs = Date.now(), exclude = excludedFromEnv()): Promise<NorthStarDay[]> {
+export async function readNorthStar(days = 14, nowMs = Date.now(), exclude = excludedFromEnv()): Promise<NorthStarRow[]> {
   const redis = getRedis();
   if (!redis) return [];
-  const out: NorthStarDay[] = [];
+  const out: NorthStarRow[] = [];
+  let newer: string[] | null = null; // the jurors of the day after, once read
   for (let i = 0; i < days; i++) {
     const day = utcDayOf(nowMs - i * 86400_000);
     const [jurors, completions] = await Promise.all([
       redis.smembers(nsJurorsKey(day)).catch(() => [] as string[]),
       redis.smembers(nsCompletedKey(day)).catch(() => [] as string[]),
     ]);
-    out.push(northStarDay(day, (jurors ?? []) as string[], (completions ?? []) as string[], exclude));
+    const j = ((jurors ?? []) as string[]).map(String);
+    out.push({
+      ...northStarDay(day, j, (completions ?? []) as string[], exclude),
+      jurorsBackNextDay: newer === null ? null : jurorsBackNextDay(j, newer, exclude),
+    });
+    newer = j;
   }
   return out;
 }
