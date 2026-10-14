@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getTask } from "@/lib/store";
 import { addMessage, getMessages } from "@/lib/messages";
 import { processIncomingMessage } from "@/lib/xmtp-commands";
-import { ownershipError } from "@/lib/session";
+import { ownerRefusal } from "@/lib/session";
 
 export async function POST(
   req: NextRequest,
@@ -25,8 +25,10 @@ export async function POST(
   }
 
   // Same gate as POST /messages: the session must be the wallet `sender` names.
-  const owner = ownershipError(req, sender, Date.now());
-  if (owner) return NextResponse.json({ error: owner }, { status: 403 });
+  // ownerRefusal is the hard gate; ownershipError let a mismatched or missing
+  // session through while SESSION_ENFORCE is off (14 Oct 2026).
+  const refusal = ownerRefusal(req, sender, Date.now());
+  if (refusal) return NextResponse.json(refusal, { status: 403 });
 
   // Only the task's poster or existing claimant may drive its command thread.
   // Without this, a client-chosen `sender` could claim the task (handleClaim)

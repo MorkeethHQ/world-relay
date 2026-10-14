@@ -303,3 +303,12 @@ export function ownerRefusal(req: NextRequest, claimedAddress: unknown, nowMs: n
   }
   return null;
 }
+
+// OWN-DATA READS (14 Oct 2026). True only when the request carries a valid
+// session for exactly this wallet. Like ownerRefusal it ignores
+// SESSION_ENFORCE: a read of a person's own data (their answer, their vote,
+// their stake, their payout) is never served to anyone else.
+export function isOwnSession(req: NextRequest, address: unknown, nowMs: number): boolean {
+  const authed = getAuthedAddress(req, nowMs);
+  return !!authed && typeof address === "string" && addressMatches(authed, address);
+}

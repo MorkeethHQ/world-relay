@@ -5,6 +5,7 @@ import { DECOYS } from "./decoys";
 import { gibberishReason } from "./post-quality";
 import { recordJuryDay, type JuryDay } from "./jury-day";
 import { juryGameOn } from "./jury-game";
+import { noteJuror } from "./north-star";
 
 // REAL OR NOT — the peer jury game (decision-log 2026-07-05 night).
 // One-tap/swipe verdicts on proofs: "does this photo actually match this
@@ -287,6 +288,11 @@ export async function recordJuryVerdict(
     const correctTotal = Number((await redis.hget(statsKey, "correct")) || 0);
     return { correct: saidMatch === answer.isMatch, isMatch: answer.isMatch, pointsAwarded: 0, judged, correctTotal, practice: true, repeat: true, ...(answer.decoy ? { decoy: true } : {}), day };
   }
+
+  // North star (lib/north-star.ts): a first live verdict on this proof is
+  // saved, count the juror for today. Not awaited, with a deadline: it can
+  // never hold up or change this answer.
+  noteJuror(judge);
 
   const correct = saidMatch === answer.isMatch;
 

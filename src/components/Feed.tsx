@@ -71,6 +71,7 @@ import { CHECK_UNAVAILABLE_ERROR, TRY_AGAIN_LINE, proofKeptLabel, proofKeptLine,
 import { reviewEntryFor, type ReviewEntry } from "@/lib/review-entry";
 import { isCampaignRunning } from "@/lib/campaigns";
 import { PENDING_WELCOME_KEY } from "@/components/Onboarding";
+import { threadSpeaker } from "@/lib/thread";
 
 // Fire-and-forget telemetry. The event name must be in CLIENT_EVENTS in
 // /api/track, which is an allowlist because that route is public.
@@ -811,7 +812,7 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
     });
     try {
       let res = await send();
-      if (res.status === 403 && onReauth) {
+      if ((res.status === 401 || res.status === 403) && onReauth) {
         const peek = await res.clone().json().catch(() => ({} as Record<string, unknown>));
         if (peek.code === "reauth_required") { await onReauth(); res = await send(); }
       }
@@ -2105,7 +2106,8 @@ async function retryAfterReauth(
   send: () => Promise<Response>,
   onReauth?: () => void | Promise<void>,
 ): Promise<Response> {
-  if (res.status !== 403 || !onReauth) return res;
+  // 401 too (14 Oct 2026): the hard gates answer 401 when there is no session at all.
+  if ((res.status !== 401 && res.status !== 403) || !onReauth) return res;
   const peek = await res.clone().json().catch(() => ({} as Record<string, unknown>));
   if (peek.code !== "reauth_required") return res;
   await onReauth();
@@ -3297,7 +3299,7 @@ function SubmitProof({
       // `reauth_required` means the session expired, not that the proof is bad.
       // One signature, then the SAME proof goes again. Only once: a loop here
       // would ask a person who declined to keep declining.
-      if (res.status === 403 && onReauth) {
+      if ((res.status === 401 || res.status === 403) && onReauth) {
         const peek = await res.clone().json().catch(() => ({} as Record<string, unknown>));
         if (peek.code === "reauth_required") {
           await onReauth();
@@ -4665,6 +4667,23 @@ function TaskDetail({
           </div>
         )}
 
+        {/* The thread (restored 14 Oct 2026; 75feeca dropped it on 28 Jun, so
+            the doer could write and never read the answer). Names by role,
+            never a wallet. Still readable after the favour is completed. */}
+        {isParticipant && messages.length > 0 && (
+          <section aria-label="Messages" className="flex flex-col gap-2">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">Messages</p>
+            {messages.map((m) => {
+              const mine = threadSpeaker(m.sender, { poster: currentTask.poster, claimant: currentTask.claimant, viewer: userId }) === "You";
+              return (
+                <div key={m.id} className={`max-w-[85%] rounded-2xl border px-3 py-2 ${mine ? "self-end bg-gray-900 border-gray-900 text-white" : "self-start bg-white border-gray-200 text-gray-900"}`}>
+                  <p className={`text-[11px] font-semibold ${mine ? "text-gray-300" : "text-gray-500"}`}>{threadSpeaker(m.sender, { poster: currentTask.poster, claimant: currentTask.claimant, viewer: userId })}</p>
+                  <p className="text-[14px] leading-snug whitespace-pre-wrap break-words">{m.text}</p>
+                </div>
+              );
+            })}
+          </section>
+        )}
       </div>
 
       {/* Chat input - only show when there are messages */}

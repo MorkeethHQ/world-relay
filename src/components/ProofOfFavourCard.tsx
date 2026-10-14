@@ -5,6 +5,10 @@ import { Typography } from "@worldcoin/mini-apps-ui-kit-react";
 import { Card } from "./ui/Card";
 import { Section } from "./ui/Section";
 import { Stat } from "./ui/Stat";
+import { needsReauth, reauthWallet, sendWithReauth } from "@/lib/reauth";
+
+// The error that means "sign in again", not "something broke".
+const SIGN_IN = "sign-in";
 
 // ---------------------------------------------------------------------------
 // Types (mirrors API response from /api/proof-of-favour)
@@ -366,6 +370,7 @@ export function ProofOfFavourCard({ address, compact = false }: Props) {
   const [data, setData] = useState<ApiResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
   const [appeared, setAppeared] = useState(false);
   const [progressAnimated, setProgressAnimated] = useState(false);
 
@@ -377,8 +382,12 @@ export function ProofOfFavourCard({ address, compact = false }: Props) {
     setLoading(true);
     setError(null);
 
-    fetch(`/api/proof-of-favour?address=${encodeURIComponent(address)}`)
-      .then((res) => {
+    // Own profile only since 14 Oct 2026: an expired session asks for one
+    // signature, then loads again (lib/reauth.ts). If that is declined, the
+    // card offers "Sign in again" instead of a dead error.
+    sendWithReauth(() => fetch(`/api/proof-of-favour?address=${encodeURIComponent(address)}`), address)
+      .then(async (res) => {
+        if (await needsReauth(res)) throw new Error(SIGN_IN);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.json();
       })
@@ -398,7 +407,7 @@ export function ProofOfFavourCard({ address, compact = false }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [address]);
+  }, [address, attempt]);
 
   // Trigger appear animation after data loads
   useEffect(() => {
@@ -420,6 +429,21 @@ export function ProofOfFavourCard({ address, compact = false }: Props) {
   // Loading state
   if (loading) {
     return compact ? <CompactSkeleton /> : <FullSkeleton />;
+  }
+
+  if (error === SIGN_IN) {
+    return (
+      <div className="rounded-xl px-3 py-2 bg-gray-50 border border-gray-200 text-gray-700 text-xs flex items-center justify-between gap-2" role="alert">
+        <span>Your session ended. Sign in to see your points.</span>
+        <button
+          type="button"
+          className="min-h-[36px] px-3 rounded-full bg-gray-900 text-white text-xs font-semibold"
+          onClick={async () => { if (await reauthWallet(address)) setAttempt((n) => n + 1); }}
+        >
+          Sign in again
+        </button>
+      </div>
+    );
   }
 
   // Error state

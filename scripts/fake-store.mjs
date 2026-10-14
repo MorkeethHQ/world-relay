@@ -336,7 +336,23 @@ function fixturePage(req, res) {
   res.end(`${style}<p><span class="t">TEST DATA</span></p><h1>FAVOUR local review</h1>
     <p>Everything in this preview is test data in a store that lives in memory on this machine. No wallet here is a real person. Nothing is sent anywhere.</p>
     <a class="b" href="/__fixture/signout">First visit (signed out)</a>
-    ${fixture.participants.map((p) => `<a class="b" href="/__fixture/signin?as=${esc(p.key)}">Sign in as ${esc(p.name)}<br><small>${esc(p.role)}</small></a>`).join("")}`);
+    ${fixture.participants.map((p) => `<a class="b" href="/__fixture/signin?as=${esc(p.key)}">Sign in as ${esc(p.name)}<br><small>${esc(p.role)}</small></a>`).join("")}
+    ${testProductLinks()}`);
+}
+
+// THE TEST PRODUCT (14 Oct 2026, scripts/TEST-PRODUCT.md). A shortcut to each
+// FAVOUR TEST favour's page, /task/<id>, for a person who is not a party (the
+// stranger step). The poster gets there from Profile.
+// This lists every favour whose words start "FAVOUR TEST" with that link.
+function testProductLinks() {
+  const rows = [];
+  for (const [key, raw] of kv) {
+    if (!key.startsWith("task:")) continue;
+    let t; try { t = JSON.parse(raw); } catch { continue; }
+    if (typeof t?.description === "string" && t.description.startsWith("FAVOUR TEST")) rows.push(t);
+  }
+  if (!rows.length) return "";
+  return `<h2>TEST favours</h2>${rows.map((t) => `<a class="b" href="/task/${esc(t.id)}">Open the favour page<br><small>${esc(t.description.slice(0, 70))} · ${esc(t.status)}</small></a>`).join("")}`;
 }
 
 const server = createServer((req, res) => {

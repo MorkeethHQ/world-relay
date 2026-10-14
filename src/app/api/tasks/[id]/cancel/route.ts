@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cancelTask, getTask } from "@/lib/store";
 import { refundEscrow } from "@/lib/escrow";
 import { addNotification } from "@/lib/notifications-store";
-import { ownershipError } from "@/lib/session";
+import { ownerRefusal } from "@/lib/session";
 
 export async function POST(
   req: NextRequest,
@@ -18,8 +18,11 @@ export async function POST(
 
   // Identity is a public address, so this ownership check is spoofable unless
   // the caller proves wallet control via their session cookie (see session.ts).
-  const authErr = ownershipError(req, poster, Date.now());
-  if (authErr) return NextResponse.json({ error: authErr }, { status: 403 });
+  // Hard gate (ownerRefusal), 14 Oct 2026: ownershipError let a mismatched or
+  // missing session through while SESSION_ENFORCE is off, and a doer approved
+  // their own flagged proof in the poster's name on the local fixture.
+  const refusal = ownerRefusal(req, poster, Date.now());
+  if (refusal) return NextResponse.json(refusal, { status: 403 });
 
   // CHAIN-STATE GUARD: a v2-funded task holds real USDC in the escrow contract.
   // App-state "cancelled" must never diverge from chain state, so cancel is

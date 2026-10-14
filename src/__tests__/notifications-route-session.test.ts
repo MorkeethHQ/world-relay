@@ -74,9 +74,11 @@ describe("GET /api/notifications", () => {
     expect(res.headers.get("cache-control")).toMatch(/no-store/);
   });
 
-  it("ships dark: switch off, anonymous read passes, wrong wallet still refused", async () => {
+  // Was "ships dark: anonymous read passes". Closed 14 Oct 2026: with the
+  // switch off a caller with no cookie read anyone's notifications.
+  it("switch off: an anonymous read is refused too, and a wrong wallet still is", async () => {
     delete process.env.SESSION_ENFORCE;
-    expect((await get(THEM)).status).toBe(200);
+    expect((await get(THEM)).status).toBe(401);
     expect((await get(THEM, ME)).status).toBe(403);
   });
 });

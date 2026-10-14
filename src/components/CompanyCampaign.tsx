@@ -211,7 +211,7 @@ export function CampaignDraftForm({ onSaved, onCancel, onReauth }: {
     const send = () => fetch("/api/campaigns/drafts", { method: "POST", headers: { "Content-Type": "application/json" }, body });
     try {
       let res = await send();
-      if (res.status === 403 && onReauth) {
+      if ((res.status === 401 || res.status === 403) && onReauth) {
         const peek = await res.clone().json().catch(() => ({} as Record<string, unknown>));
         if (peek.code === "reauth_required") { await onReauth(); res = await send(); }
       }
@@ -355,7 +355,7 @@ function AddProductForm({ id, onReauth, onSaved }: { id: string; onReauth?: () =
     const send = () => fetch(`/api/campaigns/drafts/${encodeURIComponent(id)}/product`, { method: "POST", headers: { "Content-Type": "application/json" }, body });
     try {
       let res = await send();
-      if (res.status === 403 && onReauth) {
+      if ((res.status === 401 || res.status === 403) && onReauth) {
         const peek = await res.clone().json().catch(() => ({} as Record<string, unknown>));
         if (peek.code === "reauth_required") { await onReauth(); res = await send(); }
       }
@@ -402,7 +402,7 @@ export function CampaignDraftList({ drafts, onDone, justSaved, onPublished, onOp
     const send = () => fetch(`/api/campaigns/drafts/${encodeURIComponent(id)}/publish`, { method: "POST" });
     try {
       let res = await send();
-      if (res.status === 403 && onReauth) {
+      if ((res.status === 401 || res.status === 403) && onReauth) {
         const peek = await res.clone().json().catch(() => ({} as Record<string, unknown>));
         if (peek.code === "reauth_required") { await onReauth(); res = await send(); }
       }

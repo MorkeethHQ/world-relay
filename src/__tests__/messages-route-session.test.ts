@@ -156,6 +156,26 @@ describe("POST /api/tasks/[id]/messages", () => {
   });
 });
 
+// 14 Oct 2026: the gate above was ownershipError, which lets everything through
+// while SESSION_ENFORCE is off (production today). The favour page sent the
+// poster's message as the doer, and the server stored it. Now ownerRefusal,
+// the hard gate post, claim and verify use: the switch does not matter.
+describe("POST /api/tasks/[id]/messages with SESSION_ENFORCE off", () => {
+  beforeEach(() => { delete process.env.SESSION_ENFORCE; });
+  it("a party cannot send as the other party", async () => {
+    expect((await post({ sender: POSTER, text: "as the poster" }, CLAIMANT)).status).toBe(403);
+    expect((await post({ sender: CLAIMANT, text: "as the doer" }, POSTER)).status).toBe(403);
+    expect(messages.t1.map((m) => m.text)).toEqual(["hi"]); // only the seeded one
+  });
+  it("no cookie cannot send as a party", async () => {
+    expect((await post({ sender: POSTER, text: "x" })).status).toBe(403);
+    expect(messages.t1.map((m) => m.text)).toEqual(["hi"]); // only the seeded one
+  });
+  it("a party still sends as themselves", async () => {
+    expect((await post({ sender: POSTER, text: "thanks" }, POSTER)).status).toBe(200);
+  });
+});
+
 describe("POST /api/tasks/[id]/command (same shape, same gate)", () => {
   it("refuses a body sender with no session", async () => {
     expect((await command({ sender: POSTER, message: "/status" })).status).toBe(403);
@@ -164,6 +184,24 @@ describe("POST /api/tasks/[id]/command (same shape, same gate)", () => {
     expect((await command({ sender: POSTER, message: "/status" }, CLAIMANT)).status).toBe(403);
   });
   it("lets the poster command as themselves", async () => {
+    expect((await command({ sender: POSTER, message: "/status" }, POSTER)).status).toBe(200);
+  });
+});
+
+// 14 Oct 2026: /command had the same soft gate. It writes the sender's message
+// and can drive commands, so it gets the same hard gate.
+describe("POST /api/tasks/[id]/command with SESSION_ENFORCE off", () => {
+  beforeEach(() => { delete process.env.SESSION_ENFORCE; });
+  it("a party cannot command as the other party", async () => {
+    expect((await command({ sender: POSTER, message: "/status" }, CLAIMANT)).status).toBe(403);
+    expect((await command({ sender: CLAIMANT, message: "/status" }, POSTER)).status).toBe(403);
+    expect(messages.t1.map((m) => m.text)).toEqual(["hi"]); // only the seeded one
+  });
+  it("no cookie cannot command as a party", async () => {
+    expect((await command({ sender: POSTER, message: "/status" })).status).toBe(403);
+    expect(messages.t1.map((m) => m.text)).toEqual(["hi"]);
+  });
+  it("a party still commands as themselves", async () => {
     expect((await command({ sender: POSTER, message: "/status" }, POSTER)).status).toBe(200);
   });
 });

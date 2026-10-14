@@ -4,7 +4,8 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import type { Task, VerificationResult, AiFollowUp } from "@/lib/types";
-import { VerificationBadge, RequiredTierBadge } from "@/components/VerificationBadge";
+import { VerificationBadge } from "@/components/VerificationBadge";
+import { ensureSession, sendWithReauth } from "@/lib/reauth";
 import { hapticTap, hapticSuccess, hapticError, shareTask } from "@/lib/minikit-helpers";
 import { MiniKit } from "@worldcoin/minikit-js";
 import { rewardAmountLabel, isPointsReward, isRealMoney } from "@/lib/reward";
@@ -29,6 +30,14 @@ type Message = {
 const LEGACY_ESCROW_ADDRESS = "0x274C38eA9944f57D24A59fbEf558bba2264f9351";
 const WORLDSCAN_TX = "https://worldscan.org/tx";
 const WORLDSCAN_ADDR = "https://worldscan.org/address";
+
+// Whether the viewer is the poster or the doer, as the server says it
+// (toApiTask isOwnTask / isClaimant, from the session). The row's wallets are
+// masked when there is no session, so a wallet compare here was wrong.
+function isParty(task: Task): boolean {
+  const t = task as Task & { isOwnTask?: boolean; isClaimant?: boolean };
+  return !!(t.isOwnTask || t.isClaimant);
+}
 
 function truncate(addr: string): string {
   return displayName(addr);
@@ -736,7 +745,7 @@ function WorldChatThread({
   messages: Message[];
   agent: { name: string; icon: string; color: string } | null;
   userId: string | null;
-  onSend: (text: string) => Promise<void>;
+  onSend: (text: string) => Promise<boolean>;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [draft, setDraft] = useState("");
@@ -765,7 +774,10 @@ function WorldChatThread({
     setSending(true);
     setDraft("");
     try {
-      await onSend(text);
+      // Not saved: put the words back, so nothing typed is lost.
+      if (!(await onSend(text))) setDraft(text);
+    } catch {
+      setDraft(text);
     } finally {
       setSending(false);
     }
@@ -1257,7 +1269,7 @@ type UmaState = {
   } | null;
 };
 
-function DisputeActions({ task, onAction }: { task: Task; onAction: () => void }) {
+function DisputeActions({ task, viewer, onAction }: { task: Task; viewer: string | null; onAction: () => void }) {
   const [acting, setActing] = useState<string | null>(null);
   const [umaState, setUmaState] = useState<UmaState | null>(null);
   const [result, setResult] = useState<{ type: "success" | "error"; message: string } | null>(null);
@@ -1275,11 +1287,14 @@ function DisputeActions({ task, onAction }: { task: Task; onAction: () => void }
     setActing(approved ? "approve" : "reject");
     setResult(null);
     try {
-      const res = await fetch(`/api/tasks/${task.id}/confirm`, {
+      // Hard gate since 14 Oct 2026: an expired session signs in once and sends again.
+      const res = await sendWithReauth(() => fetch(`/api/tasks/${task.id}/confirm`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ poster: task.poster, approved }),
-      });
+        // The server takes the poster from the session; the field is only a
+        // hint. task.poster is a masked public id when the session has expired.
+        body: JSON.stringify({ poster: viewer, approved }),
+      }), viewer);
       if (res.ok) {
         setResult({ type: "success", message: approved ? "Proof approved — USDC released" : "Proof rejected" });
         onAction();
@@ -1298,11 +1313,12 @@ function DisputeActions({ task, onAction }: { task: Task; onAction: () => void }
     setActing("mediate");
     setResult(null);
     try {
-      const res = await fetch(`/api/tasks/${task.id}/dispute`, {
+      // Hard gate since 14 Oct 2026: an expired session signs in once and sends again.
+      const res = await sendWithReauth(() => fetch(`/api/tasks/${task.id}/dispute`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ poster: task.poster }),
-      });
+        body: JSON.stringify({ poster: viewer }),
+      }), viewer);
       if (res.ok) {
         const data = await res.json();
         const verdict = data.dispute?.approved ? "Approved" : "Rejected";
@@ -1473,11 +1489,6 @@ function DisputeActions({ task, onAction }: { task: Task; onAction: () => void }
           </Button>
         )}
 
-        {/* Chainlink badge */}
-        <div className="flex items-center justify-center gap-2 pt-1">
-          <span className="text-xs text-gray-400">Dispute resolution powered by</span>
-          <span className="text-xs font-bold text-gray-400">AI + UMA + Chainlink</span>
-        </div>
       </div>
 
       {/* Result feedback */}
@@ -1500,6 +1511,23 @@ export default function TaskDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [task, setTask] = useState<Task | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
+  // Who is looking, read as EscrowV2Panel reads it. Messages are sent as this
+  // person, and the box shows only to the poster or the doer.
+  const [userId, setUserId] = useState<string | null>(null);
+  useEffect(() => {
+    try { setUserId(localStorage.getItem("relay_user_id")); } catch { /* no storage */ }
+  }, []);
+  // A favour opened by link does not pass through the home page, which is
+  // where an expired session is renewed. Do the same here once, then read
+  // again: the task row, the thread and the poster's buttons all depend on
+  // the session (the row is masked without one). Codex, 14 Oct 2026.
+  const [sessionChecked, setSessionChecked] = useState(false);
+  useEffect(() => {
+    if (!userId || sessionChecked) return;
+    setSessionChecked(true);
+    ensureSession(userId).then((ok) => { if (ok) fetchDataRef.current?.(); });
+  }, [userId, sessionChecked]);
+  const fetchDataRef = useRef<(() => Promise<void>) | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -1531,22 +1559,29 @@ export default function TaskDetailPage() {
       setLoading(false);
     }
   }, [id, task]);
+  fetchDataRef.current = fetchData;
 
   const sendMessage = useCallback(
     async (text: string) => {
-      if (!task) return;
-      const sender = task.claimant || task.poster;
-      const res = await fetch(`/api/tasks/${id}/messages`, {
+      // Send as the signed-in person. This was "task.claimant || task.poster",
+      // so a poster's message was saved under the doer's wallet (test product
+      // walk, 14 Oct 2026). The server let it through while SESSION_ENFORCE is off.
+      if (!task || !userId) return false;
+      const sender = userId;
+      // An expired session asks for one signature, then sends again
+      // (lib/reauth.ts). The answer says whether it was saved, so the box can
+      // keep the words when it was not (Codex, 14 Oct 2026).
+      const res = await sendWithReauth(() => fetch(`/api/tasks/${id}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sender, text }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setMessages(data.messages || []);
-      }
+      }), userId);
+      if (!res.ok) return false;
+      const data = await res.json().catch(() => ({}));
+      setMessages(data.messages || []);
+      return true;
     },
-    [id, task],
+    [id, task, userId],
   );
 
   useEffect(() => {
@@ -1827,15 +1862,9 @@ export default function TaskDetailPage() {
           )}
         </div>
 
-        {/* Restricted badge */}
-        {task.claimCode !== null && (
-          <div className="bg-gray-100 border border-gray-200 rounded-xl px-3 py-2 flex items-center gap-2">
-            <span className="text-sm">{"\u{1F512}"}</span>
-            <span className="text-xs text-gray-400 font-medium uppercase tracking-wider">
-              Access Code Required
-            </span>
-          </div>
-        )}
+        {/* The access-code badge was removed on 14 Oct 2026: claimCode
+            is never sent to a client (lib/task-serializer), so the check
+            "claimCode !== null" was true on every favour. */}
 
         {/* ===== AGENT CARD ===== */}
         {task.agent && (
@@ -1873,7 +1902,6 @@ export default function TaskDetailPage() {
                   {rewardAmountLabel(task)}
                 </p>
               )}
-              <RequiredTierBadge bountyUsdc={task.bountyUsdc} />
             </div>
             <div>
               <p className="text-xs text-gray-400 uppercase tracking-wider">Category</p>
@@ -2012,6 +2040,7 @@ export default function TaskDetailPage() {
         {task.verificationResult?.verdict === "flag" && task.status !== "completed" && task.status !== "failed" && (
           <DisputeActions
             task={task}
+            viewer={userId}
             onAction={fetchData}
           />
         )}
@@ -2030,7 +2059,7 @@ export default function TaskDetailPage() {
           <WorldChatThread
             messages={messages}
             agent={task.agent}
-            userId={task.claimant || task.poster}
+            userId={isParty(task) ? userId : null}
             onSend={sendMessage}
           />
         </CollapsibleSection>

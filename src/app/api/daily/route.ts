@@ -8,7 +8,7 @@ import {
   publicPrompt,
   utcDate,
 } from "@/lib/daily";
-import { getAuthedAddress, addressMatches } from "@/lib/session";
+import { getAuthedAddress, addressMatches, isOwnSession } from "@/lib/session";
 import { trackEvent } from "@/lib/track";
 
 // THE TOP FAVOUR — the daily gate.
@@ -21,7 +21,10 @@ import { trackEvent } from "@/lib/track";
 // so this route cannot leak the reveal even if it forgets to check.
 
 export async function GET(req: NextRequest) {
-  const address = (new URL(req.url).searchParams.get("address") || "").toLowerCase();
+  const asked = (new URL(req.url).searchParams.get("address") || "").toLowerCase();
+  // Own data only (14 Oct 2026): with SESSION_ENFORCE off, naming any wallet
+  // here returned that person's data. Another viewer gets the anonymous view.
+  const address = asked && isOwnSession(req, asked, Date.now()) ? asked : "";
   const date = utcDate(Date.now());
   const prompt = await getPrompt(date);
 

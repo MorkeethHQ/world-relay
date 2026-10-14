@@ -52,7 +52,8 @@ vi.mock("@/lib/escrow", () => ({ releaseEscrow: async () => null }));
 vi.mock("@/lib/sse", () => ({ broadcastEvent: () => {} }));
 // The follow-up route now runs the read gate too (readerRefusal); this test is
 // about History rows, not identity, so both gates pass here.
-vi.mock("@/lib/session", () => ({ ownershipError: () => null, readerRefusal: () => null }));
+// The session is the poster here (confirm and dispute read the actor from it since 14 Oct 2026).
+vi.mock("@/lib/session", () => ({ ownershipError: () => null, ownerRefusal: () => null, readerRefusal: () => null, getAuthedAddress: () => POSTER, addressMatches: (a: string | null, b: unknown) => !!a && typeof b === "string" && a.toLowerCase() === b.toLowerCase() }));
 
 import { createTask, claimTask, submitProof, completeTask, setFollowUp, getTask } from "@/lib/store";
 import { listContributions } from "@/lib/completions";

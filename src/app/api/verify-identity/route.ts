@@ -3,7 +3,7 @@ import { createPublicClient, http } from "viem";
 import { worldchain } from "viem/chains";
 import { getRedis } from "@/lib/redis";
 import { trackVisitor, trackEvent } from "@/lib/track";
-import { issueSessionToken, SESSION_COOKIE, SESSION_TTL_MS } from "@/lib/session";
+import { issueSessionToken, ownerRefusal, SESSION_COOKIE, SESSION_TTL_MS } from "@/lib/session";
 import { attributeReferral } from "@/lib/referral";
 
 // Verify that `signature` over `message` was really produced by `address`.
@@ -234,8 +234,16 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ verified: false, verification_level: null });
   }
 
+  // PRIVATE PART (14 Oct 2026). The stored record holds the World ID
+  // nullifier, and this answered it to anyone who named the address, with no
+  // cookie. Anyone may learn whether a wallet is verified and at what level;
+  // the whole record goes only to that wallet's own session (the hard gate,
+  // ownerRefusal, whatever SESSION_ENFORCE says).
+  if (ownerRefusal(req, address, Date.now())) {
+    return NextResponse.json({ verified: true, verification_level: user.verificationLevel ?? null }, { headers: { "Cache-Control": "private, no-store" } });
+  }
   return NextResponse.json({
     verified: true,
     ...user,
-  });
+  }, { headers: { "Cache-Control": "private, no-store" } });
 }

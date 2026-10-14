@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTask, posterConfirm } from "@/lib/store";
-import { ownershipError } from "@/lib/session";
+import { addressMatches, getAuthedAddress } from "@/lib/session";
 import { postVerificationResult } from "@/lib/xmtp";
 import { fireWebhook } from "@/lib/webhooks";
 import { notifyVerified } from "@/lib/notifications";
@@ -14,7 +14,7 @@ export async function POST(
 ) {
   const { id } = await params;
   const body = await req.json();
-  const { approved, poster } = body;
+  const { approved } = body;
 
   const task = await getTask(id);
   if (!task) {
@@ -23,12 +23,20 @@ export async function POST(
   if (task.companyCampaignId) {
     return NextResponse.json({ error: "Company proofs use the campaign review rule. Follow the review in History, or submit revised proof for a new AI check." }, { status: 409 });
   }
-  if (task.poster !== poster) {
+  // poster is a public address; require session proof of control.
+  // THE POSTER IS WHOEVER THE SESSION SAYS (14 Oct 2026), never the body
+  // field, and the session is checked first. Since the task API masks wallets
+  // for a viewer without a session, a poster whose cookie had expired sent a
+  // public id here and was told "Only poster can confirm" instead of being asked to sign in
+  // again. A doer naming the poster is refused as before (hard gate).
+  const actor = getAuthedAddress(req, Date.now());
+  if (!actor) {
+    return NextResponse.json({ error: "Re-open FAVOUR to sign in again, then this will go through.", code: "reauth_required" }, { status: 401 });
+  }
+  if (!addressMatches(actor, task.poster)) {
     return NextResponse.json({ error: "Only poster can confirm" }, { status: 403 });
   }
-  // poster is a public address; require session proof of control.
-  const authErr = ownershipError(req, poster, Date.now());
-  if (authErr) return NextResponse.json({ error: authErr }, { status: 403 });
+  const poster = task.poster;
 
   // Money-lever removal (Inv 2): funded USDC NEVER moves through manual approval.
   // Manual poster-confirm was the one non-AI escrow-release path and thus the

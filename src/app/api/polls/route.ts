@@ -1,14 +1,17 @@
 import { publicIdOrSame } from "@/lib/public-id";
 import { NextRequest, NextResponse } from "next/server";
 import { listPolls, createPoll } from "@/lib/polls-store";
-import { ownershipError } from "@/lib/session";
+import { isOwnSession, ownershipError } from "@/lib/session";
 
 // Poll authorship is attributed to a verified wallet, so the creator field must
 // be a wallet address rather than an arbitrary client-supplied id.
 const WALLET_RE = /^0x[0-9a-fA-F]{40}$/;
 
 export async function GET(req: NextRequest) {
-  const userId = req.nextUrl.searchParams.get("userId") || "";
+  const asked = req.nextUrl.searchParams.get("userId") || "";
+  // Own data only (14 Oct 2026): with SESSION_ENFORCE off, naming any wallet
+  // here returned that person's data. Another viewer sees no vote.
+  const userId = asked && isOwnSession(req, asked, Date.now()) ? asked : "";
   const polls = await listPolls();
   // The creator is a wallet in the store and a public id on the wire (lib/public-id.ts).
   const sanitized = polls.map(({ voters, ...rest }) => ({
