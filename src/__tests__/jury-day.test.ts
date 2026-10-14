@@ -23,6 +23,21 @@ const fakeRedis = {
   hsetnx: async (k: string, f: string, v: string) => { const h = fields.get(k) ?? new Map(); if (h.has(f)) return 0; h.set(f, v); fields.set(k, h); return 1; },
   hincrby: async (k: string, f: string, n: number) => { const h = hashes.get(k) ?? new Map(); h.set(f, (h.get(f) ?? 0) + n); hashes.set(k, h); return h.get(f); },
   hget: async (k: string, f: string) => fields.get(k)?.get(f) ?? hashes.get(k)?.get(f) ?? null,
+  // The day script (lib/jury-day.ts RECORD_JURY_DAY), repeated in JavaScript.
+  // It runs whole, or (with failTxOnce) not at all; loseReplyOnce runs it and loses the reply.
+  eval: async (script: string, keys: string[], args: any[]) => {
+    if (!script.startsWith("-- favour:jury-day")) throw new Error("unknown script");
+    if (failTxOnce) { failTxOnce = false; throw new Error("store blip"); }
+    const [dayOf, days, todayKey] = keys; const [member, day, prefix] = args.map(String);
+    const h = fields.get(dayOf) ?? new Map(); fields.set(dayOf, h);
+    if (!h.has(member)) h.set(member, day);
+    const counted = h.get(member)!;
+    const added = await fakeRedis.sadd(prefix + counted, member);
+    await fakeRedis.sadd(days, counted);
+    const out = [added, await fakeRedis.scard(todayKey), counted, await fakeRedis.smembers(days)];
+    if (loseReplyOnce) { loseReplyOnce = false; throw new Error("reply lost"); }
+    return out;
+  },
   // A transaction: every queued command runs, or (with failTxOnce) none does.
   multi: () => {
     const ops: (() => Promise<unknown>)[] = [];
@@ -309,6 +324,27 @@ describe("a proof counts on one day only, whatever the clock does", () => {
       const b = await recordJuryDay(JUDGE, Date.now(), "p:same-proof");
       expect(a).toMatchObject({ date: "2026-10-13", today: 1, streak: 1 });
       expect(b).toMatchObject({ date: "2026-10-14", today: 0, streak: 1, best: 1 });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+// CODEX REVIEW OF d4751f8 (EDGE): the day was reserved by HSETNX BEFORE the
+// transaction. A transaction that never ran at 23:59 still pinned yesterday, so
+// the retry at 00:01 counted on yesterday and today stayed 0. The reservation
+// and the count must be one atomic step.
+describe("the day is reserved only when the count is written", () => {
+  it("a transaction that never ran at 23:59 pins nothing; the retry at 00:01 counts today", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      vi.setSystemTime(new Date("2026-10-13T23:59:00Z"));
+      failTxOnce = true;
+      await expect(recordJuryDay(JUDGE, Date.now(), "p:never-ran")).rejects.toThrow();
+      vi.setSystemTime(new Date("2026-10-14T00:01:00Z"));
+      const retry = await recordJuryDay(JUDGE, Date.now(), "p:never-ran");
+      expect(retry).toMatchObject({ date: "2026-10-14", today: 1, streak: 1, best: 1 });
+      expect((await getJuryDay(JUDGE, Date.parse("2026-10-13T23:59:30Z")))?.today).toBe(0);
     } finally {
       vi.useRealTimers();
     }

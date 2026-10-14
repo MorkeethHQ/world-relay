@@ -36,10 +36,31 @@ export function liveStreak(s: JuryStreak, day: string): number {
 
 const countKey = (judge: string, day: string) => `jury:day:${judge.toLowerCase()}:${day}`;
 const daysKey = (judge: string) => `jury:days:${judge.toLowerCase()}`;
-// The UTC day each member was first counted on. HSETNX makes the first writer
-// win, so a retry after midnight, or two cards on one proof sent either side of
-// it, count on that one day (edges ruled 14 Oct 2026).
+// The UTC day each member was first counted on. The first write wins, so a
+// retry after midnight, or two cards on one proof sent either side of it, count
+// on that one day (edges ruled 14 Oct 2026).
 const memberDayKey = (judge: string) => `jury:dayof:${judge.toLowerCase()}`;
+
+// Reserve the member's day AND count it in one atomic step (Codex on d4751f8,
+// 15 Oct 2026). With HSETNX first and MULTI/EXEC after, a transaction that never
+// ran at 23:59 still pinned yesterday, so the retry at 00:01 counted on
+// yesterday and today stayed 0. The count key of the pinned day is built inside
+// the script from ARGV[3] (the judge's count-key prefix): it is known only after
+// the HGET. scripts/fake-store.mjs repeats this script in JavaScript.
+export const RECORD_JURY_DAY = `-- favour:jury-day
+local counted = redis.call('HGET', KEYS[1], ARGV[1])
+if not counted then
+  counted = ARGV[2]
+  redis.call('HSET', KEYS[1], ARGV[1], counted)
+end
+local ck = ARGV[3] .. counted
+local added = redis.call('SADD', ck, ARGV[1])
+redis.call('EXPIRE', ck, tonumber(ARGV[4]))
+redis.call('SADD', KEYS[2], counted)
+redis.call('EXPIRE', KEYS[1], tonumber(ARGV[5]))
+local count = redis.call('SCARD', KEYS[3])
+local days = redis.call('SMEMBERS', KEYS[2])
+return {added, count, counted, days}`;
 
 /** The streak from the set of days played. Pure. A set only grows, so a late
  *  or repeated write can never move the streak backward. */
@@ -62,25 +83,19 @@ export function streakFromDays(days: readonly string[]): JuryStreak {
  *  members, so running this twice for the same verdict counts it once. That
  *  makes it safe to run BEFORE the card is spent, and to run again on a retry
  *  (R2c, 14 Oct 2026: a failed day write after the card was spent could never
- *  be repaired). The count and the day mark are one MULTI/EXEC. */
+ *  be repaired). The day reservation, the count and the day mark are one script. */
 export async function recordJuryDay(judge: string, nowMs: number, member: string): Promise<JuryDay | null> {
   const redis = getRedis();
   if (!redis) return null;
   const day = utcDay(nowMs);
-  // Which day this member counts on: today, unless it was already given a day.
-  await redis.hsetnx(memberDayKey(judge), member, day);
-  const counted = String((await redis.hget(memberDayKey(judge), member)) ?? day);
-  const tx = redis.multi();
-  tx.sadd(countKey(judge, counted), member);
-  tx.expire(countKey(judge, counted), 48 * 3600);
-  tx.sadd(daysKey(judge), counted);
-  tx.scard(countKey(judge, day));
-  tx.smembers(daysKey(judge));
-  tx.expire(memberDayKey(judge), 72 * 3600);
-  const [added, , , count, days] = (await tx.exec()) as [number, unknown, unknown, number, string[], unknown];
+  const [added, count, counted, days] = (await redis.eval(
+    RECORD_JURY_DAY,
+    [memberDayKey(judge), daysKey(judge), countKey(judge, day)],
+    [member, day, countKey(judge, ""), 48 * 3600, 72 * 3600],
+  )) as [number, number, string, string[]];
   const today = Number(count);
   const streak = streakFromDays((days ?? []).map(String));
-  return { date: day, today, goal: JURY_DAILY_GOAL, streak: liveStreak(streak, day), best: streak.best, goalReachedNow: Number(added) === 1 && counted === day && today === JURY_DAILY_GOAL };
+  return { date: day, today, goal: JURY_DAILY_GOAL, streak: liveStreak(streak, day), best: streak.best, goalReachedNow: Number(added) === 1 && String(counted) === day && today === JURY_DAILY_GOAL };
 }
 
 /** Read today's count and the live streak. Writes nothing. */
