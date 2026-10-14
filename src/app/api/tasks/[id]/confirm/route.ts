@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTask, posterConfirm } from "@/lib/store";
-import { ownershipError } from "@/lib/session";
+import { ownerRefusal } from "@/lib/session";
 import { postVerificationResult } from "@/lib/xmtp";
 import { fireWebhook } from "@/lib/webhooks";
 import { notifyVerified } from "@/lib/notifications";
@@ -27,8 +27,11 @@ export async function POST(
     return NextResponse.json({ error: "Only poster can confirm" }, { status: 403 });
   }
   // poster is a public address; require session proof of control.
-  const authErr = ownershipError(req, poster, Date.now());
-  if (authErr) return NextResponse.json({ error: authErr }, { status: 403 });
+  // Hard gate (ownerRefusal), 14 Oct 2026: ownershipError let a mismatched or
+  // missing session through while SESSION_ENFORCE is off, and a doer approved
+  // their own flagged proof in the poster's name on the local fixture.
+  const refusal = ownerRefusal(req, poster, Date.now());
+  if (refusal) return NextResponse.json(refusal, { status: 403 });
 
   // Money-lever removal (Inv 2): funded USDC NEVER moves through manual approval.
   // Manual poster-confirm was the one non-AI escrow-release path and thus the

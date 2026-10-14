@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTask, posterConfirm, setAttestationHash, markSettled, markSettlementPending } from "@/lib/store";
-import { ownershipError } from "@/lib/session";
+import { ownerRefusal } from "@/lib/session";
 import { getMessages } from "@/lib/messages";
 import { mediateDispute } from "@/lib/ai-chat";
 import { postDisputeVerdict } from "@/lib/xmtp";
@@ -33,8 +33,11 @@ export async function POST(
   if (task.poster !== poster) {
     return NextResponse.json({ error: "Only poster can request mediation" }, { status: 403 });
   }
-  const authErr = ownershipError(req, poster, Date.now());
-  if (authErr) return NextResponse.json({ error: authErr }, { status: 403 });
+  // Hard gate (ownerRefusal), 14 Oct 2026: ownershipError let a mismatched or
+  // missing session through while SESSION_ENFORCE is off, and a doer approved
+  // their own flagged proof in the poster's name on the local fixture.
+  const refusal = ownerRefusal(req, poster, Date.now());
+  if (refusal) return NextResponse.json(refusal, { status: 403 });
 
   // A flag can be decided once (2026-10-05). A single-reply favour keeps its
   // "flag" verdict after it is approved, so a second mediation used to run the

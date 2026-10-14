@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getActiveFeedbackTasks, getFeedbackTemplate } from "@/lib/feedback-tasks";
 import { awardPoints, getProofOfFavour } from "@/lib/proof-of-favour";
 import { getRedis } from "@/lib/redis";
-import { ownershipError } from "@/lib/session";
+import { ownerRefusal } from "@/lib/session";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 
 const FEEDBACK_PREFIX = "feedback:";
@@ -33,8 +33,11 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const ownErr = ownershipError(req, address, Date.now());
-  if (ownErr) return NextResponse.json({ error: ownErr }, { status: 403 });
+  // Hard gate (ownerRefusal), 14 Oct 2026: ownershipError let a mismatched or
+  // missing session through while SESSION_ENFORCE is off, and a doer approved
+  // their own flagged proof in the poster's name on the local fixture.
+  const refusal = ownerRefusal(req, address, Date.now());
+  if (refusal) return NextResponse.json(refusal, { status: 403 });
 
   const template = getFeedbackTemplate(templateId);
   if (!template) {

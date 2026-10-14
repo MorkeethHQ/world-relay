@@ -211,7 +211,8 @@ describe("invariant guards", () => {
     const f = files.find((p) => p.endsWith(join("feedback-tasks", "route.ts")));
     expect(f, "feedback-tasks/route.ts not found").toBeTruthy();
     const s = read(f!);
-    expect(s, "feedback-tasks must call ownershipError").toMatch(/ownershipError\(/);
+    // Hard gate since 14 Oct 2026 (ownerRefusal ignores SESSION_ENFORCE).
+    expect(s, "feedback-tasks must call ownerRefusal").toMatch(/ownerRefusal\(/);
     expect(s, "feedback-tasks must cap the daily earn (once-per-day earn lock)").toMatch(/earned:/);
   });
 });
