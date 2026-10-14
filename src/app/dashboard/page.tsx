@@ -26,27 +26,6 @@ import {
   Clock,
 } from "@worldcoin/mini-apps-ui-kit-react/icons";
 
-type OnChainTask = {
-  id: number;
-  bounty: string;
-  status: string;
-  description: string;
-  claimant: string;
-};
-
-type EscrowStats = {
-  legacy: boolean;
-  currentEscrow: string;
-  taskCount: number;
-  escrowBalance: string;
-  totalDeposited: string;
-  paidOut: string;
-  openLocked: string;
-  completedCount: number;
-  claimants: number;
-  tasks: OnChainTask[];
-};
-
 function StatusPill({ status }: { status: string }) {
   if (status === "completed") {
     return (
@@ -73,7 +52,6 @@ function StatusPill({ status }: { status: string }) {
 
 export default function ProfilePage() {
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [chain, setChain] = useState<EscrowStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
   const [sessionReady, setSessionReady] = useState(false);
@@ -105,10 +83,11 @@ export default function ProfilePage() {
   }, []);
   useEffect(() => {
     if (!sessionReady) return;
-    Promise.all([
-      fetch("/api/tasks").then(r => r.json()).then(d => setTasks(d.tasks || [])),
-      fetch("/api/escrow-stats").then(r => r.json()).then(d => { if (!d.error) setChain(d); }),
-    ]).finally(() => setLoading(false));
+    // Only the tasks: the on-chain escrow numbers (up to 7 s cold)
+    // were stored here and never drawn since 8e845da (15 Oct 2026).
+    fetch("/api/tasks").then(r => r.json()).then(d => setTasks(d.tasks || []))
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, [sessionReady]);
 
   const addresses = userId ? [userId] : [];
