@@ -18,13 +18,15 @@ vi.mock("@/lib/redis", () => ({
   }),
 }));
 
-import { excludedFromEnv, isOutside, northStarDay, noteCompleted, noteJuror, nsCompletedKey, nsJurorsKey, readNorthStar, OPERATOR_WALLET } from "@/lib/north-star";
+import { excludedFromEnv, isOutside, northStarDay, noteCompleted, noteJuror, nsCompletedKey, nsJurorsKey, readNorthStar } from "@/lib/north-star";
 
 const OUT1 = "0x" + "1".repeat(40), OUT2 = "0x" + "2".repeat(40);
 const OSCAR = "0x" + "a".repeat(40);
 const FIXTURE = "0x7e57da7a000000000000000000000000000000b2";
 const NOW = Date.parse("2026-10-14T12:00:00Z");
 const src = (p: string) => readFileSync(`${process.cwd()}/${p}`, "utf8");
+// The writes run in the background now; let them land.
+const settle = () => new Promise((r) => setTimeout(r, 20));
 
 beforeEach(() => { store.sets.clear(); store.failSadd = false; });
 
@@ -34,8 +36,9 @@ describe("who counts as outside", () => {
     expect(isOutside(OUT1, ex)).toBe(true);
     expect(isOutside(OUT1.toUpperCase().replace("0X", "0x"), ex)).toBe(true);
   });
-  it("the operator, TEST DATA wallets and the env list do not", () => {
-    expect(isOutside(OPERATOR_WALLET, ex)).toBe(false);
+  // The operator wallet is excluded through NORTH_STAR_EXCLUDE like any other:
+  // no wallet is written into the repo (Codex, 14 Oct 2026).
+  it("TEST DATA wallets and the env list do not", () => {
     expect(isOutside(FIXTURE, ex)).toBe(false);
     expect(isOutside(OSCAR, ex)).toBe(false);
   });
@@ -54,18 +57,21 @@ describe("one day's numbers", () => {
 
 describe("the day keys are written once per person or pair", () => {
   it("a juror twice in a day is one member; a completion twice is one member", async () => {
-    await noteJuror(OUT1, NOW); await noteJuror(OUT1.toUpperCase().replace("0X", "0x"), NOW + 1000);
-    await noteCompleted("f1", OUT1, NOW); await noteCompleted("f1", OUT1, NOW + 1000);
+    noteJuror(OUT1, NOW); noteJuror(OUT1.toUpperCase().replace("0X", "0x"), NOW + 1000);
+    noteCompleted("f1", OUT1, NOW); noteCompleted("f1", OUT1, NOW + 1000);
+    await settle();
     expect(store.sets.get(nsJurorsKey("2026-10-14"))?.size).toBe(1);
     expect(store.sets.get(nsCompletedKey("2026-10-14"))?.size).toBe(1);
   });
   it("a store failure is swallowed, so a verdict or completion never fails on the counter", async () => {
     store.failSadd = true;
-    await expect(noteJuror(OUT1, NOW)).resolves.toBeUndefined();
-    await expect(noteCompleted("f1", OUT1, NOW)).resolves.toBeUndefined();
+    expect(() => noteJuror(OUT1, NOW)).not.toThrow();
+    expect(() => noteCompleted("f1", OUT1, NOW)).not.toThrow();
+    await settle();
   });
   it("readNorthStar gives counts per day and no wallet", async () => {
-    await noteJuror(OUT1, NOW); await noteJuror(OSCAR, NOW); await noteCompleted("f1", OUT2, NOW - 86400_000);
+    noteJuror(OUT1, NOW); noteJuror(OSCAR, NOW); noteCompleted("f1", OUT2, NOW - 86400_000);
+    await settle();
     const days = await readNorthStar(2, NOW, new Set([OSCAR]));
     expect(days).toEqual([
       { day: "2026-10-14", outsideJurors: 1, completedFavours: 0 },

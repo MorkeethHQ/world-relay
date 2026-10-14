@@ -1,16 +1,20 @@
 #!/usr/bin/env node
 // Run by Oscar:  node scripts/north-star-read.mjs <path to .env.local> scripts/claim-and-release.ts
 // READ-ONLY north star read from the production store, 14 Oct 2026.
-// Allowed commands: SCAN, LRANGE, SMEMBERS, GET. Prints counts only: no key, no wallet, no secret.
+// Allowed commands: SCAN, LRANGE, SMEMBERS, GET. Exclusions: NORTH_STAR_EXCLUDE plus OSCAR_WORLD_APP. Prints counts only: no key, no wallet, no secret.
 import { readFileSync } from "node:fs";
 const env = Object.fromEntries(readFileSync(process.argv[2], "utf8").split("\n").filter((l) => /^[A-Z_]+=/.test(l)).map((l) => { const i = l.indexOf("="); return [l.slice(0, i), l.slice(i + 1).trim().replace(/^["']|["']$/g, "")]; }));
 const URL_ = env.KV_REST_API_URL, TOKEN = env.KV_REST_API_TOKEN;
 const READ = new Set(["SCAN", "LRANGE", "SMEMBERS", "GET"]);
 async function cmd(...a) { if (!READ.has(a[0])) throw new Error("refused: " + a[0]); const r = await fetch(URL_, { method: "POST", headers: { Authorization: `Bearer ${TOKEN}` }, body: JSON.stringify(a) }); const j = await r.json(); if (j.error) throw new Error(a[0] + " " + j.error); return j.result; }
 async function scan(match) { let c = "0", out = []; do { const [n, keys] = await cmd("SCAN", c, "MATCH", match, "COUNT", 500); out.push(...keys); c = String(n); } while (c !== "0"); return out; }
-const OP = "0x-operator-wallet-removed-see-NORTH_STAR_EXCLUDE";
 const OSCAR = readFileSync(process.argv[3], "utf8").match(/OSCAR_WORLD_APP = "(0x[0-9a-fA-F]{40})"/)[1].toLowerCase();
-const out = (w) => { w = String(w).toLowerCase(); return /^0x[0-9a-f]{40}$/.test(w) && w !== OP && w !== OSCAR && !w.startsWith("0x7e57da7a"); };
+// No wallet is written here: the operator and Oscar's other wallets come from
+// NORTH_STAR_EXCLUDE (in the env file, or in the shell), as on the server.
+const EXCLUDE = new Set(String(process.env.NORTH_STAR_EXCLUDE ?? env.NORTH_STAR_EXCLUDE ?? "").split(",").map((w) => w.trim().toLowerCase()).filter(Boolean));
+EXCLUDE.add(OSCAR);
+if (EXCLUDE.size < 2) console.log("WARNING: NORTH_STAR_EXCLUDE is not set, so the operator wallet counts as outside. Set it and run again.");
+const out = (w) => { w = String(w).toLowerCase(); return /^0x[0-9a-f]{40}$/.test(w) && !EXCLUDE.has(w) && !w.startsWith("0x7e57da7a"); };
 const NOW = Date.now(), DAYS = [...Array(14)].map((_, i) => new Date(NOW - i * 86400e3).toISOString().slice(0, 10));
 // Completed favours per day: the History rows (contributions:<wallet>), one per (favour, person).
 const ck = await scan("contributions:*");

@@ -49,6 +49,7 @@ import { buildContribution, completedClaimantsKey, contributionsKey, CONTRIBUTIO
 import { appealOutcome, getJudgeStats, isQualifiedJudge } from "./jury-appeal";
 import { APPEAL_QUORUM, JUDGE_MIN_ACCURACY, JUDGE_MIN_GRADED } from "./jury-appeal-rules";
 import { houseReviewScope, type HouseReviewScope } from "./house-review-gate";
+import { noteCompleted } from "./north-star";
 
 export const HOUSE_REVIEW_QUEUE = "house:review:queue";
 export const REVIEW_REASON_MIN = 20;
@@ -284,6 +285,9 @@ export async function recordHouseReviewVote(
             campaignId: t.campaignId ?? null, campaignLabel: t.campaignId ? "Welcome" : null, now,
           });
           await redis.eval(RECORD_HISTORY_ONCE, [historyKey(c), contributionsKey(person)], [at, JSON.stringify(row), CONTRIBUTIONS_MAX, MARKER_TTL]);
+          // North star: this path writes the History row itself, not through
+          // recordTaskCompletion, so it counts the completion here. Not awaited.
+          noteCompleted(t.id, person, now);
         }
       }
     } catch (err) {

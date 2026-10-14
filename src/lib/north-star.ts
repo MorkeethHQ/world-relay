@@ -7,10 +7,10 @@
 //                     (favour, person) pair, the same pair the History row and
 //                     the duplicate guard use.
 //
-// OUTSIDE means: a real wallet (0x + 40 hex), not the operator wallet, not a
-// TEST DATA fixture wallet, and not listed in NORTH_STAR_EXCLUDE. That variable
-// holds Oscar's own wallets, comma separated, and lives in the deployment's
-// environment only: a personal wallet is never written into this repo.
+// OUTSIDE means: a real wallet (0x + 40 hex), not a TEST DATA fixture wallet,
+// and not listed in NORTH_STAR_EXCLUDE. That variable holds Oscar's own wallets
+// and the operator wallet, comma separated, and lives in the deployment's
+// environment only: no wallet is ever written into this repo.
 //
 // It replaces "users.verified" on /api/stats as the number to watch. That one
 // counts verified:* records of any level, every sign-in included, and read 200
@@ -18,9 +18,9 @@
 //
 // The day keys are written from the deploy of this file on. Before that, no
 // record names a juror by day, so no earlier juror number exists.
+import { after } from "next/server";
 import { getRedis } from "./redis";
 
-export const OPERATOR_WALLET = "0x-operator-wallet-removed-see-NORTH_STAR_EXCLUDE";
 // scripts/review-fixture.json: every TEST DATA wallet starts with this.
 export const FIXTURE_WALLET_PREFIX = "0x7e57da7a";
 const WALLET_RE = /^0x[0-9a-f]{40}$/;
@@ -39,7 +39,6 @@ export function excludedFromEnv(env: Record<string, string | undefined> = proces
 export function isOutside(wallet: string, exclude: Set<string>): boolean {
   const w = String(wallet ?? "").toLowerCase();
   if (!WALLET_RE.test(w)) return false;
-  if (w === OPERATOR_WALLET) return false;
   if (w.startsWith(FIXTURE_WALLET_PREFIX)) return false;
   return !exclude.has(w);
 }
@@ -56,26 +55,40 @@ export function northStarDay(day: string, jurors: string[], completions: string[
   return { day, outsideJurors, completedFavours };
 }
 
-/** Write side: a live verdict. Called after the verdict is saved; never throws. */
-export async function noteJuror(judge: string, nowMs = Date.now()): Promise<void> {
-  const redis = getRedis();
-  if (!redis) return;
-  const key = nsJurorsKey(utcDayOf(nowMs));
-  try {
-    await redis.sadd(key, judge.toLowerCase());
-    await redis.expire(key, KEEP_SECONDS);
-  } catch { /* a counter must never fail a verdict */ }
+// A counter write must never hold up the verdict or completion it counts
+// (Codex, 14 Oct 2026): it is not awaited, and it gives up after this long.
+export const NOTE_DEADLINE_MS = 1500;
+
+function inBackground(work: () => Promise<unknown>): void {
+  const run = Promise.race([
+    work().catch(() => undefined),
+    new Promise((resolve) => setTimeout(resolve, NOTE_DEADLINE_MS)),
+  ]).then(() => undefined);
+  // Inside a request, let the platform finish it after the answer is sent
+  // (as lib/track.ts does). Outside one, it simply runs.
+  try { after(() => run); } catch { /* not in a request */ }
 }
 
-/** Write side: a credited completion. Called after the History row; never throws. */
-export async function noteCompleted(favourId: string, wallet: string, atMs = Date.now()): Promise<void> {
+/** Write side: a live verdict. Returns at once; never throws. */
+export function noteJuror(judge: string, nowMs = Date.now()): void {
+  const redis = getRedis();
+  if (!redis || !judge) return;
+  const key = nsJurorsKey(utcDayOf(nowMs));
+  inBackground(async () => {
+    await redis.sadd(key, judge.toLowerCase());
+    await redis.expire(key, KEEP_SECONDS);
+  });
+}
+
+/** Write side: a credited completion. Returns at once; never throws. */
+export function noteCompleted(favourId: string, wallet: string, atMs = Date.now()): void {
   const redis = getRedis();
   if (!redis || !favourId || !wallet) return;
   const key = nsCompletedKey(utcDayOf(Number.isFinite(atMs) ? atMs : Date.now()));
-  try {
+  inBackground(async () => {
     await redis.sadd(key, `${favourId}:${wallet.toLowerCase()}`);
     await redis.expire(key, KEEP_SECONDS);
-  } catch { /* a counter must never fail a completion */ }
+  });
 }
 
 /** Read side: the last `days` UTC days, newest first. Counts only, no wallet. */

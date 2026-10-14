@@ -1,0 +1,51 @@
+// SIGN IN AGAIN, FROM ANY PAGE (14 Oct 2026). The hard session gates answer
+// `reauth_required` when the cookie is missing or expired. The home feed could
+// recover (Feed onReauth); a favour opened by link (/task/<id>) or the Profile
+// card could not, so a person with an expired cookie was stuck there.
+//
+// One wallet signature, the same exchange the home page uses (page.tsx
+// reauthSilently): MiniKit walletAuth, then POST /api/verify-identity, which
+// sets a fresh session cookie. Only for the wallet already signed in here.
+import { MiniKit } from "@worldcoin/minikit-js";
+
+/** True when a fresh session for `address` was set. Never throws. */
+export async function reauthWallet(address: string): Promise<boolean> {
+  try {
+    if (!MiniKit.isInstalled()) return false;
+    const result = await MiniKit.walletAuth({
+      nonce: crypto.randomUUID().replace(/-/g, ""),
+      statement: "Sign in to FAVOUR",
+      expirationTime: new Date(Date.now() + 3600_000),
+    });
+    const signed = result?.data?.address;
+    if (!signed || signed.toLowerCase() !== address.toLowerCase()) return false;
+    const res = await fetch("/api/verify-identity", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ address: signed, signature: result.data.signature, message: result.data.message }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+/** Whether an answer asks the person to sign in again. Pure. */
+export async function needsReauth(res: Response): Promise<boolean> {
+  if (res.status !== 401 && res.status !== 403) return false;
+  const body = await res.clone().json().catch(() => null);
+  return body?.code === "reauth_required";
+}
+
+/** Send once; on `reauth_required`, sign in again and send once more. Only
+ *  once: a loop would keep asking a person who declined. */
+export async function sendWithReauth(
+  send: () => Promise<Response>,
+  address: string | null,
+  reauth: (address: string) => Promise<boolean> = reauthWallet,
+): Promise<Response> {
+  const res = await send();
+  if (!address || !(await needsReauth(res))) return res;
+  if (!(await reauth(address))) return res;
+  return send();
+}

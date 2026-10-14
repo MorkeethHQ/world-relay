@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import type { Task, VerificationResult, AiFollowUp } from "@/lib/types";
 import { VerificationBadge } from "@/components/VerificationBadge";
+import { sendWithReauth } from "@/lib/reauth";
 import { hapticTap, hapticSuccess, hapticError, shareTask } from "@/lib/minikit-helpers";
 import { MiniKit } from "@worldcoin/minikit-js";
 import { rewardAmountLabel, isPointsReward, isRealMoney } from "@/lib/reward";
@@ -736,7 +737,7 @@ function WorldChatThread({
   messages: Message[];
   agent: { name: string; icon: string; color: string } | null;
   userId: string | null;
-  onSend: (text: string) => Promise<void>;
+  onSend: (text: string) => Promise<boolean>;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [draft, setDraft] = useState("");
@@ -765,7 +766,10 @@ function WorldChatThread({
     setSending(true);
     setDraft("");
     try {
-      await onSend(text);
+      // Not saved: put the words back, so nothing typed is lost.
+      if (!(await onSend(text))) setDraft(text);
+    } catch {
+      setDraft(text);
     } finally {
       setSending(false);
     }
@@ -1538,17 +1542,20 @@ export default function TaskDetailPage() {
       // Send as the signed-in person. This was "task.claimant || task.poster",
       // so a poster's message was saved under the doer's wallet (test product
       // walk, 14 Oct 2026). The server let it through while SESSION_ENFORCE is off.
-      if (!task || !userId) return;
+      if (!task || !userId) return false;
       const sender = userId;
-      const res = await fetch(`/api/tasks/${id}/messages`, {
+      // An expired session asks for one signature, then sends again
+      // (lib/reauth.ts). The answer says whether it was saved, so the box can
+      // keep the words when it was not (Codex, 14 Oct 2026).
+      const res = await sendWithReauth(() => fetch(`/api/tasks/${id}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sender, text }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setMessages(data.messages || []);
-      }
+      }), userId);
+      if (!res.ok) return false;
+      const data = await res.json().catch(() => ({}));
+      setMessages(data.messages || []);
+      return true;
     },
     [id, task, userId],
   );

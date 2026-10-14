@@ -282,15 +282,17 @@ export async function recordJuryVerdict(
   // qualified the judge). SADD is the atomic check: a proof already judged by
   // this person is graded for the player and moves no stat, point or day count.
   const firstOnProof = await redis.sadd(`jury:judged:${judge.toLowerCase()}`, answer.proofTaskId);
-  // North star (lib/north-star.ts): a live verdict is saved, count the juror
-  // for today. It swallows its own errors and changes no answer above.
-  await noteJuror(judge);
   if (!firstOnProof) {
     const statsKey = `jury:stats:${judge.toLowerCase()}`;
     const judged = Number((await redis.hget(statsKey, "judged")) || 0);
     const correctTotal = Number((await redis.hget(statsKey, "correct")) || 0);
     return { correct: saidMatch === answer.isMatch, isMatch: answer.isMatch, pointsAwarded: 0, judged, correctTotal, practice: true, repeat: true, ...(answer.decoy ? { decoy: true } : {}), day };
   }
+
+  // North star (lib/north-star.ts): a first live verdict on this proof is
+  // saved, count the juror for today. Not awaited, with a deadline: it can
+  // never hold up or change this answer.
+  noteJuror(judge);
 
   const correct = saidMatch === answer.isMatch;
 
