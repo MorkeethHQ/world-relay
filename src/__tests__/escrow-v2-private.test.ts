@@ -33,13 +33,20 @@ const STRANGER = "0x5000000000000000000000000000000000000e05";
 const PEOPLE = [POSTER, CLAIMANT, FUNDER, RECIPIENT];
 const CONTRACT = escrowV2Address();
 
-const cookieFor = (w: string, issuedAt = Date.now()) => `${SESSION_COOKIE}=${issueSessionToken(w, issuedAt)}`;
-const VIEWERS: Record<string, string | null> = {
-  "signed out": null,
-  "signed-in stranger": cookieFor(STRANGER),
+// Cookies are built INSIDE a test, after beforeEach has set the key. Built at
+// module load they were "favour_session=null" and proved nothing (Codex, 14 Oct).
+const cookieFor = (w: string, issuedAt = Date.now()) => {
+  const token = issueSessionToken(w, issuedAt);
+  if (!token) throw new Error("no session key: a cookie built here would prove nothing");
+  return `${SESSION_COOKIE}=${token}`;
+};
+const EXPIRED_ISSUED_AT = Date.now() - 2 * SESSION_TTL_MS;
+const VIEWERS: Record<string, () => string | null> = {
+  "signed out": () => null,
+  "signed-in stranger": () => cookieFor(STRANGER),
   // The real token shape (base64url payload, a dot, a signature) with a signature made by a key the server does not hold.
-  "forged cookie naming the poster": `${SESSION_COOKIE}=${Buffer.from(`${POSTER.toLowerCase()}.${Date.now() + SESSION_TTL_MS}`).toString("base64url")}.${createHmac("sha256", "not-the-server-key").update(`${POSTER.toLowerCase()}.${Date.now() + SESSION_TTL_MS}`).digest("base64url")}`,
-  "expired cookie of the poster": cookieFor(POSTER, Date.now() - 2 * SESSION_TTL_MS),
+  "forged cookie naming the poster": () => `${SESSION_COOKIE}=${Buffer.from(`${POSTER.toLowerCase()}.${Date.now() + SESSION_TTL_MS}`).toString("base64url")}.${createHmac("sha256", "not-the-server-key").update(`${POSTER.toLowerCase()}.${Date.now() + SESSION_TTL_MS}`).digest("base64url")}`,
+  "expired cookie of the poster": () => cookieFor(POSTER, EXPIRED_ISSUED_AT),
 };
 const PARTIES: Record<string, string> = { poster: POSTER, claimant: CLAIMANT, funder: FUNDER, recipient: RECIPIENT };
 
@@ -65,7 +72,7 @@ beforeEach(() => {
 describe("GET ?taskId with the real session", () => {
   for (const [who, cookie] of Object.entries(VIEWERS)) {
     it(`${who}: the state, and no wallet`, async () => {
-      const res = await GET(getReq("task-1", cookie));
+      const res = await GET(getReq("task-1", cookie()));
       expect(res.status).toBe(200);
       const text = await res.clone().text();
       expect(named(text)).toEqual([]);
@@ -84,7 +91,7 @@ describe("GET ?taskId with the real session", () => {
 describe("prepare-refund with the real session", () => {
   for (const [who, cookie] of Object.entries(VIEWERS)) {
     it(`${who}: the payload, and no funder`, async () => {
-      const res = await POST(postReq({ action: "prepare-refund", taskId: "task-1" }, cookie));
+      const res = await POST(postReq({ action: "prepare-refund", taskId: "task-1" }, cookie()));
       expect(res.status).toBe(200);
       const text = await res.clone().text();
       expect(named(text)).toEqual([]);
@@ -108,8 +115,22 @@ describe("the cookies above are what they say", () => {
     const real = `${Buffer.from(`${POSTER.toLowerCase()}.${exp}`).toString("base64url")}.${createHmac("sha256", "test-secret-not-a-real-one").update(`${POSTER.toLowerCase()}.${exp}`).digest("base64url")}`;
     const ask = (c: string) => getAuthedAddress(new NextRequest("http://localhost/", { headers: { cookie: c } }), Date.now());
     expect(ask(`${SESSION_COOKIE}=${real}`)).toBe(POSTER.toLowerCase());
-    expect(ask(VIEWERS["forged cookie naming the poster"]!)).toBeNull();
-    expect(ask(VIEWERS["expired cookie of the poster"]!)).toBeNull();
+    expect(ask(VIEWERS["forged cookie naming the poster"]()!)).toBeNull();
+  });
+  it("the stranger's cookie is a real session for a wallet that is not a party", async () => {
+    const { getAuthedAddress } = await import("@/lib/session");
+    const c = VIEWERS["signed-in stranger"]()!;
+    expect(c).not.toContain("=null");
+    expect(getAuthedAddress(new NextRequest("http://localhost/", { headers: { cookie: c } }), Date.now())).toBe(STRANGER.toLowerCase());
+    expect(PEOPLE.map((w) => w.toLowerCase())).not.toContain(STRANGER.toLowerCase());
+  });
+  it("the expired cookie is refused for its age: the same cookie read before its end is accepted", async () => {
+    const { getAuthedAddress } = await import("@/lib/session");
+    const c = VIEWERS["expired cookie of the poster"]()!;
+    expect(c).not.toContain("=null");
+    const at = (ms: number) => getAuthedAddress(new NextRequest("http://localhost/", { headers: { cookie: c } }), ms);
+    expect(at(EXPIRED_ISSUED_AT + 1000)).toBe(POSTER.toLowerCase());
+    expect(at(Date.now())).toBeNull();
   });
 });
 
