@@ -74,8 +74,8 @@ describe("the day keys are written once per person or pair", () => {
     await settle();
     const days = await readNorthStar(2, NOW, new Set([OSCAR]));
     expect(days).toEqual([
-      { day: "2026-10-14", outsideJurors: 1, completedFavours: 0 },
-      { day: "2026-10-13", outsideJurors: 0, completedFavours: 1 },
+      { day: "2026-10-14", outsideJurors: 1, completedFavours: 0, jurorsBackNextDay: null },
+      { day: "2026-10-13", outsideJurors: 0, completedFavours: 1, jurorsBackNextDay: 0 },
     ]);
     expect(JSON.stringify(days)).not.toMatch(/0x[0-9a-f]{40}/i);
   });
