@@ -38,6 +38,11 @@ export const FUNNEL_EVENTS = [
   // 2026-10-05, R19: the campaign stage on step 0.
   "welcome_tapped",
   "demo_brand_tapped",
+  // 2026-10-15: what "sign in again" costs since the hard session gates (PR 55).
+  // Once per device per UTC day each, by trackReauthOncePerDay below.
+  "reauth_asked",
+  "reauth_ok",
+  "reauth_failed",
 ] as const;
 
 export type FunnelEvent = (typeof FUNNEL_EVENTS)[number];
@@ -67,4 +72,18 @@ export function trackMissionViewedOncePerDay(): void {
     return;
   }
   trackFunnelEvent("mission_viewed");
+}
+
+// The three sign-in-again counters: a signature was asked, it set a session, or
+// it did not (declined, another wallet, the exchange failed). Once per device
+// per UTC day each, so asked can be read against DAU. No payload.
+export function trackReauthOncePerDay(event: "reauth_asked" | "reauth_ok" | "reauth_failed"): void {
+  const key = `favour_${event}:${new Date().toISOString().slice(0, 10)}`;
+  try {
+    if (localStorage.getItem(key)) return;
+    localStorage.setItem(key, "1");
+  } catch {
+    return;
+  }
+  trackFunnelEvent(event);
 }

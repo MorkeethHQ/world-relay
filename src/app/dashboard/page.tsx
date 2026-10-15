@@ -26,27 +26,6 @@ import {
   Clock,
 } from "@worldcoin/mini-apps-ui-kit-react/icons";
 
-type OnChainTask = {
-  id: number;
-  bounty: string;
-  status: string;
-  description: string;
-  claimant: string;
-};
-
-type EscrowStats = {
-  legacy: boolean;
-  currentEscrow: string;
-  taskCount: number;
-  escrowBalance: string;
-  totalDeposited: string;
-  paidOut: string;
-  openLocked: string;
-  completedCount: number;
-  claimants: number;
-  tasks: OnChainTask[];
-};
-
 function StatusPill({ status }: { status: string }) {
   if (status === "completed") {
     return (
@@ -73,8 +52,8 @@ function StatusPill({ status }: { status: string }) {
 
 export default function ProfilePage() {
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [chain, setChain] = useState<EscrowStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [tasksFailed, setTasksFailed] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [sessionReady, setSessionReady] = useState(false);
   const [verificationLevel, setVerificationLevel] = useState<string | null>(null);
@@ -103,13 +82,21 @@ export default function ProfilePage() {
     const stored = (() => { try { return localStorage.getItem("relay_user_id"); } catch { return null; } })();
     ensureSession(stored && stored.startsWith("0x") ? stored : null).finally(() => setSessionReady(true));
   }, []);
+  // Only the tasks: the on-chain escrow numbers (up to 7 s cold) were stored
+  // here and never drawn since 8e845da (15 Oct 2026). A failed read is said
+  // as failed, never shown as an empty history (Codex, 15 Oct 2026).
+  const loadTasks = () => {
+    fetch("/api/tasks")
+      .then((r) => { if (!r.ok) throw new Error(`tasks ${r.status}`); return r.json(); })
+      .then((d) => setTasks(d.tasks || []))
+      .catch(() => setTasksFailed(true))
+      .finally(() => setLoading(false));
+  };
   useEffect(() => {
     if (!sessionReady) return;
-    Promise.all([
-      fetch("/api/tasks").then(r => r.json()).then(d => setTasks(d.tasks || [])),
-      fetch("/api/escrow-stats").then(r => r.json()).then(d => { if (!d.error) setChain(d); }),
-    ]).finally(() => setLoading(false));
+    loadTasks();
   }, [sessionReady]);
+  const retryTasks = () => { setTasksFailed(false); setLoading(true); loadTasks(); };
 
   const addresses = userId ? [userId] : [];
   useWorldUsers(addresses);
@@ -196,6 +183,25 @@ export default function ProfilePage() {
             // favours. Show an honest empty-state so that reads as intentional,
             // not a broken/missing history (Oscar live-test Jul 8; streak stays
             // activity-based by decision).
+            if (tasksFailed) {
+              return (
+                <div>
+                  <div className="flex items-center justify-between mb-3 px-1">
+                    <Typography variant="subtitle" level={2} className="text-gray-900">
+                      Your activity
+                    </Typography>
+                  </div>
+                  <div className="bg-white rounded-2xl border border-gray-200 px-4 py-8 text-center" role="alert">
+                    <Typography variant="body" level={3} className="text-gray-500">
+                      Could not load your favours
+                    </Typography>
+                    <button type="button" onClick={retryTasks} className="mt-3 px-4 py-2 rounded-full bg-gray-900 text-white text-sm font-medium">
+                      Try again
+                    </button>
+                  </div>
+                </div>
+              );
+            }
             if (myTasks.length === 0) {
               return (
                 <div>

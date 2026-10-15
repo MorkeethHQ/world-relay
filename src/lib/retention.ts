@@ -115,6 +115,10 @@ const TRACKED_EVENTS = [
   // R19 (2026-10-05): the campaign stage on step 0.
   "welcome_tapped",
   "demo_brand_tapped",
+  // 2026-10-15: what "sign in again" costs (lib/funnel-events.ts).
+  "reauth_asked",
+  "reauth_ok",
+  "reauth_failed",
 ] as const;
 
 export async function computeRetention(

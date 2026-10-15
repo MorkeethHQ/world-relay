@@ -30,7 +30,7 @@
 // recovery can be rehearsed.
 //
 // Limits, stated plainly: it is a double, not Redis. EVAL does not run Lua. It
-// recognises the three scripts this repo sends (the points lock release and the
+// recognises the scripts this repo sends (the points lock release and the
 // two hide-item compare-and-set scripts) and repeats in JavaScript what they say.
 // Any other EVAL, and any command it does not know, is answered with an error and
 // listed under "unknown" in /__log.
@@ -265,6 +265,16 @@ function exec(args) {
         sets.get(K[0]).add(A[0]);
         kv.set(K[1], had ? "none" : "credit");
         return kv.get(K[1]);
+      }
+      if (script.startsWith("-- favour:jury-day")) {
+        // src/lib/jury-day.ts RECORD_JURY_DAY: reserve the member's day once, count it on that day.
+        if (!hashes.has(K[0])) hashes.set(K[0], new Map());
+        if (!hashes.get(K[0]).has(A[0])) hashes.get(K[0]).set(A[0], A[1]);
+        const counted = hashes.get(K[0]).get(A[0]);
+        const add = (k, v) => { if (!sets.has(k)) sets.set(k, new Set()); const had = sets.get(k).has(v); sets.get(k).add(v); return had ? 0 : 1; };
+        const added = add(A[2] + counted, A[0]);
+        add(K[1], counted);
+        return [added, sets.get(K[2])?.size ?? 0, counted, [...sets.get(K[1])]];
       }
       if (script.startsWith("-- favour:case-history")) {
         if (kv.has(K[0])) return 0;

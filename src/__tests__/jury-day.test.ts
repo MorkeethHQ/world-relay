@@ -6,6 +6,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const kv = new Map<string, any>();
 let failTxOnce = false;
+let loseReplyOnce = false; // the transaction runs, then its reply is lost
+const fields = new Map<string, Map<string, string>>();
 const sets = new Map<string, Set<string>>();
 const hashes = new Map<string, Map<string, number>>();
 const fakeRedis = {
@@ -18,8 +20,24 @@ const fakeRedis = {
   smembers: async (k: string) => [...(sets.get(k) ?? [])],
   sismember: async (k: string, m: string) => (sets.get(k)?.has(m) ? 1 : 0),
   scard: async (k: string) => sets.get(k)?.size ?? 0,
+  hsetnx: async (k: string, f: string, v: string) => { const h = fields.get(k) ?? new Map(); if (h.has(f)) return 0; h.set(f, v); fields.set(k, h); return 1; },
   hincrby: async (k: string, f: string, n: number) => { const h = hashes.get(k) ?? new Map(); h.set(f, (h.get(f) ?? 0) + n); hashes.set(k, h); return h.get(f); },
-  hget: async (k: string, f: string) => hashes.get(k)?.get(f) ?? null,
+  hget: async (k: string, f: string) => fields.get(k)?.get(f) ?? hashes.get(k)?.get(f) ?? null,
+  // The day script (lib/jury-day.ts RECORD_JURY_DAY), repeated in JavaScript.
+  // It runs whole, or (with failTxOnce) not at all; loseReplyOnce runs it and loses the reply.
+  eval: async (script: string, keys: string[], args: any[]) => {
+    if (!script.startsWith("-- favour:jury-day")) throw new Error("unknown script");
+    if (failTxOnce) { failTxOnce = false; throw new Error("store blip"); }
+    const [dayOf, days, todayKey] = keys; const [member, day, prefix] = args.map(String);
+    const h = fields.get(dayOf) ?? new Map(); fields.set(dayOf, h);
+    if (!h.has(member)) h.set(member, day);
+    const counted = h.get(member)!;
+    const added = await fakeRedis.sadd(prefix + counted, member);
+    await fakeRedis.sadd(days, counted);
+    const out = [added, await fakeRedis.scard(todayKey), counted, await fakeRedis.smembers(days)];
+    if (loseReplyOnce) { loseReplyOnce = false; throw new Error("reply lost"); }
+    return out;
+  },
   // A transaction: every queued command runs, or (with failTxOnce) none does.
   multi: () => {
     const ops: (() => Promise<unknown>)[] = [];
@@ -29,7 +47,12 @@ const fakeRedis = {
       sadd: (k: string, m: string) => { ops.push(() => fakeRedis.sadd(k, m)); return tx; },
       smembers: (k: string) => { ops.push(() => fakeRedis.smembers(k)); return tx; },
       scard: (k: string) => { ops.push(() => fakeRedis.scard(k)); return tx; },
-      exec: async () => { if (failTxOnce) { failTxOnce = false; throw new Error("store blip"); } const out = []; for (const op of ops) out.push(await op()); return out; },
+      exec: async () => {
+        if (failTxOnce) { failTxOnce = false; throw new Error("store blip"); }
+        const out = []; for (const op of ops) out.push(await op());
+        if (loseReplyOnce) { loseReplyOnce = false; throw new Error("reply lost"); }
+        return out;
+      },
     };
     return tx;
   },
@@ -46,7 +69,7 @@ const D = (iso: string) => Date.parse(`${iso}T12:00:00Z`);
 let mi = 0;
 const m = () => `c:test-${++mi}`; // a fresh card per call: each call is one verdict
 
-beforeEach(() => { kv.clear(); sets.clear(); hashes.clear(); awarded.length = 0; failTxOnce = false; process.env.NEXT_PUBLIC_FAVOUR_JURY_GAME = "1"; });
+beforeEach(() => { kv.clear(); sets.clear(); hashes.clear(); fields.clear(); awarded.length = 0; failTxOnce = false; loseReplyOnce = false; process.env.NEXT_PUBLIC_FAVOUR_JURY_GAME = "1"; });
 
 describe("streakFromDays and liveStreak", () => {
   it("counts the run that ends on the last day played, and keeps the best", () => {
@@ -263,6 +286,65 @@ describe("a proof judged yesterday does not count today", () => {
       const after: any = await recordJuryVerdict(JUDGE, twin.cardId, true);
       expect(after.repeat).toBe(true);
       expect(await getJuryDay(JUDGE, Date.now())).toMatchObject({ today: 0, streak: 1 });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+// EDGES Oscar ruled to fix ("Fix the other things too", 14 Oct 2026).
+describe("a proof counts on one day only, whatever the clock does", () => {
+  const pool = (tag: string) => ["a queue at a bakery", "a bus timetable", "a shelf of milk", "a sunset"].map((d, i) => ({ id: `${tag}${i}`, status: "completed", proofImageUrl: `/p/${tag}${i}.jpg`, proofNote: null, description: d, category: "photo", location: "x",
+    claimant: "0x1111111111111111111111111111111111111111", poster: "0x2222222222222222222222222222222222222222", verificationResult: { verdict: "pass", confidence: 0.9, reasoning: "ok" } }) as any);
+
+  it("edge 1: the reply of 23:59 is lost after the write, the retry at 00:01 does not count a second day", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      let n = 0;
+      vi.setSystemTime(new Date("2026-10-13T23:59:00Z"));
+      const { cards } = await issueJuryDeckWithMode(pool("e1-"), JUDGE, () => `e1-${++n}`);
+      loseReplyOnce = true;
+      const lost: any = await recordJuryVerdict(JUDGE, cards[0].cardId, true);
+      expect(lost.error).toMatch(/not saved/);
+      vi.setSystemTime(new Date("2026-10-14T00:01:00Z"));
+      const retry: any = await recordJuryVerdict(JUDGE, cards[0].cardId, true);
+      expect(retry.error).toBeUndefined();
+      expect(retry.day).toMatchObject({ date: "2026-10-14", today: 0, streak: 1, best: 1 });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("edge 3: two cards on one proof, one either side of midnight, land on one day", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      vi.setSystemTime(new Date("2026-10-13T23:59:00Z"));
+      const a = await recordJuryDay(JUDGE, Date.now(), "p:same-proof");
+      vi.setSystemTime(new Date("2026-10-14T00:01:00Z"));
+      const b = await recordJuryDay(JUDGE, Date.now(), "p:same-proof");
+      expect(a).toMatchObject({ date: "2026-10-13", today: 1, streak: 1 });
+      expect(b).toMatchObject({ date: "2026-10-14", today: 0, streak: 1, best: 1 });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+// CODEX REVIEW OF d4751f8 (EDGE): the day was reserved by HSETNX BEFORE the
+// transaction. A transaction that never ran at 23:59 still pinned yesterday, so
+// the retry at 00:01 counted on yesterday and today stayed 0. The reservation
+// and the count must be one atomic step.
+describe("the day is reserved only when the count is written", () => {
+  it("a transaction that never ran at 23:59 pins nothing; the retry at 00:01 counts today", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    try {
+      vi.setSystemTime(new Date("2026-10-13T23:59:00Z"));
+      failTxOnce = true;
+      await expect(recordJuryDay(JUDGE, Date.now(), "p:never-ran")).rejects.toThrow();
+      vi.setSystemTime(new Date("2026-10-14T00:01:00Z"));
+      const retry = await recordJuryDay(JUDGE, Date.now(), "p:never-ran");
+      expect(retry).toMatchObject({ date: "2026-10-14", today: 1, streak: 1, best: 1 });
+      expect((await getJuryDay(JUDGE, Date.parse("2026-10-13T23:59:30Z")))?.today).toBe(0);
     } finally {
       vi.useRealTimers();
     }

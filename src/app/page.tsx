@@ -6,6 +6,7 @@ import { Feed } from "@/components/Feed";
 import { Onboarding } from "@/components/Onboarding";
 import { WorldAppHandoff } from "@/components/WorldAppHandoff";
 import { displayName } from "@/hooks/useWorldUser";
+import { trackReauthOncePerDay } from "@/lib/funnel-events";
 import {
   Button,
   Typography,
@@ -117,18 +118,19 @@ export default function Home() {
   // than the open gate does. When they decline, gated routes return their own
   // explicit "re-open the app to re-authenticate" message.
   const reauthSilently = async (addr: string) => {
+    trackReauthOncePerDay("reauth_asked");
     try {
       const result = await MiniKit.walletAuth({
         nonce: crypto.randomUUID().replace(/-/g, ""),
         statement: "Sign in to FAVOUR",
         expirationTime: new Date(Date.now() + 3600_000),
       });
-      if (!result?.data?.address) return;
+      if (!result?.data?.address) { trackReauthOncePerDay("reauth_failed"); return; }
       // Only accept a signature from the wallet we already believe we are.
       // A different address here means the person switched wallets, which is a
       // fresh sign-in rather than a refresh, and is left to handleVerify.
-      if (result.data.address.toLowerCase() !== addr.toLowerCase()) return;
-      await fetch("/api/verify-identity", {
+      if (result.data.address.toLowerCase() !== addr.toLowerCase()) { trackReauthOncePerDay("reauth_failed"); return; }
+      const res = await fetch("/api/verify-identity", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -137,8 +139,10 @@ export default function Home() {
           message: result.data.message,
         }),
       });
+      trackReauthOncePerDay(res.ok ? "reauth_ok" : "reauth_failed");
     } catch {
       // User declined, or MiniKit is unavailable. Stay quiet, as above.
+      trackReauthOncePerDay("reauth_failed");
     }
   };
 
