@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // outside wallets it is published, once.
 
 import { YES_GATE } from "@/lib/yes-gate";
-import { APPS_PENDING, castYes, listPendingApps, markPending, type AppStore } from "@/lib/posted-apps";
+import { APPS_DUE, APPS_PENDING, castYes, listPendingApps, markPending, publishDue, type AppStore } from "@/lib/posted-apps";
 
 const w = (n: number) => "0x" + n.toString(16).padStart(40, "0");
 const MAKER = w(999);
@@ -110,5 +110,47 @@ describe("a YES vote on a posted app", () => {
   it("refuses a vote once the app is published", async () => {
     for (let i = 1; i <= YES_GATE; i++) await yes(ID, w(i));
     expect(await yes(ID, w(88))).toEqual({ ok: false, reason: "not_pending" });
+  });
+});
+
+describe("an app that reached the gate on a day its maker already published", () => {
+  const DAY = Date.UTC(2026, 9, 17, 21, 0);
+  const NEXT = Date.UTC(2026, 9, 18, 0, 25);
+  const refused = { ok: false, error: "You can publish one campaign a day.", status: 429 };
+  const pass = (now: number) => publishDue({ store: s, publish, exclude: NONE, now });
+
+  beforeEach(async () => {
+    await markPending(ID, s);
+    publish.mockResolvedValueOnce(refused);
+    for (let i = 1; i <= YES_GATE; i++) await castYes(ID, w(i), { store: s, publish, exclude: NONE, now: DAY });
+  });
+
+  it("is kept due, still pending, and not published", () => {
+    expect(s.sets.get(APPS_DUE)?.has(ID)).toBe(true);
+    expect(s.sets.get(APPS_PENDING)?.has(ID)).toBe(true);
+  });
+
+  it("publishes at the next pass after the refusal, with no further YES", async () => {
+    expect(await pass(NEXT)).toEqual({ due: 1, published: 1 });
+    expect(publish).toHaveBeenCalledTimes(2);
+    expect(publish.mock.calls[1]).toEqual([MAKER, ID, NEXT]);
+    expect(s.sets.get(APPS_PENDING)?.has(ID)).toBe(false);
+    expect(s.sets.get(APPS_DUE)?.has(ID)).toBe(false);
+  });
+
+  it("stays due when the pass is refused again, and publishes once when a pass succeeds", async () => {
+    publish.mockResolvedValueOnce(refused);
+    expect(await pass(DAY + 3600_000)).toEqual({ due: 1, published: 0 });
+    expect(s.sets.get(APPS_DUE)?.has(ID)).toBe(true);
+    expect(await pass(NEXT)).toEqual({ due: 1, published: 1 });
+    expect(await pass(NEXT + 3600_000)).toEqual({ due: 0, published: 0 });
+    expect(publish).toHaveBeenCalledTimes(3);
+  });
+
+  it("drops an id that is no longer pending, and publishes nothing for it", async () => {
+    await s.srem(APPS_PENDING, ID);
+    expect(await pass(NEXT)).toEqual({ due: 1, published: 0 });
+    expect(s.sets.get(APPS_DUE)?.has(ID)).toBe(false);
+    expect(publish).toHaveBeenCalledTimes(1);
   });
 });

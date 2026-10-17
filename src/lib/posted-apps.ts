@@ -7,7 +7,10 @@
 // wallets and a repeat changes nothing. When lib/yes-gate.ts says 10 distinct
 // outside wallets said YES, the draft is published through the existing
 // publishDraft, as its maker. The published marker is SET NX, so two YES landing
-// together publish once; a publish that fails clears it and the next YES retries.
+// together publish once. A publish that fails (publishDraft allows one publish a
+// day per maker) clears the marker and puts the app in the due set; the hourly
+// pass (api/cron/publish-due) publishes it at the next allowed moment, with no
+// further YES needed. A later YES also retries.
 //
 // A YES pays nothing and moves no money. publishDraft cannot fund anything.
 
@@ -17,6 +20,7 @@ import { excludedFromEnv } from "@/lib/north-star";
 import { YES_GATE, gateState } from "@/lib/yes-gate";
 
 export const APPS_PENDING = "apps:pending";
+export const APPS_DUE = "apps:due";
 export const YES_PREFIX = "app:yes:";
 export const PUBLISHED_MARK_PREFIX = "app:published:";
 const WALLET = /^0x[0-9a-fA-F]{40}$/;
@@ -110,19 +114,43 @@ export async function castYes(
     const g = gateState(await store.smembers(`${YES_PREFIX}${id}`), d.owner, exclude);
     if (g.status !== "published") return { ok: true, ...g, first };
 
-    const mark = `${PUBLISHED_MARK_PREFIX}${id}`;
-    if (await store.setNx(mark, new Date(now).toISOString())) {
-      const out = await publish(d.owner, id, now).catch(() => ({ ok: false }));
-      if (!out.ok) {
-        await store.del(mark); // the next YES tries again
-        return { ok: true, ...g, status: "pending", first };
-      }
-      await store.srem(APPS_PENDING, id);
-    }
+    if ((await tryPublish(id, d.owner, store, publish, now)) === "failed") return { ok: true, ...g, status: "pending", first };
     return { ok: true, ...g, first };
   } catch {
     return { ok: false, reason: "unavailable" };
   }
+}
+
+/** Publish once behind the SET NX marker. A failure clears the marker and marks the app due. */
+async function tryPublish(id: string, owner: string, store: AppStore, publish: PublishFn, now: number): Promise<"published" | "failed" | "taken"> {
+  const mark = `${PUBLISHED_MARK_PREFIX}${id}`;
+  if (!(await store.setNx(mark, new Date(now).toISOString()))) return "taken";
+  const out = await publish(owner, id, now).catch(() => ({ ok: false }));
+  if (!out.ok) {
+    await store.del(mark);
+    await store.sadd(APPS_DUE, id);
+    return "failed";
+  }
+  await store.srem(APPS_PENDING, id);
+  await store.srem(APPS_DUE, id);
+  return "published";
+}
+
+/** The hourly pass: publish every due app whose gate still holds. Safe to run twice. */
+export async function publishDue(
+  { store = redisAppStore(), publish, exclude = excludedFromEnv(), now = Date.now() }:
+    { store?: AppStore | null; publish: PublishFn; exclude?: Set<string>; now?: number },
+): Promise<{ due: number; published: number }> {
+  if (!store) return { due: 0, published: 0 };
+  const ids = await store.smembers(APPS_DUE);
+  let published = 0;
+  for (const id of ids) {
+    const d = (await store.sismember(APPS_PENDING, id)) ? await draftOf(id, store) : null;
+    if (!d) { await store.srem(APPS_DUE, id); continue; } // published or gone
+    if (gateState(await store.smembers(`${YES_PREFIX}${id}`), d.owner, exclude).status !== "published") continue;
+    if ((await tryPublish(id, d.owner, store, publish, now)) === "published") published++;
+  }
+  return { due: ids.length, published };
 }
 
 export { YES_GATE };

@@ -3,13 +3,15 @@ import { NextRequest } from "next/server";
 
 const castYes = vi.hoisted(() => vi.fn());
 const listPendingApps = vi.hoisted(() => vi.fn());
+const publishDue = vi.hoisted(() => vi.fn());
 const limit = vi.hoisted(() => vi.fn(async () => ({ ok: true })));
-vi.mock("@/lib/posted-apps", () => ({ castYes, listPendingApps }));
+vi.mock("@/lib/posted-apps", () => ({ castYes, listPendingApps, publishDue }));
 vi.mock("@/lib/rate-limit", () => ({ rateLimit: limit, getClientIp: () => "test" }));
 vi.mock("@/lib/store", () => ({ createTask: vi.fn() }));
 
 import { GET as list } from "@/app/api/apps/route";
 import { POST as vote } from "@/app/api/apps/vote/route";
+import { GET as duePass } from "@/app/api/cron/publish-due/route";
 import { SESSION_COOKIE, issueSessionToken } from "@/lib/session";
 
 const VOTER = "0x2222222222222222222222222222222222222222";
@@ -60,5 +62,26 @@ describe("GET /api/apps", () => {
     expect(body.apps).toHaveLength(1);
     expect(body.apps[0]).toMatchObject({ id: "draft_1", yes: 3, of: 10, status: "pending" });
     expect(JSON.stringify(body)).not.toMatch(/voters/);
+  });
+});
+
+
+describe("GET /api/cron/publish-due", () => {
+  const cron = (auth?: string) => new NextRequest("http://localhost/api/cron/publish-due", { headers: auth ? { authorization: auth } : {} });
+
+  it("refuses a caller without the cron secret, before any publish", async () => {
+    process.env.CRON_SECRET = "cron-test";
+    expect((await duePass(cron())).status).toBe(401);
+    expect((await duePass(cron("Bearer wrong"))).status).toBe(401);
+    expect(publishDue).not.toHaveBeenCalled();
+  });
+
+  it("runs the pass and returns its counts", async () => {
+    process.env.CRON_SECRET = "cron-test";
+    publishDue.mockResolvedValue({ due: 1, published: 1 });
+    const res = await duePass(cron("Bearer cron-test"));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true, due: 1, published: 1 });
+    expect(publishDue).toHaveBeenCalledTimes(1);
   });
 });
