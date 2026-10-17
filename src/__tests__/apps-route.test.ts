@@ -1,0 +1,64 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { NextRequest } from "next/server";
+
+const castYes = vi.hoisted(() => vi.fn());
+const listPendingApps = vi.hoisted(() => vi.fn());
+const limit = vi.hoisted(() => vi.fn(async () => ({ ok: true })));
+vi.mock("@/lib/posted-apps", () => ({ castYes, listPendingApps }));
+vi.mock("@/lib/rate-limit", () => ({ rateLimit: limit, getClientIp: () => "test" }));
+vi.mock("@/lib/store", () => ({ createTask: vi.fn() }));
+
+import { GET as list } from "@/app/api/apps/route";
+import { POST as vote } from "@/app/api/apps/vote/route";
+import { SESSION_COOKIE, issueSessionToken } from "@/lib/session";
+
+const VOTER = "0x2222222222222222222222222222222222222222";
+const req = (body: unknown, who?: string) => new NextRequest("http://localhost/api/apps/vote", {
+  method: "POST",
+  headers: { "Content-Type": "application/json", ...(who ? { cookie: `${SESSION_COOKIE}=${issueSessionToken(who, Date.now())}` } : {}) },
+  body: JSON.stringify(body),
+});
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  process.env.SESSION_SECRET = "local-test-only";
+  limit.mockResolvedValue({ ok: true });
+  castYes.mockResolvedValue({ ok: true, yes: 1, of: 10, status: "pending", first: true });
+});
+
+describe("POST /api/apps/vote", () => {
+  it("refuses a caller with no session before any vote", async () => {
+    const res = await vote(req({ id: "draft_1" }));
+    expect([res.status, (await res.json()).code]).toEqual([403, "reauth_required"]);
+    expect(castYes).not.toHaveBeenCalled();
+  });
+
+  it("votes as the SESSION wallet, never a wallet in the body", async () => {
+    const res = await vote(req({ id: "draft_1", wallet: "0x3333333333333333333333333333333333333333" }, VOTER));
+    expect(res.status).toBe(200);
+    expect(castYes.mock.calls[0].slice(0, 2)).toEqual(["draft_1", VOTER]);
+  });
+
+  it("stops at the rate limit", async () => {
+    limit.mockResolvedValue({ ok: false });
+    expect((await vote(req({ id: "draft_1" }, VOTER))).status).toBe(429);
+    expect(castYes).not.toHaveBeenCalled();
+  });
+
+  it("maps each refusal to a status", async () => {
+    for (const [reason, status] of [["unknown_app", 404], ["not_pending", 409], ["own_app", 403], ["wallet_required", 403], ["unavailable", 503]] as const) {
+      castYes.mockResolvedValueOnce({ ok: false, reason });
+      expect((await vote(req({ id: "draft_1" }, VOTER))).status, reason).toBe(status);
+    }
+  });
+});
+
+describe("GET /api/apps", () => {
+  it("lists the pending apps with counts and names no voter", async () => {
+    listPendingApps.mockResolvedValue([{ id: "draft_1", productName: "STRIVE", productUrl: "https://x.test/", ask: "a", maker: VOTER, yes: 3, of: 10, status: "pending" }]);
+    const body = await (await list()).json();
+    expect(body.apps).toHaveLength(1);
+    expect(body.apps[0]).toMatchObject({ id: "draft_1", yes: 3, of: 10, status: "pending" });
+    expect(JSON.stringify(body)).not.toMatch(/voters/);
+  });
+});
