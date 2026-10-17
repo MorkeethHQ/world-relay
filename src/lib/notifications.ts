@@ -116,6 +116,23 @@ export async function notifyNewDaily(addresses: string[], question: string): Pro
   return sent;
 }
 
+// The jury comeback (lib/jury-nudge.ts, behind JURY_NUDGE_ENFORCE). Batched;
+// returns how many addresses were in successfully-sent batches.
+export async function notifyJuryWaiting(addresses: string[]): Promise<number> {
+  let sent = 0;
+  for (let i = 0; i < addresses.length; i += MAX_ADDRESSES_PER_CALL) {
+    const chunk = addresses.slice(i, i + MAX_ADDRESSES_PER_CALL);
+    const ok = await sendNotification(
+      chunk,
+      "Real or not?",
+      "New proofs are waiting for a human verdict. Judge 10 today and start your streak.",
+      "/"
+    );
+    if (ok) sent += chunk.length;
+  }
+  return sent;
+}
+
 // Per-address because the message carries the streak number — the loss frame
 // ("ends at midnight") is the whole reason this notification earns its slot.
 export async function notifyStreakAtRisk(address: string, streak: number): Promise<boolean> {
