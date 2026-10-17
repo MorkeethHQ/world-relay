@@ -5,8 +5,8 @@
 // real wallet, not a TEST DATA fixture, not in NORTH_STAR_EXCLUDE. The maker's
 // own wallet never counts for its own app.
 //
-// NOT RULED. Oscar has not decided the gate (Apple Note "FAVOUR decisions 17 Oct",
-// D2 and D2b). No route, store or screen reads this file yet.
+// RULED 17 Oct 2026 (night run): the gate is in v1, and any signed-in outside
+// wallet counts. lib/posted-apps.ts reads it on every YES.
 
 import { isOutside } from "./north-star";
 
