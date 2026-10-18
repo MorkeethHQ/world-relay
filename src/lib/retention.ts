@@ -119,6 +119,8 @@ const TRACKED_EVENTS = [
   "reauth_asked",
   "reauth_ok",
   "reauth_failed",
+  // 2026-10-17: one jury comeback pass ran (lib/jury-nudge.ts, ships dark).
+  "jury_nudge",
 ] as const;
 
 export async function computeRetention(
