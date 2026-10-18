@@ -52,6 +52,7 @@ import {
 } from "@/lib/board-rank";
 import { JuryMode, type JuryCard } from "@/components/JuryMode";
 import { JuryGameCard } from "@/components/JuryGameCard";
+import { AppsToCheckDoor } from "@/components/AppsToCheck";
 import { juryGameOn, type JuryDayView } from "@/lib/jury-game";
 import { ForCompaniesView, CompanyTrust, ProductLine, CampaignDraftForm, CampaignDraftList, CompanyCampaignCard, CompanyCampaignView } from "@/components/CompanyCampaign";
 import { pickCampaignToDo, rankCampaignCards } from "@/lib/company-door";
@@ -1265,6 +1266,10 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
       {juryGameOn() && tab === "available" && !loading && userId && (
         <JuryGameCard day={juryDay} onPlay={() => { hapticTap(); setView("jury"); }} />
       )}
+
+      {/* POSTED APPS (pivot, 17 Oct 2026): the quiet door to /apps, where people
+          say YES to apps others posted. Ten outside YES put an app live. */}
+      {tab === "available" && !loading && <AppsToCheckDoor />}
 
       {/* THE MAIN ACTION (T3, 2026-09-22): do a piece for a company and earn.
           The company path, the example and "Plan a campaign", is behind the
