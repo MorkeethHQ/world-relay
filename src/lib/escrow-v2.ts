@@ -34,10 +34,11 @@
  *     `NotFunder` reverts anyone else) or refund (anyone, after deadline,
  *     always to the funder).
  *
- * SHIP-DARK: every entry point here is gated on ESCROW_V2_ENABLED, which is
- * ABSENT from the production environment. Custody remains retired
- * (src/lib/custody.ts) until Oscar's explicit ruling flips intake open.
- * This module deliberately does NOT import or weaken the custody gate.
+ * GATE: every entry point here is gated on ESCROW_V2_ENABLED. The rail is OPEN
+ * in production: GET /api/escrow-v2 answered 200 {"enabled":true,"version":3}
+ * on 19 Oct 2026 (curl, FAVOUR-PAY lane). Custody remains retired
+ * (src/lib/custody.ts): this rail never takes custody, so the custody gate is
+ * neither imported nor weakened here.
  */
 
 import {
@@ -178,7 +179,7 @@ export const ESCROW_V2_ABI = [
 
 /** Permit2 AllowanceTransfer.approve — the exact ABI from the docs example
  *  ("You must use this method of Allowance Transfers"). */
-const PERMIT2_APPROVE_ABI = [
+export const PERMIT2_APPROVE_ABI = [
   {
     name: "approve",
     type: "function",

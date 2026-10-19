@@ -274,7 +274,7 @@ button.campaign-owner-entry { padding: 20px; }
   min-height: 44px; padding: 0 14px; border: var(--fv-rule); background: var(--fv-paper);
   color: var(--fv-ink); font-size: 15px; font-weight: 700; font-family: inherit;
 }
-.fv button.fv-chip[aria-pressed="true"] { background: var(--fv-ink); color: var(--fv-paper); }
+.fv button.fv-chip[aria-pressed="true"], .fv button.fv-chip[data-on="true"] { background: var(--fv-ink); color: var(--fv-paper); }
 /* THE DEVICE: ten humans. Ten square cells, 2 px rule, hollow until a real YES. */
 .fv .fv-ten { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 4px; }
 .fv .fv-ten > span { display: block; aspect-ratio: 1 / 1; border: var(--fv-rule); background: var(--fv-paper); }
