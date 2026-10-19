@@ -22,7 +22,7 @@ const PENDING: Card = {
   image: "https://striverun.app/api/og", yes: 3, of: 10, status: "pending", fromOtherSource: false, pieces: [], points: 10, publishedAt: null,
 };
 const LIVE: Card = { ...PENDING, id: "draft_2", name: "Wave Radio", yes: 10, status: "published", publishedAt: "2026-10-15T19:48:30.501Z",
-  pieces: [{ kind: "review", count: 5, taskId: "task_9" }] };
+  pieces: [{ kind: "review", count: 5, taskId: "task_9", open: true, left: 3 }] };
 
 describe("the pure helpers", () => {
   it("counts: a waiting project says n of 10, a live one says Live", () => {
@@ -131,8 +131,16 @@ describe("the project screen", () => {
     const html = renderToStaticMarkup(<ProjectViewScreen p={LIVE} results={[]} note={null} busy={false} onYes={noop} signedIn />);
     expect(html).toContain("Ten humans said YES. It is live.");
     expect(html).toContain("An honest review");
+    expect(html).toContain("3 of 5 still wanted");
     expect(html).toContain('href="/project/draft_2/feedback?task=task_9"');
     expect(html).not.toContain("YES, it works");
+  });
+  it("live: a closed piece has no feedback link and says so", () => {
+    const closed = { ...LIVE, pieces: [{ kind: "review" as const, count: 5, taskId: "task_9", open: false, left: 0 }] };
+    const html = renderToStaticMarkup(<ProjectViewScreen p={closed} results={[]} note={null} busy={false} onYes={noop} signedIn />);
+    expect(html).not.toContain("/feedback?task=");
+    expect(html).toContain("Closed");
+    expect(html).toContain("Every favour on this project is closed for now.");
   });
 });
 

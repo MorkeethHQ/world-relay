@@ -8,6 +8,8 @@ import { getPictureRecord } from "@/lib/campaign-pictures";
 import { pictureOf } from "@/lib/post-app";
 import { listPendingApps } from "@/lib/posted-apps";
 import { excludedFromEnv } from "@/lib/north-star";
+import { getTask } from "@/lib/store";
+import { campaignIntakePaused } from "@/lib/contribution-responses";
 import { hostOf, isFromOtherSource, sortProjects, type ProjectCard } from "@/lib/projects-view";
 
 async function loadDraft(id: string): Promise<CampaignDraft | null> {
@@ -44,7 +46,7 @@ async function publishedCards(exclude: Set<string>): Promise<ProjectCard[]> {
       of: 10,
       status: "published",
       fromOtherSource: isFromOtherSource(d.owner, exclude),
-      pieces: d.pieces.map((p) => ({ kind: p.kind, count: p.count, taskId: d.pieceTaskIds?.[p.kind] ?? null })),
+      pieces: d.pieces.map((p) => ({ kind: p.kind, count: p.count, taskId: d.pieceTaskIds?.[p.kind] ?? null, open: false, left: 0 })),
       points: d.rewardPerPiecePoints,
       publishedAt: d.publishedAt ?? null,
     });
@@ -80,7 +82,18 @@ export async function listProjects(exclude: Set<string> = excludedFromEnv()): Pr
   return sortProjects([...live, ...waiting.filter((p) => !seen.has(p.id))]);
 }
 
+/** One project with each favour's live state read from its task, like the old
+ *  CompanyCampaignView did: open only when the task is open, a completion is still
+ *  wanted and the project is not paused while the company answers earlier work. */
 export async function getProject(id: string, exclude: Set<string> = excludedFromEnv()): Promise<ProjectCard | null> {
   if (typeof id !== "string" || !id) return null;
-  return (await listProjects(exclude)).find((p) => p.id === id) ?? null;
+  const p = (await listProjects(exclude)).find((x) => x.id === id);
+  if (!p || p.status !== "published") return p ?? null;
+  const paused = await campaignIntakePaused(id).catch(() => true);
+  const pieces = await Promise.all(p.pieces.map(async (piece) => {
+    const task = piece.taskId ? await getTask(piece.taskId).catch(() => undefined) : undefined;
+    const left = task ? Math.max(0, (task.maxCompletions || piece.count) - (task.completionCount || 0)) : 0;
+    return { ...piece, left, open: !!task && task.status === "open" && left > 0 && !paused };
+  }));
+  return { ...p, pieces };
 }

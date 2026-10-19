@@ -21,7 +21,9 @@ export type ProjectCard = {
   // The builder did not post this one: a FAVOUR wallet posted it on their behalf.
   // The screen shows the orange FOUND ELSEWHERE banner and frames the title.
   fromOtherSource: boolean;
-  pieces: Array<{ kind: PieceKind; count: number; taskId: string | null }>;
+  // Each favour on a live project. open is the task's own state: open, with a
+  // completion still wanted, and the project not paused. left is the server's count.
+  pieces: Array<{ kind: PieceKind; count: number; taskId: string | null; open: boolean; left: number }>;
   points: number;
   publishedAt: string | null;
 };

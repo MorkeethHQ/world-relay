@@ -63,13 +63,14 @@ export function ProjectViewScreen({ p, results, note, busy, onYes, signedIn }: {
           <section aria-label="Favours for this project" className="flex flex-col gap-3">
             <h2 className="fv-label">Favours · {p.points} points each</h2>
             {p.pieces.length === 0 && <p className="fv-body">No favour is open on this project yet.</p>}
+            {p.pieces.length > 0 && p.pieces.every((x) => !x.open) && <p className="fv-body">Every favour on this project is closed for now.</p>}
             {p.pieces.map((piece) => (
               <div key={piece.kind} className="fv-box p-4 flex items-center gap-3">
                 <div className="flex-1 min-w-0">
                   <p className="fv-h">{PIECE_LABEL[piece.kind]}</p>
-                  <p className="fv-body text-[12px] fv-num">{piece.count} wanted</p>
+                  <p className="fv-body text-[12px] fv-num">{piece.open ? `${piece.left} of ${piece.count} still wanted` : "Closed"}</p>
                 </div>
-                {piece.taskId ? (
+                {piece.open && piece.taskId ? (
                   <Link href={`/project/${encodeURIComponent(p.id)}/feedback?task=${encodeURIComponent(piece.taskId)}`} className="fv-btn fv-btn-sm fv-btn-ink">Give feedback</Link>
                 ) : (
                   <span className="fv-body text-[12px]">Not open</span>
