@@ -1,6 +1,3 @@
-import { AppsToCheck } from "@/components/AppsToCheck";
-
-// /apps: the posted apps waiting for 10 YES. The door is on the home board.
-export default function AppsPage() {
-  return <AppsToCheck />;
-}
+// /apps: every project as a list (the picker). The deck at / is the main door;
+// this is "See the list" from the deck. Same auth shell as the home route.
+export { default } from "../page";
