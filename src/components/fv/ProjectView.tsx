@@ -11,6 +11,7 @@ import { voteNote, type VoteReply } from "@/lib/apps-view";
 import { TenHumans } from "@/components/fv/TenHumans";
 import { SignInSheet } from "@/components/fv/SignInSheet";
 import { PaySlots } from "@/components/fv/PaySlots";
+import { funkyArt } from "@/lib/funky-art";
 
 // ONE PROJECT (FAVOUR revamp, 19 Oct 2026). Waiting: open it, say YES. Live: its
 // favours, each a piece that pays points, and the reviewed work so far.
@@ -32,10 +33,8 @@ export function ProjectViewScreen({ p, results, note, busy, onYes, signedIn, pai
       </header>
 
       {p.fromOtherSource && <p className="fv-banner fv-label fv-rule-b">Found elsewhere. Not posted by its builder.</p>}
-      {p.image && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={p.image} alt="" className="fv-pic" />
-      )}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={p.image ?? funkyArt(p.name)} alt="" className="fv-pic" />
 
       <div className="px-6 py-5 pb-28 flex flex-col gap-5">
         <div className="flex flex-col gap-2">

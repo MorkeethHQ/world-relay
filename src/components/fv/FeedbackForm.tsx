@@ -7,6 +7,8 @@ import type { ProjectCard as Card } from "@/lib/projects-view";
 import { DESIGN_MAX, EMPTY_FEEDBACK, FEEL, FIX_MAX, LINE_MAX, WORKED, feedbackNote, feedbackReason, words, type FeedbackAnswers } from "@/lib/feedback-form";
 import { sendWithReauth } from "@/lib/reauth";
 import { SignInSheet } from "@/components/fv/SignInSheet";
+import { Loud } from "@/components/fv/Loud";
+import { hueOf } from "@/lib/campaign-picture";
 
 // GIVE FEEDBACK (FAVOUR revamp, 19 Oct 2026). Six answers, mostly taps: did it
 // work, how does it feel, design 1 to 5, who it is for, what confused you first,
@@ -21,6 +23,7 @@ export function FeedbackScreen({ p, a, onChange, onSend, busy, error, result, si
   busy: boolean; error: string | null; result: FeedbackResult | null; signedIn: boolean;
 }) {
   const reason = feedbackReason(a);
+  const done = [a.worked, a.feel, a.design, a.forWhom.trim(), a.confusing.trim(), a.fix.trim()].filter(Boolean).length;
   return (
     <div className="fv min-h-screen max-w-lg mx-auto">
       <header className="sticky top-0 z-10 fv-rule-b bg-white px-6 py-3 flex items-center gap-3">
@@ -28,10 +31,18 @@ export function FeedbackScreen({ p, a, onChange, onSend, busy, error, result, si
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="square" strokeLinejoin="miter"><polyline points="15 18 9 12 15 6" /></svg>
         </Link>
         <p className="fv-h flex-1 min-w-0 truncate">Feedback · {p.name}</p>
-        <p className="fv-h fv-num shrink-0 fv-blue">{p.points} pts</p>
+        <p className="fv-h fv-num shrink-0">{p.points} pts</p>
       </header>
 
       <div className="px-6 py-5 pb-28 flex flex-col gap-6">
+        {!result && (
+          <section aria-label="Your progress" className="flex flex-col gap-2">
+            <div className="fv-ten" style={{ gridTemplateColumns: "repeat(6, minmax(0, 1fr))" }} role="img" aria-label={`${done} of 6 answered`}>
+              {[a.worked, a.feel, a.design, a.forWhom.trim(), a.confusing.trim(), a.fix.trim()].map((v, i) => <span key={i} data-on={v ? "true" : "false"} />)}
+            </div>
+            <p className="fv-body fv-num text-[12px]"><span className="fv-h fv-blue">{done}</span> of 6. Six answers, then {p.points} points land.</p>
+          </section>
+        )}
         {result ? (
           <div className="fv-box p-5 flex flex-col gap-3">
             <p className="fv-label">{result.verdict === "pass" ? "Accepted" : result.verdict === "flag" ? "Under review" : "Not accepted"}</p>
@@ -99,6 +110,7 @@ export function FeedbackForm({ id, taskId, userId, isInWorldApp, isVerifying, au
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<FeedbackResult | null>(null);
   const [sheet, setSheet] = useState(false);
+  const [loud, setLoud] = useState(false);
 
   useEffect(() => {
     fetch(`/api/projects/${encodeURIComponent(id)}`, { cache: "no-store" })
@@ -116,7 +128,7 @@ export function FeedbackForm({ id, taskId, userId, isInWorldApp, isVerifying, au
       }), userId);
       const b = await res.json().catch(() => null);
       if (!res.ok || !b?.verdict) { setError(typeof b?.error === "string" ? b.error : "Your feedback was not sent. Try again."); }
-      else { setResult({ verdict: b.verdict, reasoning: b.reasoning ?? "", pointsAwarded: b.pointsAwarded ?? null }); router.refresh(); }
+      else { setResult({ verdict: b.verdict, reasoning: b.reasoning ?? "", pointsAwarded: b.pointsAwarded ?? null }); if (b.verdict === "pass") setLoud(true); router.refresh(); }
     } catch { setError("Your feedback was not sent. Try again."); }
     setBusy(false);
   };
@@ -129,6 +141,7 @@ export function FeedbackForm({ id, taskId, userId, isInWorldApp, isVerifying, au
   return (
     <>
       <FeedbackScreen p={p} a={a} onChange={(patch) => setA((cur) => ({ ...cur, ...patch }))} onSend={() => (userId ? send() : setSheet(true))} busy={busy} error={error} result={result} signedIn={!!userId} />
+      {loud && result && <Loud num={`+${result.pointsAwarded ?? p.points}`} line={`${p.name} heard you. Points are yours.`} hue={hueOf(p.name)} onDone={() => setLoud(false)} />}
       {sheet && !userId && (
         <div className="fv"><SignInSheet why="Sign in to send feedback." isInWorldApp={isInWorldApp} busy={isVerifying} error={authError} onSignIn={onVerify} onClose={() => setSheet(false)} /></div>
       )}
