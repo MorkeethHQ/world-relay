@@ -5,9 +5,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { DeckCard, Reaction, Streak } from "@/lib/deck-view";
 import { REACTIONS, bumpStreak, dayKey, readStreak, rightLabel } from "@/lib/deck-view";
-import { hueOf } from "@/lib/campaign-picture";
 import { DeckCardView } from "@/components/fv/DeckCardView";
 import { Loud } from "@/components/fv/Loud";
+import { loudHue } from "@/lib/funky-art";
 import { SignInSheet } from "@/components/fv/SignInSheet";
 import { displayName } from "@/hooks/useWorldUser";
 
@@ -173,7 +173,7 @@ export function Deck({ auth }: { auth: DeckAuth }) {
       setLeaving(null);
       setDx(0);
       setIndex((i) => i + 1);
-      if (firstToday && next.days > 1) setLoud({ num: `${next.days}`, line: `days in a row. Keep going.`, hue: hueOf(c.name) });
+      if (firstToday && next.days > 1) setLoud({ num: `${next.days}`, line: `days in a row. Keep going.`, hue: loudHue(c.name) });
       if (dir === "right") {
         if (c.source === "hn") {
           const r = readJson<Record<string, Reaction>>(K_REACT, {}); r[c.id] = "try"; writeJson(K_REACT, r);

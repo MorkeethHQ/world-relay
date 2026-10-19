@@ -7,7 +7,13 @@ const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, de
 const page = await ctx.newPage();
 await page.addInitScript(() => { try { localStorage.setItem("favour_role", JSON.stringify("try")); } catch {} });
 for (const r of routes) {
-  const name = r === "/" ? "deck" : r.replace(/^\//, "").replace(/[^a-z0-9]+/gi, "-");
+  const name = r === "/" ? "deck" : r === "/?hn" ? "deck-hn" : r.replace(/^\//, "").replace(/[^a-z0-9]+/gi, "-");
+  if (r === "/?hn") {
+    // Every project card marked seen today, so the first card is a Show HN one.
+    const res = await fetch(base + "/api/deck"); const { cards } = await res.json();
+    const ids = cards.filter((c) => c.source !== "hn").map((c) => c.id);
+    await page.addInitScript((ids) => { try { localStorage.setItem("favour_seen", JSON.stringify(ids)); } catch {} }, ids);
+  }
   await page.goto(base + r, { waitUntil: "networkidle" });
   await page.waitForTimeout(800);
   await page.screenshot({ path: `${outDir}/${name}-390.png`, fullPage: true });

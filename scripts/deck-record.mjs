@@ -10,6 +10,8 @@ import { mkdirSync } from "node:fs";
 const Z = 1;
 const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true });
 const page = await ctx.newPage();
+// A real three day streak from yesterday, so the first swipe runs the real loud screen.
+await page.addInitScript(() => { try { const y = new Date(); y.setDate(y.getDate() - 1); const k = `${y.getFullYear()}-${String(y.getMonth() + 1).padStart(2, "0")}-${String(y.getDate()).padStart(2, "0")}`; localStorage.setItem("favour_streak", JSON.stringify({ days: 3, last: k, today: 0 })); } catch {} });
 await page.addInitScript(() => { const st = document.createElement("style"); st.textContent = "nextjs-portal{display:none!important}"; document.addEventListener("DOMContentLoaded", () => document.head.appendChild(st)); });
 mkdirSync(`${outDir}/frames`, { recursive: true });
 let n = 0; let rolling = true;
@@ -25,13 +27,13 @@ const swipe = async (dir) => {
 };
 await page.goto(base + "/", { waitUntil: "networkidle" }); await wait(2500);           // role card
 await page.getByRole("button", { name: "I try things" }).click(); await wait(1800);
-await swipe(-1); await wait(600);                                                      // skip STRIVE seed twin? no: first card is STRIVE live
-await page.getByRole("button", { name: "React Fire" }).click(); await wait(1200);
-await swipe(-1); await wait(600);
-await swipe(-1); await wait(600);
-await swipe(-1); await wait(800);                                                      // reach a Show HN card
-await page.mouse.wheel(0, 0); await wait(1500);
-await swipe(1); await wait(1200);                                                      // Looks good on HN
+await swipe(-1); await wait(2200);                                                     // first swipe of the day: the loud streak screen
+await page.getByRole("button", { name: "React Fire" }).click(); await wait(1000);
+const deck = await (await fetch(base + "/api/deck")).json();
+const projectCards = deck.cards.filter((c) => c.source !== "hn").length;             // skip past every project card
+for (let i = 2; i < projectCards; i++) { await swipe(-1); await wait(300); }
+await wait(1800);                                                                      // a Show HN card, orange banner
+await swipe(1); await wait(1400);                                                      // Looks good on HN, stays in the deck
 await page.goto(base + "/apps", { waitUntil: "networkidle" }); await wait(2200);      // the list
 await page.mouse.wheel(0, 500 * Z); await wait(1200);
 await page.goto(base + `/project/${pid}`, { waitUntil: "networkidle" }); await wait(2600);

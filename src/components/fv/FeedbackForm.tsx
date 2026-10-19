@@ -8,7 +8,7 @@ import { DESIGN_MAX, EMPTY_FEEDBACK, FEEL, FIX_MAX, LINE_MAX, WORKED, feedbackNo
 import { sendWithReauth } from "@/lib/reauth";
 import { SignInSheet } from "@/components/fv/SignInSheet";
 import { Loud } from "@/components/fv/Loud";
-import { hueOf } from "@/lib/campaign-picture";
+import { loudHue } from "@/lib/funky-art";
 
 // GIVE FEEDBACK (FAVOUR revamp, 19 Oct 2026). Six answers, mostly taps: did it
 // work, how does it feel, design 1 to 5, who it is for, what confused you first,
@@ -141,7 +141,7 @@ export function FeedbackForm({ id, taskId, userId, isInWorldApp, isVerifying, au
   return (
     <>
       <FeedbackScreen p={p} a={a} onChange={(patch) => setA((cur) => ({ ...cur, ...patch }))} onSend={() => (userId ? send() : setSheet(true))} busy={busy} error={error} result={result} signedIn={!!userId} />
-      {loud && result && <Loud num={`+${result.pointsAwarded ?? p.points}`} line={`${p.name} heard you. Points are yours.`} hue={hueOf(p.name)} onDone={() => setLoud(false)} />}
+      {loud && result && <Loud num={`+${result.pointsAwarded ?? p.points}`} line={`${p.name} heard you. Points are yours.`} hue={loudHue(p.name)} onDone={() => setLoud(false)} />}
       {sheet && !userId && (
         <div className="fv"><SignInSheet why="Sign in to send feedback." isInWorldApp={isInWorldApp} busy={isVerifying} error={authError} onSignIn={onVerify} onClose={() => setSheet(false)} /></div>
       )}
