@@ -4,13 +4,15 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { Contribution } from "@/lib/completions";
 import { ensureSession } from "@/lib/reauth";
+import { funkyArt } from "@/lib/funky-art";
 
 // HISTORY (Oscar, 10 Oct 2026: "History is great"; 19 Oct: every page in one
 // system). What I did and what I earned, newest first, plus the platform's
 // three numbers. Reads the same routes as before; nothing else changes.
 type Stats = { users?: { reached?: number; verified?: number }; volume?: { paidOutUsdc?: number; pointsDistributed?: number } };
+type Latest = { id: string; description: string; proofImageUrl: string | null; category?: string };
 
-export function HistoryView({ mine, stats, signedIn, error }: { mine: Contribution[] | null; stats: Stats; signedIn: boolean; error: string | null }) {
+export function HistoryView({ mine, stats, signedIn, error, latest }: { mine: Contribution[] | null; stats: Stats; signedIn: boolean; error: string | null; latest: Latest[] }) {
   const points = (mine ?? []).reduce((n, c) => n + (c.points || 0) + (c.streakBonus || 0), 0);
   return (
     <div className="fv min-h-screen max-w-lg mx-auto">
@@ -30,6 +32,20 @@ export function HistoryView({ mine, stats, signedIn, error }: { mine: Contributi
         {!signedIn && <div className="fv-box p-5 flex flex-col gap-3"><p className="fv-h">Sign in to see your work</p><p className="fv-body">Your reviews and points are kept with your wallet.</p><Link href="/" className="fv-btn fv-btn-ink">Open the deck</Link></div>}
         {signedIn && mine === null && <p className="fv-body">Reading your work…</p>}
         {signedIn && mine?.length === 0 && <div className="fv-box p-5 flex flex-col gap-3"><p className="fv-h">Nothing yet</p><p className="fv-body">Swipe right on a project, try it, and your first review lands here.</p><Link href="/" className="fv-btn fv-btn-ink">Open the deck</Link></div>}
+        {latest.length > 0 && (
+          <section aria-label="Latest on FAVOUR" className="flex flex-col gap-3">
+            <h2 className="fv-label">Latest on FAVOUR</h2>
+            <div className="grid grid-cols-2 gap-3">
+              {latest.slice(0, 8).map((t) => (
+                <article key={t.id} className="fv-box flex flex-col">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={t.proofImageUrl ?? funkyArt(t.description)} alt="" className="fv-pic" style={{ aspectRatio: "1 / 1" }} loading="lazy" />
+                  <p className="fv-body text-[12px] p-2 line-clamp-2 break-words">{t.description}</p>
+                </article>
+              ))}
+            </div>
+          </section>
+        )}
         {mine?.map((c) => (
           <article key={`${c.taskId}-${c.at}`} className="fv-box flex flex-col">
             {c.proofImageUrl && (
@@ -56,8 +72,10 @@ export function HistoryScreen() {
   const [stats, setStats] = useState<Stats>({});
   const [signedIn, setSignedIn] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [latest, setLatest] = useState<Latest[]>([]);
   useEffect(() => {
     fetch("/api/stats").then((r) => r.json()).then(setStats).catch(() => {});
+    fetch("/api/history").then((r) => r.json()).then((d) => setLatest(Array.isArray(d?.tasks) ? d.tasks.filter((t: Latest & { status?: string }) => t.status === "completed") : [])).catch(() => {});
     const stored = (() => { try { return localStorage.getItem("relay_user_id"); } catch { return null; } })();
     const addr = stored && stored.startsWith("0x") ? stored : stored;
     if (!addr) return;
@@ -69,5 +87,5 @@ export function HistoryScreen() {
         .catch(() => setError("Your work could not be read. Try again."));
     });
   }, []);
-  return <HistoryView mine={mine} stats={stats} signedIn={signedIn} error={error} />;
+  return <HistoryView mine={mine} stats={stats} signedIn={signedIn} error={error} latest={latest} />;
 }

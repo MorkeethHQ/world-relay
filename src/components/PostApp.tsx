@@ -9,6 +9,7 @@ import { PAY_DEFAULT_USD, PAY_PRICES, PAY_SLOTS, PAY_SLOT_HOURS } from "@/lib/pa
 import { ESCROW_V2_CONFIRM_GRACE_S } from "@/lib/escrow-v2";
 import { askLine, progressLabel } from "@/lib/apps-view";
 import { TenHumans } from "@/components/fv/TenHumans";
+import { funkyArt } from "@/lib/funky-art";
 
 // /post: A MAKER POSTS THEIR APP (pivot "Product Hunt for World", 17 Oct 2026).
 // Step 1: paste the link; the server reads the page (api/post-app/read).
@@ -86,6 +87,15 @@ export function PostAppForm({ state: s, onChange, onRead, onPost }: {
               <>
                 <button type="button" className={primary} disabled={s.busy || !s.url.trim()} onClick={onRead}>{s.busy ? "Reading…" : "Read my page"}</button>
                 <p className="fv-body text-[12px]">FAVOUR reads the name, the share picture and the screenshots your page declares. You confirm them next.</p>
+                <section aria-label="What you get" className="fv-box flex flex-col">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={funkyArt(s.url.trim() || "Your app")} alt="" className="fv-pic" />
+                  <div className="p-4 flex flex-col gap-2">
+                    <p className="fv-h">Your app, as a card in the deck</p>
+                    <TenHumans yes={3} of={10} />
+                    <p className="fv-body text-[12px] fv-num">Ten verified humans say YES and it is live. Then every honest review earns them {POST_POINTS} points, or USDC you put in escrow. FAVOUR never holds the money.</p>
+                  </div>
+                </section>
               </>
             )}
 

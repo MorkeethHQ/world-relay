@@ -42,7 +42,16 @@ export function ProfileView({ address, name, picture, mine, streak, posted, onSi
       </header>
       <div className="px-6 py-5 pb-28 flex flex-col gap-5">
         {!address ? (
-          <div className="fv-box p-5 flex flex-col gap-3"><p className="fv-h">Not signed in</p><p className="fv-body">Sign in from the deck when you try your first project.</p><Link href="/" className="fv-btn fv-btn-ink">Open the deck</Link></div>
+          <>
+            <div className="fv-box p-5 flex flex-col gap-3"><p className="fv-h">Not signed in</p><p className="fv-body">Sign in from the deck when you try your first project.</p><Link href="/" className="fv-btn fv-btn-ink">Open the deck</Link></div>
+            <section aria-label="Badges you can earn" className="flex flex-col gap-3">
+              <h2 className="fv-label">Badges you can earn</h2>
+              <BadgeRow b={reviewerBadge(0)} />
+              <BadgeRow b={feedbackerBadge(0)} />
+              <BadgeRow b={builderBadge(false)} />
+            </section>
+            <p className="fv-body text-[12px]">Ten reviews is the first real milestone. Builders pay reviewers in USDC through an escrow FAVOUR never holds.</p>
+          </>
         ) : (
           <>
             <section className="fv-box flex">
