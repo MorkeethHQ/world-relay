@@ -13,13 +13,13 @@ export function DeckCardView({ c }: { c: DeckCard }) {
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={pic} alt="" className="fv-deck-pic" draggable={false} />
       {c.foundElsewhere && <p className="fv-banner fv-label fv-rule-b">Found elsewhere</p>}
-      <div className="p-4 flex flex-col gap-2 flex-1 min-h-0">
+      <div className="fv-deck-text p-4 flex flex-col gap-2">
         <h2 className={`fv-title break-words line-clamp-2 ${c.foundElsewhere ? "fv-frame" : ""}`}>{c.name}</h2>
         {c.line && <p className="fv-body break-words line-clamp-3">{c.line}</p>}
         <p className="fv-body text-[12px] break-all">
           by {c.maker} · {c.from}{c.host ? ` · ${c.host}` : ""}
         </p>
-        <div className="mt-auto flex flex-col gap-2">
+        <div className="flex flex-col gap-2 pt-1">
           {c.source === "hn" ? (
             <p className="fv-body fv-num text-[12px]">{c.hnPoints} points · {c.hnComments} comments on Hacker News · talk about it, no favour</p>
           ) : c.live ? (

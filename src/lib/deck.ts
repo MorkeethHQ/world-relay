@@ -6,7 +6,7 @@ import { listProjects } from "@/lib/projects";
 import { getPayPlan } from "@/lib/pay-slots";
 import { cardFromHn, cardFromProject, orderDeck, type DeckCard } from "@/lib/deck-view";
 import { OSCAR_SEEDS, mergeSeeds } from "@/lib/deck-seed";
-import { hnImage, listShowHn } from "@/lib/hn";
+import { pageImage, listShowHn } from "@/lib/hn";
 
 const HN_IMAGES = 12; // only the first dozen get a picture read; the rest draw art
 
@@ -16,7 +16,13 @@ export async function listDeck(): Promise<DeckCard[]> {
     const plan = p.status === "published" ? await getPayPlan(p.id).catch(() => null) : null;
     return cardFromProject(p, "posted", plan?.perReviewUsd ?? null);
   }));
-  const { front, rest } = mergeSeeds(OSCAR_SEEDS, posted);
-  const hn = await Promise.all(hits.map(async (h, i) => cardFromHn(h, i < HN_IMAGES ? await hnImage(h.url) : null)));
+  const merged = mergeSeeds(OSCAR_SEEDS, posted);
+  // A project card with no picture of its own gets the page's share picture.
+  const withPics = async (list: DeckCard[]) => Promise.all(list.map(async (c) => (c.image ? c : { ...c, image: await pageImage(c.url) })));
+  const [front, rest, hn] = await Promise.all([
+    withPics(merged.front),
+    withPics(merged.rest),
+    Promise.all(hits.map(async (h, i) => cardFromHn(h, i < HN_IMAGES ? await pageImage(h.url) : null))),
+  ]);
   return orderDeck([...front, ...rest, ...hn]);
 }

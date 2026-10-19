@@ -9,7 +9,10 @@ import { fetchProduct } from "@/lib/product-fetch";
 
 export const HN_URL = "https://hn.algolia.com/api/v1/search_by_date?tags=show_hn&numericFilters=points%3E15&hitsPerPage=24";
 export const HN_REVALIDATE_S = 600;
-const IMAGE_MS = 2500;
+const IMAGE_MS = 4000;
+const IMAGE_TTL_MS = 60 * 60 * 1000;
+// One picture read per product URL per hour per server instance. No store.
+const pictures = new Map<string, { image: string | null; at: number }>();
 
 export function parseHnHits(body: unknown): HnHit[] {
   const hits = (body as { hits?: unknown[] } | null)?.hits;
@@ -43,9 +46,18 @@ export async function listShowHn(): Promise<HnHit[]> {
   }
 }
 
-/** The page's own share picture, or null within IMAGE_MS. Never throws. */
-export async function hnImage(url: string | null): Promise<string | null> {
+/** The page's own share picture, or null within IMAGE_MS. Never throws. Cached
+ *  in memory for an hour so a busy deck does not hit a product site every call. */
+export async function pageImage(url: string | null): Promise<string | null> {
   if (!url) return null;
+  const hit = pictures.get(url);
+  if (hit && Date.now() - hit.at < IMAGE_TTL_MS) return hit.image;
+  const image = await readImage(url);
+  pictures.set(url, { image, at: Date.now() });
+  return image;
+}
+
+async function readImage(url: string): Promise<string | null> {
   try {
     const res = await Promise.race([
       fetchProduct(url),

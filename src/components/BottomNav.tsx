@@ -41,7 +41,7 @@ export function BottomNav() {
                 router.push(route.value);
               }}
               className={`flex-1 min-w-0 flex flex-col items-center justify-center gap-1 min-h-[56px] px-0.5 ${route.centre ? "bg-black text-white" : active ? "bg-white text-black" : "bg-white text-black opacity-50"}`}
-              style={{ borderRadius: 0 }}
+              style={{ borderRadius: 0, background: route.centre ? "#000" : "#fff", color: route.centre ? "#fff" : "#000" }}
               aria-label={route.label}
               aria-current={active ? "page" : undefined}
             >

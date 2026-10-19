@@ -48,7 +48,9 @@ export function mergeSeeds(seeds: Seed[], posted: DeckCard[]): { front: DeckCard
   const used = new Set<string>();
   for (const s of seeds) {
     const host = hostOf(s.url);
-    const twin = posted.find((p) => p.host === host && !used.has(p.id));
+    const name = s.name.toLowerCase();
+    // Same host, or the same name on a live project (STRIVE is posted under an older host).
+    const twin = posted.find((p) => !used.has(p.id) && (p.host === host || (p.live && p.name.trim().toLowerCase() === name)));
     if (twin) {
       used.add(twin.id);
       front.push({ ...twin, source: "oscar", maker: "Oscar", from: "Built by Oscar", foundElsewhere: false, line: twin.line || s.line, image: twin.image ?? s.image });

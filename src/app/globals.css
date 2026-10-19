@@ -294,14 +294,15 @@ body:has(.fv) nav[aria-label="Main navigation"] { border-top: 2px solid #000; }
 
 /* THE DECK (19 Oct 2026). One card fills the screen; the next one peeks under it.
    Motion is transform only, ease-out, 150 to 300 ms, no spring. */
-.fv .fv-deck { position: relative; height: calc(100dvh - 56px - 80px - 92px); min-height: 420px; }
+.fv .fv-deck { position: relative; height: calc(100dvh - 56px - 80px - 128px); min-height: 400px; }
 .fv .fv-deck-card { position: absolute; inset: 0; display: flex; flex-direction: column; border: var(--fv-rule); background: var(--fv-paper); overflow: hidden; touch-action: pan-y; user-select: none; -webkit-user-select: none; will-change: transform; }
 .fv .fv-deck-card[data-depth="1"] { transform: translate(8px, 8px); }
 .fv .fv-deck-card[data-depth="2"] { transform: translate(16px, 16px); }
 .fv .fv-deck-card[data-leaving="right"] { transition: transform 240ms ease-out, opacity 240ms ease-out; transform: translateX(120%) rotate(8deg); opacity: 0; }
 .fv .fv-deck-card[data-leaving="left"] { transition: transform 240ms ease-out, opacity 240ms ease-out; transform: translateX(-120%) rotate(-8deg); opacity: 0; }
 .fv .fv-deck-card[data-settling="true"] { transition: transform 180ms ease-out; }
-.fv .fv-deck-pic { flex: 0 0 52%; width: 100%; object-fit: cover; border-bottom: var(--fv-rule); background: var(--fv-paper); }
+.fv .fv-deck-pic { flex: 1 1 auto; min-height: 0; width: 100%; object-fit: cover; border-bottom: var(--fv-rule); background: var(--fv-paper); }
+.fv .fv-deck-text { flex: 0 0 auto; }
 .fv .fv-deck-stamp { position: absolute; top: 16px; padding: 6px 12px; border: var(--fv-rule); background: var(--fv-paper); font-size: 17px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; opacity: 0; transition: opacity 120ms ease-out; }
 .fv .fv-deck-stamp[data-side="right"] { right: 16px; background: var(--fv-ink); color: var(--fv-paper); }
 .fv .fv-deck-stamp[data-side="left"] { left: 16px; }
