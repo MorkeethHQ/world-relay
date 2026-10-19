@@ -10,8 +10,10 @@ export function DeckCardView({ c }: { c: DeckCard }) {
   const pic = c.image ?? funkyArt(c.name);
   return (
     <>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={pic} alt="" className="fv-deck-pic" draggable={false} />
+      <div className="fv-deck-picbox">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={pic} alt="" className="fv-deck-pic" draggable={false} />
+      </div>
       {c.foundElsewhere && <p className="fv-banner fv-label fv-rule-b">Found elsewhere</p>}
       <div className="fv-deck-text p-4 flex flex-col gap-2">
         <h2 className={`fv-title break-words line-clamp-2 ${c.foundElsewhere ? "fv-frame" : ""}`}>{c.name}</h2>
