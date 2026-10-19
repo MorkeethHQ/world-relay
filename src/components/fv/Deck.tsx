@@ -95,8 +95,8 @@ export function DeckView({ cards, index, streak, dx, leaving, settling, role, on
                   <DeckCardView c={c} />
                   {isTop && (
                     <>
-                      <span className="fv-deck-stamp" data-side="right" data-show={dx > 40 ? "true" : "false"}>{rightLabel(c)}</span>
-                      <span className="fv-deck-stamp" data-side="left" data-show={dx < -40 ? "true" : "false"}>Skip</span>
+                      <span className="fv-deck-say" data-side="right" data-show={dx > 40 ? "true" : "false"}>{rightLabel(c)}</span>
+                      <span className="fv-deck-say" data-side="left" data-show={dx < -40 ? "true" : "false"}>Skip</span>
                     </>
                   )}
                 </article>

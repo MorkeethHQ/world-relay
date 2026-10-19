@@ -124,8 +124,9 @@ describe("review 2 and final: the favour page works from the session", () => {
     expect(p).toContain("userId={isParty(task) ? userId : null}");
     expect(p).not.toMatch(/\[task\.poster, task\.claimant\]\.some\(/);
   });
-  it("the dashboard renews the session first and lists by the server's flags", () => {
-    const d = src("src/app/dashboard/page.tsx");
+  it("the Profile renews the session first and reads only its own rows", () => {
+    // 19 Oct 2026: /dashboard mounts components/fv/ProfileScreen.tsx.
+    const d = src("src/components/fv/ProfileScreen.tsx");
     expect(d).toMatch(/ensureSession\(/);
     expect(d).not.toMatch(/t\.poster === userId|t\.claimant === userId/);
   });
@@ -138,8 +139,8 @@ describe("review 2 and final: the favour page works from the session", () => {
 });
 
 describe("review 2 minors", () => {
-  it("dashboard referral stats load through sendWithReauth", () => {
-    expect(src("src/app/dashboard/page.tsx")).toMatch(/sendWithReauth\(\(\) => fetch\(`\/api\/referral\/stats\?address=\$\{userId\}`\), userId\)/);
+  it("the Profile reads nothing by ?address= (referral stats left the Profile on 19 Oct 2026)", () => {
+    expect(src("src/components/fv/ProfileScreen.tsx")).not.toMatch(/\?address=/);
   });
   it("house review counts only when its History script wrote the row", () => {
     const h = src("src/lib/house-review.ts");

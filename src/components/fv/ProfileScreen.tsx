@@ -28,8 +28,8 @@ function BadgeRow({ b }: { b: Badge }) {
   );
 }
 
-export function ProfileView({ address, name, picture, mine, streak, posted, onSignOut }: {
-  address: string | null; name: string; picture: string | null; mine: Contribution[] | null; streak: Streak | null; posted: boolean; onSignOut: () => void;
+export function ProfileView({ address, name, picture, mine, streak, posted, onSignOut, failed, onRetry }: {
+  address: string | null; name: string; picture: string | null; mine: Contribution[] | null; streak: Streak | null; posted: boolean; onSignOut: () => void; failed?: boolean; onRetry?: () => void;
 }) {
   const reviews = mine?.length ?? 0;
   const withFix = (mine ?? []).filter((c) => (c.proofNote ?? "").toLowerCase().includes("fix")).length;
@@ -67,6 +67,12 @@ export function ProfileView({ address, name, picture, mine, streak, posted, onSi
               <div className="p-3" style={{ borderRight: "2px solid #000" }}><p className="fv-title fv-num">{reviews}</p><p className="fv-label">reviews</p></div>
               <div className="p-3"><p className="fv-title fv-num">{streak?.days ?? 0}</p><p className="fv-label">day streak</p></div>
             </section>
+            {failed && (
+              <div role="alert" className="fv-box p-4 flex flex-col gap-2">
+                <p className="fv-body">Could not load your reviews.</p>
+                <button type="button" className="fv-btn fv-btn-sm" onClick={onRetry}>Try again</button>
+              </div>
+            )}
             <section aria-label="Badges" className="flex flex-col gap-3">
               <h2 className="fv-label">Badges</h2>
               <BadgeRow b={reviewerBadge(reviews)} />
@@ -86,16 +92,24 @@ export function ProfileScreen() {
   const [mine, setMine] = useState<Contribution[] | null>(null);
   const [streak, setStreak] = useState<Streak | null>(null);
   const [posted, setPosted] = useState(false);
+  const [failed, setFailed] = useState(false);
   useWorldUsers(address ? [address] : []);
+  const readMine = () => {
+    setFailed(false);
+    fetch("/api/me/contributions", { cache: "no-store" })
+      .then(async (r) => { const d = await r.json(); if (!r.ok) throw new Error("read failed"); return d; })
+      .then((d) => setMine(Array.isArray(d?.contributions) ? d.contributions : []))
+      .catch(() => { setFailed(true); setMine([]); });
+  };
   useEffect(() => {
     try { setStreak(readStreak(localStorage.getItem("favour_streak"))); setPosted(localStorage.getItem("favour_role") === JSON.stringify("build")); } catch {}
     const stored = (() => { try { return localStorage.getItem("relay_user_id"); } catch { return null; } })();
     if (!stored) return;
     setAddress(stored);
-    ensureSession(stored.startsWith("0x") ? stored : null).finally(() => {
-      fetch("/api/me/contributions", { cache: "no-store" }).then((r) => r.json()).then((d) => setMine(Array.isArray(d?.contributions) ? d.contributions : [])).catch(() => setMine([]));
-    });
+    ensureSession(stored.startsWith("0x") ? stored : null).finally(readMine);
+    // readMine reads nothing that changes; the effect runs once per mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const onSignOut = () => { try { localStorage.removeItem("relay_user_id"); localStorage.removeItem("relay_verification_level"); } catch {} setAddress(null); };
-  return <ProfileView address={address} name={address ? displayName(address) : ""} picture={address ? profilePicture(address) : null} mine={mine} streak={streak} posted={posted} onSignOut={onSignOut} />;
+  return <ProfileView address={address} name={address ? displayName(address) : ""} picture={address ? profilePicture(address) : null} mine={mine} streak={streak} posted={posted} onSignOut={onSignOut} failed={failed} onRetry={readMine} />;
 }

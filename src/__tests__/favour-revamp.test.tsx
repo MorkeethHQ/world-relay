@@ -188,10 +188,11 @@ describe("the doors and the guards", () => {
     expect(src("src/app/page.tsx")).toContain("<ProjectsHome auth=");
     expect(src("src/app/board/page.tsx")).toContain('export { default } from "../page"');
   });
-  it("the bottom nav names Projects and Favours", () => {
+  it("the bottom nav names Deck, Post, History, Profile; the old board stays reachable by a link", () => {
     const nav = src("src/components/BottomNav.tsx");
-    expect(nav).toContain('label: "Projects"');
-    expect(nav).toContain('value: "/board"');
+    for (const l of ["Deck", "Post", "History", "Profile"]) expect(nav).toContain(`label: "${l}"`);
+    expect(nav).not.toContain('value: "/board"');
+    expect(src("src/components/fv/Deck.tsx")).toContain('href="/board"');
   });
   it("the project card shape carries no wallet field", () => {
     const shape = src("src/lib/projects-view.ts");

@@ -24,6 +24,6 @@ export function funkyArt(name: string): string {
   const h = HUES[seed % HUES.length];
   const pick = SHAPES[seed % SHAPES.length];
   const initial = (Array.from((name || "?").trim())[0] ?? "?").toUpperCase().replace(/[<>&"']/g, "");
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 210" width="400" height="210"><rect width="400" height="210" fill="#fff"/>${pick(h)}<text x="20" y="196" font-family="Aeonik,-apple-system,Helvetica,Arial,sans-serif" font-size="28" font-weight="700" fill="#000">${initial}</text></svg>`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 210" width="400" height="210"><rect width="400" height="210" fill="#fff"/>${pick(h)}<rect x="10" y="164" width="44" height="38" fill="#fff" stroke="#000" stroke-width="4"/><text x="32" y="193" text-anchor="middle" font-family="Aeonik,-apple-system,Helvetica,Arial,sans-serif" font-size="26" font-weight="700" fill="#000">${initial}</text></svg>`;
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }
