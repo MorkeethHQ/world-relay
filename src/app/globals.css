@@ -219,3 +219,75 @@ button.campaign-action-light { background: white; color: #191c20; font-size: 15p
 nav[aria-label="Main navigation"] > div { max-width: 512px; margin: 0 auto; }
 
 button.campaign-owner-entry { padding: 20px; }
+
+/*
+ * FV: the 19 Oct 2026 design layer for the revamped screens (projects home,
+ * project, feedback, post). Scoped to .fv so the older board keeps its look and
+ * its guards. Tokens from fleet-ops/gtm/brand/SERIES-BRAND.md section 8 and the
+ * 19 Oct rulings: white ground, true black, one cold blue, 2 px black rules,
+ * square corners (variant A), no shadow, no grey hierarchy, Aeonik where it is
+ * installed and the system sans elsewhere. No font file ships in the repo.
+ */
+.fv {
+  --fv-ink: #000000;
+  --fv-paper: #ffffff;
+  --fv-blue: #0047ff;
+  --fv-orange: #ff5a00;
+  --fv-rule: 2px solid var(--fv-ink);
+  font-family: "Aeonik", "Aeonik Pro", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: var(--fv-ink);
+  background: var(--fv-paper);
+  -webkit-font-smoothing: antialiased;
+}
+.fv * { border-radius: 0; }
+.fv .fv-title { font-size: 28px; line-height: 1.08; font-weight: 700; letter-spacing: -0.02em; text-wrap: balance; }
+.fv .fv-h { font-size: 17px; line-height: 1.2; font-weight: 700; letter-spacing: -0.01em; }
+.fv .fv-body { font-size: 15px; line-height: 1.4; font-weight: 400; }
+.fv .fv-label { font-size: 12px; line-height: 1.2; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; }
+.fv .fv-num { font-variant-numeric: tabular-nums; }
+.fv .fv-blue { color: var(--fv-blue); }
+.fv .fv-box { border: var(--fv-rule); background: var(--fv-paper); }
+.fv .fv-rule-b { border-bottom: var(--fv-rule); }
+.fv .fv-rule-t { border-top: var(--fv-rule); }
+/* Buttons: the kit's unlayered reset strips backgrounds, so these are explicit. */
+.fv button.fv-btn, .fv a.fv-btn {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 52px; padding: 0 20px; width: 100%;
+  border: var(--fv-rule); background: var(--fv-paper); color: var(--fv-ink);
+  font-size: 15px; font-weight: 700; line-height: 1; text-decoration: none;
+  transition: transform 150ms ease-out;
+}
+.fv button.fv-btn:active, .fv a.fv-btn:active { transform: scale(0.98); }
+.fv button.fv-btn:disabled { opacity: 0.4; }
+.fv button.fv-btn-ink, .fv a.fv-btn-ink { background: var(--fv-ink); color: var(--fv-paper); }
+.fv button.fv-btn-sm, .fv a.fv-btn-sm { min-height: 44px; width: auto; padding: 0 16px; }
+/* Fields: 2 px rule, no radius, black text. */
+.fv input.fv-field, .fv textarea.fv-field {
+  width: 100%; min-height: 52px; padding: 12px 14px;
+  border: var(--fv-rule); background: var(--fv-paper); color: var(--fv-ink);
+  font-size: 15px; line-height: 1.4; font-family: inherit;
+}
+.fv input.fv-field::placeholder, .fv textarea.fv-field::placeholder { color: var(--fv-ink); opacity: 0.45; }
+.fv input.fv-field:focus, .fv textarea.fv-field:focus { outline: none; border-color: var(--fv-blue); }
+/* Choice chips: square, one selected is solid ink. */
+.fv button.fv-chip {
+  min-height: 44px; padding: 0 14px; border: var(--fv-rule); background: var(--fv-paper);
+  color: var(--fv-ink); font-size: 15px; font-weight: 700; font-family: inherit;
+}
+.fv button.fv-chip[aria-pressed="true"] { background: var(--fv-ink); color: var(--fv-paper); }
+/* THE DEVICE: ten humans. Ten square cells, 2 px rule, hollow until a real YES. */
+.fv .fv-ten { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 4px; }
+.fv .fv-ten > span { display: block; aspect-ratio: 1 / 1; border: var(--fv-rule); background: var(--fv-paper); }
+.fv .fv-ten > span[data-on="true"] { background: var(--fv-ink); }
+/* The orange banner for a project found elsewhere. */
+.fv .fv-banner { background: var(--fv-orange); color: var(--fv-ink); padding: 6px 12px; }
+.fv .fv-frame { border: var(--fv-rule); padding: 6px 10px; display: inline-block; }
+/* Pictures bleed inside their rule, no radius. */
+.fv img.fv-pic { display: block; width: 100%; aspect-ratio: 1.91 / 1; object-fit: cover; background: var(--fv-paper); border-bottom: var(--fv-rule); }
+.fv img.fv-shot { display: block; width: 100%; aspect-ratio: 9 / 16; object-fit: cover; border: var(--fv-rule); }
+.fv .fv-sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 70; max-width: 512px; margin: 0 auto; border: var(--fv-rule); border-bottom: 0; background: var(--fv-paper); padding: 20px 24px calc(24px + env(safe-area-inset-bottom, 0px)); }
+.fv .fv-scrim { position: fixed; inset: 0; z-index: 69; background: rgba(0,0,0,0.5); }
+@media (prefers-reduced-motion: reduce) { .fv button.fv-btn, .fv a.fv-btn { transition: none; } }
+/* On a revamped screen the whole page is white and the nav carries the 2 px rule. */
+body:has(.fv) { background: #ffffff; }
+body:has(.fv) nav[aria-label="Main navigation"] { border-top: 2px solid #000; }
