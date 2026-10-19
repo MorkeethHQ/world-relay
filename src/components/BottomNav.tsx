@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 const ROUTES = [
   {
     value: "/",
-    label: "Campaigns",
+    label: "Projects",
     icon: (
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
         <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
@@ -14,13 +14,15 @@ const ROUTES = [
     ),
   },
   {
-    value: "/polls",
-    label: "Polls",
+    // The older board: favours, the daily mission, the jury deck, campaigns.
+    // Polls stay at /polls, reached from the board and from History.
+    value: "/board",
+    label: "Favours",
     icon: (
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <line x1="18" y1="20" x2="18" y2="10" />
-        <line x1="12" y1="20" x2="12" y2="4" />
-        <line x1="6" y1="20" x2="6" y2="14" />
+        <rect x="3" y="4" width="18" height="16" />
+        <line x1="3" y1="10" x2="21" y2="10" />
+        <line x1="9" y1="10" x2="9" y2="20" />
       </svg>
     ),
   },
@@ -50,8 +52,9 @@ export function BottomNav() {
   const pathname = usePathname();
   const router = useRouter();
 
+  // "/" owns the project screens too: /project/<id> and /post belong to it.
   const activeValue = ROUTES.find((r) =>
-    r.value === "/" ? pathname === "/" : pathname.startsWith(r.value)
+    r.value === "/" ? pathname === "/" || pathname.startsWith("/project") || pathname === "/post" || pathname === "/apps" : pathname.startsWith(r.value)
   )?.value ?? "/";
 
   return (

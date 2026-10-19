@@ -1,5 +1,18 @@
 # FAVOUR design system (rules, not vibes)
 
+> **Amendment 19 Oct 2026 (favour-revamp-20261019).** Oscar: "lets push the new
+> vibe coding narrative and fresh design over". The revamped screens (projects
+> home `/`, `/project/<id>`, `/project/<id>/feedback`, `/post`) follow the brand
+> book `fleet-ops/gtm/brand/SERIES-BRAND.md` section 8 and the 19 Oct rulings,
+> through the `.fv` layer in `globals.css`:
+> white ground, true black, one cold blue `#0047ff` on the one count that matters,
+> orange `#ff5a00` only on the FOUND ELSEWHERE banner, 2 px black rules, square
+> corners (variant A), no shadow, no grey hierarchy, Aeonik where installed and
+> the system sans elsewhere, no font file in the repo. The "NO blue" rule below
+> still holds for the older board and `CampaignPage.tsx` (guarded). Money green
+> and points amber stay semantic and are untouched. The device of the revamp is
+> TEN HUMANS: ten square cells, hollow until a real YES, solid when on record.
+
 Same discipline as BOARD-RULES.md: these are the rules for every surface.
 Anything violating them is a bug, not a style choice. Born from Oscar's Jul 5
 live review ("how we create, how we write, how we claim needs to be coherent").

@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { usePathname } from "next/navigation";
+import { ProjectsHome } from "@/components/fv/ProjectsHome";
 import { MiniKit } from "@worldcoin/minikit-js";
 import { Feed } from "@/components/Feed";
 import { Onboarding } from "@/components/Onboarding";
@@ -32,6 +34,10 @@ function verificationSubtitle(level: VerificationLevel): string {
 }
 
 export default function Home() {
+  // "/" is the project picker (19 Oct 2026 revamp); "/board" is the older board
+  // with its onboarding gate, reached through src/app/board/page.tsx.
+  const pathname = usePathname();
+  const board = pathname === "/board";
   const [userId, setUserId] = useState<string | null>(null);
   const [verificationLevel, setVerificationLevel] = useState<VerificationLevel>(null);
   const [isVerifying, setIsVerifying] = useState(false);
@@ -242,6 +248,15 @@ export default function Home() {
   // ID step calls the same handleVerify used below, so the existing MiniKit
   // auth path is preserved, not replaced. Stays mounted through sign-in until
   // the user taps through the final screen, which sets the onboarded flag.
+  // THE PROJECT PICKER leads. No onboarding wall: a signed-out visitor sees every
+  // project, and the one-screen sign-in sheet opens at the first tap that needs a
+  // wallet (components/fv/SignInSheet.tsx).
+  if (!board) {
+    return (
+      <ProjectsHome auth={{ userId, isInWorldApp, isVerifying, authError, onVerify: handleVerify }} />
+    );
+  }
+
   if (!onboarded) {
     return (
       <Onboarding
