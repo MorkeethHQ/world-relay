@@ -173,7 +173,7 @@ describe("the post screen's deposit block", () => {
     expect(html).toContain("10 reviews at 5 USDC");
     expect(html).toContain("50 USDC");
     expect(html).toContain("Nothing moves now");
-    expect(html).toContain("refunds to you 10 days after you fund it");
+    expect(html).toContain("refunds to you 10 days after the reviewer takes the slot");
     expect(html).toContain("FAVOUR never holds it");
   });
   it("shows the screenshots the page declared, at most three", () => {

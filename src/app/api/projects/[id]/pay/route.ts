@@ -20,8 +20,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const { id } = await params;
   const plan = await getPayPlan(id).catch(() => null);
   if (!plan) return NextResponse.json({ plan: null }, { headers: { "Cache-Control": "no-store" } });
-  const campaign = await getPublishedCampaign(id).catch(() => null);
-  const owner = campaign?.company ? await ownerOf(id) : await ownerOf(id);
+  const owner = await ownerOf(id);
   const me = getAuthedAddress(req, Date.now());
   const slots = await listPaySlots(id).catch(() => [] as Awaited<ReturnType<typeof listPaySlots>>);
   const pub = publicSlots(slots, me, owner ?? "");

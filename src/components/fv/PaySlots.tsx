@@ -157,12 +157,13 @@ export function PaySlots({ projectId, userId, onNeedSignIn }: { projectId: strin
     const b = r ? await r.json().catch(() => null) : null;
     if (!r?.ok) { setNote(typeof b?.error === "string" ? b.error : "Funding could not be prepared."); setBusy(null); return; }
     const ids: string[] = (b.slots ?? []).map((s: { taskId: string }) => s.taskId);
-    let hash: string | null = null;
+    // No client hash is passed on purpose: World App returns a userOpHash for a
+    // batch, which verifyEscrowV2Receipt cannot read, so the server's own log
+    // scan (findEscrowV2EventTx) is the only source here, per slot.
     await sign(b, async () => {
-      const results = await Promise.all(ids.map((id) => verifyOnChain(id, "verify-funded", "funded", hash)));
+      const results = await Promise.all(ids.map((id) => verifyOnChain(id, "verify-funded", "funded", null)));
       return results.every(Boolean);
     }, "Funded and verified on chain. Reviewers can start.");
-    hash = null;
     setBusy(null);
   };
 

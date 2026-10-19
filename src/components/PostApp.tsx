@@ -158,7 +158,7 @@ export function PostAppForm({ state: s, onChange, onRead, onPost }: {
                         <p className="fv-body fv-num">{PAY_SLOTS} reviews at {s.payUsd} USDC</p>
                         <p className="fv-h fv-num fv-blue">{payTotal} USDC</p>
                       </div>
-                      <p className="fv-body text-[12px]">Nothing moves now. When a reviewer takes a slot, you fund that slot from your wallet into an escrow bound to them. You release it after you read the review. A review you do not approve refunds to you {refundDays} days after you fund it. You see the exact date before you confirm. FAVOUR never holds it.</p>
+                      <p className="fv-body text-[12px]">Nothing moves now. When a reviewer takes a slot, you fund that slot from your wallet into an escrow bound to them. You release it after you read the review. A review you do not approve refunds to you {refundDays} days after the reviewer takes the slot. You see the exact date before you confirm. FAVOUR never holds it.</p>
                     </>
                   )}
                 </section>
