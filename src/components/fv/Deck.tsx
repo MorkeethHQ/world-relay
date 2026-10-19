@@ -59,7 +59,7 @@ export function DeckView({ cards, index, streak, dx, leaving, settling, role, on
         {role === null && (
           <section className="fv-box p-5 flex flex-col gap-3" aria-label="Pick your role">
             <p className="fv-label">People are shipping more than ever</p>
-            <p className="fv-title">Real humans try what you vibe coded.</p>
+            <p className="fv-title">Real humans try your new projects and products.</p>
             <p className="fv-body">Swipe through products. Right to try one and get paid for an honest review. Left to skip. Builders post their app and fund the reviews.</p>
             <div className="flex gap-2">
               <button type="button" className="fv-btn fv-btn-sm flex-1" onClick={() => onRole("build")}>I build</button>

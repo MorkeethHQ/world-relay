@@ -75,7 +75,7 @@ export function PostAppForm({ state: s, onChange, onRead, onPost }: {
         ) : (
           <>
             {s.step === "link" && (
-              <p className="fv-title">Get real humans to try what you vibe coded.</p>
+              <p className="fv-title">Get real humans to try your new project.</p>
             )}
             <label className="flex flex-col gap-2">
               <span className="fv-h">Link to your app</span>
