@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { ProjectCard as Card } from "@/lib/projects-view";
 import { countLine } from "@/lib/projects-view";
 import { TenHumans } from "@/components/fv/TenHumans";
+import { funkyArt } from "@/lib/funky-art";
 
 // One project on the picker. The picture bleeds inside the rule, the title sits
 // in a frame when the project was found elsewhere, and the ten-cell row says how
@@ -11,10 +12,8 @@ export function ProjectCard({ p, busy, note, onYes }: { p: Card; busy: boolean; 
   return (
     <article data-project={p.id} className="fv-box flex flex-col">
       {p.fromOtherSource && <p className="fv-banner fv-label fv-rule-b">Found elsewhere</p>}
-      {p.image && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={p.image} alt="" className="fv-pic" />
-      )}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={p.image ?? funkyArt(p.name)} alt="" className="fv-pic" />
       <div className="p-4 flex flex-col gap-3">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">

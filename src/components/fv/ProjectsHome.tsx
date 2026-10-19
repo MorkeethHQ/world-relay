@@ -54,7 +54,7 @@ export function ProjectsHomeView({ projects, error, filter, onFilter, notes, bus
       </header>
 
       <section className="px-6 pt-6 pb-5 flex flex-col gap-4 fv-rule-b">
-        <p className="fv-title">Real humans try what you vibe coded.</p>
+        <p className="fv-title">Real humans try your new projects and products.</p>
         <p className="fv-body">Builders post an app. You try it and say YES. Ten YES puts it live. Then your feedback earns points.</p>
         <Link href="/post" className="fv-btn fv-btn-ink">Post your app</Link>
         {projects && (

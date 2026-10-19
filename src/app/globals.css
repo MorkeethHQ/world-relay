@@ -274,7 +274,7 @@ button.campaign-owner-entry { padding: 20px; }
   min-height: 44px; padding: 0 14px; border: var(--fv-rule); background: var(--fv-paper);
   color: var(--fv-ink); font-size: 15px; font-weight: 700; font-family: inherit;
 }
-.fv button.fv-chip[aria-pressed="true"] { background: var(--fv-ink); color: var(--fv-paper); }
+.fv button.fv-chip[aria-pressed="true"], .fv button.fv-chip[data-on="true"] { background: var(--fv-ink); color: var(--fv-paper); }
 /* THE DEVICE: ten humans. Ten square cells, 2 px rule, hollow until a real YES. */
 .fv .fv-ten { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 4px; }
 .fv .fv-ten > span { display: block; aspect-ratio: 1 / 1; border: var(--fv-rule); background: var(--fv-paper); }
@@ -291,3 +291,34 @@ button.campaign-owner-entry { padding: 20px; }
 /* On a revamped screen the whole page is white and the nav carries the 2 px rule. */
 body:has(.fv) { background: #ffffff; }
 body:has(.fv) nav[aria-label="Main navigation"] { border-top: 2px solid #000; }
+
+/* THE DECK (19 Oct 2026). One card fills the screen; the next one peeks under it.
+   Motion is transform only, ease-out, 150 to 300 ms, no spring. */
+.fv .fv-deck { position: relative; height: calc(100dvh - 56px - 80px - 150px); min-height: 380px; }
+.fv .fv-deck-card { position: absolute; inset: 0; display: flex; flex-direction: column; border: var(--fv-rule); background: var(--fv-paper); overflow: hidden; touch-action: pan-y; user-select: none; -webkit-user-select: none; will-change: transform; }
+.fv .fv-deck-card[data-depth="1"] { transform: translate(8px, 8px); }
+.fv .fv-deck-card[data-depth="2"] { transform: translate(16px, 16px); }
+.fv .fv-deck-card[data-leaving="right"] { transition: transform 240ms ease-out, opacity 240ms ease-out; transform: translateX(120%) rotate(8deg); opacity: 0; }
+.fv .fv-deck-card[data-leaving="left"] { transition: transform 240ms ease-out, opacity 240ms ease-out; transform: translateX(-120%) rotate(-8deg); opacity: 0; }
+.fv .fv-deck-card[data-settling="true"] { transition: transform 180ms ease-out; }
+.fv .fv-deck-picbox { position: relative; flex: 1 1 0; min-height: 0; border-bottom: var(--fv-rule); background: var(--fv-paper); overflow: hidden; }
+.fv .fv-deck-pic { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.fv .fv-deck-text { flex: 0 0 auto; }
+.fv .fv-deck-say { position: absolute; top: 16px; padding: 6px 12px; border: var(--fv-rule); background: var(--fv-paper); font-size: 17px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; opacity: 0; transition: opacity 120ms ease-out; }
+.fv .fv-deck-say[data-side="right"] { right: 16px; background: var(--fv-ink); color: var(--fv-paper); }
+.fv .fv-deck-say[data-side="left"] { left: 16px; }
+.fv .fv-deck-say[data-show="true"] { opacity: 1; }
+.fv .fv-deck-controls { display: grid; grid-template-columns: 1fr auto auto 1fr; gap: 8px; align-items: stretch; }
+.fv .fv-tick { display: inline-block; transition: transform 200ms ease-out; }
+.fv .fv-tick[data-bump="true"] { transform: scale(1.25); }
+/* LOOK C, the one loud screen (Oscar, 8 Oct 2026: "C for specific feature"): one
+   product fills the screen in its own colour with giant type. Used once, for
+   the moment a review lands. */
+.fv-loud { position: fixed; inset: 0; z-index: 80; display: flex; flex-direction: column; justify-content: flex-end; padding: 32px 24px calc(32px + env(safe-area-inset-bottom, 0px)); color: #000; animation: fv-loud-in 240ms ease-out; }
+.fv-loud .fv-loud-num { font-size: 120px; line-height: 0.9; font-weight: 700; letter-spacing: -0.04em; font-variant-numeric: tabular-nums; }
+.fv-loud .fv-loud-line { font-size: 28px; line-height: 1.08; font-weight: 700; letter-spacing: -0.02em; margin-top: 16px; }
+@keyframes fv-loud-in { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .fv .fv-deck-card[data-leaving], .fv .fv-deck-card[data-settling="true"], .fv .fv-tick { transition: none; }
+  .fv-loud { animation: none; }
+}

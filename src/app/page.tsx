@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
+import { Deck } from "@/components/fv/Deck";
 import { ProjectsHome } from "@/components/fv/ProjectsHome";
 import { MiniKit } from "@worldcoin/minikit-js";
 import { Feed } from "@/components/Feed";
@@ -38,6 +39,7 @@ export default function Home() {
   // with its onboarding gate, reached through src/app/board/page.tsx.
   const pathname = usePathname();
   const board = pathname === "/board";
+  const list = pathname === "/apps";
   const [userId, setUserId] = useState<string | null>(null);
   const [verificationLevel, setVerificationLevel] = useState<VerificationLevel>(null);
   const [isVerifying, setIsVerifying] = useState(false);
@@ -252,9 +254,8 @@ export default function Home() {
   // project, and the one-screen sign-in sheet opens at the first tap that needs a
   // wallet (components/fv/SignInSheet.tsx).
   if (!board) {
-    return (
-      <ProjectsHome auth={{ userId, isInWorldApp, isVerifying, authError, onVerify: handleVerify }} />
-    );
+    const auth = { userId, isInWorldApp, isVerifying, authError, onVerify: handleVerify };
+    return list ? <ProjectsHome auth={auth} /> : <Deck auth={auth} />;
   }
 
   if (!onboarded) {

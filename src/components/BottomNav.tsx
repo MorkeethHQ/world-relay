@@ -2,104 +2,51 @@
 
 import { usePathname, useRouter } from "next/navigation";
 
+// THE TAB BAR (19 Oct 2026 deck system). Four doors: Deck, Post (the centre,
+// Oscar 11 Oct: "a big centre + Add your project in the bottom menu"), History,
+// Profile. Favours left the bar; the old board stays at /board by a text link.
+// Our own fixed wrapper, not the kit's SafeAreaView (it broke fixed positioning
+// in the World App webview, Oscar Jul 5). Square strokes, 2 px rule, no colour.
+const S = { width: 22, height: 22, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2.2, strokeLinecap: "square" as const, strokeLinejoin: "miter" as const };
+
 const ROUTES = [
-  {
-    value: "/",
-    label: "Projects",
-    icon: (
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-        <polyline points="9 22 9 12 15 12 15 22" />
-      </svg>
-    ),
-  },
-  {
-    // The older board: favours, the daily mission, the jury deck, campaigns.
-    // Polls stay at /polls, reached from the board and from History.
-    value: "/board",
-    label: "Favours",
-    icon: (
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="3" y="4" width="18" height="16" />
-        <line x1="3" y1="10" x2="21" y2="10" />
-        <line x1="9" y1="10" x2="9" y2="20" />
-      </svg>
-    ),
-  },
-  {
-    value: "/history",
-    label: "History",
-    icon: (
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="12" cy="12" r="10" />
-        <polyline points="12 6 12 12 16 14" />
-      </svg>
-    ),
-  },
-  {
-    value: "/dashboard",
-    label: "Profile",
-    icon: (
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-        <circle cx="12" cy="7" r="4" />
-      </svg>
-    ),
-  },
+  { value: "/", label: "Deck", icon: <svg {...S}><rect x="5" y="3" width="14" height="18" /><path d="M3 7v12M21 7v12" /></svg> },
+  { value: "/post", label: "Post", icon: <svg {...S}><rect x="3" y="3" width="18" height="18" /><path d="M12 8v8M8 12h8" /></svg>, centre: true },
+  { value: "/history", label: "History", icon: <svg {...S}><rect x="3" y="3" width="18" height="18" /><path d="M12 7v5l3 3" /></svg> },
+  { value: "/dashboard", label: "Profile", icon: <svg {...S}><rect x="3" y="3" width="18" height="18" /><circle cx="12" cy="10" r="3" /><path d="M6 20c1-4 11-4 12 0" /></svg> },
 ];
 
 export function BottomNav() {
   const pathname = usePathname();
   const router = useRouter();
-
-  // "/" owns the project screens too: /project/<id> and /post belong to it.
   const activeValue = ROUTES.find((r) =>
-    r.value === "/" ? pathname === "/" || pathname.startsWith("/project") || pathname === "/post" || pathname === "/apps" : pathname.startsWith(r.value)
+    r.value === "/" ? pathname === "/" || pathname.startsWith("/project") || pathname === "/apps" || pathname === "/board" : pathname.startsWith(r.value)
   )?.value ?? "/";
 
   return (
-    // Hybrid: OUR fixed wrapper (the kit's SafeAreaView broke fixed
-    // positioning in the World App webview — "menu doesn't stick to the
-    // ground", Oscar Jul 5), with the kit's native Tabs/TabItem inside so the
-    // nav stays on World's design language.
     <nav
-      className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200"
-      style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+      className="fixed bottom-0 left-0 right-0 z-50 bg-white"
+      style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)", borderTop: "2px solid #000", fontFamily: '"Aeonik", "Aeonik Pro", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}
       role="navigation"
       aria-label="Main navigation"
     >
-      {/* Custom compact items — the kit's TabItem renders far too large on
-          mobile with 5 tabs (Oscar Jul 5 night review).
-
-          The items DIVIDE the row (`flex-1 min-w-0`) rather than each claiming a
-          fixed `min-w-[56px]`. Five fixed 56px items sum to 280px, which fits a
-          320px screen with no margin for a wider label — and on iOS labels do get
-          wider (font fallback inside the World App webview, larger accessibility
-          text). Dividing the row means the icons cannot exceed the screen no
-          matter how wide the labels want to be. Second half of the World review
-          fix; the first half is the `overflow-x: clip` rule in globals.css. */}
-      <div className="flex items-center pt-1.5 pb-1 w-full max-w-full">
+      <div className="flex items-stretch w-full max-w-lg mx-auto">
         {ROUTES.map((route) => {
           const active = route.value === activeValue;
           return (
             <button
               key={route.value}
               onClick={() => {
-                // Tapping the tab you are already on returns that tab to its start.
-                // A plain router.push to the current path is a no-op, so without
-                // this a signed-out visitor part-way through onboarding who taps
-                // Favours saw nothing happen at all (2026-09-21).
                 if (active) window.dispatchEvent(new CustomEvent("favour:nav-reselect", { detail: route.value }));
                 router.push(route.value);
               }}
-              className={`flex-1 min-w-0 flex flex-col items-center justify-center gap-0.5 min-h-[44px] px-0.5 transition-colors ${
-                active ? "text-gray-900" : "text-gray-400"
-              }`}
+              className={`flex-1 min-w-0 flex flex-col items-center justify-center gap-1 min-h-[56px] px-0.5 ${route.centre ? "bg-black text-white" : active ? "bg-white text-black" : "bg-white text-black opacity-50"}`}
+              style={{ borderRadius: 0, background: route.centre ? "#000" : "#fff", color: route.centre ? "#fff" : "#000" }}
               aria-label={route.label}
               aria-current={active ? "page" : undefined}
             >
-              <span className="shrink-0 [&>svg]:w-[21px] [&>svg]:h-[21px]">{route.icon}</span>
-              <span className={`w-full truncate text-center text-[9.5px] leading-none ${active ? "font-semibold" : "font-medium"}`}>{route.label}</span>
+              <span className="shrink-0">{route.icon}</span>
+              <span className="w-full truncate text-center text-[11px] leading-none font-bold uppercase tracking-[0.06em]">{route.label}</span>
             </button>
           );
         })}

@@ -158,12 +158,23 @@ describe("the feedback screen", () => {
 });
 
 describe("the post screen's deposit block", () => {
-  it("says what the builder puts in, in points, and that USDC is not open", () => {
+  // 19 Oct 2026 (FAVOUR-PAY): USDC reviews are a switch, off by default. On, the
+  // block shows the count, the price, the sum and the refund rule. Never an input.
+  it("says what the builder puts in, in points, with USDC off by default", () => {
     const html = renderToStaticMarkup(<PostAppForm state={{ ...EMPTY_POST, step: "details", url: "https://a.test", name: "A", pageImage: "https://a.test/og.png", ask: Array(20).fill("w").join(" ") }} onChange={noop} onRead={noop} onPost={noop} />);
     expect(html).toContain("What you put in");
     expect(html).toContain("100 points");
-    expect(html).toContain("Not open yet");
+    expect(html).toMatch(/role="switch"[^>]*aria-checked="false"/);
+    expect(html).not.toContain("USDC each");
     expect(html).not.toMatch(/<input[^>]*usdc/i);
+  });
+  it("with USDC on, shows ten reviews, the price, the sum and the refund rule before anything moves", () => {
+    const html = renderToStaticMarkup(<PostAppForm state={{ ...EMPTY_POST, step: "details", url: "https://a.test", name: "A", pageImage: "https://a.test/og.png", ask: Array(20).fill("w").join(" "), payOn: true, payUsd: 5 }} onChange={noop} onRead={noop} onPost={noop} />);
+    expect(html).toContain("10 reviews at 5 USDC");
+    expect(html).toContain("50 USDC");
+    expect(html).toContain("Nothing moves now");
+    expect(html).toContain("refunds to you 10 days after the reviewer takes the slot");
+    expect(html).toContain("FAVOUR never holds it");
   });
   it("shows the screenshots the page declared, at most three", () => {
     const html = renderToStaticMarkup(<PostAppForm state={{ ...EMPTY_POST, step: "details", url: "https://a.test", name: "A", pageImage: "https://a.test/og.png", screenshots: ["https://a.test/1.png", "https://a.test/2.png", "https://a.test/3.png", "https://a.test/4.png"] }} onChange={noop} onRead={noop} onPost={noop} />);
@@ -177,10 +188,11 @@ describe("the doors and the guards", () => {
     expect(src("src/app/page.tsx")).toContain("<ProjectsHome auth=");
     expect(src("src/app/board/page.tsx")).toContain('export { default } from "../page"');
   });
-  it("the bottom nav names Projects and Favours", () => {
+  it("the bottom nav names Deck, Post, History, Profile; the old board stays reachable by a link", () => {
     const nav = src("src/components/BottomNav.tsx");
-    expect(nav).toContain('label: "Projects"');
-    expect(nav).toContain('value: "/board"');
+    for (const l of ["Deck", "Post", "History", "Profile"]) expect(nav).toContain(`label: "${l}"`);
+    expect(nav).not.toContain('value: "/board"');
+    expect(src("src/components/fv/Deck.tsx")).toContain('href="/board"');
   });
   it("the project card shape carries no wallet field", () => {
     const shape = src("src/lib/projects-view.ts");

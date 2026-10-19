@@ -31,9 +31,9 @@ describe("1. the in-app favour screen shows the thread", () => {
 });
 
 describe("2. a Profile favour row opens the favour page", () => {
-  it("each activity row is a link to /task/<id>", () => {
-    const page = src("src/app/dashboard/page.tsx");
-    expect(page).toMatch(/<Link\s+key=\{t\.id\}\s+href=\{`\/task\/\$\{t\.id\}`\}/);
+  it("each History row links to its project (19 Oct 2026: rows are contributions, not tasks)", () => {
+    const page = src("src/components/fv/HistoryScreen.tsx");
+    expect(page).toMatch(/href=\{`\/project\/\$\{encodeURIComponent\(c\.campaignId\)\}`\}/);
   });
 });
 

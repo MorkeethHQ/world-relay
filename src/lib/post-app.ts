@@ -28,11 +28,13 @@ export function postUrlOrNull(v: unknown): string | null {
 /** The body for validateDraftInput. Only these fields; nothing about money. */
 export function postBody(input: PostInput) {
   const productName = productNameOrNull(input.productName);
+  const url = postUrlOrNull(input.productUrl) ?? "";
+  const ask = typeof input.ask === "string" ? input.ask.replace(/\s+/g, " ").trim().slice(0, ASK_MAX) : "";
   return {
     company: productName ?? "",
     productName: productName ?? "",
-    productUrl: postUrlOrNull(input.productUrl) ?? "",
-    brief: typeof input.ask === "string" ? input.ask.replace(/\s+/g, " ").trim().slice(0, ASK_MAX) : "",
+    productUrl: url,
+    brief: ask,
     pieces: [{ kind: "review" as const, count: POST_REVIEWS }],
     rewardPerPiecePoints: POST_POINTS,
     proposedPoolUsdc: 0,

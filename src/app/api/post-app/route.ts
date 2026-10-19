@@ -8,6 +8,8 @@ import { postBody, postReason, pictureRecord, pictureOf } from "@/lib/post-app";
 import { savePictureRecord } from "@/lib/campaign-pictures";
 import { markPending } from "@/lib/posted-apps";
 import { YES_GATE } from "@/lib/yes-gate";
+import { payPlanFromInput } from "@/lib/pay-plan";
+import { savePayPlan } from "@/lib/pay-slots";
 
 // POST /api/post-app { productUrl, productName, ask, makerImage? } -> the maker's
 // app is saved as a campaign draft and is PENDING (lib/posted-apps.ts). It is
@@ -18,7 +20,10 @@ import { YES_GATE } from "@/lib/yes-gate";
 // what the product's own page declares and not what a caller typed. Only the
 // maker's own picture link comes from the body, and it is recorded as the
 // maker's. No picture, no post. Nothing here funds anything: the body carries no
-// pool, and publishing later goes through publishDraft, which cannot.
+// pool, and publishing later goes through publishDraft, which cannot. An optional
+// `pay` {perReviewUsd} records a PLAN for paid reviews (lib/pay-plan.ts): a
+// commitment, not a payment. Money moves only later, from the builder's own
+// wallet into the escrow contract, one taken slot at a time.
 
 export const POST_DAY_PREFIX = "app:post-day:";
 
@@ -34,6 +39,8 @@ export async function POST(req: NextRequest) {
 
   const raw = ((await req.json().catch(() => null)) ?? {}) as Record<string, unknown>;
   const input = { productUrl: raw.productUrl, productName: raw.productName, ask: raw.ask, makerImage: raw.makerImage };
+  const pay = payPlanFromInput(raw.pay, Date.now());
+  if (raw.pay && !pay) return NextResponse.json({ error: "Pick 1, 2 or 5 USDC per review." }, { status: 400 });
   const body = postBody(input);
   const checked = validateDraftInput(body);
   if (!checked.ok) return NextResponse.json({ error: checked.error }, { status: 400 });
@@ -71,6 +78,9 @@ export async function POST(req: NextRequest) {
   if (!holder && (await redis.set(dayKey, draftId, { nx: true, ex: 2 * 86400 })) !== "OK") return oneADay;
   if (!(await savePictureRecord(draftId, record))) {
     return NextResponse.json({ error: "Your app is saved, but its picture could not be saved. Tap Post again." }, { status: 503 });
+  }
+  if (pay && !(await savePayPlan(draftId, pay))) {
+    return NextResponse.json({ error: "Your app is saved, but the paid reviews could not be recorded. Tap Post again." }, { status: 503 });
   }
   if (!(await markPending(draftId))) {
     return NextResponse.json({ error: "Your app is saved, but it could not be listed. Tap Post again." }, { status: 503 });

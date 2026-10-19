@@ -1,13 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getProject } from "@/lib/projects";
 import { listCampaignResults } from "@/lib/campaign-drafts";
+import { pageImage } from "@/lib/hn";
 
 // GET /api/projects/<id> -> one project and, when live, its reviewed work.
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   try {
-    const project = await getProject(id);
-    if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    const found = await getProject(id);
+    if (!found) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    // No picture of its own: the page's share picture, cached an hour (lib/hn.ts).
+    const project = found.image ? found : { ...found, image: await pageImage(found.url) };
     const results = project.status === "published" ? await listCampaignResults(id).catch(() => []) : [];
     return NextResponse.json({ project, results }, { headers: { "Cache-Control": "public, s-maxage=10, stale-while-revalidate=20" } });
   } catch {

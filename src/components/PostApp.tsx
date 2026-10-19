@@ -5,8 +5,11 @@ import Link from "next/link";
 import { MIN_BRIEF_WORDS } from "@/lib/campaign-draft-shape";
 import { campaignPicture } from "@/lib/campaign-picture";
 import { ASK_MAX, POST_POINTS, POST_REVIEWS, postReason } from "@/lib/post-app";
+import { PAY_DEFAULT_USD, PAY_PRICES, PAY_SLOTS, PAY_SLOT_HOURS } from "@/lib/pay-plan";
+import { ESCROW_V2_CONFIRM_GRACE_S } from "@/lib/escrow-v2";
 import { askLine, progressLabel } from "@/lib/apps-view";
 import { TenHumans } from "@/components/fv/TenHumans";
+import { funkyArt } from "@/lib/funky-art";
 
 // /post: A MAKER POSTS THEIR APP (pivot "Product Hunt for World", 17 Oct 2026).
 // Step 1: paste the link; the server reads the page (api/post-app/read).
@@ -21,12 +24,16 @@ export type PostState = {
   // The screenshots the page itself declares (product-fetch.ts). Shown, never guessed.
   screenshots: string[];
   makerImage: string; ask: string;
+  // PAID REVIEWS (19 Oct 2026): off by default. On = a commitment of PAY_SLOTS
+  // reviews at payUsd each; nothing moves at post (lib/pay-plan.ts says why).
+  payOn: boolean; payUsd: number;
   busy: boolean; error: string | null;
   posted: { id: string; yes: number; of: number } | null;
 };
 
 export const EMPTY_POST: PostState = {
   step: "link", url: "", name: "", line: null, pageImage: null, screenshots: [], makerImage: "", ask: "",
+  payOn: false, payUsd: PAY_DEFAULT_USD,
   busy: false, error: null, posted: null,
 };
 
@@ -42,6 +49,8 @@ export function PostAppForm({ state: s, onChange, onRead, onPost }: {
 }) {
   const picture = campaignPicture({ productName: s.name, productUrl: s.url, makerImage: s.makerImage, shareImage: s.pageImage });
   const reason = s.step === "details" ? postReason({ productUrl: s.url, productName: s.name, ask: s.ask, makerImage: s.makerImage }, picture) : null;
+  const payTotal = PAY_SLOTS * s.payUsd;
+  const refundDays = Math.round((PAY_SLOT_HOURS * 3600 + ESCROW_V2_CONFIRM_GRACE_S) / 86400);
 
   return (
     <div className="fv min-h-screen max-w-lg mx-auto">
@@ -66,7 +75,7 @@ export function PostAppForm({ state: s, onChange, onRead, onPost }: {
         ) : (
           <>
             {s.step === "link" && (
-              <p className="fv-title">Get real humans to try what you vibe coded.</p>
+              <p className="fv-title">Get real humans to try your new project.</p>
             )}
             <label className="flex flex-col gap-2">
               <span className="fv-h">Link to your app</span>
@@ -78,6 +87,15 @@ export function PostAppForm({ state: s, onChange, onRead, onPost }: {
               <>
                 <button type="button" className={primary} disabled={s.busy || !s.url.trim()} onClick={onRead}>{s.busy ? "Reading…" : "Read my page"}</button>
                 <p className="fv-body text-[12px]">FAVOUR reads the name, the share picture and the screenshots your page declares. You confirm them next.</p>
+                <section aria-label="What you get" className="fv-box flex flex-col">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={funkyArt(s.url.trim() || "Your app")} alt="" className="fv-pic" />
+                  <div className="p-4 flex flex-col gap-2">
+                    <p className="fv-h">Your app, as a card in the deck</p>
+                    <TenHumans yes={3} of={10} />
+                    <p className="fv-body text-[12px] fv-num">Ten verified humans say YES and it is live. Then every honest review earns them {POST_POINTS} points, or USDC you put in escrow. FAVOUR never holds the money.</p>
+                  </div>
+                </section>
               </>
             )}
 
@@ -122,20 +140,37 @@ export function PostAppForm({ state: s, onChange, onRead, onPost }: {
                 )}
 
                 {/* THE DEPOSIT (Oscar, 13 Oct 2026: "deposit for favours and feedback or
-                    just points"). Points only today: ten reviews at ten points, paid by
-                    FAVOUR. A USDC pot is a custody change and stays Oscar's call
-                    (CURRENT.md line 613), so it is shown as not open, never as a field. */}
+                    just points"; 19 Oct: "post app for review needs cash ofc, we should
+                    escrow it"). Points: ten reviews at ten points, paid by FAVOUR, free.
+                    USDC: a commitment of ten paid reviews at the price picked. Nothing
+                    moves at post. The builder funds each taken slot from their own wallet
+                    into the escrow contract, and sees the sum, the count and the refund
+                    date again before confirming in World App (fv/PaySlots.tsx). */}
                 <section aria-label="What you put in" className="fv-box p-4 flex flex-col gap-3">
                   <p className="fv-label">What you put in</p>
                   <div className="flex items-baseline justify-between gap-3">
                     <p className="fv-body">{POST_REVIEWS} honest reviews</p>
-                    <p className="fv-h fv-num fv-blue">{POST_REVIEWS * POST_POINTS} points</p>
+                    <p className={`fv-h fv-num ${s.payOn ? "" : "fv-blue"}`}>{POST_REVIEWS * POST_POINTS} points</p>
                   </div>
-                  <p className="fv-body text-[12px]">{POST_POINTS} points per accepted review, paid by FAVOUR. You pay nothing today.</p>
-                  <div className="flex items-baseline justify-between gap-3 fv-rule-t pt-3">
-                    <p className="fv-body">USDC pot</p>
-                    <p className="fv-body">Not open yet</p>
+                  <p className="fv-body text-[12px]">{POST_POINTS} points per accepted review, paid by FAVOUR. Free.</p>
+                  <div className="flex items-center justify-between gap-3 fv-rule-t pt-3">
+                    <p className="fv-body">Add {PAY_SLOTS} paid reviews in USDC</p>
+                    <button type="button" role="switch" aria-checked={s.payOn} className="fv-chip" data-on={s.payOn} onClick={() => onChange({ payOn: !s.payOn })}>{s.payOn ? "On" : "Off"}</button>
                   </div>
+                  {s.payOn && (
+                    <>
+                      <div className="flex gap-2" role="radiogroup" aria-label="USDC per review">
+                        {PAY_PRICES.map((usd) => (
+                          <button key={usd} type="button" role="radio" aria-checked={s.payUsd === usd} data-on={s.payUsd === usd} className="fv-chip flex-1 fv-num" onClick={() => onChange({ payUsd: usd })}>{usd} USDC</button>
+                        ))}
+                      </div>
+                      <div className="flex items-baseline justify-between gap-3">
+                        <p className="fv-body fv-num">{PAY_SLOTS} reviews at {s.payUsd} USDC</p>
+                        <p className="fv-h fv-num fv-blue">{payTotal} USDC</p>
+                      </div>
+                      <p className="fv-body text-[12px]">Nothing moves now. When a reviewer takes a slot, you fund that slot from your wallet into an escrow bound to them. You release it after you read the review. A review you do not approve refunds to you {refundDays} days after the reviewer takes the slot. You see the exact date before you confirm. FAVOUR never holds it.</p>
+                    </>
+                  )}
                 </section>
 
                 {reason && <p className="fv-body">{reason}</p>}
@@ -179,7 +214,7 @@ export function PostApp() {
 
   const onPost = async () => {
     patch({ busy: true });
-    const r = await send("/api/post-app", { productUrl: s.url, productName: s.name, ask: s.ask, makerImage: s.makerImage || undefined });
+    const r = await send("/api/post-app", { productUrl: s.url, productName: s.name, ask: s.ask, makerImage: s.makerImage || undefined, pay: s.payOn ? { perReviewUsd: s.payUsd } : undefined });
     const app = r.body?.app as { id: string; yes: number; of: number } | undefined;
     if (!r.ok || !app) return patch({ busy: false, error: signIn(r.body, "Your app was not posted. Try again.") });
     patch({ busy: false, step: "done", posted: app });

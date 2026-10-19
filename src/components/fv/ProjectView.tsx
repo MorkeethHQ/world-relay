@@ -10,14 +10,16 @@ import { PIECE_LABEL } from "@/lib/campaign-draft-shape";
 import { voteNote, type VoteReply } from "@/lib/apps-view";
 import { TenHumans } from "@/components/fv/TenHumans";
 import { SignInSheet } from "@/components/fv/SignInSheet";
+import { PaySlots } from "@/components/fv/PaySlots";
+import { funkyArt } from "@/lib/funky-art";
 
 // ONE PROJECT (FAVOUR revamp, 19 Oct 2026). Waiting: open it, say YES. Live: its
 // favours, each a piece that pays points, and the reviewed work so far.
 
 const VERDICT_LABEL: Record<CampaignResult["verdict"], string> = { pass: "Accepted", fail: "Not accepted", flag: "Under review" };
 
-export function ProjectViewScreen({ p, results, note, busy, onYes, signedIn }: {
-  p: Card; results: CampaignResult[]; note: string | null; busy: boolean; onYes: () => void; signedIn: boolean;
+export function ProjectViewScreen({ p, results, note, busy, onYes, signedIn, paid }: {
+  p: Card; results: CampaignResult[]; note: string | null; busy: boolean; onYes: () => void; signedIn: boolean; paid?: React.ReactNode;
 }) {
   const live = p.status === "published";
   return (
@@ -31,10 +33,8 @@ export function ProjectViewScreen({ p, results, note, busy, onYes, signedIn }: {
       </header>
 
       {p.fromOtherSource && <p className="fv-banner fv-label fv-rule-b">Found elsewhere. Not posted by its builder.</p>}
-      {p.image && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={p.image} alt="" className="fv-pic" />
-      )}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={p.image ?? funkyArt(p.name)} alt="" className="fv-pic" />
 
       <div className="px-6 py-5 pb-28 flex flex-col gap-5">
         <div className="flex flex-col gap-2">
@@ -81,6 +81,8 @@ export function ProjectViewScreen({ p, results, note, busy, onYes, signedIn }: {
           </section>
         )}
 
+        {live && paid}
+
         {live && (
           <section aria-label="Reviewed work" className="flex flex-col gap-2">
             <h2 className="fv-label">Reviewed work</h2>
@@ -109,6 +111,7 @@ export function ProjectView({ id, userId, isInWorldApp, isVerifying, authError, 
   const [note, setNote] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [sheet, setSheet] = useState(false);
+  const [paySheet, setPaySheet] = useState(false);
 
   useEffect(() => {
     fetch(`/api/projects/${encodeURIComponent(id)}`, { cache: "no-store" })
@@ -137,14 +140,19 @@ export function ProjectView({ id, userId, isInWorldApp, isVerifying, authError, 
   }, [id, router]);
 
   useEffect(() => { if (userId && sheet) { setSheet(false); castYes(); } }, [userId, sheet, castYes]);
+  useEffect(() => { if (userId && paySheet) setPaySheet(false); }, [userId, paySheet]);
 
   if (error) return <div className="fv min-h-screen max-w-lg mx-auto px-6 py-8 flex flex-col gap-4"><p className="fv-body" role="alert">{error}</p><Link href="/" className="fv-btn">Back to projects</Link></div>;
   if (!data) return <div className="fv min-h-screen max-w-lg mx-auto px-6 py-8"><p className="fv-body">Reading the project…</p></div>;
   return (
     <>
-      <ProjectViewScreen p={data.project} results={data.results} note={note} busy={busy} signedIn={!!userId} onYes={() => (userId ? castYes() : setSheet(true))} />
+      <ProjectViewScreen p={data.project} results={data.results} note={note} busy={busy} signedIn={!!userId} onYes={() => (userId ? castYes() : setSheet(true))}
+        paid={<PaySlots projectId={id} userId={userId} onNeedSignIn={() => setPaySheet(true)} />} />
       {sheet && !userId && (
         <div className="fv"><SignInSheet why="Sign in to say YES." isInWorldApp={isInWorldApp} busy={isVerifying} error={authError} onSignIn={onVerify} onClose={() => setSheet(false)} /></div>
+      )}
+      {paySheet && !userId && (
+        <div className="fv"><SignInSheet why="Sign in to take a paid review." isInWorldApp={isInWorldApp} busy={isVerifying} error={authError} onSignIn={onVerify} onClose={() => setPaySheet(false)} /></div>
       )}
     </>
   );

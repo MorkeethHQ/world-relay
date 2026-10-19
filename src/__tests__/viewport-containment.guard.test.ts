@@ -96,7 +96,7 @@ describe("BottomNav cannot exceed the screen", () => {
   });
 
   it("keeps the 44px minimum tap target", () => {
-    expect(nav).toMatch(/min-h-\[44px\]/);
+    expect(nav).toMatch(/min-h-\[(44|56)px\]/);
   });
 
   it("still respects the iOS home-indicator safe area", () => {
