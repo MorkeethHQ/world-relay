@@ -2,17 +2,17 @@
 
 import { usePathname, useRouter } from "next/navigation";
 
-// THE TAB BAR (19 Oct 2026 deck system). Four doors: Deck, Post (the centre,
-// Oscar 11 Oct: "a big centre + Add your project in the bottom menu"), History,
-// Profile. Favours left the bar; the old board stays at /board by a text link.
+// THE TAB BAR. Four doors: the builder feed, the project deck, Post (the centre,
+// Oscar 11 Oct: "a big centre + Add your project in the bottom menu"), and Profile.
+// Favours stay inside projects and threads; the old board remains at /board.
 // Our own fixed wrapper, not the kit's SafeAreaView (it broke fixed positioning
 // in the World App webview, Oscar Jul 5). Square strokes, 2 px rule, no colour.
 const S = { width: 22, height: 22, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2.2, strokeLinecap: "square" as const, strokeLinejoin: "miter" as const };
 
 const ROUTES = [
+  { value: "/community", label: "Feed", icon: <svg {...S}><path d="M4 5h16M4 12h16M4 19h10" /></svg> },
   { value: "/", label: "Deck", icon: <svg {...S}><rect x="5" y="3" width="14" height="18" /><path d="M3 7v12M21 7v12" /></svg> },
   { value: "/post", label: "Post", icon: <svg {...S}><rect x="3" y="3" width="18" height="18" /><path d="M12 8v8M8 12h8" /></svg>, centre: true },
-  { value: "/history", label: "History", icon: <svg {...S}><rect x="3" y="3" width="18" height="18" /><path d="M12 7v5l3 3" /></svg> },
   { value: "/dashboard", label: "Profile", icon: <svg {...S}><rect x="3" y="3" width="18" height="18" /><circle cx="12" cy="10" r="3" /><path d="M6 20c1-4 11-4 12 0" /></svg> },
 ];
 
