@@ -102,7 +102,7 @@ describe("the home screen", () => {
     renderToStaticMarkup(<ProjectsHomeView projects={projects} error={null} filter="all" onFilter={noop} notes={{}} busy={null} onYes={noop} signedInAs={null} onSignIn={noop} {...extra} />);
   it("leads with the promise, the post door and the counts", () => {
     const html = home([PENDING, LIVE]);
-    expect(html).toContain("Real humans try what you vibe coded.");
+    expect(html).toContain("Real humans try your new projects and products.");
     expect(html).toContain('href="/post"');
     expect(html).toContain("1 waiting for YES · 1 live");
     expect(html).toContain('href="/board"');
@@ -188,9 +188,9 @@ describe("the doors and the guards", () => {
     expect(src("src/app/page.tsx")).toContain("<ProjectsHome auth=");
     expect(src("src/app/board/page.tsx")).toContain('export { default } from "../page"');
   });
-  it("the bottom nav names Deck, Post, History, Profile; the old board stays reachable by a link", () => {
+  it("the bottom nav names Discover, Post, History, Profile; the old board stays reachable by a link", () => {
     const nav = src("src/components/BottomNav.tsx");
-    for (const l of ["Deck", "Post", "History", "Profile"]) expect(nav).toContain(`label: "${l}"`);
+    for (const l of ["Discover", "Post", "History", "Profile"]) expect(nav).toContain(`label: "${l}"`);
     expect(nav).not.toContain('value: "/board"');
     expect(src("src/components/fv/Deck.tsx")).toContain('href="/board"');
   });
@@ -202,7 +202,7 @@ describe("the doors and the guards", () => {
   });
   it("the revamp layer has no radius, no shadow, no grey text and no stamp", () => {
     const css = src("src/app/globals.css");
-    const fv = css.slice(css.indexOf(".fv {"));
+    const fv = css.slice(css.indexOf(".fv {"), css.indexOf("/* CURATED FAVOUR"));
     expect(fv).not.toMatch(/box-shadow/);
     expect(fv).not.toMatch(/border-radius: [1-9]/);
     expect(fv).not.toMatch(/stamp/i);
@@ -210,5 +210,15 @@ describe("the doors and the guards", () => {
       const t = src(`src/components/fv/${f}.tsx`);
       expect(t, f).not.toMatch(/text-gray-\d|rounded-|shadow|stamp/i);
     }
+  });
+  it("the curated front door uses system sans and contains the drop and builder-story doors", () => {
+    const css = src("src/app/globals.css");
+    const curated = css.slice(css.indexOf("/* CURATED FAVOUR"));
+    expect(curated).toContain('font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif');
+    expect(curated).not.toMatch(/monospace|font-mono|Geist_Mono/);
+    const home = src("src/components/fv/CuratedHome.tsx");
+    expect(home).toContain("Curated every Monday");
+    expect(home).toContain("Builder stories");
+    expect(home).toContain('/drop/2026-w43');
   });
 });

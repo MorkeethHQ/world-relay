@@ -120,7 +120,7 @@ describe("the doors", () => {
   it("the home board links to the apps list, and the pages mount the screens", () => {
     expect(src("src/components/Feed.tsx")).toMatch(/<AppsToCheckDoor\s*\/>/);
     expect(src("src/app/apps/page.tsx")).toContain('export { default } from "../page"');
-    expect(src("src/app/page.tsx")).toMatch(/list \? <ProjectsHome auth=\{auth\} \/> : <Deck auth=\{auth\} \/>/);
+    expect(src("src/app/page.tsx")).toMatch(/list \? <ProjectsHome auth=\{auth\} \/> : <CuratedHome \/>/);
     expect(src("src/app/post/page.tsx")).toContain("<PostApp />");
   });
 });

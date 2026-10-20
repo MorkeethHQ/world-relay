@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
-import { Deck } from "@/components/fv/Deck";
+import { CuratedHome } from "@/components/fv/CuratedHome";
 import { ProjectsHome } from "@/components/fv/ProjectsHome";
 import { MiniKit } from "@worldcoin/minikit-js";
 import { Feed } from "@/components/Feed";
@@ -255,7 +255,7 @@ export default function Home() {
   // wallet (components/fv/SignInSheet.tsx).
   if (!board) {
     const auth = { userId, isInWorldApp, isVerifying, authError, onVerify: handleVerify };
-    return list ? <ProjectsHome auth={auth} /> : <Deck auth={auth} />;
+    return list ? <ProjectsHome auth={auth} /> : <CuratedHome />;
   }
 
   if (!onboarded) {
