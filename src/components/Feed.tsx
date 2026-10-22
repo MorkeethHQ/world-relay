@@ -51,9 +51,8 @@ import {
   pickProofStrip,
 } from "@/lib/board-rank";
 import { JuryMode, type JuryCard } from "@/components/JuryMode";
-import { JuryGameCard } from "@/components/JuryGameCard";
 import { AppsToCheckDoor } from "@/components/AppsToCheck";
-import { juryGameOn, type JuryDayView } from "@/lib/jury-game";
+import type { JuryDayView } from "@/lib/jury-game";
 import { ForCompaniesView, CompanyTrust, ProductLine, CampaignDraftForm, CampaignDraftList, CompanyCampaignCard, CompanyCampaignView } from "@/components/CompanyCampaign";
 import { pickCampaignToDo, rankCampaignCards } from "@/lib/company-door";
 import type { CampaignDraft, PublicCompanyCampaign, PieceKind } from "@/lib/campaign-draft-shape";
@@ -1296,14 +1295,6 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
         </>
       )}
 
-      {/* THE JURY GAME LEADS when its switch is on (lib/jury-game.ts). Off in a
-          production build, so this card is absent there and the screen is as before.
-          With the switch on it REPLACES the Review favours entry below: the board
-          keeps one door to the deck (campaign-first.test.ts). */}
-      {juryGameOn() && tab === "available" && !loading && userId && (
-        <JuryGameCard day={juryDay} onPlay={() => { hapticTap(); setView("jury"); }} />
-      )}
-
       {/* POSTED APPS (pivot, 17 Oct 2026): the quiet door to /apps, where people
           say YES to apps others posted. Ten outside YES put an app live. */}
       {tab === "available" && !loading && <AppsToCheckDoor />}
@@ -1349,20 +1340,6 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
           <summary className="cursor-pointer text-[14px] font-semibold text-gray-900">Ask a one-off favour</summary>
           <FeedComposer userId={userId} onReauth={onReauth} onPosted={() => fetchTasks()} onMore={() => { hapticTap(); setPostCampaignId(null); setView("post"); }} />
         </details>
-      )}
-
-      {/* REVIEW FAVOURS, the ONE entry on the board (2026-10-05). There were two:
-          a "Review a proof" card and a REAL OR NOT banner, both opening the same
-          deck. Flagged proofs that need a human decision are reached from inside
-          it, so this is the only door. Illustrated from the REAL proof strip,
-          never from the deck: the deck is opaque and may hold AI-made decoys. */}
-      {!juryGameOn() && tab === "available" && !loading && userId && (
-        <ReviewEntryCard
-          entry={reviewEntryFor({ waiting: reviewWaiting, flaggedWaiting: reviewFlagged, record: reviewRecord, walletUser })}
-          proof={reviewDeck.length > 0 && reviewWaiting > 0 ? (pickProofStrip(tasks)[0] ?? null) : null}
-          waiting={reviewWaiting}
-          onReview={() => { hapticTap(); setView("jury"); }}
-        />
       )}
 
       {/* The live campaigns, each labelled with its company's trust. Below today's
