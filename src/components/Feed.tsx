@@ -73,6 +73,7 @@ import { reviewEntryFor, type ReviewEntry } from "@/lib/review-entry";
 import { isCampaignRunning } from "@/lib/campaigns";
 import { PENDING_WELCOME_KEY } from "@/components/Onboarding";
 import { threadSpeaker } from "@/lib/thread";
+import { simplePaymentStep } from "@/lib/simple-payment";
 
 // Fire-and-forget telemetry. The event name must be in CLIENT_EVENTS in
 // /api/track, which is an allowlist because that route is public.
@@ -1223,6 +1224,7 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
         task={selectedTask}
         userId={userId}
         onBack={() => { setView("board"); fetchTasks(); }}
+        onClaim={() => executeClaimTask(selectedTask)}
         onSubmitProof={() => setView("proof")}
       />
     );
@@ -1679,7 +1681,7 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
                       setSelectedTask(task);
                       setView("detail");
                     }}
-                    onClaim={() => {}}
+                    onClaim={() => executeClaimTask(task)}
                     onSubmitProof={() => openProof(task)}
                   />
                 </div>
@@ -2002,19 +2004,20 @@ function TaskCard({
 
       {task.status === "open" && userId && !isOwnTask && (
         <button
-          onClick={(e) => { e.stopPropagation(); onSubmitProof(); }}
+          onClick={(e) => { e.stopPropagation(); task.rewardType === "usdc-v2" ? onClaim() : onSubmitProof(); }}
           className="w-full bg-gray-900 text-white text-[13px] font-semibold py-3 rounded-xl active:scale-[0.98] transition-transform min-h-[44px]"
         >
-          Start favour
+          {task.rewardType === "usdc-v2" ? "Accept paid favour" : "Start favour"}
         </button>
       )}
 
       {task.status === "claimed" && isClaimant && (
         <button
-          onClick={(e) => { e.stopPropagation(); onSubmitProof(); }}
-          className="w-full border border-gray-200 text-gray-900 text-[13px] font-semibold py-3 rounded-xl active:scale-[0.98] transition-transform min-h-[44px]"
+          onClick={(e) => { e.stopPropagation(); if (task.rewardType !== "usdc-v2" || task.escrowTxHash) onSubmitProof(); }}
+          disabled={task.rewardType === "usdc-v2" && !task.escrowTxHash}
+          className="w-full border border-gray-200 text-gray-900 text-[13px] font-semibold py-3 rounded-xl active:scale-[0.98] transition-transform min-h-[44px] disabled:text-gray-400 disabled:bg-gray-50"
         >
-          Submit Proof
+          {task.rewardType === "usdc-v2" && !task.escrowTxHash ? "Waiting for payment" : "Submit proof"}
         </button>
       )}
 
@@ -4090,11 +4093,13 @@ function TaskDetail({
   task,
   userId,
   onBack,
+  onClaim,
   onSubmitProof,
 }: {
   task: Task;
   userId: string | null;
   onBack: () => void;
+  onClaim: () => void;
   onSubmitProof: () => void;
 }) {
   const [messages, setMessages] = useState<ThreadMessage[]>([]);
@@ -4113,11 +4118,14 @@ function TaskDetail({
   const [cancelError, setCancelError] = useState<string | null>(null);
   const [txSuccess, setTxSuccess] = useState<string | null>(null);
   const [funding, setFunding] = useState(false);
+  const [paymentBusy, setPaymentBusy] = useState<"fund" | "pay" | null>(null);
+  const [paymentNote, setPaymentNote] = useState<string | null>(null);
   const isClaimant = currentTask.claimant === userId;
   const isPoster = currentTask.poster === userId;
   const isParticipant = isClaimant || isPoster;
   const isFlagged = currentTask.verificationResult?.verdict === "flag" && currentTask.status === "claimed";
   const hasFollowUp = currentTask.aiFollowUp?.status === "pending";
+  const paymentStep = simplePaymentStep(currentTask, userId);
   const messagesEndRef = useCallback((node: HTMLDivElement | null) => {
     node?.scrollIntoView({ behavior: "smooth" });
   }, []);
@@ -4154,6 +4162,56 @@ function TaskDetail({
     setChatInput("");
     setSending(false);
     fetchMessages();
+  };
+
+  const movePayment = async (kind: "fund" | "pay") => {
+    if (!userId || paymentBusy) return;
+    const prepare = kind === "fund" ? "prepare-fund" : "prepare-release";
+    const verify = kind === "fund" ? "verify-funded" : "verify-released";
+    const doneKey = kind === "fund" ? "funded" : "released";
+    setPaymentBusy(kind);
+    setPaymentNote(null);
+    try {
+      const prep = await fetch("/api/escrow-v2", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: prepare, taskId: currentTask.id, poster: userId }),
+      });
+      const body = await prep.json().catch(() => ({}));
+      if (!prep.ok || !body.payload) {
+        setPaymentNote(typeof body.error === "string" ? body.error : "The payment could not be prepared.");
+        return;
+      }
+      if (!MiniKit.isInstalled()) {
+        setPaymentNote("Open FAVOUR inside World App to confirm this payment.");
+        return;
+      }
+      const signed = await MiniKit.sendTransaction(body.payload);
+      if (!signed) {
+        setPaymentNote("Not confirmed. Nothing moved.");
+        return;
+      }
+      setPaymentNote("Signed. Waiting for World Chain to confirm it.");
+      for (let i = 0; i < 12; i++) {
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+        const checked = await fetch("/api/escrow-v2", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: verify, taskId: currentTask.id }),
+        });
+        const result = await checked.json().catch(() => ({}));
+        if (checked.ok && result[doneKey]) {
+          setPaymentNote(kind === "fund" ? "Payment secured. The runner can start." : "Paid. This favour is done.");
+          await fetchTask();
+          return;
+        }
+      }
+      setPaymentNote("World Chain has not confirmed it yet. Check again in a minute.");
+    } catch {
+      setPaymentNote("The payment did not complete. Nothing is shown as paid until World Chain confirms it.");
+    } finally {
+      setPaymentBusy(null);
+    }
   };
 
   return (
@@ -4208,6 +4266,56 @@ function TaskDetail({
 
         {/* Lifecycle timeline */}
         <TaskTimeline task={currentTask} />
+
+        {currentTask.rewardType === "usdc-v2" && paymentStep && (
+          <section aria-label="Payment" className="bg-white border border-gray-200 rounded-2xl p-4 flex flex-col gap-3">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm font-semibold text-gray-900">Payment</p>
+              <span className="text-sm font-bold text-gray-900">${currentTask.bountyUsdc} USDC</span>
+            </div>
+            {paymentStep === "accept" && (
+              <>
+                <p className="text-xs text-gray-500">Accept first. The poster then secures the payment before you do the work.</p>
+                <button type="button" onClick={onClaim} className="w-full min-h-[48px] rounded-xl bg-gray-900 text-white text-sm font-semibold">Accept paid favour</button>
+              </>
+            )}
+            {paymentStep === "fund" && (
+              <>
+                <p className="text-xs text-gray-500">A person accepted. Secure their payment now so they can start.</p>
+                <button type="button" disabled={paymentBusy !== null} onClick={() => movePayment("fund")} className="w-full min-h-[48px] rounded-xl bg-gray-900 text-white text-sm font-semibold disabled:opacity-50">
+                  {paymentBusy === "fund" ? "Confirm in World App" : `Fund $${currentTask.bountyUsdc} USDC`}
+                </button>
+              </>
+            )}
+            {paymentStep === "prove" && (
+              <>
+                <p className="text-xs text-gray-500">Your payment is secured on World Chain. Do the favour, then send proof.</p>
+                <button type="button" onClick={onSubmitProof} className="w-full min-h-[48px] rounded-xl bg-gray-900 text-white text-sm font-semibold">Send proof</button>
+              </>
+            )}
+            {paymentStep === "pay" && (
+              <>
+                <p className="text-xs text-gray-500">The proof passed. One confirmation pays the runner and closes the favour.</p>
+                <button type="button" disabled={paymentBusy !== null} onClick={() => movePayment("pay")} className="w-full min-h-[48px] rounded-xl bg-gray-900 text-white text-sm font-semibold disabled:opacity-50">
+                  {paymentBusy === "pay" ? "Confirm in World App" : `Approve and pay $${currentTask.bountyUsdc}`}
+                </button>
+              </>
+            )}
+            {paymentStep === "wait" && (
+              <p className="text-xs text-gray-500">
+                {isClaimant && !currentTask.escrowTxHash
+                  ? "Accepted. Wait until the poster secures the payment before you start."
+                  : isClaimant && currentTask.pendingRelease
+                    ? "Proof accepted. Waiting for the poster to pay."
+                    : isPoster && currentTask.escrowTxHash
+                      ? "Payment secured. You pay only after the proof passes."
+                      : "Waiting for the next person in this favour."}
+              </p>
+            )}
+            {paymentStep === "done" && <p className="text-xs text-gray-500">Payment settled. This favour is done.</p>}
+            {paymentNote && <p role="status" className="text-xs text-gray-600">{paymentNote}</p>}
+          </section>
+        )}
 
         {/* Transaction success banner */}
         {txSuccess && (
@@ -4500,7 +4608,7 @@ function TaskDetail({
         )}
 
         {/* Action buttons */}
-        {currentTask.status === "open" && userId && !isPoster && (
+        {currentTask.rewardType !== "usdc-v2" && currentTask.status === "open" && userId && !isPoster && (
           <button
             onClick={onSubmitProof}
             className="w-full bg-gray-900 hover:bg-gray-900 text-white font-semibold rounded-xl px-4 py-3 min-h-[44px] transition-colors active:scale-[0.98]"
@@ -4508,7 +4616,7 @@ function TaskDetail({
             {currentTask.escrowTxHash ? `Do it — earn $${currentTask.bountyUsdc} USDC` : "Do it"}
           </button>
         )}
-        {currentTask.status === "claimed" && isClaimant && !isFlagged && !hasFollowUp && (
+        {currentTask.rewardType !== "usdc-v2" && currentTask.status === "claimed" && isClaimant && !isFlagged && !hasFollowUp && (
           <button
             onClick={onSubmitProof}
             className="w-full bg-gray-900 hover:bg-gray-900 text-white font-medium rounded-xl px-4 py-3 min-h-[44px] transition-colors active:scale-[0.98]"
