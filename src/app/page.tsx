@@ -35,10 +35,10 @@ function verificationSubtitle(level: VerificationLevel): string {
 }
 
 export default function Home() {
-  // "/" is the project picker (19 Oct 2026 revamp); "/board" is the older board
-  // with its onboarding gate, reached through src/app/board/page.tsx.
+  // The image-led campaign board is the front door again. Keep /board as a
+  // stable alias so existing links continue to work.
   const pathname = usePathname();
-  const board = pathname === "/board";
+  const board = pathname === "/" || pathname === "/board";
   const list = pathname === "/apps";
   const [userId, setUserId] = useState<string | null>(null);
   const [verificationLevel, setVerificationLevel] = useState<VerificationLevel>(null);

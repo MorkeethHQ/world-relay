@@ -184,8 +184,8 @@ describe("the post screen's deposit block", () => {
 
 describe("the doors and the guards", () => {
   const src = (p: string) => readFileSync(`${process.cwd()}/${p}`, "utf8");
-  it("the home page renders the picker and keeps the board at /board", () => {
-    expect(src("src/app/page.tsx")).toContain("<ProjectsHome auth=");
+  it("the home page restores the image-led board and keeps /board as an alias", () => {
+    expect(src("src/app/page.tsx")).toContain('pathname === "/" || pathname === "/board"');
     expect(src("src/app/board/page.tsx")).toContain('export { default } from "../page"');
   });
   it("the bottom nav names Discover, Post, History, Profile; the old board stays reachable by a link", () => {

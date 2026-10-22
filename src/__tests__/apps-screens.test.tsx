@@ -117,10 +117,10 @@ describe("/post: post your app", () => {
 
 describe("the doors", () => {
   const src = (p: string) => readFileSync(`${process.cwd()}/${p}`, "utf8");
-  it("the home board links to the apps list, and the pages mount the screens", () => {
+  it("the image-led board is the home door, and the app pages still mount", () => {
     expect(src("src/components/Feed.tsx")).toMatch(/<AppsToCheckDoor\s*\/>/);
     expect(src("src/app/apps/page.tsx")).toContain('export { default } from "../page"');
-    expect(src("src/app/page.tsx")).toMatch(/list \? <ProjectsHome auth=\{auth\} \/> : <CuratedHome \/>/);
+    expect(src("src/app/page.tsx")).toContain('pathname === "/" || pathname === "/board"');
     expect(src("src/app/post/page.tsx")).toContain("<PostApp />");
   });
 });
