@@ -1246,10 +1246,10 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
           <h1 className="text-[18px] font-bold tracking-tight text-gray-900">FAVOUR</h1>
           {userId && (
             <button
-              onClick={() => { hapticTap(); setView("companies"); }}
+              onClick={() => { hapticTap(); setPostCampaignId(null); setView("post"); }}
               className="bg-gray-900 text-white text-[13px] font-semibold px-4 py-2 rounded-full active:scale-95 transition-transform min-h-[36px]"
             >
-              Create campaign
+              + New
             </button>
           )}
         </div>
@@ -1260,6 +1260,41 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
         key={tab}
         className="flex-1 flex flex-col"
       >
+
+      {/* Keep the July front door while all actions continue through the current
+          jury, task, proof and settlement paths. */}
+      {tab === "available" && !loading && (
+        <>
+          <div className="px-6 pt-4 animate-[fadeSlideIn_0.4s_ease-out]">
+            <button
+              onClick={() => { hapticTap(); setView("jury"); }}
+              className="relative w-full h-[104px] rounded-2xl overflow-hidden active:scale-[0.98] transition-transform text-left"
+            >
+              <img src="/hero/cyclist.jpg" alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-black/25" />
+              <div className="relative h-full px-5 py-4 flex flex-col justify-end">
+                <span className="text-[10px] font-bold text-white/70 tracking-[0.2em] uppercase">The game</span>
+                <p className="text-[22px] font-black text-white leading-none tracking-wider mt-1">REAL OR NOT</p>
+                <p className="text-[12px] text-white/70 mt-1.5">Swipe proofs, spot the fakes, earn points</p>
+              </div>
+              <span className="absolute top-3 right-3 flex -space-x-1.5">
+                <span className="w-7 h-7 rounded-full bg-black/50 border border-red-400/60 flex items-center justify-center text-red-400 text-[11px] font-black">✕</span>
+                <span className="w-7 h-7 rounded-full bg-black/50 border border-green-400/60 flex items-center justify-center text-green-400 text-[11px] font-black">✓</span>
+              </span>
+            </button>
+          </div>
+          <div className="px-6 pt-6 pb-2 animate-[fadeSlideIn_0.4s_ease-out]">
+            <p className="text-[19px] font-bold text-gray-900 tracking-tight leading-snug">Do a favour. Prove it. Get rewarded.</p>
+            <div className="flex items-center gap-4 mt-2">
+              <div className="flex items-baseline gap-1.5"><span className="text-[15px] font-bold text-gray-900">{tasks.filter(t => t.status === "open").length}</span><span className="text-[12px] text-gray-400">open now</span></div>
+              <div className="w-1 h-1 rounded-full bg-gray-200" />
+              <div className="flex items-baseline gap-1.5"><span className="text-[15px] font-bold text-gray-900">{tasks.filter(t => t.status === "completed").length}</span><span className="text-[12px] text-gray-400">verified</span></div>
+              <div className="w-1 h-1 rounded-full bg-gray-200" />
+              <div className="flex items-baseline gap-1.5"><span className="text-[15px] font-bold text-gray-900">${tasks.filter(t => (t.onChainId != null || t.escrowTxHash) && t.settlementTx).reduce((s, t) => s + t.bountyUsdc, 0).toFixed(0)}</span><span className="text-[12px] text-gray-400">paid out</span></div>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* THE JURY GAME LEADS when its switch is on (lib/jury-game.ts). Off in a
           production build, so this card is absent there and the screen is as before.
@@ -1355,33 +1390,6 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
           <p className="text-[13px] font-semibold text-gray-900">Pick any favour below</p>
           <p className="text-[13px] text-gray-500 mt-1">Tap <span className="font-medium text-gray-700">Do it</span>, follow the steps, submit proof.</p>
           <button type="button" onClick={dismissFirstRunCoach} className="mt-3 text-[12px] font-medium text-gray-400 hover:text-gray-700">Got it</button>
-        </div>
-      )}
-
-      {/* Animated hero - Tasks. The hook leads; the numbers support it. */}
-      {tab === "available" && !loading && (
-        <div className="px-6 pt-6 pb-2 animate-[fadeSlideIn_0.4s_ease-out]">
-          <p className="text-[19px] font-bold text-gray-900 tracking-tight leading-snug">
-            {showFirstRunCoach || dailyMission ? "Or browse more favours" : "Do a favour. Prove it. Get rewarded."}
-          </p>
-          {!showFirstRunCoach && (
-          <div className="flex items-center gap-4 mt-2">
-            <div className="flex items-baseline gap-1.5">
-              <span className="text-[15px] font-bold text-gray-900">{tasks.filter(t => t.status === "open").length}</span>
-              <span className="text-[12px] text-gray-400">open now</span>
-            </div>
-            <div className="w-1 h-1 rounded-full bg-gray-200" />
-            <div className="flex items-baseline gap-1.5">
-              <span className="text-[15px] font-bold text-gray-900">{tasks.filter(t => t.status === "completed").length}</span>
-              <span className="text-[12px] text-gray-400">verified</span>
-            </div>
-            <div className="w-1 h-1 rounded-full bg-gray-200" />
-            <div className="flex items-baseline gap-1.5">
-              <span className="text-[15px] font-bold text-gray-900">${tasks.filter(t => (t.onChainId != null || t.escrowTxHash) && t.settlementTx).reduce((s, t) => s + t.bountyUsdc, 0).toFixed(0)}</span>
-              <span className="text-[12px] text-gray-400">paid out</span>
-            </div>
-          </div>
-          )}
         </div>
       )}
 
