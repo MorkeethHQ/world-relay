@@ -1272,7 +1272,7 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
           quieter "For companies" link. Shown only while a piece is open. */}
       {/* R19 (2026-10-05): the campaign stage leads. Welcome, then a real company
           campaign that may lead (R16 unchanged), then a labelled demo brand. */}
-      {tab === "available" && !loading && (
+      {tab === "available" && (
         <CampaignStageCards
           campaigns={campaigns}
           onOpenCampaign={(campaign) => { hapticTap(); setSelectedCampaign(campaign); setView("campaign"); }}
