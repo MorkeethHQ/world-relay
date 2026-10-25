@@ -77,3 +77,5 @@ scripts/.watch-state.json
 
 # poll-ops delete snapshots (local recovery copies of removed spam polls)
 scripts/.poll-deleted-*.json
+
+/.next-fixture/

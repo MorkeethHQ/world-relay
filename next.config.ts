@@ -12,6 +12,7 @@ function buildRevision(): string {
 }
 
 const nextConfig: NextConfig = {
+  distDir: fixtureStoreOrigin() ? ".next-fixture" : ".next",
   outputFileTracingRoot: process.cwd(),
   serverExternalPackages: ["@xmtp/node-sdk", "@xmtp/node-bindings"],
   // The dev-only indicator sits bottom-left, on top of the Favours tab at phone
