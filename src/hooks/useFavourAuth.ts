@@ -61,12 +61,7 @@ export function useFavourAuth() {
       setIsVerifying(false);
       return;
     }
-    const devId = `dev_${crypto.randomUUID().slice(0, 8)}`;
-    localStorage.setItem("relay_user_id", devId);
-    localStorage.setItem("relay_verification_level", "dev");
-    setUserId(devId);
-    setVerificationLevel("dev");
-    await fetch("/api/verify-identity", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ address: devId }) }).catch(() => {});
+    setAuthError("Open FAVOUR in World App to sign in with your wallet.");
     setIsVerifying(false);
   }, []);
 

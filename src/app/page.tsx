@@ -212,20 +212,7 @@ export default function Home() {
       }
     }
 
-    // Browser-only preview fallback. This branch is unreachable inside World
-    // App because MiniKit.isInstalled() is true there.
-    const devId = `dev_${crypto.randomUUID().slice(0, 8)}`;
-    setUserId(devId);
-    setVerificationLevel("dev");
-    localStorage.setItem("relay_user_id", devId);
-    localStorage.setItem("relay_verification_level", "dev");
-
-    await fetch("/api/verify-identity", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ address: devId }),
-    });
-
+    setAuthError("Open FAVOUR in World App to sign in with your wallet.");
     setIsVerifying(false);
   };
 
@@ -257,6 +244,7 @@ export default function Home() {
         </div>
       )}
 
+      {authError && <div className="max-w-lg mx-auto px-6 py-4"><p role="alert" className="text-[14px] text-gray-700">{authError}</p>{!isInWorldApp && <WorldAppHandoff className="mt-3" />}</div>}
       <Feed userId={userId} verificationLevel={verificationLevel} onLogout={handleLogout} onReauth={handleVerify} />
     </div>
   );
