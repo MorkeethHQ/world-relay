@@ -3,11 +3,13 @@
 The optional fixture sign-in is visibly TEST DATA, never World ID or wallet proof.
 No cloud credentials, model calls or chain calls are used here.
 """
-import argparse,base64,hashlib,hmac,json,socket,time
+import argparse,base64,hashlib,hmac,json,socket,time,re
 from http.server import BaseHTTPRequestHandler,ThreadingHTTPServer
 from urllib.parse import urlparse,parse_qs
 from pathlib import Path
-p=argparse.ArgumentParser();p.add_argument('--redis-port',type=int,default=17179);p.add_argument('--port',type=int,default=17180);p.add_argument('--fixture',required=True);a=p.parse_args();fx=json.loads(Path(a.fixture).read_text())
+p=argparse.ArgumentParser();p.add_argument('--redis-port',type=int,default=17179);p.add_argument('--port',type=int,default=17180);p.add_argument('--fixture',required=True);p.add_argument('--review-origin',default='/');a=p.parse_args();
+if a.review_origin!='/' and not re.fullmatch(r'http://127\.0\.0\.1:[0-9]{2,5}',a.review_origin):raise SystemExit('Review redirect must be loopback')
+fx=json.loads(Path(a.fixture).read_text())
 def send(f,cmd):
  parts=[str(v) if not isinstance(v,(dict,list)) else json.dumps(v,separators=(',',':')) for v in cmd]
  f.write(('*'+str(len(parts))+'\r\n').encode())
@@ -52,9 +54,9 @@ class Handler(BaseHTTPRequestHandler):
    payload=base64.urlsafe_b64encode(f"{actor['address'].lower()}.{int(time.time()*1000)+86400000}".encode()).decode().rstrip('=');sig=base64.urlsafe_b64encode(hmac.new(fx['sessionSecret'].encode(),payload.encode(),hashlib.sha256).digest()).decode().rstrip('=')
    # Session protocol signs decoded payload, not its base64 representation.
    decoded=base64.urlsafe_b64decode(payload+'='*((4-len(payload)%4)%4));sig=base64.urlsafe_b64encode(hmac.new(fx['sessionSecret'].encode(),decoded,hashlib.sha256).digest()).decode().rstrip('=')
-   self.send_response(302);self.send_header('Set-Cookie',f'favour_session={payload}.{sig}; HttpOnly; SameSite=Lax; Path=/');self.send_header('Location','/');self.end_headers();return
+   self.send_response(302);self.send_header('Set-Cookie',f'favour_session={payload}.{sig}; HttpOnly; SameSite=Lax; Path=/');self.send_header('Location',a.review_origin);self.end_headers();return
   if u.path=='/__fixture':
-   self.send_response(200);self.send_header('Content-Type','text/html; charset=utf-8');self.end_headers();self.wfile.write(('<h1>TEST DATA only</h1><p>Simulated sessions. No person verified, no wallet signed, no money moved. Data persists in isolated local Redis.</p>'+''.join(f'<p><a href="/__fixture/signin?as={v["key"]}">{v["name"]}</a> · {v["role"]}</p>' for v in fx['participants'])).encode());return
+   self.send_response(200);self.send_header('Content-Type','text/html; charset=utf-8');self.end_headers();self.wfile.write(('<h1>TEST DATA only</h1><p>Simulated sessions. No person verified, no wallet signed, no money moved. Data persists in isolated local Redis.</p>'+''.join(f'<p><a href="/__fixture/signin?as={v["key"]}">{v["name"]}</a> · Simulated wallet session. Progress and eligibility come from the backend.</p>' for v in fx['participants'])).encode());return
   self.reply(404,{'error':'Not found'})
  def do_POST(self):
   if self.headers.get('authorization')!='Bearer local-fake-not-a-secret':return self.reply(401,{'error':'Isolated review token required'})
