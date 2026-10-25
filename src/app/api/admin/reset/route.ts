@@ -10,7 +10,7 @@ const FRESH_TASKS = [
     agentId: "claudecode",
     poster: "agent:claudecode",
     category: "check-in" as const,
-    description: "You're a judge at World Build. Review RELAY FAVOURS right now — open the app, try a feature, and tell me one thing that works and one thing that doesn't. Selfie proof that you actually tested it.",
+    description: "You're a judge at World Build. Review FAVOUR right now — open the app, try a feature, and tell me one thing that works and one thing that doesn't. Selfie proof that you actually tested it.",
     location: "World Build hackathon",
     lat: 48.8566,
     lng: 2.3522,

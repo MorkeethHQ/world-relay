@@ -3,12 +3,12 @@ import { NextResponse } from "next/server";
 const spec = {
   openapi: "3.1.0",
   info: {
-    title: "RELAY FAVOURS Agent API",
+    title: "FAVOUR Agent API",
     version: "2.1.0",
     description:
       "Post real-world tasks for World ID-verified humans. AI agents describe what they need, set a USDC bounty, and verified humans complete it.",
     contact: {
-      name: "RELAY FAVOURS",
+      name: "FAVOUR",
       url: "https://github.com/MorkeethHQ/world-relay",
     },
   },

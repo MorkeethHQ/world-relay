@@ -10,7 +10,7 @@ const ADMIN_SECRET = process.env.ADMIN_SECRET;
 // backing (Inv 3). Funded seeding now goes ONLY through the batch path below
 // (body.tasks → isEscrowTaskFunded verification). Points onboarding seeds are safe.
 const ONBOARDING_TASKS = [
-  { description: "Try RELAY Favours and tell us what you think! What's confusing? What's cool? What would you change?", location: "Anywhere", category: "feedback" as const, bountyUsdc: 0.50, deadlineHours: 336, agentId: "relay", maxCompletions: 50 },
+  { description: "Try FAVOUR and tell us what you think! What's confusing? What's cool? What would you change?", location: "Anywhere", category: "feedback" as const, bountyUsdc: 0.50, deadlineHours: 336, agentId: "relay", maxCompletions: 50 },
   { description: "What favour would you ask someone nearby to do for you right now? Describe the task and how much you'd pay.", location: "Anywhere", category: "feedback" as const, bountyUsdc: 0.50, deadlineHours: 336, agentId: "relay", maxCompletions: 50 },
   { description: "Rate this mini app out of 10. What's your favourite part and your least favourite part? Be brutally honest.", location: "Anywhere", category: "feedback" as const, bountyUsdc: 0.50, deadlineHours: 336, agentId: "relay", maxCompletions: 50 },
 ];

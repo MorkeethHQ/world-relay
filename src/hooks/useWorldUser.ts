@@ -63,7 +63,7 @@ async function fetchProfiles(addresses: string[]): Promise<void> {
 export function displayName(address: string): string {
   if (!address) return "";
   if (address.startsWith("agent_")) return address.replace("agent_", "");
-  if (address === "relay-bot") return "RELAY";
+  if (address === "relay-bot") return "FAVOUR";
   // A public id (lib/public-id.ts): a person whose wallet this reader is not shown.
   if (address.startsWith("p_")) return address === "p_hidden" ? "Someone" : `Someone ${address.slice(2, 6)}`;
   const cached = cache.get(address.toLowerCase());
