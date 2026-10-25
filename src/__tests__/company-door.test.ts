@@ -46,7 +46,7 @@ describe("the first screen leads with doing, not with planning", () => {
     // Since R19 (2026-10-05) the button sits on the campaign stage, the same
     // component on the board and on the signed-out first screen.
     const stage = readFileSync("src/components/CampaignFrontDoor.tsx", "utf8");
-    expect(stage).toMatch(/>\s*Explore campaign →\s*</);
+    expect(stage).toContain("onClick={() => onOpenCompany(c.campaign.id)}");
     expect(stage).toMatch(/<CompanyTrust c=\{c\.campaign\}/);
     expect(feed).toMatch(/<CampaignStageCards/);
     expect(onboarding).toMatch(/<CampaignStageCards/);

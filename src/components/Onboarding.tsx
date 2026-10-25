@@ -367,6 +367,8 @@ export function Onboarding({
             </div>
             <div className="-mt-1">
               <CampaignStageCards
+                campaigns={[]}
+                onOpenCampaign={onComplete}
                 stage={pickCampaignStage({ welcome: welcomeView, company: pieceToDo })}
                 welcome={welcomeView}
                 signedIn={false}
