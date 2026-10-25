@@ -54,7 +54,7 @@ class Handler(BaseHTTPRequestHandler):
    decoded=base64.urlsafe_b64decode(payload+'='*((4-len(payload)%4)%4));sig=base64.urlsafe_b64encode(hmac.new(fx['sessionSecret'].encode(),decoded,hashlib.sha256).digest()).decode().rstrip('=')
    self.send_response(302);self.send_header('Set-Cookie',f'favour_session={payload}.{sig}; HttpOnly; SameSite=Lax; Path=/');self.send_header('Location','/');self.end_headers();return
   if u.path=='/__fixture':
-   self.send_response(200);self.send_header('Content-Type','text/html');self.end_headers();self.wfile.write(('<h1>TEST DATA only</h1><p>Simulated sessions. No person verified, no wallet signed, no money moved. Data persists in isolated local Redis.</p>'+''.join(f'<p><a href="/__fixture/signin?as={v["key"]}">{v["name"]}</a> · {v["role"]}</p>' for v in fx['participants'])).encode());return
+   self.send_response(200);self.send_header('Content-Type','text/html; charset=utf-8');self.end_headers();self.wfile.write(('<h1>TEST DATA only</h1><p>Simulated sessions. No person verified, no wallet signed, no money moved. Data persists in isolated local Redis.</p>'+''.join(f'<p><a href="/__fixture/signin?as={v["key"]}">{v["name"]}</a> · {v["role"]}</p>' for v in fx['participants'])).encode());return
   self.reply(404,{'error':'Not found'})
  def do_POST(self):
   if self.headers.get('authorization')!='Bearer local-fake-not-a-secret':return self.reply(401,{'error':'Isolated review token required'})

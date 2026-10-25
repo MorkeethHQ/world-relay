@@ -180,7 +180,7 @@ export default function Home() {
     setVerificationLevel(null);
   };
 
-  if (!miniKitChecked) return null;
+  // Campaigns are public and must render before a wallet/session check finishes.
 
 
   return (
