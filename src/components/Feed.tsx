@@ -1339,7 +1339,7 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
       )}
 
       {/* Content */}
-      {tab !== "polls" && tab !== "available" && (
+      {["mine", "completed"].includes(tab) && (
       <div className="flex-1 px-6 py-4">
         {/* Section eyebrow — gives favours a little breathing room below the
             campaigns block and names the third section (Oscar Jul 9). */}
