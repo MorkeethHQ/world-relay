@@ -48,7 +48,7 @@ export function CampaignStageCards({ stage, welcome, signedIn, onOpenWelcome, on
   const steps = welcome?.steps ?? [];
   const done = steps.filter((s) => s.state === "done").length;
   const rewards = steps.map((s) => s.points);
-  const rewardLabel = rewards.length ? Math.min(...rewards) === Math.max(...rewards) ? `${rewards[0]} points per accepted favour` : `${Math.min(...rewards)} to ${Math.max(...rewards)} points per accepted favour` : `Up to ${rewardLabel}`;
+  const rewardLabel = rewards.length ? Math.min(...rewards) === Math.max(...rewards) ? `${rewards[0]} points per accepted favour` : `${Math.min(...rewards)} to ${Math.max(...rewards)} points per accepted favour` : `Up to ${hero.rewardPerTask} points per accepted favour`;
   const registry = [...CAMPAIGNS, ...campaigns.filter((c) => !CAMPAIGNS.some((saved) => saved.id === c.id))];
   const cards = registry.filter((c) => c.id !== "first-favour" && (c.id === "relay-launch" || Date.parse(c.endsAt) > Date.now()));
   const c = stage.company;
