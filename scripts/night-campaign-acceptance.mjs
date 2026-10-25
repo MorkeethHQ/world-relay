@@ -13,8 +13,9 @@ async function api(path,who,body){const start=Date.now();const res=await fetch(A
 const ok=(x,msg)=>{if(!x)throw Error(msg);};
 async function snapshot(){return {ana:(await api('/api/proof-of-favour?address='+actor('ana'),actor('ana'))).data.profile,ben:(await api('/api/proof-of-favour?address='+actor('ben'),actor('ben'))).data.profile,contributions:(await api('/api/me/contributions',actor('ana'))).data.contributions,welcome:(await api('/api/welcome',actor('ana'))).data.welcome};}
 if(process.argv.includes('--verify')){const before=JSON.parse(readFileSync(process.argv[process.argv.indexOf('--verify')+1],'utf8'));const now=await snapshot();ok(now.ana.totalPoints===before.after.ana.totalPoints,'Points changed across restart');for(const id of before.acceptedTaskIds)ok(now.contributions.some(c=>c.taskId===id),'Accepted proof lost across restart');ok(now.welcome.done===before.after.welcome.done,'Welcome progress lost');console.log(JSON.stringify({fixture:true,actualRedis:true,restartRetained:true,points:now.ana.totalPoints,contributions:now.contributions.length,done:now.welcome.done,requests},null,2));process.exit(0);}
-const draft=(await api('/api/campaigns/drafts',actor('company'),fx.company)).data.draft;
-const company=(await api('/api/campaigns/drafts/'+draft.id+'/publish',actor('company'),{})).data.campaign;const companyTask=company.pieceTaskIds.review;
+const fixtureOwner='0x7e57da7a'+Date.now().toString(16).padStart(32,'0');
+const draft=(await api('/api/campaigns/drafts',fixtureOwner,fx.company)).data.draft;
+const company=(await api('/api/campaigns/drafts/'+draft.id+'/publish',fixtureOwner,{})).data.campaign;const companyTask=company.pieceTaskIds.review;
 const claim=await api('/api/tasks/'+companyTask+'/claim',actor('ana'),{claimant:actor('ana')});ok(claim.status===200,'Claim failed: '+JSON.stringify(claim.data));
 const before=await snapshot();
 const proof=readFileSync(new URL('../public/campaign-friends.jpg',import.meta.url)).toString('base64');
