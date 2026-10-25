@@ -3,8 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { Contribution } from "@/lib/completions";
-import { builderBadge, feedbackerBadge, reviewerBadge, type Badge } from "@/lib/badges";
-import { readStreak, type Streak } from "@/lib/deck-view";
+import type { Streak } from "@/lib/deck-view";
 import { displayName, profilePicture, useWorldUsers } from "@/hooks/useWorldUser";
 import { funkyArt } from "@/lib/funky-art";
 
@@ -13,25 +12,10 @@ import { funkyArt } from "@/lib/funky-art";
 // badges with the next step, your streak, your numbers. No admin numbers here
 // (Oscar, 5 Jul: the profile felt like an admin dashboard).
 
-function BadgeRow({ b }: { b: Badge }) {
-  return (
-    <div className="fv-box p-4 flex items-center gap-4">
-      <div className="fv-ten" style={{ gridTemplateColumns: "repeat(4, 16px)", gap: 3 }} role="img" aria-label={`${b.name} level ${b.level}`}>
-        {[0, 1, 2, 3].map((i) => <span key={i} data-on={i < b.level ? "true" : "false"} />)}
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="fv-h">{b.name}{b.level > 0 ? ` ${b.level}` : ""}</p>
-        <p className="fv-body text-[12px]">{b.line}</p>
-      </div>
-    </div>
-  );
-}
-
 export function ProfileView({ address, name, picture, mine, streak, posted, onSignOut, failed, onRetry }: {
   address: string | null; name: string; picture: string | null; mine: Contribution[] | null; streak: Streak | null; posted: boolean; onSignOut: () => void; failed?: boolean; onRetry?: () => void;
 }) {
   const reviews = mine?.length ?? 0;
-  const withFix = (mine ?? []).filter((c) => (c.proofNote ?? "").toLowerCase().includes("fix")).length;
   const points = (mine ?? []).reduce((n, c) => n + (c.points || 0), 0);
   return (
     <div className="fv min-h-screen max-w-lg mx-auto">
