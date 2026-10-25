@@ -29,7 +29,7 @@ import {
   markEscrowV2Settled,
   markEscrowV2Refunded,
 } from "@/lib/store";
-import { getAuthedAddress, ownershipError } from "@/lib/session";
+import { getAuthedAddress, ownerRefusal } from "@/lib/session";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { recordCompletion, getReputation } from "@/lib/reputation";
 import { recordFavourCompleted, completionPointsFor } from "@/lib/proof-of-favour";
@@ -161,8 +161,8 @@ export async function POST(req: NextRequest) {
       if (!poster || poster !== task.poster) {
         return NextResponse.json({ error: "Only the poster can fund" }, { status: 403 });
       }
-      const authErr = ownershipError(req, poster, Date.now());
-      if (authErr) return NextResponse.json({ error: authErr }, { status: 403 });
+      const authErr = ownerRefusal(req, poster, Date.now());
+      if (authErr) return NextResponse.json(authErr, { status: 403 });
       if (task.status !== "claimed" || !task.claimant) {
         // Demand-gated custody: money moves ONLY once a matched counterparty
         // exists. No claimant, no fund step — ever.
@@ -277,8 +277,8 @@ export async function POST(req: NextRequest) {
       if (!poster || poster !== task.poster) {
         return NextResponse.json({ error: "Only the poster can release" }, { status: 403 });
       }
-      const authErr = ownershipError(req, poster, Date.now());
-      if (authErr) return NextResponse.json({ error: authErr }, { status: 403 });
+      const authErr = ownerRefusal(req, poster, Date.now());
+      if (authErr) return NextResponse.json(authErr, { status: 403 });
       const record = await getEscrowV2Record(taskId, pinnedAddress(task));
       if (!record || record.status !== EscrowV2Status.Funded) {
         return NextResponse.json({ error: "Escrow is not in a releasable state" }, { status: 409 });

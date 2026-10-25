@@ -1,4 +1,5 @@
 "use client";
+import { walletNonce } from "@/lib/wallet-nonce";
 
 import { useState, useEffect } from "react";
 
@@ -124,7 +125,7 @@ export default function Home() {
     trackReauthOncePerDay("reauth_asked");
     try {
       const result = await MiniKit.walletAuth({
-        nonce: crypto.randomUUID().replace(/-/g, ""),
+        nonce: await walletNonce(),
         statement: "Sign in to FAVOUR",
         expirationTime: new Date(Date.now() + 3600_000),
       });
@@ -159,19 +160,14 @@ export default function Home() {
     if (MiniKit.isInstalled()) {
       try {
         const result = await MiniKit.walletAuth({
-          nonce: crypto.randomUUID().replace(/-/g, ""),
+          nonce: await walletNonce(),
           statement: "Sign in to FAVOUR",
           expirationTime: new Date(Date.now() + 3600_000),
         });
         if (result?.data?.address) {
           const addr = result.data.address;
 
-          setUserId(addr);
-          setVerificationLevel("wallet");
-          localStorage.setItem("relay_user_id", addr);
-          localStorage.setItem("relay_verification_level", "wallet");
-
-          await fetch("/api/verify-identity", {
+          const verified = await fetch("/api/verify-identity", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -181,6 +177,12 @@ export default function Home() {
               ref: localStorage.getItem("favour_ref") || undefined,
             }),
           });
+          if (!verified.ok) { const error = await verified.json(); throw new Error(error.error || "Sign-in failed. Please try again."); }
+          setUserId(addr);
+          setVerificationLevel("wallet");
+          localStorage.setItem("relay_user_id", addr);
+          localStorage.setItem("relay_verification_level", "wallet");
+
           localStorage.removeItem("favour_ref");
 
           MiniKit.getUserByAddress(addr).then(u => {

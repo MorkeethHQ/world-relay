@@ -32,6 +32,7 @@ beforeEach(() => {
   vi.stubGlobal("window", {});
   vi.stubGlobal("localStorage", { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => { store.set(k, v); } });
   vi.stubGlobal("fetch", vi.fn(async (url: string, init?: any) => {
+    if (url === "/api/nonce") return new Response(JSON.stringify({ nonce: "servernonce12345678" }));
     if (url === "/api/track") { sent.push(JSON.parse(init.body).event); return new Response("{}"); }
     if (url === "/api/verify-identity") return new Response("{}", { status: wallet.result?.verifyStatus ?? 200 });
     return new Response("{}");

@@ -1,4 +1,5 @@
 "use client";
+import { walletNonce } from "@/lib/wallet-nonce";
 
 import { useCallback, useEffect, useState } from "react";
 import { MiniKit } from "@worldcoin/minikit-js";
@@ -37,17 +38,18 @@ export function useFavourAuth() {
     if (inApp) {
       try {
         const result = await MiniKit.walletAuth({
-          nonce: crypto.randomUUID().replace(/-/g, ""),
+          nonce: await walletNonce(),
           statement: "Sign in to FAVOUR",
           expirationTime: new Date(Date.now() + 3600_000),
         });
         const addr = result?.data?.address;
         if (!addr) { setAuthError("Sign-in wasn't completed. Please try again."); setIsVerifying(false); return; }
-        await fetch("/api/verify-identity", {
+        const verified = await fetch("/api/verify-identity", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ address: addr, signature: result.data.signature, message: result.data.message, ref: localStorage.getItem("favour_ref") || undefined }),
         });
+        if (!verified.ok) throw new Error("Sign-in could not be verified and saved.");
         localStorage.removeItem("favour_ref");
         localStorage.setItem("relay_user_id", addr);
         localStorage.setItem("relay_verification_level", "wallet");
