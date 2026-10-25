@@ -214,7 +214,7 @@ describe("the doors and the guards", () => {
   it("the curated front door uses system sans and contains the drop and builder-story doors", () => {
     const css = src("src/app/globals.css");
     const curated = css.slice(css.indexOf("/* CURATED FAVOUR"));
-    expect(curated).toContain('font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif');
+    expect(curated).toContain('font-family:var(--favour-font)');
     expect(curated).not.toMatch(/monospace|font-mono|Geist_Mono/);
     const home = src("src/components/fv/CuratedHome.tsx");
     expect(home).toContain("Curated every Monday");

@@ -73,6 +73,7 @@ html {
 }
 
 :root {
+  --font-sans: var(--favour-font);
   --favour-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   --favour-ink: #191c20;
   --favour-muted: #62666d;
@@ -432,3 +433,5 @@ body:has(.fv) nav[aria-label="Main navigation"] { border-top: 2px solid #000; }
 /* Shared font across the World kit, native controls, and app surfaces. */
 body :where(h1,h2,h3,h4,p,span,a,button,input,select,textarea,label) { font-family: inherit; }
 nav[aria-label="Main navigation"] { font-family: var(--favour-font); border-top: 1px solid var(--favour-border); }
+
+.favour-card-image { display:block; width:100%; height:160px; object-fit:cover; }

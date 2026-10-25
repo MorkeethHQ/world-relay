@@ -45,7 +45,7 @@ export function BottomNav() {
               aria-label={route.label}
               aria-current={active ? "page" : undefined}
             >
-              <span className="shrink-0">{route.icon}</span>
+              <span className="shrink-0">{route.value === "/" ? <img src="/app-icon.png" alt="" width="22" height="22" /> : route.icon}</span>
               <span className="w-full truncate text-center text-[11px] leading-none font-semibold">{route.label}</span>
             </button>
           );

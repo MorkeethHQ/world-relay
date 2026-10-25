@@ -173,6 +173,7 @@ export function Onboarding({
   // (R13, pickDailyMission with no user), from the public task list. Nothing
   // here writes. If the list fails or nothing qualifies, step 0 falls back to
   // the plain intro below.
+  const [frontDoorLoaded, setFrontDoorLoaded] = useState(false);
   const [mission, setMission] = useState<Task | null>(null);
   const [proofs, setProofs] = useState<Task[]>([]);
   const [pieceToDo, setPieceToDo] = useState<ReturnType<typeof pickCampaignToDo>>(null);
@@ -195,7 +196,8 @@ export function Onboarding({
         setMission(m);
         if (m) setProofs(pickProofStrip(tasks));
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setFrontDoorLoaded(true));
   }, []);
 
   // Funnel step 1: the card is on screen. Keyed on step 0 AND a mission, because
@@ -360,7 +362,7 @@ export function Onboarding({
         {step === 0 && !demoOpen && (mission || welcomeView) && (
           <div className="flex flex-col gap-3 -mx-7">
             <div className="px-7">
-              <p className="text-[18px] font-bold tracking-tight text-gray-900">FAVOUR</p>
+              <div className="flex items-center gap-2"><img src="/app-icon.png" alt="" width="28" height="28" /><p className="text-[18px] font-bold tracking-tight text-gray-900">FAVOUR</p></div>
               <p className="text-[14px] text-gray-500 mt-1">{FAVOUR_PITCH_LINE}</p>
             </div>
             <div className="-mt-1">
@@ -379,7 +381,7 @@ export function Onboarding({
           </div>
         )}
 
-        {step === 0 && !demoOpen && !mission && !welcomeView && (
+        {step === 0 && frontDoorLoaded && !demoOpen && !mission && !welcomeView && (
           <div className="flex flex-col items-center text-center gap-5">
             <h1 className="text-[64px] font-bold tracking-tight text-gray-900 leading-none animate-[countUp_0.6s_ease-out]">
               FAVOUR
@@ -502,7 +504,7 @@ export function Onboarding({
 
       {/* Action. One primary action per screen. */}
       <div className="shrink-0 px-7 pb-10 pt-4">
-        {step === 3 ? (
+        {step === 0 && !frontDoorLoaded ? <p role="status" className="text-[14px] text-gray-500 text-center">Loading favours…</p> : step === 3 ? (
           <div aria-live="polite">
             <LiveFeedback state={isVerifying ? "pending" : undefined}>
               <Button

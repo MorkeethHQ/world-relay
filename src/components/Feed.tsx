@@ -1946,6 +1946,7 @@ function TaskCard({
       onClick={onTap}
       className="rounded-2xl p-4 flex flex-col gap-3 cursor-pointer active:scale-[0.98] transition-all bg-white border border-gray-200"
     >
+      <img src="/favour-invitation.svg" alt="" className="favour-card-image rounded-xl" loading="lazy" />
       <div className="flex items-start gap-3">
         <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center text-gray-500 shrink-0 mt-0.5">
           <CategoryIcon category={task.category} size={18} />

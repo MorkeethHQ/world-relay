@@ -47,6 +47,7 @@ export function CampaignStageCards({ stage, welcome, signedIn, onOpenWelcome, on
       <h2 className="campaign-section-title">Explore campaigns</h2>
       {c && (
         <article className="overflow-hidden rounded-3xl border border-gray-200 bg-white">
+          <img src="/favour-invitation.svg" alt="A small contribution, ready to make" className="favour-card-image" />
           <div className="p-5">
             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">Company campaign</p>
             <h3 className="campaign-title mt-2 text-[26px] font-bold tracking-tight text-gray-950">{c.campaign.company}</h3>
@@ -63,9 +64,9 @@ export function CampaignStageCards({ stage, welcome, signedIn, onOpenWelcome, on
       )}
       {w && welcome && (
         <article className="relative overflow-hidden rounded-3xl bg-gray-950 text-white">
-          {welcome.campaign.heroImage && (
+          {(
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={welcome.campaign.heroImage} alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover" />
+            <img src={welcome.campaign.heroImage || "/favour-invitation.svg"} alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover" />
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/50 to-black/15" />
           <div className="relative px-5 pt-24 pb-5">
@@ -83,6 +84,7 @@ export function CampaignStageCards({ stage, welcome, signedIn, onOpenWelcome, on
         </article>
       )}
       <button type="button" onClick={onForCompanies} className="campaign-owner-entry text-left rounded-3xl border border-gray-200 bg-white p-5 min-h-[110px]">
+        <img src="/favour-invitation.svg" alt="" className="favour-card-image rounded-2xl mb-4" />
         <span className="block text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">For teams & creators</span>
         <span className="mt-2 block text-[21px] font-bold tracking-tight text-gray-950">Build a campaign ↗</span>
         <span className="mt-2 block text-[14px] leading-relaxed text-gray-600">Product feedback, honest reviews, original stories. Build your campaign.</span>
@@ -110,9 +112,9 @@ export function WelcomeCampaignView({ welcome, signedIn, busyId, error, onStart,
         <p className="flex-1 min-w-0 text-[15px] font-semibold text-gray-900 truncate">Welcome</p>
       </div>
       <div className="relative overflow-hidden bg-gray-950 text-white">
-        {welcome.campaign.heroImage && (
+        {(
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={welcome.campaign.heroImage} alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover" />
+          <img src={welcome.campaign.heroImage || "/favour-invitation.svg"} alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover" />
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/65 to-black/40" />
         <div className="relative px-6 pt-12 pb-6">
@@ -139,6 +141,7 @@ export function WelcomeCampaignView({ welcome, signedIn, busyId, error, onStart,
         <ol className="flex flex-col gap-2.5">
           {welcome.steps.map((s, i) => (
             <li key={s.sourceTaskId} className="rounded-2xl bg-white border border-gray-200 p-4">
+              <img src="/favour-invitation.svg" alt="" className="favour-card-image rounded-xl mb-4" loading="lazy" />
               <div className="flex items-start gap-3">
                 <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center text-gray-500 shrink-0">
                   <CategoryIcon category={s.category} size={18} />

@@ -13,7 +13,7 @@ export type FeedbackTemplate = {
 const FEEDBACK_TEMPLATES: FeedbackTemplate[] = [
   {
     id: "fb-try-and-tell",
-    title: "Try RELAY, tell us one thing",
+    title: "Try FAVOUR, tell us one thing",
     description: "Open the app, tap around for 2 minutes, and tell us one thing that confused you or one thing you loved. Honest feedback only.",
     category: "feedback",
     icon: "💬",
@@ -41,7 +41,7 @@ const FEEDBACK_TEMPLATES: FeedbackTemplate[] = [
   {
     id: "fb-dead-end",
     title: "When did an AI let you down?",
-    description: "Tell us about a time an AI agent gave you wrong info about the real world — a closed restaurant, wrong directions, outdated hours. That's the problem RELAY solves.",
+    description: "Tell us about a time an AI agent gave you wrong info about the real world — a closed restaurant, wrong directions, outdated hours. That's the problem FAVOUR solves.",
     category: "feedback",
     icon: "🚧",
     pointsReward: 15,
@@ -59,7 +59,7 @@ const FEEDBACK_TEMPLATES: FeedbackTemplate[] = [
   {
     id: "fb-rate-the-vibe",
     title: "Rate the vibe: 1-10",
-    description: "Give RELAY FAVOURS a vibe rating from 1-10 and tell us why. What would make this a 10? We're building this in public and your take matters.",
+    description: "Give FAVOUR a vibe rating from 1-10 and tell us why. What would make this a 10? We're building this in public and your take matters.",
     category: "feedback",
     icon: "\u{2B50}",
     pointsReward: 15,
@@ -68,7 +68,7 @@ const FEEDBACK_TEMPLATES: FeedbackTemplate[] = [
   {
     id: "feature_request",
     title: "Feature request",
-    description: "Tell us what you want RELAY to do.",
+    description: "Tell us what you want FAVOUR to do.",
     category: "feedback",
     icon: "\u{1F4A1}",
     pointsReward: 5,
