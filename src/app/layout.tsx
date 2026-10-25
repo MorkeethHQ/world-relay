@@ -21,7 +21,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "FAVOUR",
     description: "Ask favours, complete tasks, earn USDC. AI verifies everything. Inside World App.",
-    images: [{ url: "/og-image.png", width: 1035, height: 720, alt: "FAVOUR" }],
+    images: [{ url: "/og-image.png", width: 1200, height: 630, alt: "FAVOUR" }],
     type: "website",
     siteName: "FAVOUR",
   },
