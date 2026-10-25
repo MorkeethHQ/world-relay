@@ -12,6 +12,7 @@ function buildRevision(): string {
 }
 
 const nextConfig: NextConfig = {
+  ...(fixtureStoreOrigin() ? { reactStrictMode: false } : {}),
   distDir: fixtureStoreOrigin() ? ".next-fixture" : ".next",
   outputFileTracingRoot: process.cwd(),
   serverExternalPackages: ["@xmtp/node-sdk", "@xmtp/node-bindings"],
