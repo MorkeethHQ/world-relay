@@ -8,7 +8,7 @@ import type { WelcomeView } from "@/lib/welcome-shape";
 const welcome = { campaign: CAMPAIGNS.find((c) => c.id === "first-favour")!, steps: [], done: 0, authenticated: false } as unknown as WelcomeView;
 const noop = () => {};
 function render(value: WelcomeView | null) {
-  return renderToStaticMarkup(<CampaignStageCards stage={pickCampaignStage({ welcome: value, company: null })} welcome={value} signedIn={false} campaigns={CAMPAIGNS} onOpenCampaign={noop} onOpenWelcome={noop} onOpenCompany={noop} onForCompanies={noop} onOpenDemo={noop} />);
+  return renderToStaticMarkup(<CampaignStageCards stage={pickCampaignStage({ welcome: value, company: null })} welcome={value} signedIn={false} campaigns={CAMPAIGNS} onOpenCampaign={noop} onOpenWelcome={noop} onOpenCompany={noop} onForCompanies={noop} onOpenDemo={noop} />).replaceAll("<!-- -->", "");
 }
 describe("campaign home with the production zero-step Welcome response", () => {
   it("keeps the real Welcome hero, reward and image when there are no steps", () => {
