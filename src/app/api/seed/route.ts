@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getRedis } from "@/lib/redis";
 import { createTask } from "@/lib/store";
 import { CUSTODY_RETIRED } from "@/lib/custody";
 import { MAX_TASK_POINTS } from "@/lib/proof-of-favour";
@@ -74,6 +75,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    if (!getRedis()) return NextResponse.json({ error: "Task storage is unavailable." }, { status: 503 });
     for (const t of body.tasks) {
       if (t.onChainId != null && existingOnChainIds.has(t.onChainId)) continue;
       if (existingDescriptions.has(t.description.slice(0, 80))) continue;
@@ -97,6 +99,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ seeded: created.length, tasks: created }, { status: 201 });
   }
 
+  if (!getRedis()) return NextResponse.json({ error: "Task storage is unavailable." }, { status: 503 });
   for (const t of ONBOARDING_TASKS) {
     if (existingDescriptions.has(t.description.slice(0, 80))) continue;
     const task = await createTask({
