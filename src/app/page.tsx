@@ -58,62 +58,19 @@ export default function Home() {
         localStorage.setItem("favour_ref", ref);
       }
     } catch {}
-    let stored = localStorage.getItem("relay_user_id");
-    const storedLevel = localStorage.getItem("relay_verification_level") as VerificationLevel;
-    // Self-heal a stale/legacy id (Oscar live-test Jul 8). Early builds could
-    // persist a non-wallet id — an old IDKit nullifier, or a dev_ id carried in.
-    // Inside World App a valid id is always a 0x wallet; a non-0x id silently
-    // breaks every wallet-gated action: staking returns "wallet account required",
-    // and jury verdicts are rejected so nothing is earned AND the same proofs
-    // repeat forever (the judged-set only fills on an accepted verdict). If we're
-    // in World App with a non-wallet stored id, drop it and route back through
-    // walletAuth, which mints a fresh 0x id. Browser-preview dev_ ids (MiniKit not
-    // installed) are left untouched.
-    let inWorldApp = false;
-    try { inWorldApp = MiniKit.isInstalled(); } catch {}
-    const isWalletId = !!stored && /^0x[0-9a-fA-F]{40}$/.test(stored);
-    if (stored && !isWalletId && inWorldApp) {
-      localStorage.removeItem("relay_user_id");
-      localStorage.removeItem("relay_verification_level");
-      localStorage.removeItem("relay_onboarded");
-      stored = null;
-    }
-    if (stored) {
-      setUserId(stored);
-      setVerificationLevel(storedLevel);
-    }
-    // Anyone already signed in, or who finished onboarding before, skips it.
-    if (stored || localStorage.getItem("relay_onboarded") === "true") {
-      setOnboarded(true);
-    }
-    setMiniKitChecked(true);
-
-    // RE-AUTH, added 2026-09-16, and this is the line the whole identity gate
-    // was waiting on.
-    //
-    // A stored id above means "this person signed in once". It does NOT mean
-    // they still hold a session cookie: the cookie is issued only inside
-    // /api/verify-identity, and the branch above returns without ever calling it
-    // again. Before this, a returning person silently carried no session, which
-    // is why enforcing would have locked out ~89% of registered users.
-    //
-    // /api/session answers the question and does the silent half by itself: a
-    // cookie past halfway through its life is reissued server-side with no
-    // prompt. Only someone whose session is genuinely gone gets asked to sign,
-    // because a new proof of wallet control cannot be minted without a signature.
-    if (stored && isWalletId && inWorldApp) {
-      (async () => {
-        try {
-          const res = await fetch("/api/session", { cache: "no-store" });
-          const s = await res.json();
-          if (s?.authenticated) return; // valid, and renewed if it needed it
-          await reauthSilently(stored!);
-        } catch {
-          // Offline or the endpoint is unreachable. Leave them as they are; a
-          // gated action will surface the real reason if it comes to that.
-        }
-      })();
-    }
+    let live = true;
+    fetch("/api/session", { cache: "no-store" }).then((res) => res.json()).then((session) => {
+      if (!live) return;
+      if (session.authenticated && /^0x[0-9a-fA-F]{40}$/.test(session.address)) {
+        setUserId(session.address); setVerificationLevel("wallet");
+        localStorage.setItem("relay_user_id", session.address);
+        localStorage.setItem("relay_verification_level", "wallet");
+      } else {
+        setUserId(null); setVerificationLevel(null);
+      }
+    }).catch(() => { if (live) setAuthError("We could not check your sign-in. Your saved work is safe. Please try again when connected."); })
+      .finally(() => { if (live) setMiniKitChecked(true); });
+    return () => { live = false; };
   }, []);
 
   // One signature, only when there is no session left to renew. Deliberately

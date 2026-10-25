@@ -1,3 +1,4 @@
+vi.mock("@/lib/proof-consent", () => ({ recordProofConsent: async () => true }));
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
 // Repro + guard for the stale-claimantVerification bug (found 2026-07-15).
@@ -146,7 +147,7 @@ function req(body: any) {
       "content-type": "application/json",
       cookie: `${SESSION_COOKIE}=${issueSessionToken(String(body.submitter), Date.now())}`,
     },
-    body: JSON.stringify(body),
+    body: JSON.stringify({ proofConsent: true, ...body }),
   }) as any;
 }
 

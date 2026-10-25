@@ -436,6 +436,12 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
     if (new URLSearchParams(window.location.search).get('companyPlan') === 'repeat') setView('launch');
   }, []);
   const [companyCampaignId, setCompanyCampaignId] = useState<string | null>(null);
+  useEffect(() => {
+    const query = new URLSearchParams(window.location.search);
+    if (query.get("campaign") === "welcome") setView("welcome");
+    else if (query.get("campaign")?.startsWith("draft_")) { setCompanyCampaignId(query.get("campaign")); setView("company"); }
+  }, []);
+
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [tab, setTab] = useState<Tab>("available");
   const [tabDirection, setTabDirection] = useState<"left" | "right">("right");
@@ -1181,9 +1187,9 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
         signedIn={walletUser}
         busyId={welcomeBusy}
         error={welcomeError}
-        onStart={(step: WelcomeStepView) => startWelcomeStep(step.sourceTaskId)}
-        onBack={() => { setWelcomeError(null); setView("board"); }}
-        onDiscover={() => { setWelcomeError(null); setView("board"); }}
+        onStart={(step: WelcomeStepView) => { if (!walletUser) { localStorage.setItem(PENDING_WELCOME_KEY, "true"); onReauth?.(); } else startWelcomeStep(step.sourceTaskId); }}
+        onBack={() => { window.history.replaceState(null, "", "/"); setWelcomeError(null); setView("board"); }}
+        onDiscover={() => { window.history.replaceState(null, "", "/"); setWelcomeError(null); setView("board"); }}
       />
     );
   }
@@ -1273,7 +1279,7 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
           stage={campaignStage}
           welcome={welcome}
           signedIn={walletUser}
-          onOpenWelcome={() => { hapticTap(); setWelcomeError(null); setView("welcome"); }}
+          onOpenWelcome={() => { hapticTap(); window.history.replaceState(null, "", "/?campaign=welcome"); setWelcomeError(null); setView("welcome"); }}
           onOpenCompany={(id) => { hapticTap(); setCompanyCampaignId(id); setView("company"); }}
           onForCompanies={() => { hapticTap(); setView("companies"); }}
           onOpenDemo={() => { hapticTap(); setView("demo"); }}
@@ -2908,14 +2914,15 @@ function SubmitProof({
   // Campaign tasks keep the full screen: their rules differ (no human appeal).
   const quick = task.rewardType === "points" && !isFunded(task) && !task.campaignId;
   const [proofNote, setProofNote] = useState("");
+  const [proofConsent, setProofConsent] = useState(false);
   const [noteRestored, setNoteRestored] = useState<string | null>(null);
   useEffect(() => {
-    if (!task.companyCampaignId || !userId) return;
+    if (!userId) return;
     try { setProofNote(localStorage.getItem(`favour:proof-draft:${userId}:${task.id}`) || ''); } catch {}
     setNoteRestored(`${userId}:${task.id}`);
   }, [task.id, task.companyCampaignId, userId]);
   useEffect(() => {
-    if (!task.companyCampaignId || !userId || noteRestored !== `${userId}:${task.id}`) return;
+    if (!userId || noteRestored !== `${userId}:${task.id}`) return;
     try { if (proofNote) localStorage.setItem(`favour:proof-draft:${userId}:${task.id}`, proofNote); else localStorage.removeItem(`favour:proof-draft:${userId}:${task.id}`); } catch {}
   }, [proofNote, noteRestored, task.id, task.companyCampaignId, userId]);
 
@@ -2956,7 +2963,7 @@ function SubmitProof({
   }, []);
 
   useEffect(() => {
-    if (images.length > 0 && !hasAutoChecked.current && !result && !submitting) {
+    if (proofConsent && images.length > 0 && !hasAutoChecked.current && !result && !submitting) {
       hasAutoChecked.current = true;
       setPreChecking(true);
       setPreCheck(null);
@@ -2964,6 +2971,7 @@ function SubmitProof({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          proofConsent,
           imageBase64: images[0].base64,
           taskDescription: task.description,
         }),
@@ -2977,7 +2985,7 @@ function SubmitProof({
       hasAutoChecked.current = false;
       setPreCheck(null);
     }
-  }, [images, result, submitting, task.description]);
+  }, [images, result, submitting, task.description, proofConsent]);
 
   const extractVideoFrame = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -3045,7 +3053,7 @@ function SubmitProof({
   };
 
   const handleSubmit = async () => {
-    if (images.length === 0 && !proofNote.trim()) return;
+    if (!proofConsent || images.length === 0 && !proofNote.trim()) return;
     hapticMedium();
     setSubmitting(true);
 
@@ -3056,6 +3064,7 @@ function SubmitProof({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          proofConsent,
           taskId: task.id,
           submitter: userId || task.claimant,
           proofImageBase64: proofImages[0] || null,
@@ -3113,6 +3122,7 @@ function SubmitProof({
       }
 
       const data = await res.json();
+      if (data.verification?.verdict === "pass" && userId) { try { localStorage.removeItem(`favour:proof-draft:${userId}:${task.id}`); } catch {} }
       const v = data.verification || {};
       setResult({
         verdict: String(v.verdict || "fail"),
@@ -3450,6 +3460,13 @@ function SubmitProof({
           );
         })()}
 
+        {!result && !submitting && <section className="proof-consent-panel" aria-label="Before you send">
+          <h2>Before you send</h2>
+          <p>Your photo and note will go to FAVOUR for an AI check and, when needed, human review. Submitted proofs can appear in task History. Remove private details and get permission from anyone shown.</p>
+          <label><input type="checkbox" checked={proofConsent} onChange={(e) => setProofConsent(e.target.checked)} /> I agree to send this proof for review.</label>
+          <a href="/privacy" target="_blank" rel="noopener noreferrer">How your proof is used</a>
+          <p>Your written draft stays on this device. Photos are sent only after you agree; select them again if you leave.</p>
+        </section>}
         {/* AI Pre-Check (auto-triggered) */}
         {!result && !submitting && (preChecking || preCheck) && (
           <div className="flex flex-col gap-2">
@@ -3596,7 +3613,7 @@ function SubmitProof({
                   // thing this release is closing. The advertised value is only a
                   // fallback for an older response with no pointsAwarded field.
                   <p className="font-semibold text-sm text-amber-600">
-                    +{result.pointsAwarded ?? Math.round(task.bountyUsdc)} pts earned
+                    {typeof result.pointsAwarded === "number" ? `+${result.pointsAwarded} points recorded` : "Accepted. Points confirmation pending."}
                     {result.streakBonus ? ` (${result.pointsAwarded! - result.streakBonus} for the favour, +${result.streakBonus} streak)` : ""}
                   </p>
                 ) : result.escrowReleaseTxHash ? (
@@ -3614,10 +3631,10 @@ function SubmitProof({
                 ) : task.escrowTxHash ? (
                   <p className="text-sm font-semibold text-warning-600 flex items-center gap-2">
                     <span className="w-3 h-3 border-2 border-warning-500 border-t-transparent rounded-full animate-spin" />
-                    Payment processing...
+                    Proof accepted. Waiting for the poster to release payment. No payment is confirmed yet.
                   </p>
                 ) : (
-                  <p className="font-semibold text-sm text-green-600">{rewardAmountLabel(task)}</p>
+                  <p className="font-semibold text-sm text-gray-700">Proof accepted. No payment is confirmed.</p>
                 )}
                 <div className="flex flex-col gap-2">
                   {/* Discover more favours is the main action on every sent proof
@@ -3790,7 +3807,7 @@ function SubmitProof({
           {(() => {
             const needsPhoto = tierRequiresPhoto(task.category);
             const hasContent = images.length > 0 || proofNote.trim().length > 0;
-            const disabled = needsPhoto ? images.length === 0 : !hasContent;
+            const disabled = !proofConsent || (needsPhoto ? images.length === 0 : !hasContent);
             const label = quick
               ? "Submit"
               : needsPhoto
@@ -3822,7 +3839,7 @@ function TaskTimeline({ task }: { task: Task }) {
     // "Paid" only where money moves. A points favour is credited, and calling it
     // paid reads as cash (review, 2026-09-21: company campaign pieces are points
     // with a proposed, unfunded pool, and must never read as payable USDC).
-    { label: task.rewardType === "points" ? "Credited" : "Paid", done: task.status === "completed" },
+    { label: task.rewardType === "points" ? "Credited" : "Paid", done: task.rewardType === "points" ? task.status === "completed" : !!task.settlementTx },
   ];
 
   const doneCount = steps.filter(s => s.done).length;

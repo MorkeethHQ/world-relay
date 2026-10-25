@@ -1,3 +1,4 @@
+vi.mock("@/lib/proof-consent", () => ({ recordProofConsent: async () => true }));
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
 // THE GATE ON THE ROUTES THAT WRITE POINTS, 2026-09-20.
@@ -102,7 +103,7 @@ function task(over: Record<string, any> = {}) {
 function post(url: string, body: any, cookie?: string) {
   const headers: Record<string, string> = { "content-type": "application/json" };
   if (cookie) headers["cookie"] = `${SESSION_COOKIE}=${cookie}`;
-  return new Request(url, { method: "POST", headers, body: JSON.stringify(body) }) as any;
+  return new Request(url, { method: "POST", headers, body: JSON.stringify({ proofConsent: true, ...body }) }) as any;
 }
 
 const verify = (submitter: string, cookie?: string) =>

@@ -1,3 +1,4 @@
+vi.mock("@/lib/proof-consent", () => ({ recordProofConsent: async () => true }));
 import { describe, it, expect, beforeEach, afterEach, afterAll, vi } from "vitest";
 import Anthropic from "@anthropic-ai/sdk";
 import { readFileSync } from "fs";
@@ -95,7 +96,7 @@ function providerFetch(input: unknown): Promise<Response> {
 function req(url: string, wallet: string | null, body?: unknown): NextRequest {
   const headers: Record<string, string> = { "content-type": "application/json" };
   if (wallet) headers.cookie = `${SESSION_COOKIE}=${issueSessionToken(wallet, Date.now())}`;
-  return new Request(`http://localhost${url}`, { method: body === undefined ? "GET" : "POST", headers, body: body === undefined ? undefined : JSON.stringify(body) }) as unknown as NextRequest;
+  return new Request(`http://localhost${url}`, { method: body === undefined ? "GET" : "POST", headers, body: body === undefined ? undefined : JSON.stringify({ proofConsent: true, ...body }) }) as unknown as NextRequest;
 }
 function favour(over: Partial<Task>): Task {
   return {

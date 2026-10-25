@@ -1,3 +1,4 @@
+import { recordProofConsent } from "@/lib/proof-consent";
 import { createHash } from "node:crypto";
 import { campaignIntakePaused } from "@/lib/contribution-responses";
 import { ensureCompanyAppeal } from "@/lib/company-appeal";
@@ -131,6 +132,9 @@ export async function POST(req: NextRequest) {
     const refusal = ownerRefusal(req, submitter, Date.now());
     if (refusal) return NextResponse.json(refusal, { status: 403 });
   }
+
+  if (body.proofConsent !== true) return NextResponse.json({ error: "Please agree to share this proof for review before sending it.", code: "proof_consent_required" }, { status: 422 });
+  if (!await recordProofConsent(taskId, String(submitter))) return NextResponse.json({ error: "Proof storage is unavailable. Your proof was not sent.", code: "storage_unavailable" }, { status: 503 });
 
   // Prevent double-verification race condition
   const redis = getRedis();

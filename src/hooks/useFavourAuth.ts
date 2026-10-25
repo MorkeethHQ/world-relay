@@ -22,12 +22,12 @@ export function useFavourAuth() {
     let inApp = false;
     try { inApp = MiniKit.isInstalled(); } catch {}
     setIsInWorldApp(inApp);
-    try {
-      const stored = localStorage.getItem("relay_user_id");
-      const level = localStorage.getItem("relay_verification_level") as VerificationLevel;
-      if (stored && (!inApp || /^0x[0-9a-fA-F]{40}$/.test(stored))) { setUserId(stored); setVerificationLevel(level); }
-    } catch {}
-    setChecked(true);
+    let live = true;
+    fetch("/api/session", { cache: "no-store" }).then((res) => res.json()).then((session) => {
+      if (!live) return;
+      if (session.authenticated && /^0x[0-9a-fA-F]{40}$/.test(session.address)) { setUserId(session.address); setVerificationLevel("wallet"); }
+    }).catch(() => { if (live) setAuthError("We could not check your sign-in. Please try again when connected."); }).finally(() => { if (live) setChecked(true); });
+    return () => { live = false; };
   }, []);
 
   const signIn = useCallback(async () => {

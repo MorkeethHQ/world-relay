@@ -1,3 +1,4 @@
+vi.mock("@/lib/proof-consent", () => ({ recordProofConsent: async () => true }));
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
 // FAVOUR-MISSION-STATE-MOBILE-2026-09-21. A completed mission stops being an action.
@@ -103,7 +104,7 @@ const submit = (body: Record<string, any> = {}) =>
       "content-type": "application/json",
       cookie: `${SESSION_COOKIE}=${issueSessionToken(CLAIMANT, Date.now())}`,
     },
-    body: JSON.stringify({ taskId: "mission-1", submitter: CLAIMANT, proofNote: "Wet tarmac and bread.", proofImages: ["AAAA"], ...body }),
+    body: JSON.stringify({ proofConsent: true, taskId: "mission-1", submitter: CLAIMANT, proofNote: "Wet tarmac and bread.", proofImages: ["AAAA"], ...body }),
   }) as any);
 
 beforeEach(() => {
@@ -251,7 +252,7 @@ describe("an AI-made decoy can never be paid as a completion", () => {
     const res = await VERIFY_POST(new Request("http://localhost/api/verify-proof", {
       method: "POST",
       headers: { "content-type": "application/json", cookie: `${SESSION_COOKIE}=${issueSessionToken(CLAIMANT, Date.now())}` },
-      body: JSON.stringify({ taskId: "decoy:smell", submitter: CLAIMANT, proofNote: "Wet concrete and jasmine." }),
+      body: JSON.stringify({ proofConsent: true, taskId: "decoy:smell", submitter: CLAIMANT, proofNote: "Wet concrete and jasmine." }),
     }) as any);
     expect(res.status).toBe(404);
     expect(recordFavourCompletedCalls).toHaveLength(0);

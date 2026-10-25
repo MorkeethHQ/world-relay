@@ -1,3 +1,5 @@
+import { getAuthedAddress } from "@/lib/session";
+import { isTestFixture } from "@/lib/test-fixture";
 import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { getRedis } from "@/lib/redis";
@@ -44,18 +46,17 @@ function extractJson(text: string): string {
 }
 
 export async function POST(req: NextRequest) {
-  const { imageBase64, taskDescription } = await req.json();
+  if (!getAuthedAddress(req, Date.now())) return NextResponse.json({ error: "Sign in before sending a photo.", code: "reauth_required" }, { status: 403 });
+  const { imageBase64, taskDescription, proofConsent } = await req.json();
+  if (proofConsent !== true) return NextResponse.json({ error: "Agree to send this photo for review first.", code: "proof_consent_required" }, { status: 422 });
 
   if (!imageBase64 || !taskDescription) {
     return NextResponse.json({ error: "Missing imageBase64 or taskDescription" }, { status: 400 });
   }
 
   if (!process.env.ANTHROPIC_API_KEY) {
-    // Stub response when no API key
-    return NextResponse.json({
-      assessment: "Looking good! Your photo appears to match the task description. Should pass verification.",
-      likely: "pass",
-    });
+    if (isTestFixture()) return NextResponse.json({ assessment: "TEST DATA: photo selected. This local quality-check stand-in did not call a model.", likely: "marginal" });
+    return NextResponse.json({ error: "Photo checking is unavailable. No photo assessment was made.", code: "check_unavailable" }, { status: 503 });
   }
 
   if (!(await checkRateLimit())) {

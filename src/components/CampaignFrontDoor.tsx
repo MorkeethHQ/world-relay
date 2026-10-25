@@ -110,6 +110,7 @@ export function WelcomeCampaignView({ welcome, signedIn, busyId, error, onStart,
           <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/70">Welcome campaign · points</span>
           <h1 className="mt-1.5 text-[28px] font-bold leading-[1.1] tracking-tight">{welcome.campaign.name}</h1>
           <p className="mt-2 text-[14px] leading-snug text-white/80">{welcome.campaign.tagline}</p>
+          <p className="mt-4 text-sm text-white">{welcome.campaign.rewardPerTask} points per accepted favour. Points only, no cash payment.</p>
           <div className="mt-4">
             <ProgressDots total={total} done={done} waiting={welcome.steps.filter((s) => s.state === "sent" || s.state === "in_review").length} />
             <p className="mt-2 text-[12px] text-white/70">{signedIn ? `${done} of ${total} done` : `${total} favours`} · runs until {new Date(welcome.campaign.endsAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</p>
@@ -118,7 +119,8 @@ export function WelcomeCampaignView({ welcome, signedIn, busyId, error, onStart,
       </div>
       <div className="px-6 pt-5 pb-8 flex flex-col gap-3">
         <div className="rounded-2xl bg-white border border-gray-200 px-4 py-3">
-          <p className="text-[13px] font-semibold text-gray-900">How it works</p>
+          <p className="text-[18px] font-semibold text-gray-900">A small favour, with a clear answer.</p>
+          <div className="campaign-loop"><div><b>1</b><strong>The request</strong><span>Pick a favour below and read what to send.</span></div><div><b>2</b><strong>Your proof</strong><span>Share your own photo or answer, with your permission.</span></div><div><b>3</b><strong>The result</strong><span>See whether it was accepted and why.</span></div><div><b>4</b><strong>Your reward</strong><span>Accepted work adds the stated points to your record.</span></div></div>
           <ul className="mt-1 flex flex-col gap-1 text-[13px] leading-snug text-gray-700">
             <li>Each favour is yours to do. Someone else&apos;s proof never takes it from you.</li>
             <li>An automatic check reads your proof. Accepted: the points are added.</li>
