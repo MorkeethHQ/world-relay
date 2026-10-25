@@ -1232,7 +1232,7 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
   return (
     <div
       ref={feedContainerRef}
-      className="flex flex-col gap-0 max-w-lg mx-auto w-full min-h-screen bg-gray-50"
+      className="campaign-home flex flex-col gap-0 mx-auto w-full min-h-screen bg-gray-50"
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
@@ -1268,6 +1268,8 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
           campaign that may lead (R16 unchanged), then a labelled demo brand. */}
       {tab === "available" && !loading && (
         <CampaignStageCards
+          campaigns={campaigns}
+          onOpenCampaign={(campaign) => { hapticTap(); setSelectedCampaign(campaign); setView("campaign"); }}
           stage={campaignStage}
           welcome={welcome}
           signedIn={walletUser}
@@ -1285,51 +1287,6 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
         c.id === campaignStage.company?.campaign.id ? null :
         <CompanyCampaignCard key={c.id} c={c} onOpen={() => { hapticTap(); setCompanyCampaignId(c.id); setView("company"); }} />
       ))}
-
-      {/* Campaigns (Oscar Jul 9: below REAL OR NOT, above favours). ONE hero
-          leads, a second live campaign stacks below it as a full-width secondary
-          banner, zero-task campaigns are invisible (no link graveyard). */}
-      {tab === "available" && !loading && campaigns.length > 0 && (() => {
-        const openCountFor = (c: Campaign) =>
-          tasks.filter((t) => t.campaignId === c.id && t.status === "open").length;
-        // R18/R19: a campaign past its end date is history, never a current
-        // banner, whatever is still marked open under it. Welcome is on the stage.
-        const live = campaigns
-          .filter((c) => c.id !== WELCOME_CAMPAIGN_ID && isCampaignRunning(c) && openCountFor(c) > 0)
-          .sort((a, b) => Number(b.featured) - Number(a.featured));
-        const hero = live[0];
-        const second = live[1];
-        return (
-          <div className="px-6 pt-4 flex flex-col gap-2.5">
-            {hero && (
-              <FeaturedCampaignBanner
-                campaign={hero}
-                taskCount={tasks.length}
-                completedCount={tasks.filter(t => t.status === "completed").length}
-                tasks={tasks}
-                onTap={() => { hapticTap(); setSelectedCampaign(hero); setView("campaign"); }}
-              />
-            )}
-            {second && (
-              <button
-                onClick={() => { hapticTap(); setSelectedCampaign(second); setView("campaign"); }}
-                className="relative h-[72px] rounded-xl overflow-hidden active:scale-[0.97] transition-transform text-left"
-              >
-                {second.heroImage && (
-                  <img src={second.heroImage} alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
-                )}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/85 to-black/35" />
-                <div className="relative h-full px-3.5 py-2.5 flex flex-col justify-end">
-                  <p className="text-[13px] font-bold text-white leading-tight line-clamp-1">{second.name}</p>
-                  <p className="text-[10px] text-white/60 mt-0.5">
-                    {second.unlock ? `$${second.unlock.unlockAmount} unlock` : `${openCountFor(second)} tasks`}
-                  </p>
-                </div>
-              </button>
-            )}
-          </div>
-        );
-      })()}
 
       {/* Polls tab */}
       {tab === "polls" && (

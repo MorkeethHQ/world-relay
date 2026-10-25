@@ -27,7 +27,7 @@ export function pickCampaignStage(input: {
   // and an open piece (R16). Null when none may lead.
   company: { campaign: PublicCompanyCampaign; openPieces: number; totalOpen: number } | null;
 }): CampaignStage {
-  const w = input.welcome && input.welcome.steps.length > 0 ? input.welcome : null;
+  const w = input.welcome;
   const welcome = w
     ? {
         total: w.steps.length,

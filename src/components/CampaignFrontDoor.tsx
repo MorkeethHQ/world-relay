@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { CAMPAIGNS, type Campaign } from "@/lib/campaigns";
 import type { CampaignStage } from "@/lib/campaign-stage";
 import type { WelcomeStepView, WelcomeView } from "@/lib/welcome-shape";
 import { DEMO_BRAND, formatProposedUsdc, proposedLabel } from "@/lib/demo-brand";
@@ -31,7 +32,7 @@ function ProgressDots({ total, done, waiting }: { total: number; done: number; w
   );
 }
 
-export function CampaignStageCards({ stage, welcome, signedIn, onOpenWelcome, onOpenCompany, onForCompanies, onOpenDemo }: {
+export function CampaignStageCards({ stage, welcome, signedIn, onOpenWelcome, onOpenCompany, onForCompanies, campaigns, onOpenCampaign }: {
   stage: CampaignStage;
   welcome: WelcomeView | null;
   signedIn: boolean;
@@ -39,59 +40,45 @@ export function CampaignStageCards({ stage, welcome, signedIn, onOpenWelcome, on
   onOpenCompany: (campaignId: string) => void;
   onForCompanies: () => void;
   onOpenDemo: () => void;
+  campaigns: Campaign[];
+  onOpenCampaign: (campaign: Campaign) => void;
 }) {
-  const w = stage.welcome;
+  const originalWelcome = CAMPAIGNS.find((c) => c.id === "first-favour")!;
+  const hero = welcome?.campaign ?? originalWelcome;
+  const steps = welcome?.steps ?? [];
+  const done = steps.filter((s) => s.state === "done").length;
+  const registry = [...CAMPAIGNS, ...campaigns.filter((c) => !CAMPAIGNS.some((saved) => saved.id === c.id))];
+  const cards = registry.filter((c) => c.id !== "first-favour" && (c.id === "relay-launch" || Date.parse(c.endsAt) > Date.now()));
   const c = stage.company;
   return (
-    <section aria-label="Campaigns" className="campaign-stage flex flex-col gap-5 px-6 pt-5 pb-2">
-      <h2 className="campaign-section-title">Explore campaigns</h2>
-      <p className="text-[12px] text-gray-500">Choose a campaign. Each accepted contribution earns the reward shown.</p>
-      {c && (
-        <article className="overflow-hidden rounded-3xl border border-gray-200 bg-white">
-          <img src="/campaign-contribution.jpg" alt="A small contribution, ready to make" className="favour-card-image" />
-          <div className="p-5">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">Company campaign</p>
-            <h3 className="campaign-title mt-2 text-[26px] font-bold tracking-tight text-gray-950">{c.campaign.company}</h3>
-            <CompanyTrust c={c.campaign} className="mt-2" />
-            <ProductLine c={c.campaign} className="mt-3" />
-            <p className="mt-3 text-[15px] leading-relaxed text-gray-700 break-words">{c.campaign.brief}</p>
-            <div className="mt-4 flex items-center justify-between border-t border-gray-100 pt-4 text-[13px]">
-              <span className="text-gray-600">{c.openPieces} pieces open</span>
-              <span className="font-semibold text-amber-700">{c.campaign.rewardPerPiecePoints} pts per accepted piece</span>
+    <section aria-label="Campaigns" className="campaign-stage campaign-discovery">
+      <div className="campaign-intro"><p className="campaign-kicker">Small acts. Real people.</p><h2>Find your next favour.</h2><p>A little help, an honest opinion, something good to share.</p></div>
+      <article className="welcome-hero">
+        <img src="/campaign-coffee.jpg" alt="A neighbourhood café, a place to share a small favour" />
+        <div className="welcome-shade" />
+        <div className="welcome-copy">
+          <p className="campaign-kicker">By FAVOUR · Welcome campaign</p>
+          <h3>{hero.name}</h3>
+          <p>{hero.tagline}</p>
+          <div className="welcome-reward"><span>{hero.rewardPerTask} points per accepted favour</span>{signedIn && steps.length > 0 && <span>{done} of {steps.length} done</span>}</div>
+          <button type="button" onClick={onOpenWelcome}>Explore Welcome <span aria-hidden>↗</span></button>
+        </div>
+      </article>
+      <div className="campaign-grid-heading"><h3>Explore campaigns</h3><p>Choose where you can lend a hand.</p></div>
+      <div className="discovery-grid">
+        {cards.map((campaign) => {
+          const ended = Date.parse(campaign.endsAt) <= Date.now();
+          return <article className="discovery-card" key={campaign.id}>
+            <img src={campaign.id === "relay-launch" ? "/campaign-friends.jpg" : campaign.heroImage || "/campaign-friends.jpg"} alt={campaign.id === "relay-launch" ? "Friends spending time together outdoors" : campaign.name} />
+            <div className="discovery-card-copy"><p className="campaign-kicker">{ended ? "Past campaign" : "By FAVOUR"}</p><h3>{campaign.name}</h3><p>{campaign.tagline.replaceAll("—", ",")}</p>
+              <div className="discovery-reward">{campaign.rewardKind === "points" ? `${campaign.rewardPerTask} points` : `${campaign.rewardPerTask} USDC`} per accepted favour{ended && <small>Campaign ended {new Date(campaign.endsAt).toLocaleDateString("en-GB", {month: "short", year: "numeric"})}. Rewards are historical.</small>}</div>
+              <button type="button" onClick={() => onOpenCampaign(campaign)}>{ended ? "View campaign" : "Explore campaign"} <span aria-hidden>↗</span></button>
             </div>
-            <button type="button" onClick={() => onOpenCompany(c.campaign.id)} className="mt-4 w-full min-h-[48px] rounded-full campaign-action-dark bg-gray-900 text-white text-[15px] font-semibold">Explore campaign →</button>
-          </div>
-        </article>
-      )}
-      {w && welcome && (
-        <article className="relative overflow-hidden rounded-3xl bg-gray-950 text-white">
-          {(
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src="/campaign-contribution.jpg" alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover" />
-          )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/50 to-black/15" />
-          <div className="relative px-5 pt-24 pb-5">
-            <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/80">By FAVOUR · Welcome campaign</span>
-            <h3 className="campaign-title mt-2 text-[28px] font-bold leading-[1.1] tracking-tight">{welcome.campaign.name}</h3>
-            <p className="mt-2 text-[14px] leading-relaxed text-white/85">{welcome.campaign.tagline}</p>
-            <div className="mt-4 flex items-center justify-between text-[12px] text-white/80">
-              <span>{signedIn ? `${w.done} of ${w.total} done` : `${w.total} small favours`}</span><span>{welcome.campaign.rewardPerTask} pts per accepted favour</span>
-            </div>
-            {signedIn && <div className="mt-2"><ProgressDots total={w.total} done={w.done} waiting={w.waiting} /></div>}
-            <button type="button" onClick={onOpenWelcome} className="mt-4 w-full min-h-[48px] rounded-full campaign-action-light bg-white text-gray-900 text-[15px] font-semibold">
-              {w.finished ? "See your Welcome favours" : signedIn && w.done + w.waiting > 0 ? "Continue Welcome →" : "Explore Welcome →"}
-            </button>
-          </div>
-        </article>
-      )}
-      <button type="button" onClick={onForCompanies} className="campaign-owner-entry text-left rounded-3xl border border-gray-200 bg-white p-5 min-h-[110px]">
-        <img src="/campaign-contribution.jpg" alt="" className="favour-card-image rounded-2xl mb-4" />
-        <span className="block text-[11px] font-semibold uppercase tracking-[0.16em] text-gray-500">For teams & creators</span>
-        <span className="mt-2 block text-[21px] font-bold tracking-tight text-gray-950">Build a campaign ↗</span>
-        <span className="mt-2 block text-[14px] leading-relaxed text-gray-600">Product feedback, honest reviews, original stories. Build your campaign.</span>
-      </button>
-      <p className="text-[10px] text-gray-500">Campaign photograph: Unsplash, photo 1521737711867-e3b97375f902. Used as an illustration.</p>
-      {!c && <p className="text-[12px] text-gray-500">Company campaigns open here after review.{w && welcome ? " Welcome is open now." : " Start a campaign with your own product and brief."}</p>}
+          </article>;
+        })}
+        {c && <article className="discovery-card"><img src="/campaign-friends.jpg" alt="People sharing time together" /><div className="discovery-card-copy"><p className="campaign-kicker">Company campaign</p><h3>{c.campaign.company}</h3><CompanyTrust c={c.campaign} /><ProductLine c={c.campaign} /><p>{c.campaign.brief}</p><div className="discovery-reward">{c.campaign.rewardPerPiecePoints} points per accepted piece · {c.openPieces} pieces open</div><button type="button" onClick={() => onOpenCompany(c.campaign.id)}>Explore campaign ↗</button></div></article>}
+        <article className="discovery-card campaign-create"><img src="/campaign-coffee.jpg" alt="A café where people meet and help each other" /><div className="discovery-card-copy"><p className="campaign-kicker">For teams & creators</p><h3>Bring people into your next idea.</h3><p>Invite honest feedback, useful stories and small acts of help.</p><button type="button" onClick={onForCompanies}>Build a campaign <span aria-hidden>↗</span></button></div></article>
+      </div>
     </section>
   );
 }
@@ -116,7 +103,7 @@ export function WelcomeCampaignView({ welcome, signedIn, busyId, error, onStart,
       <div className="relative overflow-hidden bg-gray-950 text-white">
         {(
           // eslint-disable-next-line @next/next/no-img-element
-          <img src="/campaign-contribution.jpg" alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover" />
+          <img src="/campaign-friends.jpg" alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover" />
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/65 to-black/40" />
         <div className="relative px-6 pt-12 pb-6">
@@ -140,10 +127,11 @@ export function WelcomeCampaignView({ welcome, signedIn, busyId, error, onStart,
           </ul>
         </div>
         {error && <p role="alert" className="text-[14px] text-error-700 bg-error-100 border border-error-200 rounded-xl px-4 py-3">{error}</p>}
+        {total === 0 && <p className="rounded-2xl bg-white border border-gray-200 p-4 text-[14px] text-gray-600">The Welcome favour list is being refreshed. No favours are available to start in this campaign right now.</p>}
         <ol className="flex flex-col gap-2.5">
           {welcome.steps.map((s, i) => (
             <li key={s.sourceTaskId} className="rounded-2xl bg-white border border-gray-200 p-4">
-              <img src="/campaign-contribution.jpg" alt="" className="favour-card-image rounded-xl mb-4" loading="lazy" />
+              <img src="/campaign-friends.jpg" alt="" className="favour-card-image rounded-xl mb-4" loading="lazy" />
               <div className="flex items-start gap-3">
                 <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center text-gray-500 shrink-0">
                   <CategoryIcon category={s.category} size={18} />
