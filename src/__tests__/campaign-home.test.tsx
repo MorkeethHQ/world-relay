@@ -15,7 +15,7 @@ describe("campaign home with the production zero-step Welcome response", () => {
     const html = render(welcome);
     expect(html).toContain("Your First Favours");
     expect(html).toContain("welcome-hero");
-    expect(html).toContain("10 points per accepted favour");
+    expect(html).toContain("Up to 10 points per accepted favour");
     expect(html).toContain("/campaign-coffee.jpg");
     expect(html).not.toContain("0 small favours");
   });

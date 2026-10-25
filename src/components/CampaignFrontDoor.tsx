@@ -47,6 +47,8 @@ export function CampaignStageCards({ stage, welcome, signedIn, onOpenWelcome, on
   const hero = welcome?.campaign ?? originalWelcome;
   const steps = welcome?.steps ?? [];
   const done = steps.filter((s) => s.state === "done").length;
+  const rewards = steps.map((s) => s.points);
+  const rewardLabel = rewards.length ? Math.min(...rewards) === Math.max(...rewards) ? `${rewards[0]} points per accepted favour` : `${Math.min(...rewards)} to ${Math.max(...rewards)} points per accepted favour` : `Up to ${rewardLabel}`;
   const registry = [...CAMPAIGNS, ...campaigns.filter((c) => !CAMPAIGNS.some((saved) => saved.id === c.id))];
   const cards = registry.filter((c) => c.id !== "first-favour" && (c.id === "relay-launch" || Date.parse(c.endsAt) > Date.now()));
   const c = stage.company;
@@ -60,7 +62,7 @@ export function CampaignStageCards({ stage, welcome, signedIn, onOpenWelcome, on
           <p className="campaign-kicker">By FAVOUR · Welcome campaign</p>
           <h3>{hero.name}</h3>
           <p>{hero.tagline}</p>
-          <div className="welcome-reward"><span>{hero.rewardPerTask} points per accepted favour</span>{signedIn && steps.length > 0 && <span>{done} of {steps.length} done</span>}</div>
+          <div className="welcome-reward"><span>{rewardLabel}</span>{signedIn && steps.length > 0 && <span>{done} of {steps.length} done</span>}</div>
           <button type="button" onClick={onOpenWelcome}>Explore Welcome <span aria-hidden>↗</span></button>
         </div>
       </article>
@@ -110,7 +112,7 @@ export function WelcomeCampaignView({ welcome, signedIn, busyId, error, onStart,
           <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/70">Welcome campaign · points</span>
           <h1 className="mt-1.5 text-[28px] font-bold leading-[1.1] tracking-tight">{welcome.campaign.name}</h1>
           <p className="mt-2 text-[14px] leading-snug text-white/80">{welcome.campaign.tagline}</p>
-          <p className="mt-4 text-sm text-white">{welcome.campaign.rewardPerTask} points per accepted favour. Points only, no cash payment.</p>
+          <p className="mt-4 text-sm text-white">Rewards are shown on each favour. Points only, no cash payment.</p>
           <div className="mt-4">
             <ProgressDots total={total} done={done} waiting={welcome.steps.filter((s) => s.state === "sent" || s.state === "in_review").length} />
             <p className="mt-2 text-[12px] text-white/70">{signedIn ? `${done} of ${total} done` : `${total} favours`} · runs until {new Date(welcome.campaign.endsAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</p>
