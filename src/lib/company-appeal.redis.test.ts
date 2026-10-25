@@ -105,7 +105,7 @@ describe.skipIf(!enabled)("company review — actual Redis transaction", () => {
     expect(await listContributions(f.participant)).toHaveLength(1);
   });
   it("preserves ordinary noncompany poster confirmation", async () => {
-    const f = await setup(); const ordinary = { ...f.task, companyCampaignId: undefined };
+    const f = await setup(); const ordinary = { ...f.task, maxCompletions: 1, companyCampaignId: undefined };
     await f.redis.set(`task:${f.task.id}`, JSON.stringify(ordinary));
     expect(await posterConfirm(f.task.id, true)).toMatchObject({ status: "completed" });
   });
