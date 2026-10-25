@@ -31,9 +31,11 @@ describe("1. the in-app favour screen shows the thread", () => {
 });
 
 describe("2. a Profile favour row opens the favour page", () => {
-  it("each History row links to its project (19 Oct 2026: rows are contributions, not tasks)", () => {
+  it("each History row returns to its campaign", () => {
     const page = src("src/components/fv/HistoryScreen.tsx");
-    expect(page).toMatch(/href=\{`\/project\/\$\{encodeURIComponent\(c\.campaignId\)\}`\}/);
+    expect(page).toContain("/?campaign=");
+    expect(page).toContain('c.campaignId === "first-favour" ? "welcome"');
+    expect(page).not.toContain("/project/");
   });
 });
 
