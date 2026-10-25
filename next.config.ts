@@ -13,7 +13,7 @@ function buildRevision(): string {
 
 const nextConfig: NextConfig = {
   distDir: fixtureStoreOrigin() ? ".next-fixture" : ".next",
-  outputFileTracingRoot: process.cwd(),
+  outputFileTracingRoot: fixtureStoreOrigin() ? `${process.cwd()}/..` : process.cwd(),
   ...(fixtureStoreOrigin() ? { turbopack: { root: `${process.cwd()}/..` } } : {}),
   serverExternalPackages: ["@xmtp/node-sdk", "@xmtp/node-bindings"],
   // The dev-only indicator sits bottom-left, on top of the Favours tab at phone
@@ -24,7 +24,7 @@ const nextConfig: NextConfig = {
   // to origins it is told about, so a phone on the same Wi-Fi gets a page that
   // never starts. Only with the fixture on (never in a production build), and
   // only for the one address scripts/test-product.sh passes.
-  ...(fixtureStoreOrigin() && process.env.FAVOUR_FIXTURE_LAN_HOST ? { allowedDevOrigins: [process.env.FAVOUR_FIXTURE_LAN_HOST] } : {}),
+  ...(fixtureStoreOrigin() ? { allowedDevOrigins: ["127.0.0.1", "localhost", ...(process.env.FAVOUR_FIXTURE_LAN_HOST ? [process.env.FAVOUR_FIXTURE_LAN_HOST] : [])] } : {}),
   // Bind test evidence to the code that Next actually compiled. Vercel supplies
   // its commit SHA; local production builds derive it from the checkout.
   env: {
