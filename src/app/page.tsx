@@ -173,7 +173,9 @@ export default function Home() {
     setIsVerifying(false);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    const response = await fetch("/api/session", { method: "DELETE" });
+    if (!response.ok) { setAuthError("We could not sign you out. Please try again."); return; }
     localStorage.removeItem("relay_user_id");
     localStorage.removeItem("relay_verification_level");
     setUserId(null);

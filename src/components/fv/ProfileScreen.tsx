@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { Contribution } from "@/lib/completions";
-import { ensureSession } from "@/lib/reauth";
 import { builderBadge, feedbackerBadge, reviewerBadge, type Badge } from "@/lib/badges";
 import { readStreak, type Streak } from "@/lib/deck-view";
 import { displayName, profilePicture, useWorldUsers } from "@/hooks/useWorldUser";
@@ -33,7 +32,7 @@ export function ProfileView({ address, name, picture, mine, streak, posted, onSi
 }) {
   const reviews = mine?.length ?? 0;
   const withFix = (mine ?? []).filter((c) => (c.proofNote ?? "").toLowerCase().includes("fix")).length;
-  const points = (mine ?? []).reduce((n, c) => n + (c.points || 0) + (c.streakBonus || 0), 0);
+  const points = (mine ?? []).reduce((n, c) => n + (c.points || 0), 0);
   return (
     <div className="fv min-h-screen max-w-lg mx-auto">
       <header className="sticky top-0 z-10 fv-rule-b bg-white px-6 h-14 flex items-center justify-between">
@@ -43,14 +42,8 @@ export function ProfileView({ address, name, picture, mine, streak, posted, onSi
       <div className="px-6 py-5 pb-28 flex flex-col gap-5">
         {!address ? (
           <>
-            <div className="fv-box p-5 flex flex-col gap-3"><p className="fv-h">Not signed in</p><p className="fv-body">Sign in from the deck when you try your first project.</p><Link href="/" className="fv-btn fv-btn-ink">Open the deck</Link></div>
-            <section aria-label="Badges you can earn" className="flex flex-col gap-3">
-              <h2 className="fv-label">Badges you can earn</h2>
-              <BadgeRow b={reviewerBadge(0)} />
-              <BadgeRow b={feedbackerBadge(0)} />
-              <BadgeRow b={builderBadge(false)} />
-            </section>
-            <p className="fv-body text-[12px]">Ten reviews is the first real milestone. Builders pay reviewers in USDC through an escrow FAVOUR never holds.</p>
+            <div className="fv-box p-5 flex flex-col gap-3"><p className="fv-h">Not signed in</p><p className="fv-body">Sign in to keep your campaign work with your wallet.</p><Link href="/" className="fv-btn fv-btn-ink">Explore campaigns</Link></div>
+            <p className="fv-body text-[12px]">Rewards are shown by each campaign. Points are not cash. Cash is paid only after a confirmed release.</p>
           </>
         ) : (
           <>
@@ -59,27 +52,21 @@ export function ProfileView({ address, name, picture, mine, streak, posted, onSi
               <img src={picture ?? funkyArt(name)} alt="" className="w-28 h-28 object-cover" style={{ borderRight: "2px solid #000" }} />
               <div className="p-4 flex flex-col justify-center gap-1 min-w-0">
                 <p className="fv-title break-words">{name}</p>
-                <p className="fv-body text-[12px]">Verified human on World</p>
+                <p className="fv-body text-[12px]">Signed in with World wallet</p>
               </div>
             </section>
-            <section className="fv-box grid grid-cols-3">
+            <section className="fv-box grid grid-cols-2">
               <div className="p-3" style={{ borderRight: "2px solid #000" }}><p className="fv-title fv-num fv-blue">{points}</p><p className="fv-label">points</p></div>
-              <div className="p-3" style={{ borderRight: "2px solid #000" }}><p className="fv-title fv-num">{reviews}</p><p className="fv-label">reviews</p></div>
-              <div className="p-3"><p className="fv-title fv-num">{streak?.days ?? 0}</p><p className="fv-label">day streak</p></div>
+              <div className="p-3" style={{ borderRight: "2px solid #000" }}><p className="fv-title fv-num">{reviews}</p><p className="fv-label">accepted favours</p></div>
+
             </section>
             {failed && (
               <div role="alert" className="fv-box p-4 flex flex-col gap-2">
-                <p className="fv-body">Could not load your reviews.</p>
+                <p className="fv-body">Could not load your accepted work.</p>
                 <button type="button" className="fv-btn fv-btn-sm" onClick={onRetry}>Try again</button>
               </div>
             )}
-            <section aria-label="Badges" className="flex flex-col gap-3">
-              <h2 className="fv-label">Badges</h2>
-              <BadgeRow b={reviewerBadge(reviews)} />
-              <BadgeRow b={feedbackerBadge(withFix)} />
-              <BadgeRow b={builderBadge(posted)} />
-            </section>
-            <p className="fv-body text-[12px]">Ten reviews is the first real milestone. Builders pay reviewers in USDC through an escrow FAVOUR never holds. <Link href="/terms" className="underline underline-offset-2">Terms</Link> · <Link href="/privacy" className="underline underline-offset-2">Privacy</Link></p>
+            <p className="fv-body text-[12px]">Rewards are shown by each campaign. Points are not cash. Cash is paid only after a confirmed release. <Link href="/terms" className="underline underline-offset-2">Terms</Link> · <Link href="/privacy" className="underline underline-offset-2">Privacy</Link></p>
           </>
         )}
       </div>
@@ -102,14 +89,24 @@ export function ProfileScreen() {
       .catch(() => { setFailed(true); setMine([]); });
   };
   useEffect(() => {
-    try { setStreak(readStreak(localStorage.getItem("favour_streak"))); setPosted(localStorage.getItem("favour_role") === JSON.stringify("build")); } catch {}
-    const stored = (() => { try { return localStorage.getItem("relay_user_id"); } catch { return null; } })();
-    if (!stored) return;
-    setAddress(stored);
-    ensureSession(stored.startsWith("0x") ? stored : null).finally(readMine);
+    fetch("/api/session", { cache: "no-store", signal: AbortSignal.timeout(8000) })
+      .then(async (r) => {
+        if (!r.ok) throw new Error("session");
+        const session = await r.json();
+        if (!session.authenticated) return;
+        setAddress(session.address);
+        readMine();
+      }).catch(() => setFailed(true));
     // readMine reads nothing that changes; the effect runs once per mount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  const onSignOut = () => { try { localStorage.removeItem("relay_user_id"); localStorage.removeItem("relay_verification_level"); } catch {} setAddress(null); };
+  const onSignOut = async () => {
+    try {
+      const response = await fetch("/api/session", { method: "DELETE" });
+      if (!response.ok) throw new Error("sign out");
+      localStorage.removeItem("relay_user_id"); localStorage.removeItem("relay_verification_level");
+      setAddress(null); setMine(null);
+    } catch { setFailed(true); }
+  };
   return <ProfileView address={address} name={address ? displayName(address) : ""} picture={address ? profilePicture(address) : null} mine={mine} streak={streak} posted={posted} onSignOut={onSignOut} failed={failed} onRetry={readMine} />;
 }
