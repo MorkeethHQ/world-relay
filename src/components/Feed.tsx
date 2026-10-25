@@ -445,6 +445,21 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [tab, setTab] = useState<Tab>("available");
   const [tabDirection, setTabDirection] = useState<"left" | "right">("right");
+  // Next keeps this component mounted when Discover targets the current route.
+  // Dismiss its internal proof/detail view as well as changing the URL.
+  useEffect(() => {
+    const discover = (event: Event) => {
+      if ((event as CustomEvent<string>).detail !== "/") return;
+      window.history.replaceState(null, "", "/");
+      setSelectedTask(null);
+      setCompanyCampaignId(null);
+      setTab("available");
+      setView("board");
+    };
+    window.addEventListener("favour:nav-reselect", discover);
+    return () => window.removeEventListener("favour:nav-reselect", discover);
+  }, []);
+
   // Direction-aware tab switch so content phases in from the correct side (World App style)
   const changeTab = (next: Tab) => {
     const order: Tab[] = ["available", "polls", "completed"];
