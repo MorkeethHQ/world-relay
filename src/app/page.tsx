@@ -1,12 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { usePathname } from "next/navigation";
-import { CuratedHome } from "@/components/fv/CuratedHome";
-import { ProjectsHome } from "@/components/fv/ProjectsHome";
+
+
 import { MiniKit } from "@worldcoin/minikit-js";
 import { Feed } from "@/components/Feed";
-import { Onboarding } from "@/components/Onboarding";
 import { WorldAppHandoff } from "@/components/WorldAppHandoff";
 import { displayName } from "@/hooks/useWorldUser";
 import { trackReauthOncePerDay } from "@/lib/funnel-events";
@@ -37,9 +35,6 @@ function verificationSubtitle(level: VerificationLevel): string {
 export default function Home() {
   // The image-led campaign board is the front door again. Keep /board as a
   // stable alias so existing links continue to work.
-  const pathname = usePathname();
-  const board = pathname === "/" || pathname === "/board";
-  const list = pathname === "/apps";
   const [userId, setUserId] = useState<string | null>(null);
   const [verificationLevel, setVerificationLevel] = useState<VerificationLevel>(null);
   const [isVerifying, setIsVerifying] = useState(false);
@@ -241,84 +236,6 @@ export default function Home() {
 
   if (!miniKitChecked) return null;
 
-  const completeOnboarding = () => {
-    localStorage.setItem("relay_onboarded", "true");
-    setOnboarded(true);
-  };
-
-  // Brand-new users (never onboarded) get the guided click-through. Its World
-  // ID step calls the same handleVerify used below, so the existing MiniKit
-  // auth path is preserved, not replaced. Stays mounted through sign-in until
-  // the user taps through the final screen, which sets the onboarded flag.
-  // THE PROJECT PICKER leads. No onboarding wall: a signed-out visitor sees every
-  // project, and the one-screen sign-in sheet opens at the first tap that needs a
-  // wallet (components/fv/SignInSheet.tsx).
-  if (!board) {
-    const auth = { userId, isInWorldApp, isVerifying, authError, onVerify: handleVerify };
-    return list ? <ProjectsHome auth={auth} /> : <CuratedHome />;
-  }
-
-  if (!onboarded) {
-    return (
-      <Onboarding
-        isInWorldApp={isInWorldApp}
-        isVerifying={isVerifying}
-        authed={!!userId}
-        verificationLevel={verificationLevel}
-        authError={authError}
-        onVerify={handleVerify}
-        onComplete={completeOnboarding}
-      />
-    );
-  }
-
-  if (!userId) {
-    return (
-      <div className="flex flex-col min-h-screen max-w-lg mx-auto w-full bg-white items-center justify-between px-6 py-16">
-        <div />
-
-        <div className="flex flex-col items-center gap-4 w-full max-w-sm">
-          <h1 className="text-[56px] font-bold tracking-tight text-gray-900 leading-none animate-[countUp_0.6s_ease-out]">
-            FAVOUR
-          </h1>
-          <p className="text-[15px] text-gray-400 text-center leading-relaxed max-w-[240px] animate-[fadeSlideIn_0.5s_ease-out_0.2s_both]">
-            Real tasks. Real people.<br />Verified on-chain.
-          </p>
-          <div className="flex items-center gap-3 mt-2 animate-[fadeSlideIn_0.5s_ease-out_0.4s_both]">
-            <span className="text-[11px] text-gray-300 uppercase tracking-widest">Tasks</span>
-            <span className="w-1 h-1 rounded-full bg-gray-200" />
-            <span className="text-[11px] text-gray-300 uppercase tracking-widest">Polls</span>
-            <span className="w-1 h-1 rounded-full bg-gray-200" />
-            <span className="text-[11px] text-gray-300 uppercase tracking-widest">Campaigns</span>
-          </div>
-        </div>
-
-        <div className="w-full max-w-sm space-y-3 animate-[fadeSlideIn_0.5s_ease-out_0.5s_both]">
-          <div aria-live="polite">
-            <LiveFeedback state={isVerifying ? "pending" : undefined}>
-              <Button
-                onClick={handleVerify}
-                disabled={isVerifying}
-                fullWidth
-                variant="primary"
-                size="lg"
-              >
-                {isInWorldApp ? "Sign in" : "Continue"}
-              </Button>
-            </LiveFeedback>
-          </div>
-          {authError && (
-            <p className="text-[13px] text-error-600 text-center" role="alert">
-              {authError}
-            </p>
-          )}
-          {!isInWorldApp && (
-            <WorldAppHandoff className="pt-1" />
-          )}
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="relative">

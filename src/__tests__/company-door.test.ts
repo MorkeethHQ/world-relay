@@ -68,14 +68,10 @@ describe("the first screen leads with doing, not with planning", () => {
 
 describe("the board's order after the company door", () => {
   const feed = readFileSync("src/components/Feed.tsx", "utf8");
-  it("today's mission comes before the list of campaign cards", () => {
-    const mission = feed.indexOf("<DailyMissionCard");
-    const cards = feed.indexOf("campaignCards.lead.map");
-    // R19: the campaign stage leads, then today's mission, then other campaigns.
-    const earn = feed.indexOf("<CampaignStageCards");
-    expect(earn).toBeGreaterThan(0);
-    expect(mission).toBeGreaterThan(earn);
-    expect(cards).toBeGreaterThan(mission);
+  it("shows campaign cards without a raw daily mission", () => {
+    expect(feed).toContain("<CampaignStageCards");
+    expect(feed).toContain("[...campaignCards.lead, ...campaignCards.rest].map");
+    expect(feed).not.toContain("<DailyMissionCard");
   });
 });
 

@@ -51,7 +51,7 @@ import {
   pickProofStrip,
 } from "@/lib/board-rank";
 import { JuryMode, type JuryCard } from "@/components/JuryMode";
-import { AppsToCheckDoor } from "@/components/AppsToCheck";
+
 import type { JuryDayView } from "@/lib/jury-game";
 import { ForCompaniesView, CompanyTrust, ProductLine, CampaignDraftForm, CampaignDraftList, CompanyCampaignCard, CompanyCampaignView } from "@/components/CompanyCampaign";
 import { pickCampaignToDo, rankCampaignCards } from "@/lib/company-door";
@@ -1243,6 +1243,7 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
       <div className="sticky top-0 z-10 bg-white border-b border-gray-100">
         <div className="flex items-center justify-between px-6 py-3">
           <h1 className="text-[18px] font-bold tracking-tight text-gray-900">FAVOUR</h1>
+          {!userId && <button type="button" onClick={onReauth} className="min-h-[44px] text-[13px] font-semibold">Sign in</button>}
           {userId && (
             <button
               onClick={() => { hapticTap(); setPostCampaignId(null); setView("post"); }}
@@ -1259,45 +1260,6 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
         key={tab}
         className="flex-1 flex flex-col"
       >
-
-      {/* Keep the July front door while all actions continue through the current
-          jury, task, proof and settlement paths. */}
-      {tab === "available" && !loading && (
-        <>
-          <div className="px-6 pt-4 animate-[fadeSlideIn_0.4s_ease-out]">
-            <button
-              onClick={() => { hapticTap(); setView("jury"); }}
-              className="relative w-full h-[104px] rounded-2xl overflow-hidden active:scale-[0.98] transition-transform text-left"
-            >
-              <img src="/hero/cyclist.jpg" alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover" />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/45 to-black/25" />
-              <div className="relative h-full px-5 py-4 flex flex-col justify-end">
-                <span className="text-[10px] font-bold text-white/70 tracking-[0.2em] uppercase">The game</span>
-                <p className="text-[22px] font-black text-white leading-none tracking-wider mt-1">REAL OR NOT</p>
-                <p className="text-[12px] text-white/70 mt-1.5">Swipe proofs, spot the fakes, earn points</p>
-              </div>
-              <span className="absolute top-3 right-3 flex -space-x-1.5">
-                <span className="w-7 h-7 rounded-full bg-black/50 border border-red-400/60 flex items-center justify-center text-red-400 text-[11px] font-black">✕</span>
-                <span className="w-7 h-7 rounded-full bg-black/50 border border-green-400/60 flex items-center justify-center text-green-400 text-[11px] font-black">✓</span>
-              </span>
-            </button>
-          </div>
-          <div className="px-6 pt-6 pb-2 animate-[fadeSlideIn_0.4s_ease-out]">
-            <p className="text-[19px] font-bold text-gray-900 tracking-tight leading-snug">Do a favour. Prove it. Get rewarded.</p>
-            <div className="flex items-center gap-4 mt-2">
-              <div className="flex items-baseline gap-1.5"><span className="text-[15px] font-bold text-gray-900">{tasks.filter(t => t.status === "open").length}</span><span className="text-[12px] text-gray-400">open now</span></div>
-              <div className="w-1 h-1 rounded-full bg-gray-200" />
-              <div className="flex items-baseline gap-1.5"><span className="text-[15px] font-bold text-gray-900">{tasks.filter(t => t.status === "completed").length}</span><span className="text-[12px] text-gray-400">verified</span></div>
-              <div className="w-1 h-1 rounded-full bg-gray-200" />
-              <div className="flex items-baseline gap-1.5"><span className="text-[15px] font-bold text-gray-900">${tasks.filter(t => (t.onChainId != null || t.escrowTxHash) && t.settlementTx).reduce((s, t) => s + t.bountyUsdc, 0).toFixed(0)}</span><span className="text-[12px] text-gray-400">paid out</span></div>
-            </div>
-          </div>
-        </>
-      )}
-
-      {/* POSTED APPS (pivot, 17 Oct 2026): the quiet door to /apps, where people
-          say YES to apps others posted. Ten outside YES put an app live. */}
-      {tab === "available" && !loading && <AppsToCheckDoor />}
 
       {/* THE MAIN ACTION (T3, 2026-09-22): do a piece for a company and earn.
           The company path, the example and "Plan a campaign", is behind the
@@ -1317,152 +1279,12 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
       )}
 
 
-      {/* THE DAILY MISSION leads the screen. Everything else on this tab is below
-          it, including creation, which is the small "+ New" in the header. */}
-      {tab === "available" && !loading && dailyMission && missionDone && (
-        <DailyMissionDoneCard
-          task={dailyMission}
-          points={missionDone.points}
-          proofImageUrl={missionDone.proofImageUrl}
-          at={missionDone.at}
-        />
-      )}
-      {tab === "available" && !loading && dailyMission && !missionDone && (
-        <DailyMissionCard
-          task={dailyMission}
-          proofs={missionProofs}
-          onStart={() => startFavour(dailyMission)}
-        />
-      )}
-
-      {tab === "available" && !loading && userId && (
-        <details className="mx-6 mt-4 rounded-2xl border border-gray-200 bg-white p-4">
-          <summary className="cursor-pointer text-[14px] font-semibold text-gray-900">Ask a one-off favour</summary>
-          <FeedComposer userId={userId} onReauth={onReauth} onPosted={() => fetchTasks()} onMore={() => { hapticTap(); setPostCampaignId(null); setView("post"); }} />
-        </details>
-      )}
-
-      {/* The live campaigns, each labelled with its company's trust. Below today's
-          mission and review, so the first screen is the earn card, then the
-          mission (T3, 2026-09-22: three cards used to push the mission down). */}
-      {/* The campaign already on the stage above is not printed a second time. */}
-      {tab === "available" && !loading && campaignCards.lead.map((c) => (
+      {tab === "available" && loading && <p role="status" className="px-6 py-8 text-gray-500">Loading campaigns…</p>}
+      {tab === "available" && fetchError && <p role="alert" className="px-6 py-4 text-gray-600">Campaigns could not load. Please refresh to try again.</p>}
+      {tab === "available" && !loading && [...campaignCards.lead, ...campaignCards.rest].map((c) => (
         c.id === campaignStage.company?.campaign.id ? null :
         <CompanyCampaignCard key={c.id} c={c} onOpen={() => { hapticTap(); setCompanyCampaignId(c.id); setView("company"); }} />
       ))}
-
-      {tab === "available" && !loading && showFirstRunCoach && starterFavour && (
-        <StarterFavourBanner
-          task={starterFavour}
-          onStart={() => startFavour(starterFavour)}
-          onDismiss={dismissFirstRunCoach}
-        />
-      )}
-
-      {/* The no-starter fallback must also stand down for the mission, or the screen
-          carries two "start here" cards again by a different route. Caught by
-          rendering the real board at 390 px rather than by reading the branch. */}
-      {tab === "available" && !loading && showFirstRunCoach && !starterFavour && !dailyMission && (
-        <div className="mx-6 mt-4 rounded-2xl border border-gray-200 bg-white px-4 py-4">
-          <p className="text-[13px] font-semibold text-gray-900">Pick any favour below</p>
-          <p className="text-[13px] text-gray-500 mt-1">Tap <span className="font-medium text-gray-700">Do it</span>, follow the steps, submit proof.</p>
-          <button type="button" onClick={dismissFirstRunCoach} className="mt-3 text-[12px] font-medium text-gray-400 hover:text-gray-700">Got it</button>
-        </div>
-      )}
-
-      {/* Liveness: real recent activity from logged events (renders nothing when
-          there's none). Keeps a thin board feeling alive without fake data. */}
-      {tab === "available" && !loading && (
-        <div className="px-6">
-          <LivenessStrip refreshKey={tasks.length} />
-        </div>
-      )}
-
-      {/* Returning-user freshness: activity while you were away. */}
-      {tab === "available" && !loading && freshReady && freshIds.size > 0 && (
-        <div className="px-6 pb-1 animate-[fadeSlideIn_0.4s_ease-out]">
-          <div className="inline-flex items-center gap-2 rounded-full bg-white border border-gray-200 pl-2.5 pr-3 py-1.5">
-            <span className="relative flex w-2 h-2">
-              <span className="absolute inline-flex w-full h-full rounded-full bg-green-400 opacity-70 animate-ping" />
-              <span className="relative inline-flex w-2 h-2 rounded-full bg-green-500" />
-            </span>
-            <span className="text-[12px] font-medium text-gray-700">
-              {freshIds.size} new since you were here
-            </span>
-          </div>
-        </div>
-      )}
-
-      {/* Pull-to-refresh indicator */}
-      <div
-        className="flex items-center justify-center overflow-hidden transition-all duration-200 ease-out"
-        style={{ height: pullDistance > 0 || isRefreshing ? `${Math.max(pullDistance, isRefreshing ? 40 : 0)}px` : "0px" }}
-        aria-live="polite"
-      >
-        {isRefreshing ? (
-          <svg className="w-5 h-5 text-gray-400 animate-spin" viewBox="0 0 24 24" fill="none">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-          </svg>
-        ) : pullDistance > 0 ? (
-          <div className="flex flex-col items-center gap-1">
-            <svg
-              className="w-4 h-4 text-gray-400 transition-transform duration-150"
-              style={{ transform: pullDistance >= 60 ? "rotate(180deg)" : "rotate(0deg)" }}
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <polyline points="6 9 12 15 18 9" />
-            </svg>
-            <span className="text-xs text-gray-500">
-              {pullDistance >= 60 ? "Release to refresh" : "Pull to refresh"}
-            </span>
-          </div>
-        ) : null}
-      </div>
-
-      {/* Scroll anchor for "new tasks" toast */}
-      <div ref={feedTopRef} />
-
-      {/* New tasks toast */}
-      {newTaskToast.visible && newTaskToast.count > 0 && (
-        <div className="px-6 pt-4">
-          <button
-            onClick={() => {
-              feedTopRef.current?.scrollIntoView({ behavior: "smooth" });
-              setNewTaskToast({ count: 0, visible: false });
-            }}
-            className="w-full bg-white border border-gray-200 rounded-xl px-5 py-3 flex items-center justify-center gap-2 active:scale-[0.98] transition-transform shadow-sm"
-          >
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-75" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
-            </span>
-            <span className="text-sm font-medium text-gray-900">
-              {newTaskToast.count} new {newTaskToast.count === 1 ? "favour" : "favours"} available
-            </span>
-          </button>
-        </div>
-      )}
-
-      {/* Status change toast */}
-      {statusToast.visible && statusToast.message && (
-        <div className="px-6 pt-4">
-          <div className="w-full bg-gray-50 border border-gray-200 rounded-xl px-5 py-3 flex items-center gap-3">
-            <span className="relative flex h-2 w-2 shrink-0">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-warning-500 opacity-75" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-warning-600" />
-            </span>
-            <span className={`text-sm font-medium ${statusToast.color}`}>
-              {statusToast.message}
-            </span>
-          </div>
-        </div>
-      )}
 
       {/* Campaigns (Oscar Jul 9: below REAL OR NOT, above favours). ONE hero
           leads, a second live campaign stacks below it as a full-width secondary
@@ -1517,7 +1339,7 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
       )}
 
       {/* Content */}
-      {tab !== "polls" && (
+      {tab !== "polls" && tab !== "available" && (
       <div className="flex-1 px-6 py-4">
         {/* Section eyebrow — gives favours a little breathing room below the
             campaigns block and names the third section (Oscar Jul 9). */}

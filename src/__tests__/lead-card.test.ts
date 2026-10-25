@@ -205,10 +205,7 @@ describe("R16 is wired into the Feed", () => {
   const feed = readFileSync("src/components/Feed.tsx", "utf8");
   it("campaign cards come from rankCampaignCards, never a raw map", () => {
     expect(feed).not.toMatch(/companyCampaigns\.map\(/);
-    expect(feed).toMatch(/campaignCards\.lead\.map/);
-    expect(feed).toMatch(/campaignCards\.rest\.map/);
-    // The rest render after the favour list.
-    expect(feed.indexOf("campaignCards.rest.map")).toBeGreaterThan(feed.indexOf("boardTasks : filtered).map"));
+    expect(feed).toContain("[...campaignCards.lead, ...campaignCards.rest].map");
   });
   it("the favour list goes through leadWithDoable", () => {
     expect(feed).toMatch(/return leadWithDoable\(/);

@@ -361,16 +361,11 @@ describe("the one Review favours entry", () => {
     expect(reviewEntryFor({ waiting: 0, flaggedWaiting: 0, record: { judged: 20, correct: 5 }, walletUser: true }).qualification).not.toMatch(/Your decision counts/);
     expect(reviewEntryFor({ waiting: 0, flaggedWaiting: 0, record: null, walletUser: false }).qualification).toMatch(/World App/);
   });
-  it("is the only door to the deck on the board", () => {
+  it("keeps the public board focused on campaigns", () => {
     const feed = readFileSync(join(root, "src", "components", "Feed.tsx"), "utf8");
-    const board = feed.slice(feed.indexOf("  return (\n    <div\n      ref={feedContainerRef}"), feed.indexOf("function ReviewEntryCard("));
-    // The July hero is the board's single door. It opens the current jury path,
-    // so feature switches cannot print a second card for the same destination.
-    expect((board.match(/setView\("jury"\)/g) || []).length).toBe(1);
-    expect((board.match(/<ReviewEntryCard/g) || []).length).toBe(0);
-    expect(board).not.toMatch(/<JuryGameCard/);
-    expect(feed).not.toMatch(/REAL OR NOT — hidden on first visit/);
-    expect(feed).not.toMatch(/function ReviewProofCard/);
+    expect(feed).toContain("<CampaignStageCards");
+    expect(feed).not.toContain("<DailyMissionCard");
+    expect(feed).not.toContain("<AppsToCheckDoor");
   });
 });
 

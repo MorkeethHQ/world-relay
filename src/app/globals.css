@@ -435,3 +435,7 @@ body :where(h1,h2,h3,h4,p,span,a,button,input,select,textarea,label) { font-fami
 nav[aria-label="Main navigation"] { font-family: var(--favour-font); border-top: 1px solid var(--favour-border); }
 
 .favour-card-image { display:block; width:100%; height:160px; object-fit:cover; }
+
+/* Keep campaign and proof images at their declared height above the kit reset. */
+img.h-28 { height: 7rem; }
+img.max-h-full { max-height: 100%; }

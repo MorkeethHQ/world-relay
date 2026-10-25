@@ -6,7 +6,7 @@ import { getRedis } from "@/lib/redis";
 import { DRAFT_PREFIX, PUBLISHED_INDEX, type CampaignDraft } from "@/lib/campaign-drafts";
 import { getPictureRecord } from "@/lib/campaign-pictures";
 import { pictureOf } from "@/lib/post-app";
-import { listPendingApps } from "@/lib/posted-apps";
+
 import { excludedFromEnv } from "@/lib/north-star";
 import { getTask } from "@/lib/store";
 import { campaignIntakePaused } from "@/lib/contribution-responses";
@@ -56,30 +56,7 @@ async function publishedCards(exclude: Set<string>): Promise<ProjectCard[]> {
 
 /** Every project the picker shows: pending apps and live campaigns, sorted. */
 export async function listProjects(exclude: Set<string> = excludedFromEnv()): Promise<ProjectCard[]> {
-  const pending = await listPendingApps({ exclude });
-  const waiting: ProjectCard[] = await Promise.all(
-    pending.map(async (a) => {
-      const record = await getPictureRecord(a.id).catch(() => null);
-      return {
-        id: a.id,
-        name: a.productName,
-        url: a.productUrl,
-        host: hostOf(a.productUrl),
-        ask: a.ask,
-        image: pictureOf(record, a.productName, a.productUrl).url,
-        yes: a.yes,
-        of: a.of,
-        status: a.status,
-        fromOtherSource: isFromOtherSource(a.maker, exclude),
-        pieces: [],
-        points: 10,
-        publishedAt: null,
-      };
-    }),
-  );
-  const live = await publishedCards(exclude);
-  const seen = new Set(live.map((p) => p.id));
-  return sortProjects([...live, ...waiting.filter((p) => !seen.has(p.id))]);
+  return sortProjects(await publishedCards(exclude));
 }
 
 /** One project with each favour's live state read from its task, like the old

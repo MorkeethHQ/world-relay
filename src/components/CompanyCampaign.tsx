@@ -482,6 +482,7 @@ export function CompanyCampaignCard({ c, onOpen }: { c: PublicCompanyCampaign; o
   const total = c.pieces.reduce((n, p) => n + p.count, 0);
   return (
     <button type="button" onClick={onOpen} className="mx-6 mt-4 text-left rounded-2xl border border-gray-900 bg-white p-4 active:scale-[0.99]">
+      <img src="/campaign-contribution.jpg" alt="People working together around a table" className="favour-card-image rounded-xl mb-4" />
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
           <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-900">Company campaign</p>

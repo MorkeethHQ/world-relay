@@ -28,7 +28,7 @@ describe("juryGameOn", () => {
   });
   it("the home card and the deck's day marks are drawn only behind the switch", () => {
     const feed = readFileSync(`${process.cwd()}/src/components/Feed.tsx`, "utf8");
-    expect(feed).toMatch(/\{juryGameOn\(\) && tab === "available" && !loading && userId && \(\s*<JuryGameCard/);
+    expect(feed).not.toContain("<JuryGameCard");
     const deck = readFileSync(`${process.cwd()}/src/components/JuryMode.tsx`, "utf8");
     expect(deck).toContain("const game = juryGameOn();");
     expect(deck).toMatch(/\{game && day && \(/);
