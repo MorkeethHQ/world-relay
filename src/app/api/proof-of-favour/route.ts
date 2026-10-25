@@ -21,5 +21,5 @@ export async function GET(req: NextRequest) {
   const profile = await getProofOfFavour(address);
   const nextLevel = getPointsToNextLevel(profile.totalPoints);
 
-  return NextResponse.json({ profile, nextLevel });
+  return NextResponse.json({ profile, nextLevel }, { headers: { "Cache-Control": "private, no-store" } });
 }
