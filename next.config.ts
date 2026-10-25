@@ -12,6 +12,7 @@ function buildRevision(): string {
 }
 
 const nextConfig: NextConfig = {
+  outputFileTracingRoot: process.cwd(),
   serverExternalPackages: ["@xmtp/node-sdk", "@xmtp/node-bindings"],
   // The dev-only indicator sits bottom-left, on top of the Favours tab at phone
   // width, so a tap on the tab opened the dev menu instead (review, 5 Oct 2026).
