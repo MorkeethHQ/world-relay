@@ -89,7 +89,7 @@ export async function POST(req: NextRequest) {
     const result = await response.json();
     const nullifier = idkitResponse.responses?.[0]?.nullifier || "unknown";
     const identifier = idkitResponse.responses?.[0]?.identifier || "orb";
-    const address = body.address || nullifier;
+    const address = owner;
 
     const isUnique = await checkNullifierUnique(nullifier, address);
     if (!isUnique) {
