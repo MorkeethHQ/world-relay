@@ -1280,7 +1280,7 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
           welcome={welcome}
           signedIn={walletUser}
           onOpenWelcome={() => { hapticTap(); window.history.replaceState(null, "", "/?campaign=welcome"); setWelcomeError(null); setView("welcome"); }}
-          onOpenCompany={(id) => { hapticTap(); setCompanyCampaignId(id); setView("company"); }}
+          onOpenCompany={(id) => { hapticTap(); window.history.replaceState(null, "", `/?campaign=${encodeURIComponent(id)}`); setCompanyCampaignId(id); setView("company"); }}
           onForCompanies={() => { hapticTap(); setView("companies"); }}
           onOpenDemo={() => { hapticTap(); setView("demo"); }}
         />
@@ -3645,6 +3645,7 @@ function SubmitProof({
                   >
                     Discover more favours
                   </button>
+                  {task.companyCampaignId && <a href={`/?campaign=${encodeURIComponent(task.companyCampaignId)}`} className="w-full min-h-[48px] flex items-center justify-center rounded-2xl border border-gray-300 bg-white text-[15px] text-gray-900 font-semibold">Return to campaign</a>}
                   {onWelcome && (
                     <button
                       onClick={() => { hapticTap(); onWelcome(); }}

@@ -23,7 +23,7 @@ export function useFavourAuth() {
     try { inApp = MiniKit.isInstalled(); } catch {}
     setIsInWorldApp(inApp);
     let live = true;
-    fetch("/api/session", { cache: "no-store" }).then((res) => res.json()).then((session) => {
+    fetch("/api/session", { cache: "no-store", signal: AbortSignal.timeout(8000) }).then((res) => res.json()).then((session) => {
       if (!live) return;
       if (session.authenticated && /^0x[0-9a-fA-F]{40}$/.test(session.address)) { setUserId(session.address); setVerificationLevel("wallet"); }
     }).catch(() => { if (live) setAuthError("We could not check your sign-in. Please try again when connected."); }).finally(() => { if (live) setChecked(true); });

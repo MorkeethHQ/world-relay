@@ -52,7 +52,7 @@ export default function RootLayout({
                 The variable is not set in any deployed environment. */}
             {process.env.NEXT_PUBLIC_FAVOUR_TEST_FIXTURE === "1" && (
               <div role="note" className="pointer-events-none fixed top-1 left-1/2 z-[70] -translate-x-1/2 rounded-full bg-amber-600 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.15em] text-white whitespace-nowrap">
-                Test data · local preview
+                Test data · simulated people & checks · no money
               </div>
             )}
             <PageTracker />
