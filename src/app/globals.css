@@ -72,12 +72,18 @@ html {
   max-width: 100%;
 }
 
+:root {
+  --favour-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --favour-ink: #191c20;
+  --favour-muted: #62666d;
+  --favour-border: #e5e7eb;
+}
+
 body {
   background: #FAFAFA;
   color: #191C20;
-  /* The kit can set --font-sans to only TWK Lausanne. Keep fallbacks outside
-     var() so a failed remote font still uses the app's sans-serif typography. */
-  font-family: var(--font-sans, "TWK Lausanne"), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  /* One native sans stack, shared with kit text and navigation. */
+  font-family: var(--favour-font);
   -webkit-font-smoothing: antialiased;
   min-height: 100dvh;
   overflow-wrap: break-word;
@@ -234,7 +240,7 @@ button.campaign-owner-entry { padding: 20px; }
   --fv-blue: #0047ff;
   --fv-orange: #ff5a00;
   --fv-rule: 2px solid var(--fv-ink);
-  font-family: "Aeonik", "Aeonik Pro", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: var(--favour-font);
   color: var(--fv-ink);
   background: var(--fv-paper);
   -webkit-font-smoothing: antialiased;
@@ -326,7 +332,7 @@ body:has(.fv) nav[aria-label="Main navigation"] { border-top: 2px solid #000; }
 /* CURATED FAVOUR, 20 Oct 2026. A calm editorial layer on the existing product.
    It keeps every route and data path, while the front door becomes a weekly
    selection with builder stories. System sans only; no game UI or mono type. */
-.curated { --c-ink:#171714; --c-paper:#f7f6f1; --c-soft:#e9e7df; --c-green:#194f3d; --c-lime:#dfff72; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif; color:var(--c-ink); background:var(--c-paper); -webkit-font-smoothing:antialiased; }
+.curated { --c-ink:#171714; --c-paper:#f7f6f1; --c-soft:#e9e7df; --c-green:#194f3d; --c-lime:#dfff72; font-family:var(--favour-font); color:var(--c-ink); background:var(--c-paper); -webkit-font-smoothing:antialiased; }
 .curated * { box-sizing:border-box; }
 .curated a { color:inherit; text-decoration:none; }
 .curated-header { height:76px; max-width:1280px; margin:auto; padding:0 40px; display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid rgba(23,23,20,.16); }
@@ -422,3 +428,7 @@ body:has(.fv) nav[aria-label="Main navigation"] { border-top: 2px solid #000; }
   .story-page{padding:58px 0 80px}.story-page>h1{font-size:62px}.story-dek{font-size:21px}.story-hero{margin-top:36px;aspect-ratio:4/3}.story-meta{grid-template-columns:1fr 1fr}.story-meta>a{grid-column:1/-1}.story-page article{margin:48px 0}.story-page article section{grid-template-columns:38px 1fr}.story-page article p{font-size:20px}.story-page aside{padding:28px}.story-page aside h2{font-size:28px}
 }
 @media(min-width:701px){ nav[aria-label="Main navigation"]{display:none!important}.curated{padding-bottom:0} }
+
+/* Shared font across the World kit, native controls, and app surfaces. */
+body :where(h1,h2,h3,h4,p,span,a,button,input,select,textarea,label) { font-family: inherit; }
+nav[aria-label="Main navigation"] { font-family: var(--favour-font); border-top: 1px solid var(--favour-border); }

@@ -26,7 +26,7 @@ export function BottomNav() {
   return (
     <nav
       className="fixed bottom-0 left-0 right-0 z-50 bg-white"
-      style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)", borderTop: "2px solid #000", fontFamily: '"Aeonik", "Aeonik Pro", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}
+      style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)", borderTop: "1px solid var(--favour-border)", fontFamily: "var(--favour-font)" }}
       role="navigation"
       aria-label="Main navigation"
     >
@@ -41,7 +41,7 @@ export function BottomNav() {
                 router.push(route.value);
               }}
               className={`flex-1 min-w-0 flex flex-col items-center justify-center gap-1 min-h-[56px] px-0.5 ${active ? "bg-white text-black" : "bg-white text-black opacity-50"}`}
-              style={{ borderRadius: 0, background: "#fff", color: active ? "#194f3d" : "#000" }}
+              style={{ borderRadius: 0, background: "#fff", color: active ? "var(--favour-ink)" : "var(--favour-muted)" }}
               aria-label={route.label}
               aria-current={active ? "page" : undefined}
             >

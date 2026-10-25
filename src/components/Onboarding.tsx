@@ -315,7 +315,7 @@ export function Onboarding({
     // nav would break that. The bottom offset is the nav's height plus the same
     // safe-area inset the nav itself pads by.
     <div
-      className="fixed inset-x-0 top-0 z-[60] bg-white flex flex-col max-w-lg mx-auto w-full overflow-y-auto"
+      className="favour-onboarding fixed inset-x-0 top-0 z-[60] bg-white flex flex-col max-w-lg mx-auto w-full overflow-y-auto"
       style={{ bottom: "calc(var(--favour-nav-h, 56px) + env(safe-area-inset-bottom, 0px))" }}
     >
       {/* Back navigation. Available between the intro steps, not on the terminal
@@ -336,7 +336,7 @@ export function Onboarding({
 
       {/* Reserve the back control's full height on short screens so content
           cannot rise behind it. Hidden on the terminal success screen. */}
-      {step < 4 && (
+      {step > 0 && step < 4 && (
         <div className={`shrink-0 flex items-center justify-center gap-2 pt-8 ${step > 0 ? "pb-8" : "pb-2"} animate-[fadeIn_0.4s_ease-out]`}>
           {Array.from({ length: 4 }).map((_, i) => (
             <span
@@ -385,7 +385,7 @@ export function Onboarding({
               FAVOUR
             </h1>
             <Typography variant="body" level={2} className="text-gray-500 max-w-[260px]">
-              Pick a small task, do it, send proof, earn points.
+              {FAVOUR_PITCH_LINE}
             </Typography>
             <Typography variant="body" level={4} className="text-gray-400 max-w-[280px] mt-1">
               A favour is a quick real-world ask — like photographing a shelf or sharing an honest opinion.

@@ -47,7 +47,7 @@ export function CompanyReview({ id }: { id: string }) {
     finally { setBusy(false); }
   }
   const latest = review?.decisions[0];
-  return <div className="mx-auto max-w-2xl px-5 py-6 text-gray-900" style={{ fontFamily: '"TWK Lausanne", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
+  return <div className="mx-auto max-w-2xl px-5 py-6 text-gray-900" style={{ fontFamily: "var(--favour-font)" }}>
     <a href="/" className="inline-flex min-h-11 items-center text-sm text-gray-600">← Back to FAVOUR</a>
     <p className="mt-4 text-xs font-semibold uppercase tracking-widest text-gray-500">Company evidence · private</p>
     <h1 className="mt-2 text-3xl font-semibold tracking-tight">{review?.campaign.company || "Your campaign"}</h1>
