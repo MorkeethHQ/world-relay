@@ -30,10 +30,10 @@ export const PENDING_PIECE_KEY = "favour_pending_piece";
 // Welcome list after sign-in.
 export const PENDING_WELCOME_KEY = "favour_pending_welcome";
 
-// DRAFT pitch line, not settled copy. Oscar rules the one-line pitch (card
-// favour-pitch, options A, B, C or EDIT). Swap the string here and nowhere else.
-// Option A (recommended). Previous line: "Campaigns made of small, useful contributions."
-export const FAVOUR_PITCH_DRAFT = "Try new projects and products, say what works, earn FAVOUR coins.";
+// FAVOUR one-line pitch. Ruled by Oscar 25 Oct 2026 01:59 on card
+// pitch-favour-kamera (GO WITH RECOMMENDATIONS, line 1). Swap it here and nowhere else.
+// Previous line: "Campaigns made of small, useful contributions."
+export const FAVOUR_PITCH_LINE = "Get a favour done by a verified human.";
 
 /*
  * Onboarding
@@ -361,7 +361,7 @@ export function Onboarding({
           <div className="flex flex-col gap-3 -mx-7">
             <div className="px-7">
               <p className="text-[18px] font-bold tracking-tight text-gray-900">FAVOUR</p>
-              <p className="text-[14px] text-gray-500 mt-1">{FAVOUR_PITCH_DRAFT}</p>
+              <p className="text-[14px] text-gray-500 mt-1">{FAVOUR_PITCH_LINE}</p>
             </div>
             <div className="-mt-1">
               <CampaignStageCards
