@@ -13,7 +13,9 @@ describe("the Profile does not wait on data it never shows", () => {
     expect(page()).not.toContain("/api/tasks");
   });
   it("renews the session, then reads the person's own contributions", () => {
-    expect(page()).toMatch(/ensureSession\([\s\S]{0,80}\)\.finally\(readMine\)/);
+    expect(page()).toContain('fetch("/api/session"');
+    expect(page()).toContain("if (!session.authenticated) return;");
+    expect(page()).not.toContain("ensureSession(");
     expect(page()).toContain('fetch("/api/me/contributions"');
   });
 });

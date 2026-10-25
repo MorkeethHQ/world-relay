@@ -127,7 +127,9 @@ describe("review 2 and final: the favour page works from the session", () => {
   it("the Profile renews the session first and reads only its own rows", () => {
     // 19 Oct 2026: /dashboard mounts components/fv/ProfileScreen.tsx.
     const d = src("src/components/fv/ProfileScreen.tsx");
-    expect(d).toMatch(/ensureSession\(/);
+    expect(d).toContain('fetch("/api/session"');
+    expect(d).toContain("if (!session.authenticated) return;");
+    expect(d).not.toContain("ensureSession(");
     expect(d).not.toMatch(/t\.poster === userId|t\.claimant === userId/);
   });
   it("Feed and CompanyCampaign start recovery on 401 too", () => {
