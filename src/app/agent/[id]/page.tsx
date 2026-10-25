@@ -4,7 +4,7 @@ import { TopBar, Button, Typography, Spinner, CircularIcon } from "@worldcoin/mi
 import { AGENT_REGISTRY } from "@/lib/agents";
 import { getAgentAnalytics } from "@/lib/agent-analytics";
 import { listTasks } from "@/lib/store";
-import { isHiddenTask } from "@/lib/task-serializer";
+import { isHiddenTask } from "@/lib/task-visibility";
 import { rewardAmountLabel } from "@/lib/reward";
 import type { TaskStatus } from "@/lib/types";
 

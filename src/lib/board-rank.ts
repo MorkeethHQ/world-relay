@@ -1,6 +1,6 @@
 import type { Task } from "./types";
 import { isRealMoney } from "./reward";
-import { isHiddenTask } from "./task-serializer";
+import { isHiddenTask } from "./task-visibility";
 import { isWelcomeSourceRow } from "./welcome-shape";
 import { getFeaturedCampaign } from "./campaigns";
 

@@ -1,3 +1,5 @@
+import { isHiddenTask } from "./task-visibility";
+export { isHiddenTask } from "./task-visibility";
 import type { Task } from "./types";
 import { coarse, isWallet, publicId, sameWallet, scrubAddresses } from "./public-id";
 
@@ -177,10 +179,7 @@ const TEST_IDENTITY = /^(dev_|demo_|e2e_)|ATTACKER/;
 // and reads as hidden on every public surface too: the detail routes answer 404,
 // and the lists never hold one (the store keeps instances out of the shared list).
 // The owner reads theirs through GET /api/welcome, behind the session.
-export function isHiddenTask(t: Pick<Task, "hiddenAt"> & { welcomeFor?: string }): boolean {
-  if (typeof t.welcomeFor === "string" && t.welcomeFor.length > 0) return true;
-  return typeof t.hiddenAt === "string" && t.hiddenAt.length > 0;
-}
+
 
 export function isPublicTask(t: Task): boolean {
   if (isHiddenTask(t)) return false;

@@ -5,7 +5,7 @@ import type { Task } from "./types";
 import type { PublicCompanyCampaign } from "./campaign-draft-shape";
 import { PIECE_KINDS, publishGateReason } from "./campaign-draft-shape";
 import { looksLikeSpam } from "./board-rank";
-import { isHiddenTask } from "./task-serializer";
+import { isHiddenTask } from "./task-visibility";
 
 // Pieces of this campaign a person can still do: the task exists, is open, has
 // room, and this person has not delivered it.
