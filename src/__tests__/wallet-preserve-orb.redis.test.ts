@@ -23,15 +23,20 @@ const checksummed = getAddress(canonical);
 const walletOnly = `0x${"b".repeat(40)}`;
 const initialOrb = { nullifier: "human-nullifier-existing", verificationLevel: "orb", verifiedAt: "2026-10-01T00:00:00Z", orbDetectedAt: "2026-10-01T00:00:00Z" };
 
-async function signIn(address: string, extra: Record<string, unknown> = {}) {
+async function challengeNonce() {
   const challenge = await nonce(new NextRequest("https://favour.test/api/nonce"));
   expect(challenge.status).toBe(200);
-  const { nonce: value } = await challenge.json();
+  return (await challenge.json()).nonce as string;
+}
+function exchange(address: string, value: string, extra: Record<string, unknown> = {}) {
   return identity(new NextRequest("https://favour.test/api/verify-identity", {
     method: "POST",
     headers: { "Content-Type": "application/json", Cookie: `favour_siwe_nonce=${value}` },
     body: JSON.stringify({ address, signature: "local-test-signature", message: "local-test-message", ...extra }),
   }));
+}
+async function signIn(address: string, extra: Record<string, unknown> = {}) {
+  return exchange(address, await challengeNonce(), extra);
 }
 
 describe.runIf(!!process.env.TEST_REDIS_REST_URL)("wallet sign-in against isolated Redis", () => {
@@ -67,5 +72,22 @@ describe.runIf(!!process.env.TEST_REDIS_REST_URL)("wallet sign-in against isolat
     const record = await redis.get<{ verificationLevel: string; nullifier: string }>(`verified:${walletOnly}`);
     expect(record?.verificationLevel).toBe("wallet");
     expect(record?.nullifier).toBe(walletOnly);
+  });
+
+  it("keeps a concurrent Orb upgrade above a legacy device row", async () => {
+    const redis = getRedis()!;
+    const device = { nullifier: "older-device", verificationLevel: "device", verifiedAt: "2026-09-01T00:00:00Z" };
+    for (let i = 0; i < 20; i++) {
+      await redis.set(`verified:${canonical}`, JSON.stringify({ nullifier: canonical, verificationLevel: "wallet", verifiedAt: "2026-09-01T00:00:00Z" }));
+      await redis.set(`verified:${checksummed}`, JSON.stringify(device));
+      const value = await challengeNonce();
+      const [response] = await Promise.all([
+        exchange(canonical, value),
+        redis.set(`verified:${canonical}`, JSON.stringify(initialOrb)),
+      ]);
+      expect(response.status).toBe(200);
+      const final = await redis.get<{ verificationLevel: string }>(`verified:${canonical}`);
+      expect(final?.verificationLevel).toBe("orb");
+    }
   });
 });

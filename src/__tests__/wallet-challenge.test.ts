@@ -5,6 +5,9 @@ vi.mock("@/lib/redis", () => ({ getRedis: () => effect.available ? {
   get: async (k: string) => effect.rows.get(k) ?? null,
   getdel: async (k: string) => { const v = effect.rows.get(k) ?? null; effect.rows.delete(k); return v; },
   set: async (k: string, v: unknown) => { if (effect.failWrites) throw Error("offline"); effect.rows.set(k,v); return "OK"; },
+  // This suite checks the challenge/session exchange. The tier merge Lua rule
+  // runs against actual Redis in wallet-preserve-orb.redis.test.ts.
+  eval: async (_script: string, keys: string[], args: string[]) => { if (effect.failWrites) throw Error("offline"); if (!effect.rows.has(keys[0])) effect.rows.set(keys[0], args[0]); return effect.rows.get(keys[0]); },
 } : null }));
 vi.mock("@/lib/track", () => ({ trackVisitor: async () => {}, trackEvent: async () => {} }));
 vi.mock("@/lib/referral", () => ({ attributeReferral: async () => {} }));

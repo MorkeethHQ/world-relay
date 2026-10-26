@@ -10,12 +10,6 @@ import { SIWE_COOKIE, SIWE_PREFIX } from "@/lib/wallet-challenge";
 const VERIFIED_PREFIX = "verified:";
 const NULLIFIER_PREFIX = "nullifier:";
 
-const localCache = new Map<string, {
-  nullifier: string;
-  verificationLevel: string;
-  verifiedAt: string;
-}>();
-
 type VerifiedUser = { nullifier: string; verificationLevel: string; verifiedAt: string; [key: string]: unknown };
 function storedUser(raw: unknown): VerifiedUser | null {
   try {
@@ -23,9 +17,34 @@ function storedUser(raw: unknown): VerifiedUser | null {
     return value && typeof value === "object" && typeof value.verificationLevel === "string" ? value as VerifiedUser : null;
   } catch { return null; }
 }
-function levelRank(level: string): number {
-  return level === "orb" ? 3 : level === "device" ? 2 : level === "wallet" ? 1 : 0;
-}
+// One Redis operation chooses the strongest stored tier and writes the canonical
+// key. A separate GET followed by SET could overwrite an Orb upgrade arriving
+// between those calls. The old keys are read only; no historical row is deleted.
+const PRESERVE_WALLET_TIER = `
+local function rank(raw)
+  if not raw then return -1 end
+  local ok, value = pcall(cjson.decode, raw)
+  if ok and type(value) == 'string' then ok, value = pcall(cjson.decode, value) end
+  if not ok or type(value) ~= 'table' then return -1 end
+  local tier = value.verificationLevel
+  if tier == 'orb' then return 3 end
+  if tier == 'device' then return 2 end
+  if tier == 'wallet' then return 1 end
+  return 0
+end
+local current = redis.call('GET', KEYS[1])
+local best, bestRank = current, rank(current)
+for i = 2, #KEYS do
+  local candidate = redis.call('GET', KEYS[i])
+  local candidateRank = rank(candidate)
+  if candidateRank > bestRank then best, bestRank = candidate, candidateRank end
+end
+if not current and bestRank < 1 then best, bestRank = ARGV[1], 1 end
+if best and (not current or bestRank > rank(current)) then
+  redis.call('SET', KEYS[1], best)
+end
+return redis.call('GET', KEYS[1])
+`;
 
 // A wallet signature establishes control of an address, not a fresh World ID
 // tier. Never replace a stronger stored tier when a returning person signs in.
@@ -36,22 +55,11 @@ async function ensureWalletUser(address: string): Promise<VerifiedUser> {
   if (!redis) throw new Error("Identity storage is unavailable");
   const canonical = address.toLowerCase();
   const key = `${VERIFIED_PREFIX}${canonical}`;
-  const current = storedUser(await redis.get(key));
-  let chosen = current;
   const oldSpellings = new Set([address, getAddress(canonical as `0x${string}`)]);
-  for (const spelling of oldSpellings) {
-    if (spelling === canonical) continue;
-    const legacy = storedUser(await redis.get(`${VERIFIED_PREFIX}${spelling}`));
-    if (legacy && (!chosen || levelRank(legacy.verificationLevel) > levelRank(chosen.verificationLevel))) chosen = legacy;
-  }
-  if (!chosen) chosen = { nullifier: canonical, verificationLevel: "wallet", verifiedAt: new Date().toISOString() };
-  // SET NX makes a simultaneous Orb upgrade win when this is a first sign-in.
-  // A stronger legacy record is the only reason to replace an existing key.
-  if (current && chosen !== current) await redis.set(key, JSON.stringify(chosen));
-  else if (!current) await redis.set(key, JSON.stringify(chosen), { nx: true });
-  const persisted = storedUser(await redis.get(key));
+  const keys = [key, ...[...oldSpellings].filter((spelling) => spelling !== canonical).map((spelling) => `${VERIFIED_PREFIX}${spelling}`)];
+  const initial = JSON.stringify({ nullifier: canonical, verificationLevel: "wallet", verifiedAt: new Date().toISOString() });
+  const persisted = storedUser(await redis.eval(PRESERVE_WALLET_TIER, keys, [initial]));
   if (!persisted) throw new Error("Identity storage is unavailable");
-  localCache.set(canonical, persisted);
   return persisted;
 }
 
@@ -74,19 +82,14 @@ async function saveVerifiedUser(address: string, data: { nullifier: string; veri
     if (!bound && String(await redis.get(`${NULLIFIER_PREFIX}${data.nullifier}`)).toLowerCase() !== address.toLowerCase()) throw new Error("Human already linked to another wallet");
   }
   await redis.set(`${VERIFIED_PREFIX}${address}`, JSON.stringify(data));
-  localCache.set(address, data);
 }
 
 async function getVerifiedUser(address: string) {
-  if (localCache.has(address)) return localCache.get(address)!;
   const redis = getRedis();
   if (!redis) return null;
   try {
     const raw = await redis.get(`${VERIFIED_PREFIX}${address}`);
-    if (!raw) return null;
-    const data = typeof raw === "string" ? JSON.parse(raw) : (raw as any);
-    localCache.set(address, data);
-    return data;
+    return storedUser(raw);
   } catch (err) {
     console.error(`[Identity] Failed to read verified user ${address}:`, err);
     return null;
