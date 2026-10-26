@@ -1273,6 +1273,7 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
         onBack={() => { window.history.replaceState(null, "", "/"); setView("board"); fetchTasks(); }}
         onClaim={() => executeClaimTask(selectedTask)}
         onSubmitProof={() => setView("proof")}
+        onReauth={onReauth}
       />
     );
   }
@@ -3951,12 +3952,14 @@ function TaskDetail({
   onBack,
   onClaim,
   onSubmitProof,
+  onReauth,
 }: {
   task: Task;
   userId: string | null;
   onBack: () => void;
   onClaim: () => void;
   onSubmitProof: () => void;
+  onReauth?: () => void | Promise<void>;
 }) {
   const [messages, setMessages] = useState<ThreadMessage[]>([]);
   const [currentTask, setCurrentTask] = useState(task);
@@ -3966,6 +3969,7 @@ function TaskDetail({
   const [swapToken, setSwapToken] = useState<SwapToken>("USDC");
   const [swapping, setSwapping] = useState(false);
   const [reEvaluating, setReEvaluating] = useState(false);
+  const [followUpError, setFollowUpError] = useState<string | null>(null);
   const [disputing, setDisputing] = useState(false);
   // Cancel flow: two-tap confirm (native confirm() is suppressed in the World
   // App webview) + explicit error surfacing.
@@ -4492,15 +4496,19 @@ function TaskDetail({
             <button
               onClick={async () => {
                 setReEvaluating(true);
-                const res = await fetch(`/api/tasks/${currentTask.id}/followup`, {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({}),
-                });
-                const data = await res.json();
-                if (data.task) setCurrentTask(data.task);
-                fetchMessages();
-                setReEvaluating(false);
+                setFollowUpError(null);
+                try {
+                  const send = () => fetch(`/api/tasks/${currentTask.id}/followup`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({}),
+                  });
+                  const res = await retryAfterReauth(await send(), send, onReauth);
+                  const data = await res.json().catch(() => ({}));
+                  if (!res.ok) setFollowUpError(data.error || "Re-evaluation could not start. Try again.");
+                  else { if (data.task) setCurrentTask(data.task); fetchMessages(); }
+                } catch { setFollowUpError("Re-evaluation could not start. Try again."); }
+                finally { setReEvaluating(false); }
               }}
               disabled={reEvaluating}
               className="w-full min-h-[44px] bg-gray-900 hover:bg-gray-900 text-white py-2.5 rounded-xl text-sm font-semibold active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
@@ -4519,6 +4527,7 @@ function TaskDetail({
                 </>
               )}
             </button>
+            {followUpError && <p role="alert" className="mt-2 text-sm text-red-700">{followUpError}</p>}
           </div>
         )}
 
