@@ -9,7 +9,7 @@ import {
 import { WorldAppHandoff } from "@/components/WorldAppHandoff";
 import { DailyMissionCard } from "@/components/MissionCard";
 import { CompanyVisionCard } from "@/components/CompanyCampaign";
-import { CampaignStageCards, DemoBrandView } from "@/components/CampaignFrontDoor";
+import { CampaignStageCards, TokenLaunchPreviewView } from "@/components/CampaignFrontDoor";
 import { pickCampaignStage } from "@/lib/campaign-stage";
 import type { WelcomeView } from "@/lib/welcome-shape";
 import { pickCampaignToDo } from "@/lib/company-door";
@@ -356,7 +356,7 @@ export function Onboarding({
       <div key={step} className="flex-1 flex flex-col justify-center px-7 animate-[fadeSlideIn_0.4s_ease-out]">
         {step === 0 && demoOpen && (
           <div className="-mx-7">
-            <DemoBrandView onBack={() => setDemoOpen(false)} onPlan={() => { setDemoOpen(false); startLaunch(); }} onWelcome={welcomeView ? startWelcome : null} />
+            <TokenLaunchPreviewView onBack={() => setDemoOpen(false)} onWelcome={startWelcome} />
           </div>
         )}
         {step === 0 && !demoOpen && (mission || welcomeView) && (
@@ -371,11 +371,12 @@ export function Onboarding({
                 onOpenCampaign={onComplete}
                 stage={pickCampaignStage({ welcome: welcomeView, company: pieceToDo })}
                 welcome={welcomeView}
+                welcomeLoading={false}
                 signedIn={false}
                 onOpenWelcome={startWelcome}
                 onOpenCompany={(id) => startPiece(id)}
                 onForCompanies={() => { if (!forCompanies) trackFunnelEvent("for_companies_tapped"); setForCompanies((v) => !v); }}
-                onOpenDemo={() => { trackFunnelEvent("demo_brand_tapped"); setDemoOpen(true); }}
+                onOpenDemo={() => setDemoOpen(true)}
               />
               {forCompanies && <CompanyVisionCard onLaunch={startLaunch} launchLabel="Plan a campaign" />}
             </div>

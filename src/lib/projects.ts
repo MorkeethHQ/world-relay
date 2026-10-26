@@ -33,6 +33,9 @@ async function publishedCards(exclude: Set<string>): Promise<ProjectCard[]> {
     const d = await loadDraft(id);
     if (!d || d.hiddenAt || (d.status !== "published" && d.status !== "publishing")) continue;
     const name = d.productName ?? d.company;
+    // These app-profile experiments were retired from FAVOUR. Keep the source
+    // records for history, but never revive them through the public picker.
+    if (/^(lunch club|vibe)$/i.test(name.trim())) continue;
     const url = d.productUrl ?? "";
     const record = await getPictureRecord(id).catch(() => null);
     out.push({

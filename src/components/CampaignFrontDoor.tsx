@@ -32,9 +32,10 @@ function ProgressDots({ total, done, waiting }: { total: number; done: number; w
   );
 }
 
-export function CampaignStageCards({ stage, welcome, signedIn, onOpenWelcome, onOpenCompany, onForCompanies, campaigns, onOpenCampaign }: {
+export function CampaignStageCards({ stage, welcome, welcomeLoading, signedIn, onOpenWelcome, onOpenCompany, onForCompanies, onOpenDemo, campaigns, onOpenCampaign }: {
   stage: CampaignStage;
   welcome: WelcomeView | null;
+  welcomeLoading: boolean;
   signedIn: boolean;
   onOpenWelcome: () => void;
   onOpenCompany: (campaignId: string) => void;
@@ -50,24 +51,37 @@ export function CampaignStageCards({ stage, welcome, signedIn, onOpenWelcome, on
   const rewards = steps.map((s) => s.points);
   const rewardLabel = rewards.length ? Math.min(...rewards) === Math.max(...rewards) ? `${rewards[0]} points per accepted favour` : `${Math.min(...rewards)} to ${Math.max(...rewards)} points per accepted favour` : `Up to ${hero.rewardPerTask} points per accepted favour`;
   const registry = [...CAMPAIGNS, ...campaigns.filter((c) => !CAMPAIGNS.some((saved) => saved.id === c.id))];
-  const cards = registry.filter((c) => c.id !== "first-favour" && (c.id === "relay-launch" || Date.parse(c.endsAt) > Date.now()));
+  const cards = registry.filter((c) => c.id !== "first-favour" && Date.parse(c.endsAt) > Date.now());
   const c = stage.company;
   return (
     <section aria-label="Campaigns" className="campaign-stage campaign-discovery">
-      <div className="campaign-intro"><p className="campaign-kicker">Small acts. Real people.</p><h2>Find your next favour.</h2><p>A little help, an honest opinion, something good to share.</p></div>
+      <div className="campaign-intro"><p className="campaign-kicker">FAVOUR campaigns</p><h2>Get a favour done by a verified human.</h2><p>Each campaign joins useful steps to one purpose. See the work, the proof and the progress.</p></div>
       <article className="welcome-hero">
-        <img src="/campaign-coffee.jpg" alt="A neighbourhood café, a place to share a small favour" />
+        <img src="/campaign-friends.jpg" alt="People working together on a shared goal" />
         <div className="welcome-shade" />
         <div className="welcome-copy">
-          <p className="campaign-kicker">By FAVOUR · Welcome campaign</p>
+          <p className="campaign-kicker">Open campaign · By FAVOUR</p>
           <h3>{hero.name}</h3>
-          <p>{hero.tagline}</p>
-          <div className="welcome-reward"><span>{rewardLabel}</span>{signedIn && steps.length > 0 && <span>{done} of {steps.length} done</span>}</div>
-          <button type="button" onClick={onOpenWelcome}>Explore Welcome <span aria-hidden>↗</span></button>
+          <p>Help prove what a real person can do. Complete a small task, show your work and build a record of accepted favours.</p>
+          <div className="welcome-reward"><span>{rewardLabel}</span><span>{signedIn && steps.length > 0 ? `${done} of ${steps.length} accepted` : steps.length > 0 ? `${steps.length} connected steps` : "Connected steps"}</span></div>
+          <button type="button" onClick={onOpenWelcome} disabled={!welcome} aria-disabled={!welcome}>{welcomeLoading ? "Loading campaign…" : !welcome ? "Campaign unavailable" : signedIn && done > 0 ? "Continue campaign" : "Explore campaign"} <span aria-hidden>↗</span></button>
+        </div>
+        <div className="welcome-path" aria-label="Campaign journey">
+          <p className="campaign-kicker">Your path</p>
+          <ol>
+            <li><span>01</span><div><strong>Choose a favour</strong><small>Pick the step you can do now.</small></div></li>
+            <li><span>02</span><div><strong>Send your proof</strong><small>Show the work and consent before sending.</small></div></li>
+            <li><span>03</span><div><strong>See the result</strong><small>Accepted work moves your campaign progress.</small></div></li>
+          </ol>
+          <p className="welcome-path-progress">{signedIn && steps.length > 0 ? `${done} accepted · ${steps.length - done} to go` : "Progress stays with your signed-in wallet"}</p>
         </div>
       </article>
-      <div className="campaign-grid-heading"><h3>Explore campaigns</h3><p>Choose where you can lend a hand.</p></div>
+      <div className="campaign-grid-heading"><h3>More campaigns</h3><p>Each campaign has a purpose and its own work.</p></div>
       <div className="discovery-grid">
+        <article className="discovery-card token-preview-card">
+          <div className="token-preview-art" aria-hidden="true"><span>01</span><span>02</span><span>03</span></div>
+          <div className="discovery-card-copy"><p className="campaign-kicker">Campaign example · Planning only</p><h3>Shape a FAVOUR token launch.</h3><p>Try a real favour, examine the proof, then tell us what a completion token should record. Your feedback would shape the plan.</p><div className="discovery-reward">No token exists here. No token or payment is promised.</div><button type="button" onClick={onOpenDemo}>See the three steps <span aria-hidden>↗</span></button></div>
+        </article>
         {cards.map((campaign) => {
           const ended = Date.parse(campaign.endsAt) <= Date.now();
           return <article className="discovery-card" key={campaign.id}>
@@ -79,10 +93,25 @@ export function CampaignStageCards({ stage, welcome, signedIn, onOpenWelcome, on
           </article>;
         })}
         {c && <article className="discovery-card"><img src="/campaign-friends.jpg" alt="People sharing time together" /><div className="discovery-card-copy"><p className="campaign-kicker">Company campaign</p><h3>{c.campaign.company}</h3><CompanyTrust c={c.campaign} /><ProductLine c={c.campaign} /><p>{c.campaign.brief}</p><div className="discovery-reward">{c.campaign.rewardPerPiecePoints} points per accepted piece · {c.openPieces} pieces open</div><button type="button" onClick={() => onOpenCompany(c.campaign.id)}>Explore campaign ↗</button></div></article>}
-        <article className="discovery-card campaign-create"><img src="/campaign-coffee.jpg" alt="A café where people meet and help each other" /><div className="discovery-card-copy"><p className="campaign-kicker">For teams & creators</p><h3>Bring people into your next idea.</h3><p>Invite honest feedback, useful stories and small acts of help.</p><button type="button" onClick={onForCompanies}>Build a campaign <span aria-hidden>↗</span></button></div></article>
       </div>
+      <button type="button" className="campaign-builder-link" onClick={onForCompanies}>For teams: plan a campaign <span aria-hidden>↗</span></button>
     </section>
   );
+}
+
+export function TokenLaunchPreviewView({ onBack, onWelcome }: { onBack: () => void; onWelcome: () => void }) {
+  const steps = [
+    ["Try a real favour", "Complete a useful step in an existing campaign and submit your own proof."],
+    ["Examine the result", "See what was accepted, what was rejected, and what the record can honestly show."],
+    ["Shape the token plan", "Tell us whether a completion token would help you trust the work, and what it must never imply."],
+  ];
+  return <div className="token-preview-page">
+    <button type="button" className="token-preview-back" onClick={onBack}>← Campaigns</button>
+    <div className="token-preview-hero"><p className="campaign-kicker">Campaign example · Planning only</p><h1>Shape a FAVOUR token launch.</h1><p>One question runs through all three steps: what should a record of completed favours mean to the people who did the work?</p></div>
+    <p className="token-preview-note">This is an example of a connected campaign. It is not open for contributions. There is no FAVOUR token, token reward, sale, mint or payment in this example.</p>
+    <ol className="token-preview-steps">{steps.map(([title, description], i) => <li key={title}><span>0{i + 1}</span><div><h2>{title}</h2><p>{description}</p></div></li>)}</ol>
+    <button type="button" className="token-preview-action" onClick={onWelcome}>Try the open Welcome campaign <span aria-hidden>↗</span></button>
+  </div>;
 }
 
 export function WelcomeCampaignView({ welcome, signedIn, busyId, error, onStart, onBack, onDiscover }: {
@@ -111,7 +140,7 @@ export function WelcomeCampaignView({ welcome, signedIn, busyId, error, onStart,
         <div className="relative px-6 pt-12 pb-6">
           <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/70">Welcome campaign · points</span>
           <h1 className="mt-1.5 text-[28px] font-bold leading-[1.1] tracking-tight">{welcome.campaign.name}</h1>
-          <p className="mt-2 text-[14px] leading-snug text-white/80">{welcome.campaign.tagline}</p>
+          <p className="mt-2 text-[14px] leading-snug text-white/80">Help FAVOUR show what real people can do, one accepted favour at a time.</p>
           <p className="mt-4 text-sm text-white">Rewards are shown on each favour. Points only, no cash payment.</p>
           <div className="mt-4">
             <ProgressDots total={total} done={done} waiting={welcome.steps.filter((s) => s.state === "sent" || s.state === "in_review").length} />
@@ -123,12 +152,12 @@ export function WelcomeCampaignView({ welcome, signedIn, busyId, error, onStart,
         <div className="rounded-2xl bg-white border border-gray-200 px-4 py-3">
           <p className="text-[18px] font-semibold text-gray-900">A small favour, with a clear answer.</p>
           <div className="campaign-loop"><div><b>1</b><strong>The request</strong><span>Pick a favour below and read what to send.</span></div><div><b>2</b><strong>Your proof</strong><span>Share your own photo or answer, with your permission.</span></div><div><b>3</b><strong>The result</strong><span>See whether it was accepted and why.</span></div><div><b>4</b><strong>Your reward</strong><span>Accepted work adds the stated points to your record.</span></div></div>
-          <ul className="mt-1 flex flex-col gap-1 text-[13px] leading-snug text-gray-700">
+          <details className="mt-2 text-[13px] leading-snug text-gray-700"><summary className="cursor-pointer font-semibold">How checking and rewards work</summary><ul className="mt-2 flex flex-col gap-1 list-disc pl-4">
             <li>Each favour is yours to do. Someone else&apos;s proof never takes it from you.</li>
-            <li>An automatic check reads your proof. Accepted: the points are added.</li>
-            <li>If the check is not sure, 3 qualified reviewers look and 2 must accept. If the checking service is not working, your proof is not judged and no points change. You can try again; it is judged only once the service works.</li>
+            <li>An automatic check reads your proof. Accepted work adds the stated points.</li>
+            <li>If the check is unsure, 3 qualified reviewers look and 2 must accept. If checking is unavailable, no points change. You can try again.</li>
             <li>Points only. No USDC is paid by this campaign.</li>
-          </ul>
+          </ul></details>
         </div>
         {error && <p role="alert" className="text-[14px] text-error-700 bg-error-100 border border-error-200 rounded-xl px-4 py-3">{error}</p>}
         {total === 0 && <p className="rounded-2xl bg-white border border-gray-200 p-4 text-[14px] text-gray-600">The Welcome favour list is being refreshed. No favours are available to start in this campaign right now.</p>}

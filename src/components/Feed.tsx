@@ -63,7 +63,7 @@ import type { Contribution } from "@/lib/completions";
 import { PENDING_MISSION_KEY } from "@/components/Onboarding";
 import { trackFunnelEvent } from "@/lib/funnel-events";
 import { authorLabel } from "@/lib/authorship";
-import { CampaignStageCards, WelcomeCampaignView, DemoBrandView } from "@/components/CampaignFrontDoor";
+import { CampaignStageCards, WelcomeCampaignView, TokenLaunchPreviewView } from "@/components/CampaignFrontDoor";
 import { pickCampaignStage } from "@/lib/campaign-stage";
 import { isWelcomeSourceRow, WELCOME_CAMPAIGN_ID, type WelcomeStepView, type WelcomeView } from "@/lib/welcome-shape";
 import { reviewPathFor } from "@/lib/review-path";
@@ -439,6 +439,7 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
   useEffect(() => {
     const query = new URLSearchParams(window.location.search);
     if (query.get("campaign") === "welcome") setView("welcome");
+    else if (query.get("campaign") === "token-plan") setView("demo");
     else if (query.get("campaign")?.startsWith("draft_")) { setCompanyCampaignId(query.get("campaign")); setView("company"); }
   }, []);
 
@@ -826,6 +827,7 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
   // A step is done on a per-person instance (POST /api/welcome/start), so someone
   // else's flagged proof can never take it.
   const [welcome, setWelcome] = useState<WelcomeView | null>(null);
+  const [welcomeLoading, setWelcomeLoading] = useState(true);
   const [welcomeKey, setWelcomeKey] = useState(0);
   const [welcomeBusy, setWelcomeBusy] = useState<string | null>(null);
   const [welcomeError, setWelcomeError] = useState<string | null>(null);
@@ -833,10 +835,12 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
   const [proofFrom, setProofFrom] = useState<"board" | "welcome">("board");
   useEffect(() => {
     let live = true;
+    setWelcomeLoading(true);
     fetch("/api/welcome", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => { if (live) setWelcome(d?.welcome ?? null); })
-      .catch(() => {});
+      .catch(() => { if (live) setWelcome(null); })
+      .finally(() => { if (live) setWelcomeLoading(false); });
     return () => { live = false; };
   }, [userId, welcomeKey]);
   const campaignStage = useMemo(() => pickCampaignStage({ welcome, company: pieceToDo }), [welcome, pieceToDo]);
@@ -1234,10 +1238,9 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
   }
   if (view === "demo") {
     return (
-      <DemoBrandView
-        onBack={() => setView("board")}
-        onPlan={() => { hapticTap(); setView("launch"); }}
-        onWelcome={welcome && !campaignStage.welcome?.finished ? () => { hapticTap(); setView("welcome"); } : null}
+      <TokenLaunchPreviewView
+        onBack={() => { window.history.replaceState(null, "", "/"); setView("board"); }}
+        onWelcome={() => { hapticTap(); window.history.replaceState(null, "", "/?campaign=welcome"); setView("welcome"); }}
       />
     );
   }
@@ -1294,7 +1297,7 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
               onClick={() => { hapticTap(); setPostCampaignId(null); setView("post"); }}
               className="bg-gray-900 text-white text-[13px] font-semibold px-4 py-2 rounded-full active:scale-95 transition-transform min-h-[36px]"
             >
-              + New
+              Request a favour
             </button>
           )}
         </div>
@@ -1320,11 +1323,12 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
           onOpenCampaign={(campaign) => { hapticTap(); setSelectedCampaign(campaign); setView("campaign"); }}
           stage={campaignStage}
           welcome={welcome}
+          welcomeLoading={welcomeLoading}
           signedIn={walletUser}
-          onOpenWelcome={() => { hapticTap(); window.history.replaceState(null, "", "/?campaign=welcome"); setWelcomeError(null); setView("welcome"); }}
+          onOpenWelcome={() => { if (!welcome) return; hapticTap(); window.history.replaceState(null, "", "/?campaign=welcome"); setWelcomeError(null); setView("welcome"); }}
           onOpenCompany={(id) => { hapticTap(); window.history.replaceState(null, "", `/?campaign=${encodeURIComponent(id)}`); setCompanyCampaignId(id); setView("company"); }}
           onForCompanies={() => { hapticTap(); setView("companies"); }}
-          onOpenDemo={() => { hapticTap(); setView("demo"); }}
+          onOpenDemo={() => { hapticTap(); window.history.replaceState(null, "", "/?campaign=token-plan"); setView("demo"); }}
         />
       )}
 
