@@ -6,7 +6,6 @@ import type { CampaignStage } from "@/lib/campaign-stage";
 import type { WelcomeStepView, WelcomeView } from "@/lib/welcome-shape";
 import { DEMO_BRAND, formatProposedUsdc, proposedLabel } from "@/lib/demo-brand";
 import { CompanyTrust, ProductLine } from "@/components/CompanyCampaign";
-import { CategoryIcon } from "@/components/CategoryIcon";
 
 // R19 (BOARD-RULES.md, 2026-10-05): campaigns are the front door. One stage,
 // three rungs, in one order on the signed-out first screen and on the board:
@@ -125,93 +124,77 @@ export function WelcomeCampaignView({ welcome, signedIn, busyId, error, onStart,
 }) {
   const done = welcome.steps.filter((s) => s.state === "done").length;
   const total = welcome.steps.length;
+  const waiting = welcome.steps.filter((s) => s.state === "sent" || s.state === "in_review").length;
   return (
-    <div className="flex flex-col min-h-[calc(100vh-5rem)] max-w-lg mx-auto w-full bg-gray-50">
-      <div className="sticky top-0 z-10 bg-white border-b border-gray-100 px-6 py-3 flex items-center gap-3">
-        <button type="button" onClick={onBack} className="min-h-[44px] text-[14px] text-gray-500">Back</button>
-        <p className="flex-1 min-w-0 text-[15px] font-semibold text-gray-900 truncate">Welcome</p>
+    <div className="welcome-detail">
+      <div className="welcome-detail-nav">
+        <button type="button" onClick={onBack}>← Campaigns</button>
+        <span>FAVOUR</span>
       </div>
-      <div className="relative overflow-hidden bg-gray-950 text-white">
-        {(
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src="/campaign-friends.jpg" alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover" />
-        )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/65 to-black/40" />
-        <div className="relative px-6 pt-12 pb-6">
-          <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/70">Welcome campaign · points</span>
-          <h1 className="mt-1.5 text-[28px] font-bold leading-[1.1] tracking-tight">{welcome.campaign.name}</h1>
-          <p className="mt-2 text-[14px] leading-snug text-white/80">Help FAVOUR show what real people can do, one accepted favour at a time.</p>
-          <p className="mt-4 text-sm text-white">Rewards are shown on each favour. Points only, no cash payment.</p>
-          <div className="mt-4">
-            <ProgressDots total={total} done={done} waiting={welcome.steps.filter((s) => s.state === "sent" || s.state === "in_review").length} />
-            <p className="mt-2 text-[12px] text-white/70">{signedIn ? `${done} of ${total} done` : `${total} favours`} · runs until {new Date(welcome.campaign.endsAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</p>
+      <header className="welcome-detail-hero">
+        {/* The campaign photograph is a static public asset and fills its art-directed hero. */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/campaign-friends.jpg" alt="" aria-hidden="true" />
+        <div className="welcome-detail-shade" />
+        <div className="welcome-detail-copy">
+          <p className="campaign-kicker">Open campaign · By FAVOUR</p>
+          <h1>{welcome.campaign.name}</h1>
+          <p>Help prove what a real person can do. Complete a small task, show your work and build a record of accepted favours.</p>
+          <div className="welcome-detail-progress">
+            <strong>{signedIn ? `${done} of ${total} accepted` : `${total} connected favours`}</strong>
+            <ProgressDots total={total} done={done} waiting={waiting} />
+            <span>{waiting > 0 ? `${waiting} awaiting a result · ` : ""}Runs until {new Date(welcome.campaign.endsAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</span>
           </div>
         </div>
-      </div>
-      <div className="px-6 pt-5 pb-8 flex flex-col gap-3">
-        <div className="rounded-2xl bg-white border border-gray-200 px-4 py-3">
-          <p className="text-[18px] font-semibold text-gray-900">A small favour, with a clear answer.</p>
-          <div className="campaign-loop"><div><b>1</b><strong>The request</strong><span>Pick a favour below and read what to send.</span></div><div><b>2</b><strong>Your proof</strong><span>Share your own photo or answer, with your permission.</span></div><div><b>3</b><strong>The result</strong><span>See whether it was accepted and why.</span></div><div><b>4</b><strong>Your reward</strong><span>Accepted work adds the stated points to your record.</span></div></div>
-          <details className="mt-2 text-[13px] leading-snug text-gray-700"><summary className="cursor-pointer font-semibold">How checking and rewards work</summary><ul className="mt-2 flex flex-col gap-1 list-disc pl-4">
+      </header>
+      <div className="welcome-detail-content">
+        <section className="welcome-detail-path" aria-label="How this campaign works">
+          <p className="campaign-kicker">Your path</p>
+          <ol><li><span>01</span><strong>Choose a favour</strong></li><li><span>02</span><strong>Send your proof</strong></li><li><span>03</span><strong>See the result</strong></li></ol>
+          <p>Accepted work moves your campaign progress. Each favour shows its points before you start.</p>
+          <details><summary>How checking and rewards work</summary><ul>
             <li>Each favour is yours to do. Someone else&apos;s proof never takes it from you.</li>
             <li>An automatic check reads your proof. Accepted work adds the stated points.</li>
             <li>If the check is unsure, 3 qualified reviewers look and 2 must accept. If checking is unavailable, no points change. You can try again.</li>
             <li>Points only. No USDC is paid by this campaign.</li>
           </ul></details>
-        </div>
-        {error && <p role="alert" className="text-[14px] text-error-700 bg-error-100 border border-error-200 rounded-xl px-4 py-3">{error}</p>}
-        {total === 0 && <p className="rounded-2xl bg-white border border-gray-200 p-4 text-[14px] text-gray-600">The Welcome favour list is being refreshed. No favours are available to start in this campaign right now.</p>}
-        <ol className="flex flex-col gap-2.5">
+        </section>
+        <div className="welcome-detail-list-heading"><h2>Choose your next favour</h2><p>{done} accepted · {Math.max(0, total - done)} to go</p></div>
+        {error && <p role="alert" className="welcome-detail-alert">{error}</p>}
+        {total === 0 && <p className="welcome-detail-empty">The Welcome favour list is being refreshed. No favours are available to start in this campaign right now.</p>}
+        <ol className="welcome-detail-list">
           {welcome.steps.map((s, i) => (
-            <li key={s.sourceTaskId} className="rounded-2xl bg-white border border-gray-200 p-4">
-              <img src="/campaign-friends.jpg" alt="" className="favour-card-image rounded-xl mb-4" loading="lazy" />
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center text-gray-500 shrink-0">
-                  <CategoryIcon category={s.category} size={18} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-[11px] font-semibold text-gray-500">Favour {i + 1} of {total}</p>
-                  <p className="mt-0.5 text-[15px] font-medium leading-snug text-gray-900 break-words">{s.description}</p>
-                </div>
-                <span className="shrink-0 text-[12px] font-bold text-amber-600 bg-amber-50 rounded-full px-2.5 py-1">{s.points} pts</span>
+            <li key={s.sourceTaskId} className="welcome-detail-step">
+              <div className="welcome-detail-step-top"><span>Favour {String(i + 1).padStart(2, "0")} / {String(total).padStart(2, "0")}</span><span>{s.points} points</span></div>
+              <p className="welcome-detail-step-copy">{s.description}</p>
+              <div className="welcome-detail-step-footer">
+                <span className="welcome-detail-step-state">{signedIn ? STEP_LABEL[s.state] : "Ready to start"}</span>
+                {s.state !== "done" && <button type="button" onClick={() => onStart(s)} disabled={busyId === s.sourceTaskId}>{busyId === s.sourceTaskId ? "Opening" : s.state === "todo" ? (signedIn ? "Do this favour ↗" : "Sign in to start ↗") : "Send new proof ↗"}</button>}
               </div>
-              {signedIn && s.state !== "todo" && (
-                <p className={`mt-3 text-[13px] font-semibold ${s.state === "done" ? "text-gray-900" : "text-yellow-600"}`}>{STEP_LABEL[s.state]}</p>
-              )}
               {s.state === "in_review" && (
-                <p className="mt-1 text-[13px] leading-snug text-gray-600">
+                <p className="welcome-detail-step-note">
                   3 qualified reviewers look at this proof and 2 must accept it. No points yet. You can send a new proof at any time.
                 </p>
               )}
               {s.state === "sent" && (
-                <p className="mt-1 text-[13px] leading-snug text-gray-600">Your proof is saved on this favour, but it was not judged: the checking service was not working. No points yet. You can send it again; it is judged only once the service works.</p>
+                <p className="welcome-detail-step-note">Your proof is saved on this favour, but it was not judged: the checking service was not working. No points yet. You can send it again; it is judged only once the service works.</p>
               )}
               {s.state === "todo" && s.reviewNote && (
-                <div className="mt-3 rounded-xl bg-gray-100 px-3 py-2">
-                  <p className="text-[12px] font-semibold text-gray-900">The reviewers did not accept your last proof. No points were added.</p>
+                <div className="welcome-detail-step-note">
+                  <p>The reviewers did not accept your last proof. No points were added.</p>
                   {s.reviewNote.reasons.map((r, k) => (
-                    <p key={k} className="mt-1 text-[12px] leading-snug text-gray-700 break-words">&ldquo;{r}&rdquo;</p>
+                    <p key={k}>&ldquo;{r}&rdquo;</p>
                   ))}
                 </div>
-              )}
-              {s.state !== "done" && (
-                <button
-                  type="button"
-                  onClick={() => onStart(s)}
-                  disabled={busyId === s.sourceTaskId}
-                  className={`mt-3 w-full min-h-[48px] rounded-full text-[15px] font-semibold active:scale-[0.99] disabled:opacity-40 ${s.state === "todo" ? "bg-gray-900 text-white" : "bg-white border border-gray-300 text-gray-900"}`}
-                >
-                  {busyId === s.sourceTaskId ? "Opening" : s.state === "todo" ? (signedIn ? "Do this favour" : "Sign in to do this favour") : "Send a new proof"}
-                </button>
               )}
             </li>
           ))}
         </ol>
-        <p className="text-[12px] leading-snug text-gray-500">
+        <p className="welcome-detail-source">
           These are the original Welcome favours, first posted on 5 Jul 2026. The texts are unchanged.
         </p>
-        <button type="button" onClick={onDiscover} className="w-full min-h-[48px] rounded-full border border-gray-300 bg-white text-[15px] font-semibold text-gray-900 active:scale-[0.99]">
-          Discover more favours
+        <button type="button" onClick={onDiscover} className="welcome-detail-more">
+          Discover more favours <span aria-hidden>↗</span>
         </button>
       </div>
     </div>
