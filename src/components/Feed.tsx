@@ -443,6 +443,25 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
   }, []);
 
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [linkedTaskError, setLinkedTaskError] = useState<string | null>(null);
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("task");
+    if (!id) return;
+    let live = true;
+    fetch(`/api/tasks/${encodeURIComponent(id)}`, { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("unavailable");
+        return response.json();
+      })
+      .then((data) => {
+        if (!live) return;
+        if (!data.task) throw new Error("unavailable");
+        setSelectedTask(data.task as Task);
+        setView("detail");
+      })
+      .catch(() => { if (live) setLinkedTaskError("This favour is no longer available. Explore campaigns to find another one."); });
+    return () => { live = false; };
+  }, []);
   const [tab, setTab] = useState<Tab>("available");
   const [tabDirection, setTabDirection] = useState<"left" | "right">("right");
   // Next keeps this component mounted when Discover targets the current route.
@@ -1095,11 +1114,16 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
         }
       }
 
-      const res = await fetch(`/api/tasks/${task.id}/claim`, {
+      const send = () => fetch(`/api/tasks/${task.id}/claim`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ claimant: userId, claimCode }),
       });
+      let res = await send();
+      if ((res.status === 401 || res.status === 403) && onReauth) {
+        const peek = await res.clone().json().catch(() => ({} as Record<string, unknown>));
+        if (peek.code === "reauth_required") { await onReauth(); res = await send(); }
+      }
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         if (err.requiresCode) {
@@ -1122,7 +1146,7 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
     } catch (err) {
       setClaimTxError({ message: err instanceof Error ? err.message : "Claim failed. Try again.", taskId: task.id, retry: () => {} });
     }
-  }, [userId, fetchTasks]);
+  }, [userId, fetchTasks, onReauth]);
 
   const campaigns = useMemo(() => getCampaigns(), []);
   const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
@@ -1243,7 +1267,7 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
       <TaskDetail
         task={selectedTask}
         userId={userId}
-        onBack={() => { setView("board"); fetchTasks(); }}
+        onBack={() => { window.history.replaceState(null, "", "/"); setView("board"); fetchTasks(); }}
         onClaim={() => executeClaimTask(selectedTask)}
         onSubmitProof={() => setView("proof")}
       />
@@ -1287,6 +1311,9 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
           quieter "For companies" link. Shown only while a piece is open. */}
       {/* R19 (2026-10-05): the campaign stage leads. Welcome, then a real company
           campaign that may lead (R16 unchanged), then a labelled demo brand. */}
+      {tab === "available" && (
+        linkedTaskError && <p role="alert" className="mx-6 mt-4 rounded-xl bg-gray-100 px-4 py-3 text-sm text-gray-700">{linkedTaskError}</p>
+      )}
       {tab === "available" && (
         <CampaignStageCards
           campaigns={campaigns}
@@ -2095,6 +2122,10 @@ function ReviewEntryCard({
   );
 }
 
+function pointsLabel(value: string): string {
+  return `${value} ${value === "1" ? "pt" : "pts"}`;
+}
+
 function QuickPost({
   userId,
   onDone,
@@ -2116,6 +2147,8 @@ function QuickPost({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [posted, setPosted] = useState(false);
+  const [postedId, setPostedId] = useState<string | null>(null);
+  const [shareMessage, setShareMessage] = useState<string | null>(null);
   const [paidOpen, setPaidOpen] = useState(false);
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
 
@@ -2180,6 +2213,8 @@ function QuickPost({
         return;
       }
       hapticSuccess();
+      const saved = await res.json().catch(() => null);
+      setPostedId(typeof saved?.task?.id === "string" ? saved.task.id : null);
       setPosted(true);
     } catch {
       hapticError();
@@ -2190,17 +2225,36 @@ function QuickPost({
   };
 
   if (posted) {
+    const link = postedId ? `/?task=${encodeURIComponent(postedId)}` : null;
+    const sharePosted = async () => {
+      if (!link) return;
+      const url = `${window.location.origin}${link}`;
+      try {
+        if (navigator.share) {
+          await navigator.share({ title: "FAVOUR", text: trimmed, url });
+          setShareMessage("Share sheet opened.");
+        } else if (navigator.clipboard) {
+          await navigator.clipboard.writeText(url);
+          setShareMessage("Link copied.");
+        } else {
+          setShareMessage("Open the favour and copy its link from the address bar.");
+        }
+      } catch { setShareMessage("Share cancelled. Your favour is still live."); }
+    };
     return (
       <div className="flex flex-col min-h-[calc(100vh-5rem)] max-w-lg mx-auto w-full bg-gray-50">
         <div className="flex-1 px-6 pt-16 flex flex-col gap-3">
           <p className="text-[10px] font-semibold text-amber-700 tracking-wide uppercase">Points favour &middot; live</p>
           <p className="text-[22px] font-bold text-gray-900 leading-[1.2] tracking-tight break-words">{trimmed}</p>
           <p className="text-[14px] text-gray-500">
-            Anyone can answer it now. The first accepted {photo ? "photo" : "answer"} earns {points} pts, paid by FAVOUR, not by you.
+            A person signed in with a World wallet can answer it now. The first accepted {photo ? "photo" : "answer"} earns {pointsLabel(points)}, paid by FAVOUR, not by you.
           </p>
+          {link && <p className="text-[14px] text-gray-500">Send this favour to someone who can help. Their answer and result stay with this request.</p>}
+          {shareMessage && <p role="status" className="text-[13px] text-gray-600">{shareMessage}</p>}
         </div>
         <div className="px-6" style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 24px)" }}>
-          <Button onClick={onDone} variant="primary" fullWidth size="lg">Back to favours</Button>
+          {link && <div className="mb-3 flex flex-col gap-2"><Button onClick={sharePosted} variant="primary" fullWidth size="lg">Share this favour</Button><a href={link} className="flex min-h-12 items-center justify-center rounded-full border border-gray-300 text-[14px] font-semibold text-gray-900">Open this favour</a></div>}
+          <Button onClick={onDone} variant={link ? "secondary" : "primary"} fullWidth size="lg">Back to campaigns</Button>
         </div>
       </div>
     );
@@ -2276,7 +2330,7 @@ function QuickPost({
                 style={quickChoice(points === amt, true)}
                 aria-pressed={points === amt}
               >
-                {amt} pts
+                {pointsLabel(amt)}
               </button>
             ))}
           </div>
@@ -2308,7 +2362,7 @@ function QuickPost({
         )}
         <LiveFeedback state={submitting ? "pending" : undefined}>
           <Button onClick={post} disabled={!canPost} variant="primary" fullWidth size="lg">
-            {submitting ? "Posting..." : `Post · ${points} pts`}
+            {submitting ? "Posting..." : `Post · ${pointsLabel(points)}`}
           </Button>
         </LiveFeedback>
         {paidOpen && (
@@ -3845,7 +3899,7 @@ function TaskTimeline({ task }: { task: Task }) {
   const steps = [
     { label: "Posted", done: true },
     { label: "Accepted", done: !!task.claimant },
-    { label: "Proof", done: !!task.proofImageUrl },
+    { label: "Proof", done: !!(task.proofImageUrl || task.proofNote) },
     {
       label: task.verificationResult?.verdict === "pass" ? "Verified" :
              task.verificationResult?.verdict === "flag" ? "Flagged" :
@@ -4245,12 +4299,15 @@ function TaskDetail({
           )}
         </div>
 
-        {/* Proof image */}
-        {currentTask.proofImageUrl && (
-          <div>
-            <button
+        {/* The answer is the delivered favour for text requests. Show it even
+            when there is no photo; the checker reasoning is a separate result. */}
+        {(currentTask.proofNote || currentTask.proofImageUrl) && (
+          <div className="rounded-2xl border border-gray-200 bg-white p-4">
+            <p className="text-xs font-semibold text-gray-500">Submitted answer</p>
+            {currentTask.proofNote && <p className="mt-2 whitespace-pre-wrap break-words text-[15px] leading-6 text-gray-900">{currentTask.proofNote}</p>}
+            {currentTask.proofImageUrl && <button
               onClick={() => setShowProofImage(!showProofImage)}
-              className="flex items-center gap-2 text-xs text-gray-400 font-medium min-h-[44px]"
+              className="flex items-center gap-2 text-xs text-gray-600 font-medium min-h-[44px]"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
@@ -4258,15 +4315,10 @@ function TaskDetail({
                 <polyline points="21 15 16 10 5 21" />
               </svg>
               {showProofImage ? "Hide proof photo" : "View proof photo"}
-            </button>
-            {showProofImage && (
+            </button>}
+            {currentTask.proofImageUrl && showProofImage && (
               <div className="mt-2 rounded-2xl overflow-hidden border border-gray-200">
                 <img src={currentTask.proofImageUrl} alt="Proof" className="w-full max-h-80 object-cover" loading="lazy" />
-                {currentTask.proofNote && (
-                  <div className="bg-white px-4 py-2 border-t border-gray-200">
-                    <p className="text-xs text-gray-400 italic">&ldquo;{currentTask.proofNote}&rdquo;</p>
-                  </div>
-                )}
               </div>
             )}
           </div>

@@ -1,5 +1,5 @@
 import { campaignIntakePaused } from "@/lib/contribution-responses";
-import { ownerRefusal, ownershipError } from "@/lib/session";
+import { ownerRefusal } from "@/lib/session";
 import { NextRequest, NextResponse } from "next/server";
 import { claimTask, getTask } from "@/lib/store";
 import { postClaimNotification, postClaimBriefing, syncAndProcessMessages } from "@/lib/xmtp";
@@ -38,18 +38,12 @@ export async function POST(
     return NextResponse.json({ error: "Task not found" }, { status: 404 });
   }
 
-  // `claimant` is a public body field and the claim writes points to it
-  // (recordFavourClaimed). A company task holds the unconditional gate; every
-  // other task holds the switched one, so the claim tap can be tested in
-  // World App before SESSION_ENFORCE is turned on (hardening pass 2026-10-13).
-  if (!task.companyCampaignId) {
-    const owner = ownershipError(req, claimant, Date.now());
-    if (owner) return NextResponse.json({ error: owner }, { status: 403 });
-  }
+  // Claiming names a wallet and awards claim points. Bind every claim to the
+  // signed wallet, including ordinary points favours while SESSION_ENFORCE is off.
+  const refusal = ownerRefusal(req, claimant, Date.now());
+  if (refusal) return NextResponse.json(refusal, { status: 403 });
 
   if (task.companyCampaignId) {
-    const refusal = ownerRefusal(req, claimant, Date.now());
-    if (refusal) return NextResponse.json(refusal, { status: 403 });
     try { if (await campaignIntakePaused(task.companyCampaignId)) return NextResponse.json({ error: "The company is answering earlier work. New contributions are paused." }, { status: 409 }); }
     catch { return NextResponse.json({ error: "Campaign availability could not be checked. Please retry." }, { status: 503 }); }
   }

@@ -8,8 +8,8 @@ import { createMemoryRedis } from "./helpers/memory-redis";
 // recordFavourClaimed (points). POST /api/tasks/[id]/followup read no identity
 // at all: anyone who knew a task id could re-run the AI follow-up on another
 // person's proof, and a pass ends in points, reputation and an escrow release.
-// Both now sit behind the session switch: claim through ownershipError on
-// body.claimant, followup through readerRefusal over the claimant and poster.
+// Claim now uses the unconditional owner gate on body.claimant; followup uses
+// readerRefusal over the claimant and poster.
 
 const mem = vi.hoisted(() => ({ current: null as ReturnType<typeof import("./helpers/memory-redis").createMemoryRedis> | null }));
 const ai = vi.hoisted(() => ({ followUpCalls: 0 }));
@@ -100,10 +100,13 @@ describe("POST /api/tasks/[id]/claim on an ordinary task", () => {
     expect((await getTask(t.id))!.claimant).toBe(CLAIMANT);
   });
 
-  it("ships dark: switch off, the anonymous claim still goes through", async () => {
+  it("refuses an anonymous points claim even while the session switch is off", async () => {
     delete process.env.SESSION_ENFORCE;
     const t = await openPointsTask();
-    expect((await claim(t.id, { claimant: CLAIMANT })).status).toBe(200);
+    const res = await claim(t.id, { claimant: CLAIMANT });
+    expect(res.status).toBe(403);
+    expect((await res.json()).code).toBe("reauth_required");
+    expect((await getTask(t.id))!.status).toBe("open");
   });
 });
 
