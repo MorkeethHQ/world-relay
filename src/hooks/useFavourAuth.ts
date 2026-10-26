@@ -25,7 +25,16 @@ export function useFavourAuth() {
     let live = true;
     fetch("/api/session", { cache: "no-store", signal: AbortSignal.timeout(8000) }).then((res) => res.json()).then((session) => {
       if (!live) return;
-      if (session.authenticated && /^0x[0-9a-fA-F]{40}$/.test(session.address)) { setUserId(session.address); setVerificationLevel("wallet"); }
+      if (session.authenticated && /^0x[0-9a-fA-F]{40}$/.test(session.address)) {
+        setUserId(session.address); setVerificationLevel("wallet");
+        fetch(`/api/verify-identity?address=${encodeURIComponent(session.address)}`, { cache: "no-store" })
+          .then((res) => res.ok ? res.json() : null)
+          .then((identity) => {
+            if (!live) return;
+            const level = identity?.verification_level;
+            if (level === "orb" || level === "device" || level === "wallet") setVerificationLevel(level);
+          }).catch(() => {});
+      }
     }).catch(() => { if (live) setAuthError("We could not check your sign-in. Please try again when connected."); }).finally(() => { if (live) setChecked(true); });
     return () => { live = false; };
   }, []);
@@ -50,11 +59,13 @@ export function useFavourAuth() {
           body: JSON.stringify({ address: addr, signature: result.data.signature, message: result.data.message, ref: localStorage.getItem("favour_ref") || undefined }),
         });
         if (!verified.ok) throw new Error("Sign-in could not be verified and saved.");
+        const identity = await verified.json();
+        const level = identity.verification_level === "orb" || identity.verification_level === "device" ? identity.verification_level : "wallet";
         localStorage.removeItem("favour_ref");
         localStorage.setItem("relay_user_id", addr);
-        localStorage.setItem("relay_verification_level", "wallet");
+        localStorage.setItem("relay_verification_level", level);
         setUserId(addr);
-        setVerificationLevel("wallet");
+        setVerificationLevel(level);
       } catch {
         setAuthError("Sign-in failed. Please try again.");
       }

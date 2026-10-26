@@ -64,7 +64,16 @@ export default function Home() {
       if (session.authenticated && /^0x[0-9a-fA-F]{40}$/.test(session.address)) {
         setUserId(session.address); setVerificationLevel("wallet");
         localStorage.setItem("relay_user_id", session.address);
-        localStorage.setItem("relay_verification_level", "wallet");
+        fetch(`/api/verify-identity?address=${encodeURIComponent(session.address)}`, { cache: "no-store" })
+          .then((res) => res.ok ? res.json() : null)
+          .then((identity) => {
+            if (!live) return;
+            const level = identity?.verification_level;
+            if (level === "orb" || level === "device" || level === "wallet") {
+              setVerificationLevel(level);
+              localStorage.setItem("relay_verification_level", level);
+            }
+          }).catch(() => {});
       } else {
         setUserId(null); setVerificationLevel(null);
       }
@@ -134,11 +143,13 @@ export default function Home() {
               ref: localStorage.getItem("favour_ref") || undefined,
             }),
           });
-          if (!verified.ok) { const error = await verified.json(); throw new Error(error.error || "Sign-in failed. Please try again."); }
+          const identity = await verified.json();
+          if (!verified.ok) throw new Error(identity.error || "Sign-in failed. Please try again.");
           setUserId(addr);
-          setVerificationLevel("wallet");
+          const level = identity.verification_level === "orb" || identity.verification_level === "device" ? identity.verification_level : "wallet";
+          setVerificationLevel(level);
           localStorage.setItem("relay_user_id", addr);
-          localStorage.setItem("relay_verification_level", "wallet");
+          localStorage.setItem("relay_verification_level", level);
 
           localStorage.removeItem("favour_ref");
 

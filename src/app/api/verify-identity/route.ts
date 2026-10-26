@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifySiweMessage, parseSiweMessage } from "@worldcoin/minikit-js/siwe";
+import { getAddress } from "viem";
 import { getRedis } from "@/lib/redis";
 import { trackVisitor, trackEvent } from "@/lib/track";
 import { issueSessionToken, ownerRefusal, getAuthedAddress, SESSION_COOKIE, SESSION_TTL_MS } from "@/lib/session";
@@ -15,12 +16,51 @@ const localCache = new Map<string, {
   verifiedAt: string;
 }>();
 
+type VerifiedUser = { nullifier: string; verificationLevel: string; verifiedAt: string; [key: string]: unknown };
+function storedUser(raw: unknown): VerifiedUser | null {
+  try {
+    const value = typeof raw === "string" ? JSON.parse(raw) : raw;
+    return value && typeof value === "object" && typeof value.verificationLevel === "string" ? value as VerifiedUser : null;
+  } catch { return null; }
+}
+function levelRank(level: string): number {
+  return level === "orb" ? 3 : level === "device" ? 2 : level === "wallet" ? 1 : 0;
+}
+
+// A wallet signature establishes control of an address, not a fresh World ID
+// tier. Never replace a stronger stored tier when a returning person signs in.
+// Older records used the wallet's checksummed spelling as the Redis key; carry
+// that verified record to the canonical lowercase key used by current sessions.
+async function ensureWalletUser(address: string): Promise<VerifiedUser> {
+  const redis = getRedis();
+  if (!redis) throw new Error("Identity storage is unavailable");
+  const canonical = address.toLowerCase();
+  const key = `${VERIFIED_PREFIX}${canonical}`;
+  const current = storedUser(await redis.get(key));
+  let chosen = current;
+  const oldSpellings = new Set([address, getAddress(canonical as `0x${string}`)]);
+  for (const spelling of oldSpellings) {
+    if (spelling === canonical) continue;
+    const legacy = storedUser(await redis.get(`${VERIFIED_PREFIX}${spelling}`));
+    if (legacy && (!chosen || levelRank(legacy.verificationLevel) > levelRank(chosen.verificationLevel))) chosen = legacy;
+  }
+  if (!chosen) chosen = { nullifier: canonical, verificationLevel: "wallet", verifiedAt: new Date().toISOString() };
+  // SET NX makes a simultaneous Orb upgrade win when this is a first sign-in.
+  // A stronger legacy record is the only reason to replace an existing key.
+  if (current && chosen !== current) await redis.set(key, JSON.stringify(chosen));
+  else if (!current) await redis.set(key, JSON.stringify(chosen), { nx: true });
+  const persisted = storedUser(await redis.get(key));
+  if (!persisted) throw new Error("Identity storage is unavailable");
+  localCache.set(canonical, persisted);
+  return persisted;
+}
+
 async function checkNullifierUnique(nullifier: string, address: string): Promise<boolean> {
   if (nullifier === "unknown" || nullifier === address) return true;
   const redis = getRedis();
   if (!redis) return false;
   const existing = await redis.get(`${NULLIFIER_PREFIX}${nullifier}`);
-  if (existing && existing !== address) return false;
+  if (existing && String(existing).toLowerCase() !== address.toLowerCase()) return false;
   return true;
 }
 
@@ -29,9 +69,9 @@ async function saveVerifiedUser(address: string, data: { nullifier: string; veri
   if (!redis) throw new Error("Identity storage is unavailable");
   if (data.nullifier !== "unknown" && data.nullifier !== address) {
     const existing = await redis.get(`${NULLIFIER_PREFIX}${data.nullifier}`);
-    if (existing && existing !== address) throw new Error("Human already linked to another wallet");
+    if (existing && String(existing).toLowerCase() !== address.toLowerCase()) throw new Error("Human already linked to another wallet");
     const bound = await redis.set(`${NULLIFIER_PREFIX}${data.nullifier}`, address, { nx: true });
-    if (!bound && await redis.get(`${NULLIFIER_PREFIX}${data.nullifier}`) !== address) throw new Error("Human already linked to another wallet");
+    if (!bound && String(await redis.get(`${NULLIFIER_PREFIX}${data.nullifier}`)).toLowerCase() !== address.toLowerCase()) throw new Error("Human already linked to another wallet");
   }
   await redis.set(`${VERIFIED_PREFIX}${address}`, JSON.stringify(data));
   localCache.set(address, data);
@@ -127,14 +167,15 @@ export async function POST(req: NextRequest) {
       if (!proof.isValid) return NextResponse.json({ error: "Wallet signature did not verify." }, { status: 401 });
       // GETDEL is atomic: concurrent requests cannot exchange one signature twice.
       if (await redis.getdel(`${SIWE_PREFIX}${nonce}`) !== req.nextUrl.origin) return NextResponse.json({ error: "Sign-in challenge was already used." }, { status: 401 });
-      await saveVerifiedUser(body.address.toLowerCase(), { nullifier: body.address.toLowerCase(), verificationLevel: "wallet", verifiedAt: new Date().toISOString() });
+      await ensureWalletUser(body.address);
     } catch {
       return NextResponse.json({ error: "Wallet sign-in could not be verified and saved. Please try again." }, { status: 401 });
     }
     trackVisitor(body.address).catch(() => {});
     trackEvent("sign_in", { level: "wallet" }).catch(() => {});
     if (typeof body.ref === "string") attributeReferral(body.address, body.ref).catch(console.error);
-    const res = NextResponse.json({ verified: true, verification_level: "wallet", address: body.address.toLowerCase() });
+    const level = (await getVerifiedUser(body.address.toLowerCase()))?.verificationLevel ?? "wallet";
+    const res = NextResponse.json({ verified: true, verification_level: level, address: body.address.toLowerCase() });
     res.cookies.set(SESSION_COOKIE, token, { httpOnly: true, secure: req.nextUrl.protocol === "https:", sameSite: "lax", path: "/", maxAge: SESSION_TTL_MS / 1000 });
     res.cookies.delete(SIWE_COOKIE);
     return res;
