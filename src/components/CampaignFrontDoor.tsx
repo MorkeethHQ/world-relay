@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { WelcomeStories, StorySegments } from "@/components/WelcomeStories";
+import { storyArt } from "@/lib/welcome-stories";
 import { CAMPAIGNS, type Campaign } from "@/lib/campaigns";
 import type { CampaignStage } from "@/lib/campaign-stage";
 import type { WelcomeStepView, WelcomeView } from "@/lib/welcome-shape";
@@ -14,29 +16,13 @@ import { CompanyTrust, ProductLine } from "@/components/CompanyCampaign";
 // Colour follows DESIGN-SYSTEM: ink for everything here. Nothing on this stage
 // is escrowed money, so nothing on it is green. Points are amber.
 
-const STEP_LABEL: Record<WelcomeStepView["state"], string> = {
-  todo: "To do",
-  sent: "Sent, not checked yet",
-  in_review: "In human review",
-  done: "Done",
-};
-
-function ProgressDots({ total, done, waiting }: { total: number; done: number; waiting: number }) {
-  return (
-    <div className="flex items-center gap-1" aria-hidden>
-      {Array.from({ length: total }).map((_, i) => (
-        <span key={i} className={`h-1.5 flex-1 rounded-full ${i < done ? "bg-white" : i < done + waiting ? "bg-white/50" : "bg-white/20"}`} />
-      ))}
-    </div>
-  );
-}
-
-export function CampaignStageCards({ stage, welcome, welcomeLoading, signedIn, onOpenWelcome, onOpenCompany, onForCompanies, onOpenDemo, campaigns, onOpenCampaign }: {
+export function CampaignStageCards({ stage, welcome, welcomeLoading, signedIn, onOpenWelcome, onOpenCompany, onForCompanies, onOpenDemo, campaigns, onOpenCampaign, onOpenWelcomeStep }: {
   stage: CampaignStage;
   welcome: WelcomeView | null;
   welcomeLoading: boolean;
   signedIn: boolean;
   onOpenWelcome: () => void;
+  onOpenWelcomeStep?: (id: string) => void;
   onOpenCompany: (campaignId: string) => void;
   onForCompanies: () => void;
   onOpenDemo: () => void;
@@ -53,9 +39,9 @@ export function CampaignStageCards({ stage, welcome, welcomeLoading, signedIn, o
   const cards = registry.filter((c) => c.id !== "first-favour" && Date.parse(c.endsAt) > Date.now());
   const c = stage.company;
   return (
-    <section aria-label="Campaigns" className="campaign-stage campaign-discovery">
-      <div className="campaign-intro"><p className="campaign-kicker">FAVOUR campaigns</p><h2>Get a favour done by a verified human.</h2><p>Each campaign joins useful steps to one purpose. See the work, the proof and the progress.</p></div>
-      <article className="welcome-hero">
+    <section aria-label="Campaigns" className="campaign-stage campaign-discovery stories-discovery">
+      <article className="welcome-hero story-home-hero">
+        <div className="story-home-segments"><StorySegments steps={steps} signedIn={signedIn} /></div>
         <img src="/campaign-friends.jpg" alt="People working together on a shared goal" />
         <div className="welcome-shade" />
         <div className="welcome-copy">
@@ -65,16 +51,11 @@ export function CampaignStageCards({ stage, welcome, welcomeLoading, signedIn, o
           <div className="welcome-reward"><span>{rewardLabel}</span><span>{signedIn && steps.length > 0 ? `${done} of ${steps.length} accepted` : steps.length > 0 ? `${steps.length} connected steps` : "Connected steps"}</span></div>
           <button type="button" onClick={onOpenWelcome} disabled={!welcome} aria-disabled={!welcome}>{welcomeLoading ? "Loading campaign…" : !welcome ? "Campaign unavailable" : signedIn && done > 0 ? "Continue campaign" : "Explore campaign"} <span aria-hidden>↗</span></button>
         </div>
-        <div className="welcome-path" aria-label="Campaign journey">
-          <p className="campaign-kicker">Your path</p>
-          <ol>
-            <li><span>01</span><div><strong>Choose a favour</strong><small>Pick the step you can do now.</small></div></li>
-            <li><span>02</span><div><strong>Send your proof</strong><small>Show the work and consent before sending.</small></div></li>
-            <li><span>03</span><div><strong>See the result</strong><small>Accepted work moves your campaign progress.</small></div></li>
-          </ol>
-          <p className="welcome-path-progress">{signedIn && steps.length > 0 ? `${done} accepted · ${steps.length - done} to go` : "Progress stays with your signed-in wallet"}</p>
-        </div>
       </article>
+      <div className="story-home-intro"><h2>Get a favour done by a verified human.</h2><p>Each campaign joins useful steps to one purpose. See the work, the proof and the progress.</p></div>
+      {steps.length > 0 && <div className="story-tiles story-home-tiles" aria-label="Explore campaign favours">{steps.map((step) => { const art = storyArt(step.description); return <button key={step.sourceTaskId} type="button" onClick={() => onOpenWelcomeStep ? onOpenWelcomeStep(step.sourceTaskId) : onOpenWelcome()}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}<img src={art.image} alt="" /><span><strong>{art.title}</strong><small>{step.points} points</small></span></button>; })}</div>}
+      <p className="story-home-credit">Photos illustrate the favours. They are not submitted proof.</p>
       <div className="campaign-grid-heading"><h3>More campaigns</h3><p>Each campaign has a purpose and its own work.</p></div>
       <div className="discovery-grid">
         <article className="discovery-card token-preview-card">
@@ -122,83 +103,7 @@ export function WelcomeCampaignView({ welcome, signedIn, busyId, error, onStart,
   onBack: () => void;
   onDiscover: () => void;
 }) {
-  const done = welcome.steps.filter((s) => s.state === "done").length;
-  const total = welcome.steps.length;
-  const waiting = welcome.steps.filter((s) => s.state === "sent" || s.state === "in_review").length;
-  return (
-    <div className="welcome-detail">
-      <div className="welcome-detail-nav">
-        <button type="button" onClick={onBack}>← Campaigns</button>
-        <span>FAVOUR</span>
-      </div>
-      <header className="welcome-detail-hero">
-        {/* The campaign photograph is a static public asset and fills its art-directed hero. */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/campaign-friends.jpg" alt="" aria-hidden="true" />
-        <div className="welcome-detail-shade" />
-        <div className="welcome-detail-copy">
-          <p className="campaign-kicker">Open campaign · By FAVOUR</p>
-          <h1>{welcome.campaign.name}</h1>
-          <p>Help prove what a real person can do. Complete a small task, show your work and build a record of accepted favours.</p>
-          <div className="welcome-detail-progress">
-            <strong>{signedIn ? `${done} of ${total} accepted` : `${total} connected favours`}</strong>
-            <ProgressDots total={total} done={done} waiting={waiting} />
-            <span>{waiting > 0 ? `${waiting} awaiting a result · ` : ""}Runs until {new Date(welcome.campaign.endsAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</span>
-          </div>
-        </div>
-      </header>
-      <div className="welcome-detail-content">
-        <section className="welcome-detail-path" aria-label="How this campaign works">
-          <p className="campaign-kicker">Your path</p>
-          <ol><li><span>01</span><strong>Choose a favour</strong></li><li><span>02</span><strong>Send your proof</strong></li><li><span>03</span><strong>See the result</strong></li></ol>
-          <p>Accepted work moves your campaign progress. Each favour shows its points before you start.</p>
-          <details><summary>How checking and rewards work</summary><ul>
-            <li>Each favour is yours to do. Someone else&apos;s proof never takes it from you.</li>
-            <li>An automatic check reads your proof. Accepted work adds the stated points.</li>
-            <li>If the check is unsure, 3 qualified reviewers look and 2 must accept. If checking is unavailable, no points change. You can try again.</li>
-            <li>Points only. No USDC is paid by this campaign.</li>
-          </ul></details>
-        </section>
-        <div className="welcome-detail-list-heading"><h2>Choose your next favour</h2><p>{done} accepted · {Math.max(0, total - done)} to go</p></div>
-        {error && <p role="alert" className="welcome-detail-alert">{error}</p>}
-        {total === 0 && <p className="welcome-detail-empty">The Welcome favour list is being refreshed. No favours are available to start in this campaign right now.</p>}
-        <ol className="welcome-detail-list">
-          {welcome.steps.map((s, i) => (
-            <li key={s.sourceTaskId} className="welcome-detail-step">
-              <div className="welcome-detail-step-top"><span>Favour {String(i + 1).padStart(2, "0")} / {String(total).padStart(2, "0")}</span><span>{s.points} points</span></div>
-              <p className="welcome-detail-step-copy">{s.description}</p>
-              <div className="welcome-detail-step-footer">
-                <span className="welcome-detail-step-state">{signedIn ? STEP_LABEL[s.state] : "Ready to start"}</span>
-                {s.state !== "done" && <button type="button" onClick={() => onStart(s)} disabled={busyId === s.sourceTaskId}>{busyId === s.sourceTaskId ? "Opening" : s.state === "todo" ? (signedIn ? "Do this favour ↗" : "Sign in to start ↗") : "Send new proof ↗"}</button>}
-              </div>
-              {s.state === "in_review" && (
-                <p className="welcome-detail-step-note">
-                  3 qualified reviewers look at this proof and 2 must accept it. No points yet. You can send a new proof at any time.
-                </p>
-              )}
-              {s.state === "sent" && (
-                <p className="welcome-detail-step-note">Your proof is saved on this favour, but it was not judged: the checking service was not working. No points yet. You can send it again; it is judged only once the service works.</p>
-              )}
-              {s.state === "todo" && s.reviewNote && (
-                <div className="welcome-detail-step-note">
-                  <p>The reviewers did not accept your last proof. No points were added.</p>
-                  {s.reviewNote.reasons.map((r, k) => (
-                    <p key={k}>&ldquo;{r}&rdquo;</p>
-                  ))}
-                </div>
-              )}
-            </li>
-          ))}
-        </ol>
-        <p className="welcome-detail-source">
-          These are the original Welcome favours, first posted on 5 Jul 2026. The texts are unchanged.
-        </p>
-        <button type="button" onClick={onDiscover} className="welcome-detail-more">
-          Discover more favours <span aria-hidden>↗</span>
-        </button>
-      </div>
-    </div>
-  );
+  return <WelcomeStories welcome={welcome} signedIn={signedIn} busyId={busyId} error={error} onStart={onStart} onBack={onBack} onDiscover={onDiscover} />;
 }
 
 export function DemoBrandView({ onBack, onPlan, onWelcome }: { onBack: () => void; onPlan: () => void; onWelcome: (() => void) | null }) {

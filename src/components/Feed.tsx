@@ -1262,7 +1262,7 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
 
   if (view === "proof" && selectedTask) {
     const leaveProof = (to: "board" | "welcome") => { setView(to === "welcome" && welcome ? "welcome" : "board"); fetchTasks(); setContribRefresh((n) => n + 1); setWelcomeKey((n) => n + 1); };
-    return <SubmitProof task={selectedTask} userId={userId} onDone={() => leaveProof("board")} onCancel={() => leaveProof(proofFrom)} onWelcome={proofFrom === "welcome" ? () => leaveProof("welcome") : undefined} onCreateTask={() => { setPostCampaignId(null); setView("post"); }} onJudge={() => setView("jury")} onReauth={onReauth} />;
+    return <div className={proofFrom === "welcome" ? "stories-proof" : undefined}><SubmitProof task={selectedTask} userId={userId} onDone={() => leaveProof("board")} onCancel={() => leaveProof(proofFrom)} onWelcome={proofFrom === "welcome" ? () => leaveProof("welcome") : undefined} onCreateTask={() => { setPostCampaignId(null); setView("post"); }} onJudge={() => setView("jury")} onReauth={onReauth} /></div>;
   }
 
   if (view === "detail" && selectedTask) {
@@ -1281,7 +1281,7 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
   return (
     <div
       ref={feedContainerRef}
-      className="campaign-home flex flex-col gap-0 mx-auto w-full min-h-screen bg-gray-50"
+      className="campaign-home stories-shell flex flex-col gap-0 mx-auto w-full min-h-screen bg-gray-50"
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
@@ -1326,6 +1326,7 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
           welcome={welcome}
           welcomeLoading={welcomeLoading}
           signedIn={walletUser}
+          onOpenWelcomeStep={(id) => { if (!welcome) return; hapticTap(); window.history.replaceState(null, "", `/?campaign=welcome&step=${encodeURIComponent(id)}`); setWelcomeError(null); setView("welcome"); }}
           onOpenWelcome={() => { if (!welcome) return; hapticTap(); window.history.replaceState(null, "", "/?campaign=welcome"); setWelcomeError(null); setView("welcome"); }}
           onOpenCompany={(id) => { hapticTap(); window.history.replaceState(null, "", `/?campaign=${encodeURIComponent(id)}`); setCompanyCampaignId(id); setView("company"); }}
           onForCompanies={() => { hapticTap(); setView("companies"); }}
