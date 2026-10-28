@@ -1,4 +1,5 @@
 "use client";
+import { FavourPageHero } from "./FavourPageHero";
 import { ContributionResponses } from "./ContributionResponses";
 import { useEffect, useState } from "react";
 import type { CompanyReview as Review } from "@/lib/company-review-shape";
@@ -49,7 +50,7 @@ export function CompanyReview({ id }: { id: string }) {
   const latest = review?.decisions[0];
   return <div className="mx-auto max-w-2xl px-5 py-6 text-gray-900" style={{ fontFamily: "var(--favour-font)" }}>
     <a href="/" className="inline-flex min-h-11 items-center text-sm text-gray-600">← Back to FAVOUR</a>
-    <p className="mt-4 text-xs font-semibold uppercase tracking-widest text-gray-500">Company evidence · private</p>
+    <FavourPageHero title="See what the work tells you." image="/hero/desk.jpg" /><p className="mt-4 text-xs font-semibold uppercase tracking-widest text-gray-500">Company evidence · private</p>
     <h1 className="mt-2 text-3xl font-semibold tracking-tight">{review?.campaign.company || "Your campaign"}</h1>
     <p className="mt-3 text-sm leading-6 text-gray-600">Read the work, then record the decision it informs. Only the campaign owner can see this page. Saving a decision does not change a proof verdict or reward.</p>
     {error && <div role="alert" className="mt-5 rounded-xl border border-error-200 bg-error-100 p-4 text-sm text-error-700">{error}<button type="button" onClick={() => setReload(n => n + 1)} className="mt-2 block min-h-11 underline">Reload campaign</button></div>}

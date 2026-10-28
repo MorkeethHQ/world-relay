@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
+import "./favour-system.css";
 import { MiniKitProvider } from "@/lib/minikit-provider";
 import { BottomNav } from "@/components/BottomNav";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -45,7 +46,7 @@ export default function RootLayout({
           anything — it only hid the symptom on desktop while iOS still widened
           its layout viewport. The containment is on <main> below; without the
           decoy, a real overflow now shows up as a scrollbar in development. */}
-      <body className="min-h-full flex flex-col bg-gray-50 text-gray-900">
+      <body className="favour-ui min-h-full flex flex-col">
         <ErrorBoundary>
           <MiniKitProvider>
             {/* Shown only in the local TEST DATA fixture (scripts/REVIEW-FIXTURE.md).

@@ -2311,7 +2311,7 @@ function QuickPost({
                   type="button"
                   onClick={() => pickIdea(idea.text, idea.photo)}
                   className="text-left text-[14px] text-gray-700 rounded-xl min-h-[40px] active:scale-[0.98] transition-transform"
-                  style={{ padding: "8px 12px", border: "1px solid #e5e7eb", background: "#ffffff" }}
+                  style={{ padding: "8px 12px", border: "1px solid var(--favour-border)", background: "var(--favour-field)" }}
                 >
                   {idea.text}
                 </button>
@@ -3356,7 +3356,7 @@ function SubmitProof({
                       onChange={(e) => setProofNote(e.target.value)}
                       rows={4}
                       className="w-full rounded-2xl focus:outline-none placeholder:text-gray-400"
-                      style={{ fontSize: 16, padding: "12px 16px", border: "1px solid #e5e7eb", background: "#ffffff", resize: "none" }}
+                      style={{ fontSize: 16, padding: "12px 16px", border: "1px solid var(--favour-border)", background: "var(--favour-field)", resize: "none" }}
                     />
                     {images.length > 0 ? (
                       <div className="flex gap-2 mt-2 overflow-x-auto pb-1">

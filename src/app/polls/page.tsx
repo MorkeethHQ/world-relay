@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { FavourPageHero } from "@/components/FavourPageHero";
 import { PollsFeed } from "@/components/Polls";
 import { PredictionsSection } from "@/components/Predictions";
 
@@ -18,7 +19,7 @@ export default function PollsPage() {
       <div className="sticky top-0 z-10 bg-white border-b border-gray-100 px-6 py-3">
         <h1 className="text-[18px] font-bold tracking-tight text-gray-900">Polls</h1>
       </div>
-      <div className="px-6 py-4 pb-28 flex flex-col gap-4">
+      <div className="px-6 py-4 pb-28 flex flex-col gap-4"><FavourPageHero title="A small question. A useful answer." image="/hero/restaurant.jpg" />
         {/* Open questions first. Closed polls and resolved predictions are
             history, each behind its own control (2026-10-05). */}
         <PollsFeed userId={userId} />

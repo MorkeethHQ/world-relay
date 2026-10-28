@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { FavourPageHero } from "@/components/FavourPageHero";
 import type { Contribution } from "@/lib/completions";
 import type { Streak } from "@/lib/deck-view";
 import { displayName, profilePicture, useWorldUsers } from "@/hooks/useWorldUser";
@@ -23,7 +24,7 @@ export function ProfileView({ address, name, picture, mine, streak, posted, onSi
         <h1 className="fv-h">Profile</h1>
         {address && <button type="button" onClick={onSignOut} className="fv-body underline underline-offset-2 min-h-[44px]">Sign out</button>}
       </header>
-      <div className="px-6 py-5 pb-28 flex flex-col gap-5">
+      <div className="px-6 py-5 pb-28 flex flex-col gap-5"><FavourPageHero title="The person behind the favours." description="Your accepted work and the record you build, one favour at a time." image="/hero/couple.jpg" />
         {!address ? (
           <>
             <div className="fv-box p-5 flex flex-col gap-3"><p className="fv-h">Not signed in</p><p className="fv-body">Sign in to keep your campaign work with your wallet.</p><Link href="/" className="fv-btn fv-btn-ink">Explore campaigns</Link></div>
@@ -33,15 +34,15 @@ export function ProfileView({ address, name, picture, mine, streak, posted, onSi
           <>
             <section className="fv-box flex">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={picture ?? funkyArt(name)} alt="" className="w-28 h-28 object-cover" style={{ borderRight: "2px solid #000" }} />
+              <img src={picture ?? funkyArt(name)} alt="" className="w-28 h-28 object-cover" style={{ borderRight: "1px solid var(--favour-border)" }} />
               <div className="p-4 flex flex-col justify-center gap-1 min-w-0">
                 <p className="fv-title break-words">{name}</p>
                 <p className="fv-body text-[12px]">Signed in with World wallet</p>
               </div>
             </section>
             <section className="fv-box grid grid-cols-2">
-              <div className="p-3" style={{ borderRight: "2px solid #000" }}><p className="fv-title fv-num fv-blue">{points}</p><p className="fv-label">points</p></div>
-              <div className="p-3" style={{ borderRight: "2px solid #000" }}><p className="fv-title fv-num">{reviews}</p><p className="fv-label">accepted favours</p></div>
+              <div className="p-3" style={{ borderRight: "1px solid var(--favour-border)" }}><p className="fv-title fv-num fv-blue">{points}</p><p className="fv-label">points</p></div>
+              <div className="p-3" style={{ borderRight: "1px solid var(--favour-border)" }}><p className="fv-title fv-num">{reviews}</p><p className="fv-label">accepted favours</p></div>
 
             </section>
             {failed && (

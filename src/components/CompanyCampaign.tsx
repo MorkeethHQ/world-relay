@@ -1,4 +1,5 @@
 "use client";
+import { FavourPageHero } from "./FavourPageHero";
 
 import { ContributionResponses } from "./ContributionResponses";
 import { useState, useEffect } from "react";
@@ -100,7 +101,7 @@ export function ForCompaniesView({ onBack, onLaunch, drafts, onSeeDrafts }: {
         <button type="button" onClick={onBack} className="min-h-[40px] text-[14px] text-gray-500">Back</button>
         <p className="flex-1 text-[15px] font-semibold text-gray-900">For companies</p>
       </div>
-      <CompanyVisionCard onLaunch={onLaunch} drafts={drafts} onSeeDrafts={onSeeDrafts} />
+      <div className="px-6"><FavourPageHero title="A goal worth helping with." image="/campaign-friends.jpg" /></div><CompanyVisionCard onLaunch={onLaunch} drafts={drafts} onSeeDrafts={onSeeDrafts} />
       <p className="px-6 pt-4 pb-8 text-[13px] text-gray-500 leading-snug">
         To publish you need a brief of at least {MIN_BRIEF_WORDS} words and a link to your product. Your campaign shows as an unverified company until FAVOUR has checked it. Pieces pay points only.
       </p>
@@ -241,7 +242,7 @@ export function CampaignDraftForm({ onSaved, onCancel, onReauth }: {
         <p className="text-[15px] font-semibold text-gray-900">Plan a campaign</p>
         <span className="w-12" />
       </div>
-      <div className="flex-1 px-6 pt-5 pb-4 flex flex-col gap-5">
+      <div className="flex-1 px-6 pt-5 pb-4 flex flex-col gap-5"><FavourPageHero title="What could people help you do?" image="/hero/desk.jpg" />
         <p className="text-[13px] text-gray-500 leading-snug">
           This saves a private <span className="font-semibold text-gray-900">draft</span>. Nothing goes on the board until you publish it, and no money moves. Funding the pool is a separate step.
         </p>
@@ -417,7 +418,7 @@ export function CampaignDraftList({ drafts, onDone, justSaved, onPublished, onOp
   };
   return (
     <div className="flex flex-col min-h-[calc(100vh-5rem)] max-w-lg mx-auto w-full bg-gray-50">
-      <div className="px-6 pt-8 pb-4">
+      <div className="px-6 pt-8 pb-4"><FavourPageHero title="Ideas becoming favours." image="/hero/desk.jpg" />
         <p className="text-[22px] font-bold tracking-tight text-gray-900">{justSaved ? "Draft saved" : "Your campaigns"}</p>
         <p className="text-[13px] text-gray-500 mt-1">A draft is private to you. Publishing puts its pieces on the board as points favours. No money moves at either step.</p>
       </div>
@@ -527,7 +528,7 @@ export function CompanyCampaignView({ id, tasks, completedIds, onJoin, onBack }:
       </div>
       {missing && <p className="px-6 pt-8 text-[14px] text-gray-500">This campaign is not published.</p>}
       {c && (
-        <div className="px-6 pt-5 pb-8 flex flex-col gap-4">
+        <div className="px-6 pt-5 pb-8 flex flex-col gap-4"><FavourPageHero title={c.productName || c.company} description="Read the request. Choose a piece. Show what you did." image="/campaign-friends.jpg" />
           <div>
             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-900">Company campaign · points only{c.status === "publishing" ? " · still publishing" : ""}</p>
             <CompanyTrust c={c} className="mt-2" />

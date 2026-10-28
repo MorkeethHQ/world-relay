@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { FavourPageHero } from "@/components/FavourPageHero";
 
 export const metadata = {
   title: "Terms & Community Guidelines — FAVOUR",
@@ -19,7 +20,7 @@ export default function TermsPage() {
         Back
       </Link>
 
-      <h1 className="text-[28px] font-bold tracking-tight text-gray-900 mt-6">
+      <FavourPageHero title="A shared way to help." image="/hero/desk.jpg" /><h1 className="text-[28px] font-bold tracking-tight text-gray-900 mt-6">
         Terms &amp; Community Guidelines
       </h1>
       <p className="text-[13px] text-gray-400 mt-1">Version 1.0</p>

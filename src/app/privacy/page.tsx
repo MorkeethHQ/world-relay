@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { FavourPageHero } from "@/components/FavourPageHero";
 
 export const metadata = {
   title: "Privacy Policy — FAVOUR",
@@ -25,7 +26,7 @@ export default function PrivacyPage() {
         Back
       </Link>
 
-      <h1 className="text-[28px] font-bold tracking-tight text-gray-900 mt-6">
+      <FavourPageHero title="Your privacy matters." image="/hero/desk.jpg" /><h1 className="text-[28px] font-bold tracking-tight text-gray-900 mt-6">
         Privacy Policy
       </h1>
       <p className="text-[13px] text-gray-400 mt-1">Version 1.1 &middot; Last updated 31 July 2026</p>

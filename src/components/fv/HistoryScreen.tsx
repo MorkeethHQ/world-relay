@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { FavourPageHero } from "@/components/FavourPageHero";
 import type { Contribution } from "@/lib/completions";
 
 // HISTORY (Oscar, 10 Oct 2026: "History is great"; 19 Oct: every page in one
@@ -18,10 +19,10 @@ export function HistoryView({ mine, stats, signedIn, error, latest }: { mine: Co
         <h1 className="fv-h">History</h1>
         <p className="fv-h fv-num"><span className="fv-blue">{points}</span> pts</p>
       </header>
-      <div className="px-6 py-5 pb-28 flex flex-col gap-5">
+      <div className="px-6 py-5 pb-28 flex flex-col gap-5"><FavourPageHero title="Your work. Your progress." description="Return to the favours you completed and the people you helped." image="/hero/coffee.jpg" />
         <section aria-label="FAVOUR so far" className="fv-box grid grid-cols-3">
-          <div className="p-3 fv-rule-b" style={{ borderRight: "2px solid #000" }}><p className="fv-title fv-num">{Math.round(stats.volume?.paidOutUsdc ?? 0)}</p><p className="fv-label">USDC paid</p></div>
-          <div className="p-3 fv-rule-b" style={{ borderRight: "2px solid #000" }}><p className="fv-title fv-num">{Math.round(stats.volume?.pointsDistributed ?? 0)}</p><p className="fv-label">points</p></div>
+          <div className="p-3 fv-rule-b" style={{ borderRight: "1px solid var(--favour-border)" }}><p className="fv-title fv-num">{Math.round(stats.volume?.paidOutUsdc ?? 0)}</p><p className="fv-label">USDC paid</p></div>
+          <div className="p-3 fv-rule-b" style={{ borderRight: "1px solid var(--favour-border)" }}><p className="fv-title fv-num">{Math.round(stats.volume?.pointsDistributed ?? 0)}</p><p className="fv-label">points</p></div>
           <div className="p-3 fv-rule-b"><p className="fv-title fv-num">{stats.users?.reached ?? stats.users?.verified ?? 0}</p><p className="fv-label">wallets</p></div>
           <p className="col-span-3 p-3 fv-body text-[12px]">Platform totals, cached. Your own work is below.</p>
         </section>

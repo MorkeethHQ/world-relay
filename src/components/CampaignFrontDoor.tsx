@@ -1,5 +1,6 @@
 "use client";
 
+import { FavourPageHero } from "./FavourPageHero";
 import { useState } from "react";
 import { WelcomeStories, StorySegments } from "@/components/WelcomeStories";
 import { storyArt } from "@/lib/welcome-stories";
@@ -59,9 +60,9 @@ export function CampaignStageCards({ stage, welcome, welcomeLoading, signedIn, o
       <p className="story-home-credit">Photos illustrate the favours. They are not submitted proof.</p>
       <div className="campaign-grid-heading"><h3>More campaigns</h3><p>Each campaign has a purpose and its own work.</p></div>
       <div className="discovery-grid">
-        {onOpenProjectReviews && <article className="discovery-card project-review-hub"><div className="discovery-card-copy"><p className="campaign-kicker">A FAVOUR campaign · project reviews</p><h3>Try a project.<br/>Leave a useful finding.</h3><p>Open a project, try its request and send an honest review. Return to the organiser’s response. Points are for accepted proof, not positive opinions.</p><button type="button" onClick={onOpenProjectReviews}>Explore review campaigns ↗</button></div></article>}
+        {onOpenProjectReviews && <article className="discovery-card project-review-hub"><img src="/hero/desk.jpg" alt="A workspace, illustrating project reviews" /><div className="discovery-card-copy"><p className="campaign-kicker">A FAVOUR campaign · project reviews</p><h3>Try a project.<br/>Leave a useful finding.</h3><p>Open a project, try its request and send an honest review. Return to the organiser’s response. Points are for accepted proof, not positive opinions.</p><button type="button" onClick={onOpenProjectReviews}>Explore projects <span aria-hidden>↗</span></button></div></article>}
         <article className="discovery-card token-preview-card">
-          <div className="token-preview-art" aria-hidden="true"><span>01</span><span>02</span><span>03</span></div>
+          <img src="/hero/couple.jpg" alt="People sharing ideas, illustrating a campaign plan" />
           <div className="discovery-card-copy"><p className="campaign-kicker">Campaign example · Planning only</p><h3>Shape a FAVOUR token launch.</h3><p>Try a real favour, examine the proof, then tell us what a completion token should record. Your feedback would shape the plan.</p><div className="discovery-reward">No token exists here. No token or payment is promised.</div><button type="button" onClick={onOpenDemo}>See the three steps <span aria-hidden>↗</span></button></div>
         </article>
         {cards.map((campaign) => {
@@ -74,7 +75,7 @@ export function CampaignStageCards({ stage, welcome, welcomeLoading, signedIn, o
             </div>
           </article>;
         })}
-        {c && <article className="discovery-card"><img src="/campaign-friends.jpg" alt="People sharing time together" /><div className="discovery-card-copy"><p className="campaign-kicker">Company campaign</p><h3>{c.campaign.company}</h3><CompanyTrust c={c.campaign} /><ProductLine c={c.campaign} /><p>{c.campaign.brief}</p><div className="discovery-reward">{c.campaign.rewardPerPiecePoints} points per accepted piece · {c.openPieces} pieces open</div><button type="button" onClick={() => onOpenCompany(c.campaign.id)}>Explore campaign ↗</button></div></article>}
+        {c && <article className="discovery-card"><img src="/campaign-friends.jpg" alt="People sharing time together" /><div className="discovery-card-copy"><p className="campaign-kicker">Company campaign</p><h3>{c.campaign.company}</h3><CompanyTrust c={c.campaign} /><ProductLine c={c.campaign} /><p>{c.campaign.brief}</p><div className="discovery-reward">{c.campaign.rewardPerPiecePoints} points per accepted piece · {c.openPieces} pieces open</div><button type="button" onClick={() => onOpenCompany(c.campaign.id)}>Explore campaign <span aria-hidden>↗</span></button></div></article>}
       </div>
       <button type="button" className="campaign-builder-link" onClick={onForCompanies}>For teams: plan a campaign <span aria-hidden>↗</span></button>
     </section>
@@ -89,7 +90,7 @@ export function TokenLaunchPreviewView({ onBack, onWelcome }: { onBack: () => vo
   ];
   return <div className="token-preview-page">
     <button type="button" className="token-preview-back" onClick={onBack}>← Campaigns</button>
-    <div className="token-preview-hero"><p className="campaign-kicker">Campaign example · Planning only</p><h1>Shape a FAVOUR token launch.</h1><p>One question runs through all three steps: what should a record of completed favours mean to the people who did the work?</p></div>
+    <FavourPageHero title="Shape the next chapter." image="/campaign-coffee.jpg" /><div className="token-preview-hero"><p className="campaign-kicker">Campaign example · Planning only</p><h1>Shape a FAVOUR token launch.</h1><p>One question runs through all three steps: what should a record of completed favours mean to the people who did the work?</p></div>
     <p className="token-preview-note">This is an example of a connected campaign. It is not open for contributions. There is no FAVOUR token, token reward, sale, mint or payment in this example.</p>
     <ol className="token-preview-steps">{steps.map(([title, description], i) => <li key={title}><span>0{i + 1}</span><div><h2>{title}</h2><p>{description}</p></div></li>)}</ol>
     <button type="button" className="token-preview-action" onClick={onWelcome}>Try the open Welcome campaign <span aria-hidden>↗</span></button>
