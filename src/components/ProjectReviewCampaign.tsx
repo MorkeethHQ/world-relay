@@ -46,10 +46,11 @@ export function ProjectReviewCampaign({tasks,completedIds,userId,onBack,onStart,
  // swaps in that pair's own draft during render, so one never paints with another's
  // text. Signed-out text lives in memory only; first sign-in carries every signed-out
  // project draft into the account without replacing the account's own drafts, and
- // any account change drops the signed-out memory.
+ // any account change drops the signed-out memory. The open finding keeps the
+ // text the person is looking at when they sign in; other account drafts stay saved.
  const campaignId=campaign?.id??null;const draftFor=campaignId?`${userId??''}|${campaignId}`:null;
  const reviewTaskId=campaign?.pieceTaskIds?.review;const reviewDone=!!reviewTaskId&&completedIds.has(reviewTaskId);
- if(held.key!==draftFor){const stored=campaignId&&userId?loadFindingDraft(deviceStore(),userId,campaignId):EMPTY_FINDING;const carried=seenUser===null&&campaignId?signedOut[campaignId]:undefined;setHeld({key:draftFor,value:!campaignId||reviewDone?EMPTY_FINDING:stored!==EMPTY_FINDING?stored:carried??EMPTY_FINDING});setFindingError('');}
+ if(held.key!==draftFor){const stored=campaignId&&userId?loadFindingDraft(deviceStore(),userId,campaignId):EMPTY_FINDING;const carried=seenUser===null&&campaignId?signedOut[campaignId]:undefined;setHeld({key:draftFor,value:!campaignId||reviewDone?EMPTY_FINDING:carried??stored});setFindingError('');}
  if(seenUser!==userId){setSeenUser(userId);setSignedOut({});}
  const finding=held.key===draftFor?held.value:EMPTY_FINDING;
  const setFinding=(next:(v:ProjectFinding)=>ProjectFinding)=>{const value=next(finding);setHeld({key:draftFor,value});if(!userId&&campaignId){setSignedOut(s=>({...s,[campaignId]:value}));signedOutPending.current={...signedOutPending.current,[campaignId]:value};}};

@@ -70,7 +70,9 @@ describe("history wiring (source guard: no DOM runner in this repo)", () => {
     expect(feed).toContain('window.history.pushState({ ...PROJECT_PROOF_ENTRY },"",window.location.pathname+window.location.search); setProjectProofNote(note);');
   });
   it("in-app proof exit consumes only its own marked entry", () => {
-    expect(feed).toMatch(/const leaveProof = \([^)]*\) => \{ if \(isProjectProofEntry\(window\.history\.state\)\) window\.history\.back\(\);/);
+    expect(feed).toContain('if (proofFrom === "project-reviews" && isProjectProofEntry(window.history.state)) window.history.back();');
+    expect(feed).toContain('onCreateTask={() => { leaveProjectProofForBoard();');
+    expect(feed).toContain('onJudge={() => { leaveProjectProofForBoard();');
   });
   it("tells a signed-in person their unsent finding stays on this device", () => {
     expect(campaign).toContain("saved on this device for your account only");
