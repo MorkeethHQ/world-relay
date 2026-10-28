@@ -36,7 +36,7 @@ const nextConfig: NextConfig = {
   // /leaderboard ("Ranks") was removed 2026-09-03. Old deep links and the
   // agent discovery doc pointed at it; send them to the profile, not a 404.
   async redirects() {
-    return [{ source: "/leaderboard", destination: "/dashboard", permanent: true }];
+    return [{ source: "/leaderboard", destination: "/dashboard", permanent: true }, { source: "/review-projects", destination: "/?campaign=project-reviews", permanent: false }];
   },
   // THE LOCAL TEST DATA FIXTURE ONLY (2026-10-05). When the app runs against the
   // in-memory fake store on 127.0.0.1 with FAVOUR_TEST_FIXTURE=1 and is not a

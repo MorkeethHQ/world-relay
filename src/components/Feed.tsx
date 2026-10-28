@@ -438,11 +438,16 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
   }, []);
   const [companyCampaignId, setCompanyCampaignId] = useState<string | null>(null);
   useEffect(() => {
-    const query = new URLSearchParams(window.location.search);
-    if (query.get("campaign") === "project-reviews") setView("project-reviews");
-    else if (query.get("campaign") === "welcome") setView("welcome");
-    else if (query.get("campaign") === "token-plan") setView("demo");
-    else if (query.get("campaign")?.startsWith("draft_")) { setCompanyCampaignId(query.get("campaign")); setView("company"); }
+    const sync = () => {
+      const query = new URLSearchParams(window.location.search);
+      if (query.get("campaign") === "project-reviews") setView("project-reviews");
+      else if (query.get("campaign") === "welcome") setView("welcome");
+      else if (query.get("campaign") === "token-plan") setView("demo");
+      else if (query.get("campaign")?.startsWith("draft_")) { setCompanyCampaignId(query.get("campaign")); setView("company"); }
+      else setView("board");
+    };
+    sync();window.addEventListener("popstate",sync);
+    return () => window.removeEventListener("popstate",sync);
   }, []);
 
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -1270,7 +1275,7 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
 
   if (view === "proof" && selectedTask) {
     const leaveProof = (to: "board" | "welcome" | "project-reviews") => { setView(to === "project-reviews" ? "project-reviews" : to === "welcome" && welcome ? "welcome" : "board"); fetchTasks(); setContribRefresh((n) => n + 1); setWelcomeKey((n) => n + 1); };
-    return <div className={proofFrom === "welcome" || proofFrom === "project-reviews" ? "stories-proof" : undefined}>{proofFrom === "project-reviews" && <button type="button" className="project-proof-return" onClick={() => leaveProof("project-reviews")}>← Return to project campaign</button>}<SubmitProof task={selectedTask} userId={userId} initialNote={proofFrom === "project-reviews" ? projectProofNote : undefined} onDone={() => leaveProof("board")} onCancel={() => leaveProof(proofFrom)} onWelcome={proofFrom === "welcome" ? () => leaveProof("welcome") : undefined} onCreateTask={() => { setPostCampaignId(null); setView("post"); }} onJudge={() => setView("jury")} onReauth={onReauth} /></div>;
+    return <div className={proofFrom === "welcome" || proofFrom === "project-reviews" ? "stories-proof" : undefined}>{proofFrom === "project-reviews" && <button type="button" className="project-proof-return" onClick={() => leaveProof("project-reviews")}>← Return to project campaign</button>}<SubmitProof task={selectedTask} userId={userId} initialNote={proofFrom === "project-reviews" ? projectProofNote : undefined} projectReviewReturn={proofFrom === "project-reviews"} onDone={() => leaveProof(proofFrom === "project-reviews" ? "project-reviews" : "board")} onCancel={() => leaveProof(proofFrom)} onWelcome={proofFrom === "welcome" ? () => leaveProof("welcome") : undefined} onCreateTask={() => { setPostCampaignId(null); setView("post"); }} onJudge={() => setView("jury")} onReauth={onReauth} /></div>;
   }
 
   if (view === "detail" && selectedTask) {
@@ -2968,6 +2973,7 @@ function SubmitProof({
   onJudge,
   onReauth,
   onWelcome,
+  projectReviewReturn,
   initialNote,
 }: {
   task: Task;
@@ -2980,6 +2986,7 @@ function SubmitProof({
   onCancel: () => void;
   // Set when the proof was opened from the Welcome list: back to that list.
   onWelcome?: () => void;
+  projectReviewReturn?: boolean;
   initialNote?: string;
   // Re-authentication, threaded down here on 2026-09-20 with the session gate.
   // verify-proof now refuses a submission whose session is gone, and the person
@@ -3731,7 +3738,7 @@ function SubmitProof({
                   >
                     Discover more favours
                   </button>
-                  {task.companyCampaignId && <a href={`/?campaign=${encodeURIComponent(task.companyCampaignId)}`} className="w-full min-h-[48px] flex items-center justify-center rounded-2xl border border-gray-300 bg-white text-[15px] text-gray-900 font-semibold">Return to campaign</a>}
+                  {task.companyCampaignId && <a href={projectReviewReturn ? `/?campaign=project-reviews&project=${encodeURIComponent(task.companyCampaignId)}` : `/?campaign=${encodeURIComponent(task.companyCampaignId)}`} className="w-full min-h-[48px] flex items-center justify-center rounded-2xl border border-gray-300 bg-white text-[15px] text-gray-900 font-semibold">Return to campaign</a>}
                   {onWelcome && (
                     <button
                       onClick={() => { hapticTap(); onWelcome(); }}
