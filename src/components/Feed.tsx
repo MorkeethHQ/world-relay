@@ -71,6 +71,7 @@ import { CHECK_UNAVAILABLE_ERROR, TRY_AGAIN_LINE, proofKeptLabel, proofKeptLine,
 import { reviewEntryFor, type ReviewEntry } from "@/lib/review-entry";
 import { isCampaignRunning } from "@/lib/campaigns";
 import { ProjectReviewCampaign } from "@/components/ProjectReviewCampaign";
+import { PROJECT_PROOF_ENTRY, isProjectProofEntry } from "@/lib/project-review-campaign";
 import { PENDING_WELCOME_KEY } from "@/components/Onboarding";
 import { threadSpeaker } from "@/lib/thread";
 import { simplePaymentStep } from "@/lib/simple-payment";
@@ -798,6 +799,13 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
       .catch(() => {});
     return () => { live = false; };
   }, [userId, contribRefresh]);
+  // Browser back from a project proof skips leaveProof, so re-read the person's
+  // contributions there: an accepted review must not reopen its form.
+  useEffect(() => {
+    const pop = () => { if (new URLSearchParams(window.location.search).get("campaign") === "project-reviews") setContribRefresh((n) => n + 1); };
+    window.addEventListener("popstate", pop);
+    return () => window.removeEventListener("popstate", pop);
+  }, []);
   const completedIds = useMemo(() => new Set(contributions.map((c) => c.taskId)), [contributions]);
 
   // The signed-in person's own company campaign drafts (session-only, private).
@@ -1236,7 +1244,7 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
     // returns to this project with the finding still filled in, not the previous one.
     return <ProjectReviewCampaign tasks={tasks} completedIds={completedIds} userId={userId} onReauth={onReauth}
       onBack={() => { window.history.pushState(null,"","/"); setView("board"); }}
-      onStart={(task,note) => { if (!userId) { onReauth?.(); return; } window.history.pushState(null,"",window.location.pathname+window.location.search); setProjectProofNote(note); setSelectedTask(task); setProofFrom("project-reviews"); setView("proof"); }} />;
+      onStart={(task,note) => { if (!userId) { onReauth?.(); return; } window.history.pushState({ ...PROJECT_PROOF_ENTRY },"",window.location.pathname+window.location.search); setProjectProofNote(note); setSelectedTask(task); setProofFrom("project-reviews"); setView("proof"); }} />;
   }
   if (view === "welcome" && welcome) {
     return (
@@ -1276,7 +1284,9 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
   }
 
   if (view === "proof" && selectedTask) {
-    const leaveProof = (to: "board" | "welcome" | "project-reviews") => { setView(to === "project-reviews" ? "project-reviews" : to === "welcome" && welcome ? "welcome" : "board"); fetchTasks(); setContribRefresh((n) => n + 1); setWelcomeKey((n) => n + 1); };
+    // In-app exit from a project proof consumes its own marked history entry, so
+    // Return/Done/Cancel leave no duplicate step behind. Other entries are untouched.
+    const leaveProof = (to: "board" | "welcome" | "project-reviews") => { if (isProjectProofEntry(window.history.state)) window.history.back(); setView(to === "project-reviews" ? "project-reviews" : to === "welcome" && welcome ? "welcome" : "board"); fetchTasks(); setContribRefresh((n) => n + 1); setWelcomeKey((n) => n + 1); };
     return <div className={proofFrom === "welcome" || proofFrom === "project-reviews" ? "stories-proof" : undefined}>{proofFrom === "project-reviews" && <button type="button" className="project-proof-return" onClick={() => leaveProof("project-reviews")}>← Return to project campaign</button>}<SubmitProof task={selectedTask} userId={userId} initialNote={proofFrom === "project-reviews" ? projectProofNote : undefined} projectReviewReturn={proofFrom === "project-reviews"} onDone={() => leaveProof(proofFrom === "project-reviews" ? "project-reviews" : "board")} onCancel={() => leaveProof(proofFrom)} onWelcome={proofFrom === "welcome" ? () => leaveProof("welcome") : undefined} onCreateTask={() => { setPostCampaignId(null); setView("post"); }} onJudge={() => setView("jury")} onReauth={onReauth} /></div>;
   }
 

@@ -5,7 +5,7 @@ import { WeeklyWalletBallot } from "./WeeklyWalletBallot";
 import { CampaignDraftList, CompanyCampaignView } from "@/components/CompanyCampaign";
 import type { CampaignDraft, PublicCompanyCampaign } from "@/lib/campaign-draft-shape";
 import type { Task } from "@/lib/types";
-import { EMPTY_FINDING, clearFindingDraft, loadFindingDraft, projectAlternatives, projectFindingError, projectFindingNote, projectFromSearch, projectHref, projectPlanBody, projectPlanError, projectReviewAvailability, reviewCampaigns, saveFindingDraft, type ProjectFinding, type ProjectReviewInput } from "@/lib/project-review-campaign";
+import { EMPTY_FINDING, carrySignedOutDrafts, clearFindingDraft, loadFindingDraft, projectAlternatives, projectFindingError, projectFindingNote, projectFromSearch, projectHref, projectPlanBody, projectPlanError, projectReviewAvailability, reviewCampaigns, saveFindingDraft, type ProjectFinding, type ProjectReviewInput } from "@/lib/project-review-campaign";
 
 const deviceStore=()=>{try{return window.localStorage;}catch{return null;}};
 
@@ -34,6 +34,9 @@ export function ProjectReviewCampaign({tasks,completedIds,userId,onBack,onStart,
  const [mode,setMode]=useState<'browse'|'plan'|'draft'|'responses'>('browse'),[draft,setDraft]=useState<CampaignDraft|null>(null),[detail,setDetail]=useState<PublicCompanyCampaign|null>(null),[gateState,setGateState]=useState<{id:string;paused:boolean;owner:boolean}|null>(null);const [gateError,setGateError]=useState<string|null>(null);
  const [held,setHeld]=useState<{key:string|null;value:ProjectFinding}>({key:null,value:EMPTY_FINDING});const [findingError,setFindingError]=useState('');
  const [signedOut,setSignedOut]=useState<Record<string,ProjectFinding>>({}),[seenUser,setSeenUser]=useState(userId);
+ // Every project drafted while signed out, for the move into the account at first
+ // sign-in. Written by edits, read and emptied by the account-change effect only.
+ const signedOutPending=useRef<Record<string,ProjectFinding>>({});const lastUser=useRef(userId);
  // Browser back/forward: the project shown follows the address.
  useEffect(()=>{const sync=()=>{if(new URLSearchParams(window.location.search).get('campaign')!=='project-reviews')return;setActive(projectFromSearch(window.location.search));setMode('browse');setFindingError('');};window.addEventListener('popstate',sync);return()=>window.removeEventListener('popstate',sync);},[]);
  useEffect(()=>{let live=true;Promise.all([fetch('/api/campaigns/company',{cache:'no-store'}).then(async r=>{if(!r.ok)throw new Error('Review campaigns could not load.');return r.json();}),fetch('/api/projects',{cache:'no-store'}).then(r=>r.ok?r.json():null).catch(()=>null)]).then(([c,p])=>{if(!live)return;setCampaigns(reviewCampaigns(c.campaigns??[]));setImages(Object.fromEntries((p?.projects??[]).filter((x:{id:string;image:string|null})=>x.image).map((x:{id:string;image:string})=>[x.id,x.image])));setError('');}).catch(e=>{if(live)setError(e.message);}).finally(()=>{if(live)setLoading(false);});return()=>{live=false;};},[version]);
@@ -41,14 +44,16 @@ export function ProjectReviewCampaign({tasks,completedIds,userId,onBack,onStart,
  useEffect(()=>{if(!campaign)return;let live=true;setGateError(null);setGateState(null);fetch(`/api/campaigns/company/${encodeURIComponent(campaign.id)}/contributions`,{cache:'no-store'}).then(async r=>{if(!r.ok)throw new Error();return r.json();}).then(d=>{if(live)setGateState({id:campaign.id,paused:d.intakePaused,owner:d.owner===true});}).catch(()=>{if(live)setGateError('Review availability could not load. Please retry.');});fetch(`/api/campaigns/company/${encodeURIComponent(campaign.id)}`,{cache:'no-store'}).then(r=>r.ok?r.json():null).then(d=>{if(live&&d?.campaign)setDetail(d.campaign);}).catch(()=>{if(live)setError('Campaign details could not load. Please try again.');});return()=>{live=false;};},[campaign,version]);
  // Unsent findings, per account and per campaign. A different account or project
  // swaps in that pair's own draft during render, so one never paints with another's
- // text. Signed-out text lives in memory only; signing in carries the open project's
- // text into the account, and any account change drops the signed-out memory.
+ // text. Signed-out text lives in memory only; first sign-in carries every signed-out
+ // project draft into the account without replacing the account's own drafts, and
+ // any account change drops the signed-out memory.
  const campaignId=campaign?.id??null;const draftFor=campaignId?`${userId??''}|${campaignId}`:null;
  const reviewTaskId=campaign?.pieceTaskIds?.review;const reviewDone=!!reviewTaskId&&completedIds.has(reviewTaskId);
  if(held.key!==draftFor){const stored=campaignId&&userId?loadFindingDraft(deviceStore(),userId,campaignId):EMPTY_FINDING;const carried=seenUser===null&&campaignId?signedOut[campaignId]:undefined;setHeld({key:draftFor,value:!campaignId||reviewDone?EMPTY_FINDING:stored!==EMPTY_FINDING?stored:carried??EMPTY_FINDING});setFindingError('');}
  if(seenUser!==userId){setSeenUser(userId);setSignedOut({});}
  const finding=held.key===draftFor?held.value:EMPTY_FINDING;
- const setFinding=(next:(v:ProjectFinding)=>ProjectFinding)=>{const value=next(finding);setHeld({key:draftFor,value});if(!userId&&campaignId)setSignedOut(s=>({...s,[campaignId]:value}));};
+ const setFinding=(next:(v:ProjectFinding)=>ProjectFinding)=>{const value=next(finding);setHeld({key:draftFor,value});if(!userId&&campaignId){setSignedOut(s=>({...s,[campaignId]:value}));signedOutPending.current={...signedOutPending.current,[campaignId]:value};}};
+ useEffect(()=>{const before=lastUser.current;lastUser.current=userId;if(before===userId)return;if(before===null&&userId)carrySignedOutDrafts(deviceStore(),userId,signedOutPending.current);signedOutPending.current={};},[userId]);
  useEffect(()=>{if(!campaignId||!userId||held.key!==draftFor)return;if(reviewDone)clearFindingDraft(deviceStore(),userId,campaignId);else saveFindingDraft(deviceStore(),userId,campaignId,held.value);},[held,draftFor,campaignId,userId,reviewDone]);
  function choose(id:string){setActive(id);setFindingError('');window.history.pushState(null,'',projectHref(id));window.scrollTo({top:0,behavior:'auto'});}
  if(mode==='plan')return <div className="project-campaign"><ProjectPlan onCancel={()=>setMode('browse')} onSaved={d=>{setDraft(d);setMode('draft');}} onReauth={onReauth}/></div>;
@@ -65,6 +70,7 @@ export function ProjectReviewCampaign({tasks,completedIds,userId,onBack,onStart,
  <fieldset><legend>Your assessment, not an acceptance verdict</legend>{(['works','broke','would_return'] as const).map(value=><label key={value} className="project-choice"><input type="radio" name="outcome" checked={finding.outcome===value} onChange={()=>setFinding(v=>({...v,outcome:value}))}/>{{works:'Worked for me',broke:'I hit a problem',would_return:'I would return'}[value]}</label>)}</fieldset>
  <label>What you did<textarea required minLength={8} maxLength={300} value={finding.did} onChange={e=>setFinding(v=>({...v,did:e.target.value}))}/></label><label>One useful finding<textarea required minLength={12} maxLength={1000} rows={4} value={finding.finding} onChange={e=>setFinding(v=>({...v,finding:e.target.value}))}/></label>
  {ab&&<fieldset><legend>Which alternative worked better for you?</legend>{(['A','B','neither'] as const).map(choice=><label key={choice} className="project-choice"><input type="radio" name="preference" checked={finding.preference===choice} onChange={()=>setFinding(v=>({...v,preference:choice}))}/>{choice==='neither'?'Neither':`${choice} · ${ab[choice]}`}</label>)}<p className="project-muted">This preference goes into your review only when you continue and submit proof. These are not counted weekly ballots.</p></fieldset>}
+ <p className="project-muted">{userId?'Until you send it, this finding is saved on this device for your account only. It is removed once your review is accepted.':'Signed out, this finding is kept only while this page is open. Signing in saves it on this device for your account.'}</p>
  {findingError&&<p role="alert">{findingError} Your text stays here.</p>}<button className="project-primary">{userId?'Continue to consent and send proof':'Sign in to continue'}</button><p className="project-muted">The next screen shows your exact note, proof consent and the explicit Submit button. Nothing is sent by previewing, opening a link or choosing A/B.</p></form>}
  <button type="button" className="project-outline" onClick={()=>setMode('responses')}>Return to campaign results and responses ↗</button></section></>}
  <WeeklyWalletBallot campaignId={campaign?.id} onReauth={onReauth}/></div>;

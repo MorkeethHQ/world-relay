@@ -43,6 +43,11 @@ export function projectFindingNote(v:ProjectFinding,ab:{A:string;B:string}|null)
 export function projectFromSearch(search:string):string|null{const id=new URLSearchParams(search).get("project");return id&&id.trim()?id:null;}
 export function projectHref(id:string|null):string{return id?`/?campaign=project-reviews&project=${encodeURIComponent(id)}`:"/?campaign=project-reviews";}
 
+// The proof step adds one history entry at the same address, marked so the
+// in-app Return/Done/Cancel can consume it and never pops anything else.
+export const PROJECT_PROOF_ENTRY={favourProjectProof:true} as const;
+export function isProjectProofEntry(state:unknown):boolean{return !!state&&typeof state==="object"&&(state as Record<string,unknown>).favourProjectProof===true;}
+
 // An unsent finding is kept per account AND per campaign, so it survives a project
 // switch or a return from the proof screen but never appears for another wallet or
 // under another project. Signed out, nothing is written to the device.
@@ -59,6 +64,13 @@ export function loadFindingDraft(store:DraftStore|null,userId:string|null,campai
 export function saveFindingDraft(store:DraftStore|null,userId:string|null,campaignId:string,v:ProjectFinding):void{
   const key=findingDraftKey(userId,campaignId);if(!store||!key)return;
   try{if(v.did.trim()||v.finding.trim()||v.outcome||v.preference)store.setItem(key,JSON.stringify(v));else store.removeItem(key);}catch{}
+}
+// First sign-in on this tab: every project drafted while signed out moves into the
+// account, except where the account already has its own draft for that project.
+export function carrySignedOutDrafts(store:DraftStore|null,userId:string|null,drafts:Record<string,ProjectFinding>):string[]{
+  if(!store||!userId)return [];const carried:string[]=[];
+  for(const [id,v] of Object.entries(drafts)){if(loadFindingDraft(store,userId,id)!==EMPTY_FINDING)continue;saveFindingDraft(store,userId,id,v);if(findingDraftKey(userId,id)&&store.getItem(findingDraftKey(userId,id)!))carried.push(id);}
+  return carried;
 }
 export function clearFindingDraft(store:DraftStore|null,userId:string|null,campaignId:string):void{const key=findingDraftKey(userId,campaignId);if(!store||!key)return;try{store.removeItem(key);}catch{}}
 export function reviewCampaigns(campaigns:PublicCompanyCampaign[]):PublicCompanyCampaign[]{return campaigns.filter(c=>c.status==="published"&&hasProduct(c)&&c.pieces.some(p=>p.kind==="review"&&p.count>0));}

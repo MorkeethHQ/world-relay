@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "fs";
 import { resolve } from "path";
-import { EMPTY_FINDING, clearFindingDraft, findingDraftKey, loadFindingDraft, projectFromSearch, projectHref, saveFindingDraft, type ProjectFinding } from "@/lib/project-review-campaign";
+import { EMPTY_FINDING, PROJECT_PROOF_ENTRY, carrySignedOutDrafts, isProjectProofEntry, clearFindingDraft, findingDraftKey, loadFindingDraft, projectFromSearch, projectHref, saveFindingDraft, type ProjectFinding } from "@/lib/project-review-campaign";
 
 // SYNTHETIC test data: wallets, campaign ids and finding text below are made up.
 const ALICE = "0x000000000000000000000000000000000000a11c";
@@ -60,7 +60,6 @@ describe("history wiring (source guard: no DOM runner in this repo)", () => {
   const feed = readFileSync(resolve(__dirname, "../components/Feed.tsx"), "utf8");
   it("pushes an entry per project and re-reads the project on back/forward", () => {
     expect(campaign).toMatch(/function choose\([^)]*\)\{[^}]*history\.pushState/);
-    expect(campaign).not.toMatch(/history\.replaceState/);
     expect(campaign).toMatch(/const sync=\(\)=>\{[^}]*setActive\(projectFromSearch\(window\.location\.search\)\)/);
     expect(campaign).toContain("window.addEventListener('popstate',sync)");
     expect(campaign).not.toMatch(/function choose\([^)]*\)\{[^}]*setFinding\(/);
@@ -68,6 +67,40 @@ describe("history wiring (source guard: no DOM runner in this repo)", () => {
   it("entering project reviews and its proof step are back-able", () => {
     expect(feed).toMatch(/onOpenProjectReviews=\{\(\) => \{[^}]*history\.pushState/);
     expect(feed).toContain('setView("proof"); }} />');
-    expect(feed).toContain('window.history.pushState(null,"",window.location.pathname+window.location.search); setProjectProofNote(note);');
+    expect(feed).toContain('window.history.pushState({ ...PROJECT_PROOF_ENTRY },"",window.location.pathname+window.location.search); setProjectProofNote(note);');
+  });
+  it("in-app proof exit consumes only its own marked entry", () => {
+    expect(feed).toMatch(/const leaveProof = \([^)]*\) => \{ if \(isProjectProofEntry\(window\.history\.state\)\) window\.history\.back\(\);/);
+  });
+  it("tells a signed-in person their unsent finding stays on this device", () => {
+    expect(campaign).toContain("saved on this device for your account only");
+  });
+});
+
+describe("the proof history marker", () => {
+  it("recognises only our marked entry, including Next's merged state", () => {
+    expect(isProjectProofEntry({ ...PROJECT_PROOF_ENTRY })).toBe(true);
+    expect(isProjectProofEntry({ ...PROJECT_PROOF_ENTRY, __NA: true, __PRIVATE_NEXTJS_INTERNALS_TREE: {} })).toBe(true);
+    for (const s of [null, undefined, {}, { __NA: true }, { favourProjectProof: "true" }, "favourProjectProof"]) expect(isProjectProofEntry(s)).toBe(false);
+  });
+});
+
+describe("first sign-in carries every signed-out project draft", () => {
+  it("moves all signed-out drafts into the account without replacing its own", () => {
+    const s = memoryStore();
+    const accountOwn: ProjectFinding = { ...draft, finding: "Synthetic: the account's own earlier draft" };
+    saveFindingDraft(s, ALICE, "draft_two", accountOwn);
+    const signedOutText = { draft_one: draft, draft_two: { ...draft, did: "Synthetic signed-out text for two" }, draft_three: { ...draft, did: "Synthetic signed-out text for three" } };
+    expect(carrySignedOutDrafts(s, ALICE, signedOutText).sort()).toEqual(["draft_one", "draft_three"]);
+    expect(loadFindingDraft(s, ALICE, "draft_one")).toEqual(draft);
+    expect(loadFindingDraft(s, ALICE, "draft_two")).toEqual(accountOwn);
+    expect(loadFindingDraft(s, ALICE, "draft_three").did).toBe("Synthetic signed-out text for three");
+    expect(loadFindingDraft(s, BOB, "draft_one")).toBe(EMPTY_FINDING);
+  });
+  it("carries nothing without an account and skips empty drafts", () => {
+    const s = memoryStore();
+    expect(carrySignedOutDrafts(s, null, { draft_one: draft })).toEqual([]);
+    expect(carrySignedOutDrafts(s, ALICE, { draft_one: EMPTY_FINDING })).toEqual([]);
+    expect(s.keys()).toEqual([]);
   });
 });
