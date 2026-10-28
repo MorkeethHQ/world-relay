@@ -70,6 +70,7 @@ import { reviewPathFor } from "@/lib/review-path";
 import { CHECK_UNAVAILABLE_ERROR, TRY_AGAIN_LINE, proofKeptLabel, proofKeptLine, readProofSaved, type ProofSaved } from "@/lib/check-unavailable";
 import { reviewEntryFor, type ReviewEntry } from "@/lib/review-entry";
 import { isCampaignRunning } from "@/lib/campaigns";
+import { ProjectReviewCampaign } from "@/components/ProjectReviewCampaign";
 import { PENDING_WELCOME_KEY } from "@/components/Onboarding";
 import { threadSpeaker } from "@/lib/thread";
 import { simplePaymentStep } from "@/lib/simple-payment";
@@ -431,19 +432,21 @@ const RELAY_BOT_ADDRESS = "0x1101158041fd96f21cbcbb0e752a9a2303e6d70e";
 
 export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId: string | null; verificationLevel?: string | null; onLogout?: () => void; onReauth?: () => void }) {
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [view, setView] = useState<"board" | "post" | "proof" | "detail" | "campaign" | "jury" | "launch" | "drafts" | "company" | "companies" | "welcome" | "demo">("board");
+  const [view, setView] = useState<"board" | "post" | "proof" | "detail" | "campaign" | "jury" | "launch" | "drafts" | "company" | "companies" | "welcome" | "demo" | "project-reviews">("board");
   useEffect(() => {
     if (new URLSearchParams(window.location.search).get('companyPlan') === 'repeat') setView('launch');
   }, []);
   const [companyCampaignId, setCompanyCampaignId] = useState<string | null>(null);
   useEffect(() => {
     const query = new URLSearchParams(window.location.search);
-    if (query.get("campaign") === "welcome") setView("welcome");
+    if (query.get("campaign") === "project-reviews") setView("project-reviews");
+    else if (query.get("campaign") === "welcome") setView("welcome");
     else if (query.get("campaign") === "token-plan") setView("demo");
     else if (query.get("campaign")?.startsWith("draft_")) { setCompanyCampaignId(query.get("campaign")); setView("company"); }
   }, []);
 
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [projectProofNote, setProjectProofNote] = useState("");
   const [linkedTaskError, setLinkedTaskError] = useState<string | null>(null);
   useEffect(() => {
     const id = new URLSearchParams(window.location.search).get("task");
@@ -832,7 +835,7 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
   const [welcomeBusy, setWelcomeBusy] = useState<string | null>(null);
   const [welcomeError, setWelcomeError] = useState<string | null>(null);
   // Where the proof screen returns to: the Welcome list when it was opened there.
-  const [proofFrom, setProofFrom] = useState<"board" | "welcome">("board");
+  const [proofFrom, setProofFrom] = useState<"board" | "welcome" | "project-reviews">("board");
   useEffect(() => {
     let live = true;
     setWelcomeLoading(true);
@@ -1223,6 +1226,11 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
       />
     );
   }
+  if (view === "project-reviews") {
+    return <ProjectReviewCampaign tasks={tasks} completedIds={completedIds} userId={userId} onReauth={onReauth}
+      onBack={() => { window.history.replaceState(null,"","/"); setView("board"); }}
+      onStart={(task,note) => { if (!userId) { onReauth?.(); return; } setProjectProofNote(note); setSelectedTask(task); setProofFrom("project-reviews"); setView("proof"); }} />;
+  }
   if (view === "welcome" && welcome) {
     return (
       <WelcomeCampaignView
@@ -1261,8 +1269,8 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
   }
 
   if (view === "proof" && selectedTask) {
-    const leaveProof = (to: "board" | "welcome") => { setView(to === "welcome" && welcome ? "welcome" : "board"); fetchTasks(); setContribRefresh((n) => n + 1); setWelcomeKey((n) => n + 1); };
-    return <div className={proofFrom === "welcome" ? "stories-proof" : undefined}><SubmitProof task={selectedTask} userId={userId} onDone={() => leaveProof("board")} onCancel={() => leaveProof(proofFrom)} onWelcome={proofFrom === "welcome" ? () => leaveProof("welcome") : undefined} onCreateTask={() => { setPostCampaignId(null); setView("post"); }} onJudge={() => setView("jury")} onReauth={onReauth} /></div>;
+    const leaveProof = (to: "board" | "welcome" | "project-reviews") => { setView(to === "project-reviews" ? "project-reviews" : to === "welcome" && welcome ? "welcome" : "board"); fetchTasks(); setContribRefresh((n) => n + 1); setWelcomeKey((n) => n + 1); };
+    return <div className={proofFrom === "welcome" || proofFrom === "project-reviews" ? "stories-proof" : undefined}>{proofFrom === "project-reviews" && <button type="button" className="project-proof-return" onClick={() => leaveProof("project-reviews")}>← Return to project campaign</button>}<SubmitProof task={selectedTask} userId={userId} initialNote={proofFrom === "project-reviews" ? projectProofNote : undefined} onDone={() => leaveProof("board")} onCancel={() => leaveProof(proofFrom)} onWelcome={proofFrom === "welcome" ? () => leaveProof("welcome") : undefined} onCreateTask={() => { setPostCampaignId(null); setView("post"); }} onJudge={() => setView("jury")} onReauth={onReauth} /></div>;
   }
 
   if (view === "detail" && selectedTask) {
@@ -1326,6 +1334,7 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
           welcome={welcome}
           welcomeLoading={welcomeLoading}
           signedIn={walletUser}
+          onOpenProjectReviews={() => { hapticTap(); window.history.replaceState(null,"","/?campaign=project-reviews"); setView("project-reviews"); }}
           onOpenWelcomeStep={(id) => { if (!welcome) return; hapticTap(); window.history.replaceState(null, "", `/?campaign=welcome&step=${encodeURIComponent(id)}`); setWelcomeError(null); setView("welcome"); }}
           onOpenWelcome={() => { if (!welcome) return; hapticTap(); window.history.replaceState(null, "", "/?campaign=welcome"); setWelcomeError(null); setView("welcome"); }}
           onOpenCompany={(id) => { hapticTap(); window.history.replaceState(null, "", `/?campaign=${encodeURIComponent(id)}`); setCompanyCampaignId(id); setView("company"); }}
@@ -2959,6 +2968,7 @@ function SubmitProof({
   onJudge,
   onReauth,
   onWelcome,
+  initialNote,
 }: {
   task: Task;
   userId: string | null;
@@ -2970,6 +2980,7 @@ function SubmitProof({
   onCancel: () => void;
   // Set when the proof was opened from the Welcome list: back to that list.
   onWelcome?: () => void;
+  initialNote?: string;
   // Re-authentication, threaded down here on 2026-09-20 with the session gate.
   // verify-proof now refuses a submission whose session is gone, and the person
   // has ALREADY done the favour and taken the photo by the time we find out.
@@ -2988,14 +2999,14 @@ function SubmitProof({
   // paid favours, where the evidence decides whether real money moves.
   // Campaign tasks keep the full screen: their rules differ (no human appeal).
   const quick = task.rewardType === "points" && !isFunded(task) && !task.campaignId;
-  const [proofNote, setProofNote] = useState("");
+  const [proofNote, setProofNote] = useState(initialNote ?? "");
   const [proofConsent, setProofConsent] = useState(false);
   const [noteRestored, setNoteRestored] = useState<string | null>(null);
   useEffect(() => {
     if (!userId) return;
-    try { setProofNote(localStorage.getItem(`favour:proof-draft:${userId}:${task.id}`) || ''); } catch {}
+    try { setProofNote(initialNote || localStorage.getItem(`favour:proof-draft:${userId}:${task.id}`) || ''); } catch {}
     setNoteRestored(`${userId}:${task.id}`);
-  }, [task.id, task.companyCampaignId, userId]);
+  }, [task.id, task.companyCampaignId, userId, initialNote]);
   useEffect(() => {
     if (!userId || noteRestored !== `${userId}:${task.id}`) return;
     try { if (proofNote) localStorage.setItem(`favour:proof-draft:${userId}:${task.id}`, proofNote); else localStorage.removeItem(`favour:proof-draft:${userId}:${task.id}`); } catch {}

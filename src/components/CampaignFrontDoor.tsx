@@ -16,12 +16,13 @@ import { CompanyTrust, ProductLine } from "@/components/CompanyCampaign";
 // Colour follows DESIGN-SYSTEM: ink for everything here. Nothing on this stage
 // is escrowed money, so nothing on it is green. Points are amber.
 
-export function CampaignStageCards({ stage, welcome, welcomeLoading, signedIn, onOpenWelcome, onOpenCompany, onForCompanies, onOpenDemo, campaigns, onOpenCampaign, onOpenWelcomeStep }: {
+export function CampaignStageCards({ stage, welcome, welcomeLoading, signedIn, onOpenWelcome, onOpenCompany, onForCompanies, onOpenDemo, campaigns, onOpenCampaign, onOpenWelcomeStep, onOpenProjectReviews }: {
   stage: CampaignStage;
   welcome: WelcomeView | null;
   welcomeLoading: boolean;
   signedIn: boolean;
   onOpenWelcome: () => void;
+  onOpenProjectReviews?: () => void;
   onOpenWelcomeStep?: (id: string) => void;
   onOpenCompany: (campaignId: string) => void;
   onForCompanies: () => void;
@@ -58,6 +59,7 @@ export function CampaignStageCards({ stage, welcome, welcomeLoading, signedIn, o
       <p className="story-home-credit">Photos illustrate the favours. They are not submitted proof.</p>
       <div className="campaign-grid-heading"><h3>More campaigns</h3><p>Each campaign has a purpose and its own work.</p></div>
       <div className="discovery-grid">
+        {onOpenProjectReviews && <article className="discovery-card project-review-hub"><div className="discovery-card-copy"><p className="campaign-kicker">A FAVOUR campaign · project reviews</p><h3>Try a project.<br/>Leave a useful finding.</h3><p>Open a project, try its request and send an honest review. Return to the organiser’s response. Points are for accepted proof, not positive opinions.</p><button type="button" onClick={onOpenProjectReviews}>Explore review campaigns ↗</button></div></article>}
         <article className="discovery-card token-preview-card">
           <div className="token-preview-art" aria-hidden="true"><span>01</span><span>02</span><span>03</span></div>
           <div className="discovery-card-copy"><p className="campaign-kicker">Campaign example · Planning only</p><h3>Shape a FAVOUR token launch.</h3><p>Try a real favour, examine the proof, then tell us what a completion token should record. Your feedback would shape the plan.</p><div className="discovery-reward">No token exists here. No token or payment is promised.</div><button type="button" onClick={onOpenDemo}>See the three steps <span aria-hidden>↗</span></button></div>
