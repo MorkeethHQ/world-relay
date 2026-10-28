@@ -13,7 +13,7 @@ export async function POST(req:NextRequest){
  if(!(await rateLimit('wallet-ballot:'+getClientIp(req),20,60000)).ok)return reply({error:'Please wait before retrying.'},429);
  try{const b=await req.json();if(!b||typeof b.campaignId!=='string'||!/^[a-zA-Z0-9_-]{1,100}$/.test(b.campaignId)||!walletRoundId(b.roundId))return reply({error:'Choose a campaign and its current round.'},400);
  const result=await castWalletBallot(wallet,b.campaignId,b.roundId);
- const errors:Record<string,string>={closed:'This round is closed. Reload the current week.',policy_required:'Voting is closed until the minimum participation rule is set.',already_voted:'This wallet already used its ballot this week.',self_vote:'You cannot vote for your own campaign.',review_required:'An accepted review of this project is required before voting.',ineligible:'This project is not eligible.',invalid_policy:'This round policy could not be verified.'};
+ const errors:Record<string,string>={closed:'This round is closed. Reload the current week.',policy_required:'Voting is temporarily closed because the round policy could not be confirmed.',already_voted:'This wallet already used its ballot this week.',self_vote:'You cannot vote for your own campaign.',review_required:'An accepted review of this project is required before voting.',ineligible:'This project is not eligible.',invalid_policy:'This round policy could not be verified.'};
  return result==='cast'||result==='recovered'?reply({result}):reply({error:errors[result]??'Vote not confirmed. Reload before retrying.',result},409);
  }catch{return reply({error:'Vote not confirmed. It may already be saved; reload before retrying.'},503);}
 }

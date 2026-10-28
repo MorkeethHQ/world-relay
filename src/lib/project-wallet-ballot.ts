@@ -20,6 +20,14 @@ export function walletMinimum(value:string|undefined):number|null {
   if(!value || !/^[1-9]\d{0,5}$/.test(value))return null;
   const n=Number(value);return n<=100000?n:null;
 }
+// Approved 28 October 2026: five participating wallets across the round.
+// A missing env binding uses the approved rule. An explicit conflicting/invalid
+// binding closes only unstarted rounds; an existing frozen snapshot still wins.
+export const APPROVED_WALLET_MINIMUM = 5;
+export function configuredWalletMinimum(value:string|undefined):number|null {
+  return value === undefined || value === String(APPROVED_WALLET_MINIMUM)
+    ? APPROVED_WALLET_MINIMUM : null;
+}
 const keys=(id:string)=>[PREFIX+id+':round',PREFIX+id+':wallets',PREFIX+id+':counts',PREFIX+id+':candidates'];
 export function walletResult(round:WalletRound|null,candidates:Candidate[],now:number) {
   const total=candidates.reduce((n,c)=>n+c.votes,0);
@@ -63,7 +71,7 @@ export async function castWalletBallot(wallet:string,campaignId:string,roundId:s
   const raw=await redis.get(DRAFT_PREFIX+campaignId);if(!raw)return 'ineligible';
   const campaign=parse<CampaignDraft>(raw);const review=campaign.pieceTaskIds?.review;if(!review)return 'review_required';
   return String(await redis.eval(CAST_WALLET_BALLOT,[...keys(roundId),DRAFT_PREFIX+campaignId,companyCompletionKey(review,wallet)],
-    [now,week.id,week.start,week.end,walletMinimum(process.env.FAVOUR_WEEKLY_MIN_BALLOTS)??0,wallet.toLowerCase(),campaignId]));
+    [now,week.id,week.start,week.end,configuredWalletMinimum(process.env.FAVOUR_WEEKLY_MIN_BALLOTS)??0,wallet.toLowerCase(),campaignId]));
 }
 export async function walletBallotView(id:string|undefined,wallet:string|null,campaignId:string|undefined,now=Date.now()) {
   const redis=getRedis();if(!redis)throw new Error('Ballot storage unavailable');
@@ -71,7 +79,7 @@ export async function walletBallotView(id:string|undefined,wallet:string|null,ca
   const [raw,counts,names,myBallot]=await Promise.all([redis.get(keys(week.id)[0]),redis.hgetall<Record<string,number>>(keys(week.id)[2]),redis.hgetall<Record<string,string>>(keys(week.id)[3]),wallet?redis.hget<string>(keys(week.id)[1],wallet.toLowerCase()):null]);
   const frozen=raw?parse<WalletRound>(raw):null;
   if(frozen&&(frozen.id!==week.id||frozen.start!==week.start||frozen.end!==week.end||frozen.version!==1||!Number.isInteger(frozen.minimum)||frozen.minimum<1))throw new Error('Invalid frozen ballot policy');
-  const minimum=walletMinimum(process.env.FAVOUR_WEEKLY_MIN_BALLOTS);
+  const minimum=configuredWalletMinimum(process.env.FAVOUR_WEEKLY_MIN_BALLOTS);
   const round=frozen??(week.id===utcWalletWeek(now).id&&minimum?{...week,minimum,version:1 as const}:null);
   const candidates=Object.entries(counts??{}).map(([key,v])=>{const candidate=names?.[key]?parse<{name:string}>(names[key]):null;const votes=Number(v);if(!candidate||!Number.isInteger(votes)||votes<1)throw new Error('Invalid ballot tally');return {id:key,name:candidate.name,votes};}).sort((a,b)=>b.votes-a.votes||a.id.localeCompare(b.id));
   let eligible=false;

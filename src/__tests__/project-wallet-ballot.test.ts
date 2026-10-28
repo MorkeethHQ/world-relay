@@ -1,7 +1,18 @@
 import {describe,it,expect} from 'vitest';
-import {utcWalletWeek,walletMinimum,walletRoundId,walletResult} from '@/lib/project-wallet-ballot';
+import {utcWalletWeek,walletMinimum,configuredWalletMinimum,walletRoundId,walletResult} from '@/lib/project-wallet-ballot';
 describe('wallet round policy',()=>{
  it('uses Monday UTC boundaries, including year and exact cutoff',()=>{expect(utcWalletWeek(Date.parse('2026-10-28T01:00:00+01:00'))).toEqual({id:'2026-10-26',start:Date.parse('2026-10-26Z'),end:Date.parse('2026-11-02Z')});expect(utcWalletWeek(Date.parse('2026-11-02T00:00:00Z')).id).toBe('2026-11-02');expect(utcWalletWeek(Date.parse('2027-01-01Z')).id).toBe('2026-12-28');});
  it('does not invent a minimum and rejects unsafe configuration/round ids',()=>{for(const v of [undefined,'','0','5.2','-1','100001','01'])expect(walletMinimum(v)).toBeNull();expect(walletMinimum('5')).toBe(5);for(const v of ['2026-10-27','2026-02-30','2026-1-01','wat'])expect(walletRoundId(v)).toBeNull();expect(walletRoundId('2026-10-26')).toBe('2026-10-26');});
+ it('uses the approved five-wallet policy and refuses conflicting explicit configuration',()=>{
+  expect(configuredWalletMinimum(undefined)).toBe(5);expect(configuredWalletMinimum('5')).toBe(5);
+  for(const v of ['', '4', '6', '05', '5.0', ' 5', 'garbage'])expect(configuredWalletMinimum(v)).toBeNull();
+ });
+ it('requires five ballots across the round, not five votes for one project',()=>{
+  const r={...utcWalletWeek(Date.parse('2026-10-28Z')),minimum:5,version:1 as const};
+  expect(walletResult(r,[{id:'a',name:'A',votes:4}],r.end).status).toBe('insufficient');
+  const c=[{id:'a',name:'A',votes:3},{id:'b',name:'B',votes:2}];
+  expect(walletResult(r,c,r.end-1).winner).toBeNull();expect(walletResult(r,c,r.end).winner?.id).toBe('a');
+  expect(walletResult(r,[{id:'a',name:'A',votes:3},{id:'b',name:'B',votes:3}],r.end).status).toBe('tie');
+ });
  it('does not claim a winner before closing, below threshold or when tied',()=>{const r={...utcWalletWeek(Date.parse('2026-10-28Z')),minimum:3,version:1 as const};const c=[{id:'a',name:'A',votes:2}];expect(walletResult(null,c,r.end).status).toBe('awaiting_policy');expect(walletResult(r,c,r.end-1).winner).toBeNull();expect(walletResult(r,c,r.end).status).toBe('insufficient');expect(walletResult(r,[...c,{id:'b',name:'B',votes:2}],r.end).status).toBe('tie');expect(walletResult(r,[{...c[0],votes:3}],r.end).winner?.id).toBe('a');});
 });
