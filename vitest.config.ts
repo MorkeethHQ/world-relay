@@ -10,7 +10,7 @@ export default defineConfig({
   test: {
     globals: false,
     testTimeout: 60_000,
-    include: ["src/**/*.test.{ts,tsx}"],
+    include: ["src/**/*.test.{ts,tsx,jsx}"],
     // e2e-api.test.ts hits the live Anthropic API and is gated INSIDE the file
     // (E2E_LIVE_API=1), not excluded here — an exclude would also swallow it when
     // run by name, so the opt-in command would match zero tests and still say green.
