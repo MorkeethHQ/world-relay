@@ -1,0 +1,20 @@
+"use client";
+import { useEffect,useState } from 'react';
+import type { walletBallotView } from '@/lib/project-wallet-ballot';
+type View=Awaited<ReturnType<typeof walletBallotView>>;
+export function WeeklyWalletBallot({campaignId,onReauth}:{campaignId?:string;onReauth?:()=>void|Promise<void>}){
+ const [round,setRound]=useState<string|undefined>();const [version,setVersion]=useState(0);const [loaded,setLoaded]=useState<{campaign?:string;round?:string;data:View}|null>(null);const [error,setError]=useState('');const [busy,setBusy]=useState(false);
+ useEffect(()=>{let live=true;const params=new URLSearchParams();if(campaignId)params.set('campaign',campaignId);if(round)params.set('round',round);fetch('/api/campaigns/weekly-wallet-ballot?'+params,{cache:'no-store'}).then(async r=>{const data=await r.json();if(!r.ok)throw new Error(data.error);return data;}).then(data=>{if(live){setLoaded({campaign:campaignId,round,data});setError('');}}).catch(e=>{if(live)setError(e.message);});return()=>{live=false;};},[campaignId,round,version]);
+ const view=loaded&&loaded.campaign===campaignId&&loaded.round===round?loaded.data:null;
+ async function cast(){if(!view||!campaignId||busy)return;setBusy(true);setError('');try{const r=await fetch('/api/campaigns/weekly-wallet-ballot',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({campaignId,roundId:view.week.id})});const d=await r.json();if(!r.ok){if(r.status===403&&onReauth)await onReauth();throw new Error(d.error);}setVersion(v=>v+1);}catch(e){setError(e instanceof Error?e.message:'Vote not confirmed. Reload before retrying.');}finally{setBusy(false);}}
+ return <section className="project-week" aria-label="Weekly wallet ballot"><p className="project-kicker">Weekly community pick · wallet ballot</p><h2>{view?.status==='winner'?`${view.winner?.name} is this round’s pick.`:view?.status==='open'?'One wallet. One weekly ballot.':'No weekly winner is claimed.'}</h2><p>A signed-in wallet is an account, not proof of a unique person or Orb verification. There are no points or money for voting. A/B preferences in a review are separate from this ballot.</p>
+ {!view&&!error&&<p role="status">Loading the round…</p>}
+ {view&&<><p>Round {view.week.id} · closes {new Date(view.week.end).toISOString().replace('.000Z',' UTC')}. Monday to Monday, UTC.</p>
+ {view.status==='awaiting_policy'?<p>Voting is closed until the minimum participation rule is set. No threshold or winner has been invented.</p>:<p>Minimum {view.round?.minimum} wallet ballots across the round. The rule is frozen when the first ballot is cast. A tie or fewer ballots means no winner.</p>}
+ {view.status==='open'&&<p>Results are provisional until the cutoff. No winner yet.</p>}{view.status==='tie'&&<p>The round ended in a tie. No winner.</p>}{view.status==='insufficient'&&<p>The round closed below its minimum. No winner.</p>}
+ <p>{view.total} recorded wallet {view.total===1?'ballot':'ballots'}.</p>{view.candidates.length>0&&<ul>{view.candidates.map(c=><li key={c.id}>{c.name} · {c.votes} wallet {c.votes===1?'ballot':'ballots'}</li>)}</ul>}
+ {view.myBallot?<p>Your wallet’s ballot is saved for this round. It cannot be changed or cast again.</p>:campaignId&&view.status==='open'?<><p>{view.eligible?'Your accepted review makes this project eligible for your wallet ballot.':'An accepted review of this project is required. You cannot vote for your own campaign.'}</p><button className="project-primary" type="button" disabled={busy||!view.eligible} onClick={()=>void cast()}>{busy?'Saving ballot…':'Cast my wallet ballot for this project'}</button></>:null}
+ <div className="project-actions"><button type="button" className="project-outline" onClick={()=>setRound(view.previous)}>← Previous week</button>{round&&<button type="button" className="project-outline" onClick={()=>setRound(undefined)}>Current week →</button>}</div></>}
+ {error&&<p role="alert">{error} <button type="button" className="project-outline" onClick={()=>setVersion(v=>v+1)}>Reload ballots</button></p>}
+ </section>;
+}

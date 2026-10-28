@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import { WeeklyWalletBallot } from "./WeeklyWalletBallot";
 import { CampaignDraftList, CompanyCampaignView } from "@/components/CompanyCampaign";
 import type { CampaignDraft, PublicCompanyCampaign } from "@/lib/campaign-draft-shape";
 import type { Task } from "@/lib/types";
@@ -49,5 +50,5 @@ export function ProjectReviewCampaign({tasks,completedIds,userId,onBack,onStart,
  {ab&&<fieldset><legend>Which alternative worked better for you?</legend>{(['A','B','neither'] as const).map(choice=><label key={choice} className="project-choice"><input type="radio" name="preference" checked={finding.preference===choice} onChange={()=>setFinding(v=>({...v,preference:choice}))}/>{choice==='neither'?'Neither':`${choice} · ${ab[choice]}`}</label>)}<p className="project-muted">This preference goes into your review only when you continue and submit proof. These are not counted weekly ballots.</p></fieldset>}
  {findingError&&<p role="alert">{findingError} Your text stays here.</p>}<button className="project-primary">{userId?'Continue to consent and send proof':'Sign in to continue'}</button><p className="project-muted">The next screen shows your exact note, proof consent and the explicit Submit button. Nothing is sent by previewing, opening a link or choosing A/B.</p></form>}
  <button type="button" className="project-outline" onClick={()=>setMode('responses')}>Return to campaign results and responses ↗</button></section></>}
- <section className="project-week"><p className="project-kicker">Weekly community pick · not open</p><h2>No winner has been declared.</h2><p>The first weekly community round has not opened. Reviews work now, but leaving a review or choosing A/B does not cast a weekly ballot. Eligibility and the cut-off will be visible before voting opens. No winner is claimed.</p></section></div>;
+ <WeeklyWalletBallot campaignId={campaign?.id} onReauth={onReauth}/></div>;
 }
