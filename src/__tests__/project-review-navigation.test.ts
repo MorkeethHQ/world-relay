@@ -67,6 +67,7 @@ describe("history wiring (source guard: no DOM runner in this repo)", () => {
   });
   it("entering project reviews and its proof step are back-able", () => {
     expect(feed).toMatch(/onOpenProjectReviews=\{\(\) => \{[^}]*history\.pushState/);
-    expect(feed).toMatch(/onStart=\{\(task,note\) => \{[^}]*history\.pushState/);
+    expect(feed).toContain('setView("proof"); }} />');
+    expect(feed).toContain('window.history.pushState(null,"",window.location.pathname+window.location.search); setProjectProofNote(note);');
   });
 });
