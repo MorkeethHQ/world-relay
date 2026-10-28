@@ -26,7 +26,7 @@ const projectTask=task('project_review','draft_one'),boardTask=task('board_revie
 const campaign={id:'draft_one',status:'published',company:'SYNTHETIC Project',productName:'SYNTHETIC Project',productUrl:'https://example.invalid/test',pieces:[{kind:'review',count:10}],pieceTaskIds:{review:projectTask.id},brief:'Try one synthetic feature and return with a useful finding about what happened.',rewardPerPiecePoints:10,proposedPoolUsdc:0,reviewRule:'ai_and_jury',companyChecked:false};
 const projectTaskTwo=task('project_review_two','draft_two');
 const campaignTwo={...campaign,id:'draft_two',company:'SYNTHETIC Second Project',productName:'SYNTHETIC Second Project',pieceTaskIds:{review:projectTaskTwo.id}};
-let host,root,calls,verification,unexpected;
+let host,root,calls,verification,unexpected,completed;
 const flush=async()=>{await act(async()=>{await new Promise(r=>setTimeout(r,5));});};
 const button=(text)=>[...host.querySelectorAll('button')].find(n=>n.textContent.trim()===text);
 const click=async(text)=>{const b=button(text);expect(b,'button '+text+' in '+host.textContent.slice(-1600)).toBeTruthy();expect(b.disabled).toBe(false);await act(async()=>b.click());await flush();};
@@ -36,7 +36,7 @@ beforeEach(async()=>{
  window.history.replaceState({},'','/?campaign=project-reviews&project=draft_one');window.scrollTo=()=>{};
  vi.stubGlobal('EventSource',class{addEventListener(){}close(){}});
  vi.stubGlobal('IntersectionObserver',class{observe(){}unobserve(){}disconnect(){}});
- calls=[];unexpected=[];verification={verification:{verdict:'pass',reasoning:'SYNTHETIC accepted by API fixture'},pointsAwarded:5};
+ calls=[];unexpected=[];completed=[];verification={verification:{verdict:'pass',reasoning:'SYNTHETIC accepted by API fixture'},pointsAwarded:5};
  vi.stubGlobal('fetch',vi.fn(async(path,options={})=>{
   calls.push({path:String(path),method:options.method??'GET',body:options.body?JSON.parse(options.body):null});
   if(path==='/api/tasks')return Response.json({tasks:[projectTask,projectTaskTwo,boardTask]});
@@ -45,11 +45,11 @@ beforeEach(async()=>{
   if(String(path).endsWith('/contributions')&&path!=='/api/me/contributions')return Response.json({intakePaused:false,owner:false,cards:[],reveals:[]});
   if(path==='/api/campaigns/company/draft_one')return Response.json({campaign});
   if(path==='/api/campaigns/company/draft_two')return Response.json({campaign:campaignTwo});
-  if(path==='/api/me/contributions')return Response.json({contributions:[]});
+  if(path==='/api/me/contributions')return Response.json({contributions:completed});
   if(path==='/api/campaigns/drafts')return Response.json({drafts:[]});
   if(path==='/api/welcome')return Response.json({welcome:null});
   if(String(path).startsWith('/api/jury'))return Response.json({cards:[],waiting:0});
-  if(path==='/api/verify-proof')return Response.json(verification,{status:verification.error?429:200});
+  if(path==='/api/verify-proof'){if(verification.verification?.verdict==='pass')completed.push({taskId:JSON.parse(options.body).taskId,description:'SYNTHETIC completed fixture',points:5,streakBonus:0,at:new Date().toISOString()});return Response.json(verification,{status:verification.error?429:200});}
   if(path==='/api/escrow-v2')return Response.json({enabled:false},{status:404});
   if(path==='/api/track')return Response.json({ok:true});
   unexpected.push(path);throw Error('Unexpected synthetic request: '+path);
@@ -113,4 +113,20 @@ test('actual Feed sign-in preserves visible active finding and separately retain
  expect(JSON.parse(localStorage.getItem('favour:project-finding:'+ALICE+':draft_other')).did).toBe('Keep separate other-project account text');
  await click('← Previous');expect(host.querySelectorAll('textarea')[0].value).toBe('An older saved account action');
  await click('Next →');expect(host.querySelectorAll('textarea')[0].value).toBe('Currently visible unsigned action');
+});
+
+
+test('actual Feed Cancel and accepted Done traverse native proof history and refresh accepted contributions',async()=>{
+ const startLength=window.history.length;
+ await projectProof();expect(window.history.length).toBe(startLength+1);expect(window.history.state.favourProjectProof).toBe(true);
+ await click('Cancel');await flush();
+ expect(window.history.state?.favourProjectProof).not.toBe(true);
+ expect(host.querySelectorAll('textarea')[1].value).toBe('The synthetic saved item vanished on reload');
+ // Entering again prunes the previous forward proof entry instead of adding a second duplicate.
+ await click('Continue to consent and send proof');expect(window.history.length).toBe(startLength+1);
+ await submitProof();await click('Discover more favours');await flush();
+ expect(window.location.search).toBe('?campaign=project-reviews&project=draft_one');
+ expect(window.history.state?.favourProjectProof).not.toBe(true);
+ expect(host.textContent).toContain('Your review is accepted');expect(host.querySelectorAll('form')).toHaveLength(0);
+ expect(localStorage.getItem('favour:project-finding:'+ALICE+':draft_one')).toBeNull();
 });
