@@ -88,3 +88,5 @@
 
 .favour-ui .token-preview-action{background:#f5f5f0;color:#141413;border:1px solid #f5f5f0}
 .favour-ui .token-preview-back{min-height:44px;padding:10px 18px;border:1px solid var(--favour-border);border-radius:999px}
+/* Keep the same three destinations available in the desktop web view. */
+.favour-ui nav[aria-label="Main navigation"]{display:block!important}
