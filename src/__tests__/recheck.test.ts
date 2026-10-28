@@ -1,3 +1,4 @@
+vi.mock("@/lib/proof-consent", () => ({ recordProofConsent: async () => true }));
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import type { Task } from "@/lib/types";

@@ -11,7 +11,7 @@ const TASK_LIST_KEY = "task_ids";
 
 async function persistTask(task: Task): Promise<void> {
   const redis = getRedis();
-  if (!redis) return;
+  if (!redis) throw new Error("Task storage is unavailable");
   await Promise.all([
     redis.set(`${TASK_PREFIX}${task.id}`, JSON.stringify(task)),
     // A per-person Welcome instance is indexed under its owner and never in the
@@ -61,7 +61,7 @@ const ONCHAIN_BIND_PREFIX = "escrow:bind:";
 
 export async function claimOnChainId(onChainId: number, taskId: string): Promise<boolean> {
   const redis = getRedis();
-  if (!redis) return true; // no store (unit tests/local) — nothing to enforce against
+  if (!redis) return false; // No durable binding means funding must be refused.
   const key = `${ONCHAIN_BIND_PREFIX}${onChainId}`;
   const claimed = await redis.set(key, taskId, { nx: true });
   if (claimed) return true;

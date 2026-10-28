@@ -1,3 +1,4 @@
+vi.mock("@/lib/proof-consent", () => ({ recordProofConsent: async () => true }));
 // Legacy fixture has no response deadline; the real Redis response test exercises intake gating.
 vi.mock("@/lib/contribution-responses", () => ({ campaignIntakePaused: async () => false }));
 import { describe, it, expect, beforeEach, vi } from "vitest";
@@ -98,7 +99,7 @@ function piece(over: Record<string, any> = {}) {
 const submit = () => POST(new Request("http://localhost/api/verify-proof", {
   method: "POST",
   headers: { "content-type": "application/json", cookie: `${SESSION_COOKIE}=${issueSessionToken(CLAIMANT, Date.now())}` },
-  body: JSON.stringify({ taskId: "piece-ugc", submitter: CLAIMANT, proofNote: "https://example.test/my-clip" }),
+  body: JSON.stringify({ proofConsent: true, taskId: "piece-ugc", submitter: CLAIMANT, proofNote: "https://example.test/my-clip" }),
 }) as any);
 
 beforeEach(() => {

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getRedis } from "@/lib/redis";
 import { createTask } from "@/lib/store";
 import { CUSTODY_RETIRED } from "@/lib/custody";
 import { MAX_TASK_POINTS } from "@/lib/proof-of-favour";
@@ -10,7 +11,7 @@ const ADMIN_SECRET = process.env.ADMIN_SECRET;
 // backing (Inv 3). Funded seeding now goes ONLY through the batch path below
 // (body.tasks → isEscrowTaskFunded verification). Points onboarding seeds are safe.
 const ONBOARDING_TASKS = [
-  { description: "Try RELAY Favours and tell us what you think! What's confusing? What's cool? What would you change?", location: "Anywhere", category: "feedback" as const, bountyUsdc: 0.50, deadlineHours: 336, agentId: "relay", maxCompletions: 50 },
+  { description: "Try FAVOUR and tell us what you think! What's confusing? What's cool? What would you change?", location: "Anywhere", category: "feedback" as const, bountyUsdc: 0.50, deadlineHours: 336, agentId: "relay", maxCompletions: 50 },
   { description: "What favour would you ask someone nearby to do for you right now? Describe the task and how much you'd pay.", location: "Anywhere", category: "feedback" as const, bountyUsdc: 0.50, deadlineHours: 336, agentId: "relay", maxCompletions: 50 },
   { description: "Rate this mini app out of 10. What's your favourite part and your least favourite part? Be brutally honest.", location: "Anywhere", category: "feedback" as const, bountyUsdc: 0.50, deadlineHours: 336, agentId: "relay", maxCompletions: 50 },
 ];
@@ -74,6 +75,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    if (!getRedis()) return NextResponse.json({ error: "Task storage is unavailable." }, { status: 503 });
     for (const t of body.tasks) {
       if (t.onChainId != null && existingOnChainIds.has(t.onChainId)) continue;
       if (existingDescriptions.has(t.description.slice(0, 80))) continue;
@@ -97,6 +99,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ seeded: created.length, tasks: created }, { status: 201 });
   }
 
+  if (!getRedis()) return NextResponse.json({ error: "Task storage is unavailable." }, { status: 503 });
   for (const t of ONBOARDING_TASKS) {
     if (existingDescriptions.has(t.description.slice(0, 80))) continue;
     const task = await createTask({

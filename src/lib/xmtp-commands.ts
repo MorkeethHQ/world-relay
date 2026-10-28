@@ -107,7 +107,7 @@ function formatStatusResponse(task: Task): string {
 
 function formatHelpResponse(): string {
   return [
-    `🤖 RELAY COMMANDS`,
+    `🤖 FAVOUR COMMANDS`,
     `━━━━━━━━━━━━━━━━━━`,
     ``,
     `STATUS or ? — Check current task status`,

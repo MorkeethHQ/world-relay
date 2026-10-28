@@ -1,0 +1,5 @@
+{
+  "campaign-friends.jpg": {"source": "https://images.unsplash.com/photo-1529333166437-7750a6dd5a70", "use": "Illustration of friends together, not campaign proof"},
+  "campaign-coffee.jpg": {"source": "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb", "use": "Neighbourhood cafe illustration, not campaign proof"},
+  "fonts": {"family": "Aeonik", "source": "Oscar local Aeonik assets, existing anim-lab-20 woff2 exports", "weights": [400, 500, 700]}
+}

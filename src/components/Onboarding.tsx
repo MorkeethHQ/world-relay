@@ -9,7 +9,7 @@ import {
 import { WorldAppHandoff } from "@/components/WorldAppHandoff";
 import { DailyMissionCard } from "@/components/MissionCard";
 import { CompanyVisionCard } from "@/components/CompanyCampaign";
-import { CampaignStageCards, DemoBrandView } from "@/components/CampaignFrontDoor";
+import { CampaignStageCards, TokenLaunchPreviewView } from "@/components/CampaignFrontDoor";
 import { pickCampaignStage } from "@/lib/campaign-stage";
 import type { WelcomeView } from "@/lib/welcome-shape";
 import { pickCampaignToDo } from "@/lib/company-door";
@@ -29,6 +29,11 @@ export const PENDING_PIECE_KEY = "favour_pending_piece";
 // "Start the Welcome favours" tapped signed out (R19, 2026-10-05): open the
 // Welcome list after sign-in.
 export const PENDING_WELCOME_KEY = "favour_pending_welcome";
+
+// FAVOUR one-line pitch. Ruled by Oscar 25 Oct 2026 01:59 on card
+// pitch-favour-kamera (GO WITH RECOMMENDATIONS, line 1). Swap it here and nowhere else.
+// Previous line: "Campaigns made of small, useful contributions."
+export const FAVOUR_PITCH_LINE = "Get a favour done by a verified human.";
 
 /*
  * Onboarding
@@ -168,6 +173,7 @@ export function Onboarding({
   // (R13, pickDailyMission with no user), from the public task list. Nothing
   // here writes. If the list fails or nothing qualifies, step 0 falls back to
   // the plain intro below.
+  const [frontDoorLoaded, setFrontDoorLoaded] = useState(false);
   const [mission, setMission] = useState<Task | null>(null);
   const [proofs, setProofs] = useState<Task[]>([]);
   const [pieceToDo, setPieceToDo] = useState<ReturnType<typeof pickCampaignToDo>>(null);
@@ -190,7 +196,8 @@ export function Onboarding({
         setMission(m);
         if (m) setProofs(pickProofStrip(tasks));
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setFrontDoorLoaded(true));
   }, []);
 
   // Funnel step 1: the card is on screen. Keyed on step 0 AND a mission, because
@@ -310,7 +317,7 @@ export function Onboarding({
     // nav would break that. The bottom offset is the nav's height plus the same
     // safe-area inset the nav itself pads by.
     <div
-      className="fixed inset-x-0 top-0 z-[60] bg-white flex flex-col max-w-lg mx-auto w-full overflow-y-auto"
+      className="favour-onboarding fixed inset-x-0 top-0 z-[60] bg-white flex flex-col max-w-lg mx-auto w-full overflow-y-auto"
       style={{ bottom: "calc(var(--favour-nav-h, 56px) + env(safe-area-inset-bottom, 0px))" }}
     >
       {/* Back navigation. Available between the intro steps, not on the terminal
@@ -331,7 +338,7 @@ export function Onboarding({
 
       {/* Reserve the back control's full height on short screens so content
           cannot rise behind it. Hidden on the terminal success screen. */}
-      {step < 4 && (
+      {step > 0 && step < 4 && (
         <div className={`shrink-0 flex items-center justify-center gap-2 pt-8 ${step > 0 ? "pb-8" : "pb-2"} animate-[fadeIn_0.4s_ease-out]`}>
           {Array.from({ length: 4 }).map((_, i) => (
             <span
@@ -349,24 +356,27 @@ export function Onboarding({
       <div key={step} className="flex-1 flex flex-col justify-center px-7 animate-[fadeSlideIn_0.4s_ease-out]">
         {step === 0 && demoOpen && (
           <div className="-mx-7">
-            <DemoBrandView onBack={() => setDemoOpen(false)} onPlan={() => { setDemoOpen(false); startLaunch(); }} onWelcome={welcomeView ? startWelcome : null} />
+            <TokenLaunchPreviewView onBack={() => setDemoOpen(false)} onWelcome={startWelcome} />
           </div>
         )}
         {step === 0 && !demoOpen && (mission || welcomeView) && (
           <div className="flex flex-col gap-3 -mx-7">
             <div className="px-7">
-              <p className="text-[18px] font-bold tracking-tight text-gray-900">FAVOUR</p>
-              <p className="text-[14px] text-gray-500 mt-1">Campaigns made of small, useful contributions.</p>
+              <div className="flex items-center gap-2"><img src="/app-icon.png" alt="" width="28" height="28" /><p className="text-[18px] font-bold tracking-tight text-gray-900">FAVOUR</p></div>
+              <p className="text-[14px] text-gray-500 mt-1">{FAVOUR_PITCH_LINE}</p>
             </div>
             <div className="-mt-1">
               <CampaignStageCards
+                campaigns={[]}
+                onOpenCampaign={onComplete}
                 stage={pickCampaignStage({ welcome: welcomeView, company: pieceToDo })}
                 welcome={welcomeView}
+                welcomeLoading={false}
                 signedIn={false}
                 onOpenWelcome={startWelcome}
                 onOpenCompany={(id) => startPiece(id)}
                 onForCompanies={() => { if (!forCompanies) trackFunnelEvent("for_companies_tapped"); setForCompanies((v) => !v); }}
-                onOpenDemo={() => { trackFunnelEvent("demo_brand_tapped"); setDemoOpen(true); }}
+                onOpenDemo={() => setDemoOpen(true)}
               />
               {forCompanies && <CompanyVisionCard onLaunch={startLaunch} launchLabel="Plan a campaign" />}
             </div>
@@ -374,13 +384,13 @@ export function Onboarding({
           </div>
         )}
 
-        {step === 0 && !demoOpen && !mission && !welcomeView && (
+        {step === 0 && frontDoorLoaded && !demoOpen && !mission && !welcomeView && (
           <div className="flex flex-col items-center text-center gap-5">
             <h1 className="text-[64px] font-bold tracking-tight text-gray-900 leading-none animate-[countUp_0.6s_ease-out]">
               FAVOUR
             </h1>
             <Typography variant="body" level={2} className="text-gray-500 max-w-[260px]">
-              Pick a small task, do it, send proof, earn points.
+              {FAVOUR_PITCH_LINE}
             </Typography>
             <Typography variant="body" level={4} className="text-gray-400 max-w-[280px] mt-1">
               A favour is a quick real-world ask — like photographing a shelf or sharing an honest opinion.
@@ -497,7 +507,7 @@ export function Onboarding({
 
       {/* Action. One primary action per screen. */}
       <div className="shrink-0 px-7 pb-10 pt-4">
-        {step === 3 ? (
+        {step === 0 && !frontDoorLoaded ? <p role="status" className="text-[14px] text-gray-500 text-center">Loading favours…</p> : step === 3 ? (
           <div aria-live="polite">
             <LiveFeedback state={isVerifying ? "pending" : undefined}>
               <Button

@@ -12,6 +12,8 @@ function buildRevision(): string {
 }
 
 const nextConfig: NextConfig = {
+  distDir: fixtureStoreOrigin() ? ".next-fixture" : ".next",
+  outputFileTracingRoot: process.cwd(),
   serverExternalPackages: ["@xmtp/node-sdk", "@xmtp/node-bindings"],
   // The dev-only indicator sits bottom-left, on top of the Favours tab at phone
   // width, so a tap on the tab opened the dev menu instead (review, 5 Oct 2026).
@@ -21,7 +23,7 @@ const nextConfig: NextConfig = {
   // to origins it is told about, so a phone on the same Wi-Fi gets a page that
   // never starts. Only with the fixture on (never in a production build), and
   // only for the one address scripts/test-product.sh passes.
-  ...(fixtureStoreOrigin() && process.env.FAVOUR_FIXTURE_LAN_HOST ? { allowedDevOrigins: [process.env.FAVOUR_FIXTURE_LAN_HOST] } : {}),
+  ...(fixtureStoreOrigin() ? { allowedDevOrigins: ["127.0.0.1", "localhost", ...(process.env.FAVOUR_FIXTURE_LAN_HOST ? [process.env.FAVOUR_FIXTURE_LAN_HOST] : [])] } : {}),
   // Bind test evidence to the code that Next actually compiled. Vercel supplies
   // its commit SHA; local production builds derive it from the checkout.
   env: {
@@ -34,7 +36,7 @@ const nextConfig: NextConfig = {
   // /leaderboard ("Ranks") was removed 2026-09-03. Old deep links and the
   // agent discovery doc pointed at it; send them to the profile, not a 404.
   async redirects() {
-    return [{ source: "/leaderboard", destination: "/dashboard", permanent: true }];
+    return [{ source: "/leaderboard", destination: "/dashboard", permanent: true }, { source: "/review-projects", destination: "/?campaign=project-reviews", permanent: false }];
   },
   // THE LOCAL TEST DATA FIXTURE ONLY (2026-10-05). When the app runs against the
   // in-memory fake store on 127.0.0.1 with FAVOUR_TEST_FIXTURE=1 and is not a

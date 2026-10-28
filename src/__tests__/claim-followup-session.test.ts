@@ -8,16 +8,18 @@ import { createMemoryRedis } from "./helpers/memory-redis";
 // recordFavourClaimed (points). POST /api/tasks/[id]/followup read no identity
 // at all: anyone who knew a task id could re-run the AI follow-up on another
 // person's proof, and a pass ends in points, reputation and an escrow release.
-// Both now sit behind the session switch: claim through ownershipError on
-// body.claimant, followup through readerRefusal over the claimant and poster.
+// Both mutations must use the unconditional owner gate; the global switch is
+// deliberately off in production and must not make follow-up anonymous.
 
 const mem = vi.hoisted(() => ({ current: null as ReturnType<typeof import("./helpers/memory-redis").createMemoryRedis> | null }));
 const ai = vi.hoisted(() => ({ followUpCalls: 0 }));
+const effects = vi.hoisted(() => ({ reputation: 0, escrow: 0 }));
 
 vi.mock("@/lib/redis", () => ({ getRedis: () => mem.current!.client }));
 vi.mock("@/lib/rate-limit", () => ({ rateLimit: async () => ({ ok: true }), getClientIp: () => "127.0.0.1" }));
 vi.mock("@/lib/verification-tier", () => ({ tierGateError: async () => null, getUserVerificationLevel: async () => "orb" }));
-vi.mock("@/lib/escrow", () => ({ releaseEscrow: vi.fn(async () => null), resolveDon: vi.fn(async () => null) }));
+vi.mock("@/lib/escrow", () => ({ releaseEscrow: vi.fn(async () => { effects.escrow += 1; return null; }), resolveDon: vi.fn(async () => null) }));
+vi.mock("@/lib/reputation", () => ({ recordCompletion: async () => { effects.reputation += 1; }, recordFailure: async () => {} }));
 vi.mock("@/lib/xmtp", () => ({
   postClaimNotification: async () => {}, postClaimBriefing: async () => {}, syncAndProcessMessages: async () => {},
   postReEvaluationResult: async () => {},
@@ -72,6 +74,8 @@ beforeEach(() => {
   process.env.SESSION_SECRET = "test-secret";
   process.env.SESSION_ENFORCE = "true";
   ai.followUpCalls = 0;
+  effects.reputation = 0;
+  effects.escrow = 0;
 });
 afterEach(() => {
   if (ENV_ENFORCE === undefined) delete process.env.SESSION_ENFORCE;
@@ -100,43 +104,60 @@ describe("POST /api/tasks/[id]/claim on an ordinary task", () => {
     expect((await getTask(t.id))!.claimant).toBe(CLAIMANT);
   });
 
-  it("ships dark: switch off, the anonymous claim still goes through", async () => {
+  it("refuses an anonymous points claim even while the session switch is off", async () => {
     delete process.env.SESSION_ENFORCE;
     const t = await openPointsTask();
-    expect((await claim(t.id, { claimant: CLAIMANT })).status).toBe(200);
+    const res = await claim(t.id, { claimant: CLAIMANT });
+    expect(res.status).toBe(403);
+    expect((await res.json()).code).toBe("reauth_required");
+    expect((await getTask(t.id))!.status).toBe("open");
   });
 });
 
 describe("POST /api/tasks/[id]/followup", () => {
-  async function pendingFollowUp() {
+  async function pendingFollowUp(funded = false) {
     const t = await openPointsTask();
     await claim(t.id, { claimant: CLAIMANT }, CLAIMANT);
     const stored = (await getTask(t.id))!;
     stored.proofImageUrl = "data:image/jpeg;base64,AAAA";
     stored.proofImages = [stored.proofImageUrl];
     stored.aiFollowUp = { question: "TEST DATA: which door?", status: "pending", initialConfidence: 0.4 } as any;
+    if (funded) stored.onChainId = 9;
     await mem.current!.client.set(`task:${t.id}`, JSON.stringify(stored));
     await addMessage(t.id, "relay-bot", "AI FOLLOW-UP: which door?");
     await addMessage(t.id, CLAIMANT, "the blue one");
     return t.id;
   }
 
-  it("answers 401 with no session and never calls the model", async () => {
-    const id = await pendingFollowUp();
-    expect((await followup(id)).status).toBe(401);
+  it("refuses an anonymous caller with the global switch off before any credit or release", async () => {
+    delete process.env.SESSION_ENFORCE;
+    const id = await pendingFollowUp(true);
+    const response = await followup(id);
+    expect(response.status).toBe(403);
+    expect((await response.json()).code).toBe("reauth_required");
     expect(ai.followUpCalls).toBe(0);
+    expect(effects.reputation).toBe(0);
+    expect(effects.escrow).toBe(0);
+    expect((await getTask(id))!.status).toBe("claimed");
   });
 
-  it("answers 403 to a stranger with their own session", async () => {
-    const id = await pendingFollowUp();
+  it("refuses a different wallet and the poster while the switch is off", async () => {
+    delete process.env.SESSION_ENFORCE;
+    const id = await pendingFollowUp(true);
     expect((await followup(id, STRANGER)).status).toBe(403);
+    expect((await followup(id, POSTER)).status).toBe(403);
     expect(ai.followUpCalls).toBe(0);
+    expect(effects.reputation).toBe(0);
+    expect(effects.escrow).toBe(0);
   });
 
-  it("runs for the claimant", async () => {
-    const id = await pendingFollowUp();
+  it("runs for the signed claimant while the switch is off", async () => {
+    delete process.env.SESSION_ENFORCE;
+    const id = await pendingFollowUp(true);
     const res = await followup(id, CLAIMANT);
     expect(res.status).toBe(200);
     expect(ai.followUpCalls).toBe(1);
+    expect(effects.reputation).toBe(1);
+    expect(effects.escrow).toBe(1); // substituted effect; no payment was made
   });
 });

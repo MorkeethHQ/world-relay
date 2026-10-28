@@ -123,7 +123,7 @@ export async function createTaskThread(
   if (client) {
     try {
       const group = await client.conversations.createGroup([], {
-        groupName: `RELAY: ${task.description.slice(0, 50)}`,
+        groupName: `FAVOUR: ${task.description.slice(0, 50)}`,
         groupDescription: `Task ${task.id} — ${rewardAmountLabel(task)} at ${task.location}`,
       });
       thread.groupId = group.id;

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
+import "./favour-system.css";
 import { MiniKitProvider } from "@/lib/minikit-provider";
 import { BottomNav } from "@/components/BottomNav";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -16,19 +17,19 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   title: "FAVOUR",
-  description: "Ask favours, complete tasks, earn USDC. AI verifies everything instantly. Inside World App.",
+  description: "Choose a campaign, complete connected favours, share proof and track your progress. Inside World App.",
   metadataBase: new URL("https://world-relay.vercel.app"),
   openGraph: {
     title: "FAVOUR",
-    description: "Ask favours, complete tasks, earn USDC. AI verifies everything. Inside World App.",
-    images: [{ url: "/og-image.png", width: 1035, height: 720, alt: "FAVOUR" }],
+    description: "Choose a campaign, complete connected favours, share proof and track your progress. Inside World App.",
+    images: [{ url: "/og-image.png", width: 1200, height: 630, alt: "FAVOUR" }],
     type: "website",
     siteName: "FAVOUR",
   },
   twitter: {
     card: "summary_large_image",
     title: "FAVOUR",
-    description: "Ask favours, complete tasks, earn USDC. AI verifies everything. Inside World App.",
+    description: "Choose a campaign, complete connected favours, share proof and track your progress. Inside World App.",
     images: ["/og-image.png"],
   },
 };
@@ -45,14 +46,14 @@ export default function RootLayout({
           anything — it only hid the symptom on desktop while iOS still widened
           its layout viewport. The containment is on <main> below; without the
           decoy, a real overflow now shows up as a scrollbar in development. */}
-      <body className="min-h-full flex flex-col bg-gray-50 text-gray-900">
+      <body className="favour-ui min-h-full flex flex-col">
         <ErrorBoundary>
           <MiniKitProvider>
             {/* Shown only in the local TEST DATA fixture (scripts/REVIEW-FIXTURE.md).
                 The variable is not set in any deployed environment. */}
             {process.env.NEXT_PUBLIC_FAVOUR_TEST_FIXTURE === "1" && (
               <div role="note" className="pointer-events-none fixed top-1 left-1/2 z-[70] -translate-x-1/2 rounded-full bg-amber-600 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.15em] text-white whitespace-nowrap">
-                Test data · local preview
+                Test data · simulated people & checks · no money
               </div>
             )}
             <PageTracker />

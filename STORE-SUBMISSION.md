@@ -8,21 +8,19 @@ purpose: World mini app store submission copy
 FAVOUR
 
 ## Short Description (under 25 words)
-Post and complete real-world favours for points. World ID verified. AI checks proof. Campaign USDC paid to your wallet — no custody.
+Join real-world campaigns, help other people and earn points for accepted proof. Sign in with your World App wallet.
 
 ## Full Description
-FAVOUR is a points-first favours marketplace for World ID verified humans.
+FAVOUR brings real-world favours into campaigns. Explore a campaign, read its requirements, send your own proof and follow the result in History. Accepted contributions earn the stated points. Campaigns show their reward and availability before you start.
 
-Post a small real-world favour — check a storefront, confirm a delivery, snap a location — or claim one nearby. Submit photo proof; AI verifies it against the task. Earn points for completed favours. Where a campaign unlocks cash, FAVOUR sends USDC straight to your wallet after Orb verification and a clean proof — nothing of yours is ever deposited or held.
+Wallet sign-in proves control of a World App wallet. It does not itself prove Orb verification. Cash favours apply the required verification tier separately. AI checks proof; uncertain work can enter human review. Failed verification does not mean a payout was sent.
 
-How it works:
-1. Post a favour for points, or browse open favours nearby
-2. Claim with World ID (orb / device / wallet tiers)
-3. Submit photo proof from the real world
-4. AI verifies the proof against the task requirements
-5. Earn points — and campaign USDC when you unlock, paid direct to your wallet
+Optional cash favours use poster-funded escrow. The poster signs funding from their own wallet after a claimant accepts. Funds can be released only to the recipient bound in the contract, or refunded to the funder after the deadline. The app does not treat a submitted user operation as a settled payment. Points are not money.
 
-FAVOUR is non-custodial: it never holds user funds. Cash favours use an optional poster-funded escrow contract signed from the poster's own wallet. Built on World Chain with World ID, MiniKit, and XMTP encrypted messaging.
+The home shows campaign cards. Individual raw agent tasks and the Vibe app-review / YES feature are not part of the current home.
+
+## Review status, 25 October 2026
+This package describes the local campaign-first candidate. It has not been deployed or submitted from this lane. Production still serves the older home. The local no-store server is not evidence of working authentication or durable writes. A real World App wallet sign-in and cross-restart persistence check are still required on a production-configured review deployment. No real payment or signature was made during this audit. Current contract source verification must be checked in the portal/explorer; bytecode presence alone is insufficient.
 
 ## Category
 Earn

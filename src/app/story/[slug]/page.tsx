@@ -10,11 +10,11 @@ const stories = {
 
 export default async function StoryPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params; const story = stories[slug as keyof typeof stories]; if (!story) notFound();
-  return <div className="curated min-h-screen"><header className="curated-header"><Link href="/" className="curated-wordmark">Favour</Link><nav className="curated-links"><Link href="/drop/2026-w43">This week</Link><Link href="/apps">All projects</Link><Link href="/post" className="curated-submit">Submit a project</Link></nav></header><main className="story-page">
-    <p className="curated-eyebrow">Builder story · 6 min read</p><h1>{story.name}</h1><p className="story-dek">{story.dek}</p>
+  return <div className="curated min-h-screen"><header className="curated-header"><Link href="/" className="curated-wordmark">Favour</Link><nav className="curated-links"><Link href="/drop/2026-w43">Archived selection</Link><Link href="/">Campaigns</Link></nav></header><main className="story-page">
+    <p className="curated-eyebrow">Archived builder story · 20 October</p><h1>{story.name}</h1><p className="story-dek">{story.dek}</p>
     <img src={funkyArt(story.name)} alt="" className="story-hero" />
     <div className="story-meta"><div><span>Built by</span><b>{story.maker}</b></div><div><span>Selected for</span><b>Drop 04</b></div><a href={story.url} target="_blank" rel="noreferrer">Open the project ↗</a></div>
     <article>{story.paragraphs.map((p, i) => <section key={p}><span>0{i + 1}</span><p>{p}</p></section>)}</article>
-    <aside><p className="curated-eyebrow">Try it properly</p><h2>Use the product, then leave feedback the builder can act on.</h2><Link href="/apps">Find it on Favour →</Link></aside>
+    <aside><p className="curated-eyebrow">FAVOUR today</p><h2>Explore a campaign and help with a real task.</h2><Link href="/">Explore campaigns →</Link></aside>
   </main></div>;
 }

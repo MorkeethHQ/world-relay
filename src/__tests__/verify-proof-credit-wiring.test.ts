@@ -1,3 +1,4 @@
+vi.mock("@/lib/proof-consent", () => ({ recordProofConsent: async () => true }));
 import { describe, it, expect, beforeEach, vi } from "vitest";
 
 // WIRING guard for the dollar-credit signal.
@@ -100,7 +101,7 @@ const req = (body: any) =>
       "content-type": "application/json",
       cookie: `${SESSION_COOKIE}=${issueSessionToken(String(body.submitter), Date.now())}`,
     },
-    body: JSON.stringify(body),
+    body: JSON.stringify({ proofConsent: true, ...body }),
   }) as any;
 
 const submit = () => POST(req({ taskId: "t1", submitter: CLAIMANT, proofNote: "https://x.com/me/status/1 — posted it" }));

@@ -36,7 +36,7 @@ describe("getFeedbackTemplate", () => {
   it("returns template by id", () => {
     const t = getFeedbackTemplate("fb-try-and-tell");
     expect(t).not.toBeNull();
-    expect(t!.title).toBe("Try RELAY, tell us one thing");
+    expect(t!.title).toBe("Try FAVOUR, tell us one thing");
   });
 
   it("returns null for unknown id", () => {

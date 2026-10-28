@@ -126,9 +126,9 @@ describe("ENTER path 4 — POST /api/seed funded markers", () => {
     expect(res.status, "a funded seed must not be accepted").toBe(400);
   });
 
-  it("still accepts a points-only seed — retirement must not break seeding", async () => {
+  it("refuses a points seed when its durable store is missing", async () => {
     const res = await seed([{ ...seedTask, bountyUsdc: 5, rewardType: "points" }]);
-    expect(res.status, "points seeding must survive custody retirement").toBe(201);
+    expect(res.status, "no durable store must never report a saved seed").toBe(503);
   });
 });
 

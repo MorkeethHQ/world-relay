@@ -1,4 +1,5 @@
 "use client";
+import { walletNonce } from "@/lib/wallet-nonce";
 
 import { useCallback, useEffect, useState } from "react";
 import { MiniKit } from "@worldcoin/minikit-js";
@@ -21,12 +22,21 @@ export function useFavourAuth() {
     let inApp = false;
     try { inApp = MiniKit.isInstalled(); } catch {}
     setIsInWorldApp(inApp);
-    try {
-      const stored = localStorage.getItem("relay_user_id");
-      const level = localStorage.getItem("relay_verification_level") as VerificationLevel;
-      if (stored && (!inApp || /^0x[0-9a-fA-F]{40}$/.test(stored))) { setUserId(stored); setVerificationLevel(level); }
-    } catch {}
-    setChecked(true);
+    let live = true;
+    fetch("/api/session", { cache: "no-store", signal: AbortSignal.timeout(8000) }).then((res) => res.json()).then((session) => {
+      if (!live) return;
+      if (session.authenticated && /^0x[0-9a-fA-F]{40}$/.test(session.address)) {
+        setUserId(session.address); setVerificationLevel("wallet");
+        fetch(`/api/verify-identity?address=${encodeURIComponent(session.address)}`, { cache: "no-store" })
+          .then((res) => res.ok ? res.json() : null)
+          .then((identity) => {
+            if (!live) return;
+            const level = identity?.verification_level;
+            if (level === "orb" || level === "device" || level === "wallet") setVerificationLevel(level);
+          }).catch(() => {});
+      }
+    }).catch(() => { if (live) setAuthError("We could not check your sign-in. Please try again when connected."); }).finally(() => { if (live) setChecked(true); });
+    return () => { live = false; };
   }, []);
 
   const signIn = useCallback(async () => {
@@ -37,34 +47,32 @@ export function useFavourAuth() {
     if (inApp) {
       try {
         const result = await MiniKit.walletAuth({
-          nonce: crypto.randomUUID().replace(/-/g, ""),
+          nonce: await walletNonce(),
           statement: "Sign in to FAVOUR",
           expirationTime: new Date(Date.now() + 3600_000),
         });
         const addr = result?.data?.address;
         if (!addr) { setAuthError("Sign-in wasn't completed. Please try again."); setIsVerifying(false); return; }
-        await fetch("/api/verify-identity", {
+        const verified = await fetch("/api/verify-identity", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ address: addr, signature: result.data.signature, message: result.data.message, ref: localStorage.getItem("favour_ref") || undefined }),
         });
+        if (!verified.ok) throw new Error("Sign-in could not be verified and saved.");
+        const identity = await verified.json();
+        const level = identity.verification_level === "orb" || identity.verification_level === "device" ? identity.verification_level : "wallet";
         localStorage.removeItem("favour_ref");
         localStorage.setItem("relay_user_id", addr);
-        localStorage.setItem("relay_verification_level", "wallet");
+        localStorage.setItem("relay_verification_level", level);
         setUserId(addr);
-        setVerificationLevel("wallet");
+        setVerificationLevel(level);
       } catch {
         setAuthError("Sign-in failed. Please try again.");
       }
       setIsVerifying(false);
       return;
     }
-    const devId = `dev_${crypto.randomUUID().slice(0, 8)}`;
-    localStorage.setItem("relay_user_id", devId);
-    localStorage.setItem("relay_verification_level", "dev");
-    setUserId(devId);
-    setVerificationLevel("dev");
-    await fetch("/api/verify-identity", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ address: devId }) }).catch(() => {});
+    setAuthError("Open FAVOUR in World App to sign in with your wallet.");
     setIsVerifying(false);
   }, []);
 

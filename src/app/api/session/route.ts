@@ -76,3 +76,10 @@ export async function GET(req: NextRequest) {
 
   return res;
 }
+
+// Clear the server session as well as the local display identity.
+export async function DELETE(req: NextRequest) {
+  const response = NextResponse.json({ authenticated: false }, { headers: { "Cache-Control": "private, no-store" } });
+  response.cookies.set(SESSION_COOKIE, "", { httpOnly: true, sameSite: "lax", secure: req.nextUrl.protocol === "https:", path: "/", maxAge: 0 });
+  return response;
+}

@@ -29,6 +29,9 @@ const SECRET = vi.hoisted(() => {
   return "test-seed-secret";
 });
 
+// Persistence is the mocked createTask effect below; this suite supplies a configured store.
+vi.mock("@/lib/redis", () => ({ getRedis: () => ({}) }));
+
 const created: any[] = [];
 let existing: any[] = [];
 

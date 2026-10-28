@@ -1,12 +1,11 @@
 "use client";
+import { walletNonce } from "@/lib/wallet-nonce";
 
 import { useState, useEffect } from "react";
-import { usePathname } from "next/navigation";
-import { CuratedHome } from "@/components/fv/CuratedHome";
-import { ProjectsHome } from "@/components/fv/ProjectsHome";
+
+
 import { MiniKit } from "@worldcoin/minikit-js";
 import { Feed } from "@/components/Feed";
-import { Onboarding } from "@/components/Onboarding";
 import { WorldAppHandoff } from "@/components/WorldAppHandoff";
 import { displayName } from "@/hooks/useWorldUser";
 import { trackReauthOncePerDay } from "@/lib/funnel-events";
@@ -35,11 +34,8 @@ function verificationSubtitle(level: VerificationLevel): string {
 }
 
 export default function Home() {
-  // "/" is the project picker (19 Oct 2026 revamp); "/board" is the older board
-  // with its onboarding gate, reached through src/app/board/page.tsx.
-  const pathname = usePathname();
-  const board = pathname === "/board";
-  const list = pathname === "/apps";
+  // The image-led campaign board is the front door again. Keep /board as a
+  // stable alias so existing links continue to work.
   const [userId, setUserId] = useState<string | null>(null);
   const [verificationLevel, setVerificationLevel] = useState<VerificationLevel>(null);
   const [isVerifying, setIsVerifying] = useState(false);
@@ -62,62 +58,28 @@ export default function Home() {
         localStorage.setItem("favour_ref", ref);
       }
     } catch {}
-    let stored = localStorage.getItem("relay_user_id");
-    const storedLevel = localStorage.getItem("relay_verification_level") as VerificationLevel;
-    // Self-heal a stale/legacy id (Oscar live-test Jul 8). Early builds could
-    // persist a non-wallet id — an old IDKit nullifier, or a dev_ id carried in.
-    // Inside World App a valid id is always a 0x wallet; a non-0x id silently
-    // breaks every wallet-gated action: staking returns "wallet account required",
-    // and jury verdicts are rejected so nothing is earned AND the same proofs
-    // repeat forever (the judged-set only fills on an accepted verdict). If we're
-    // in World App with a non-wallet stored id, drop it and route back through
-    // walletAuth, which mints a fresh 0x id. Browser-preview dev_ ids (MiniKit not
-    // installed) are left untouched.
-    let inWorldApp = false;
-    try { inWorldApp = MiniKit.isInstalled(); } catch {}
-    const isWalletId = !!stored && /^0x[0-9a-fA-F]{40}$/.test(stored);
-    if (stored && !isWalletId && inWorldApp) {
-      localStorage.removeItem("relay_user_id");
-      localStorage.removeItem("relay_verification_level");
-      localStorage.removeItem("relay_onboarded");
-      stored = null;
-    }
-    if (stored) {
-      setUserId(stored);
-      setVerificationLevel(storedLevel);
-    }
-    // Anyone already signed in, or who finished onboarding before, skips it.
-    if (stored || localStorage.getItem("relay_onboarded") === "true") {
-      setOnboarded(true);
-    }
-    setMiniKitChecked(true);
-
-    // RE-AUTH, added 2026-09-16, and this is the line the whole identity gate
-    // was waiting on.
-    //
-    // A stored id above means "this person signed in once". It does NOT mean
-    // they still hold a session cookie: the cookie is issued only inside
-    // /api/verify-identity, and the branch above returns without ever calling it
-    // again. Before this, a returning person silently carried no session, which
-    // is why enforcing would have locked out ~89% of registered users.
-    //
-    // /api/session answers the question and does the silent half by itself: a
-    // cookie past halfway through its life is reissued server-side with no
-    // prompt. Only someone whose session is genuinely gone gets asked to sign,
-    // because a new proof of wallet control cannot be minted without a signature.
-    if (stored && isWalletId && inWorldApp) {
-      (async () => {
-        try {
-          const res = await fetch("/api/session", { cache: "no-store" });
-          const s = await res.json();
-          if (s?.authenticated) return; // valid, and renewed if it needed it
-          await reauthSilently(stored!);
-        } catch {
-          // Offline or the endpoint is unreachable. Leave them as they are; a
-          // gated action will surface the real reason if it comes to that.
-        }
-      })();
-    }
+    let live = true;
+    fetch("/api/session", { cache: "no-store", signal: AbortSignal.timeout(8000) }).then((res) => res.json()).then((session) => {
+      if (!live) return;
+      if (session.authenticated && /^0x[0-9a-fA-F]{40}$/.test(session.address)) {
+        setUserId(session.address); setVerificationLevel("wallet");
+        localStorage.setItem("relay_user_id", session.address);
+        fetch(`/api/verify-identity?address=${encodeURIComponent(session.address)}`, { cache: "no-store" })
+          .then((res) => res.ok ? res.json() : null)
+          .then((identity) => {
+            if (!live) return;
+            const level = identity?.verification_level;
+            if (level === "orb" || level === "device" || level === "wallet") {
+              setVerificationLevel(level);
+              localStorage.setItem("relay_verification_level", level);
+            }
+          }).catch(() => {});
+      } else {
+        setUserId(null); setVerificationLevel(null);
+      }
+    }).catch(() => { if (live) setAuthError("We could not check your sign-in. Your saved work is safe. Please try again when connected."); })
+      .finally(() => { if (live) setMiniKitChecked(true); });
+    return () => { live = false; };
   }, []);
 
   // One signature, only when there is no session left to renew. Deliberately
@@ -129,7 +91,7 @@ export default function Home() {
     trackReauthOncePerDay("reauth_asked");
     try {
       const result = await MiniKit.walletAuth({
-        nonce: crypto.randomUUID().replace(/-/g, ""),
+        nonce: await walletNonce(),
         statement: "Sign in to FAVOUR",
         expirationTime: new Date(Date.now() + 3600_000),
       });
@@ -164,19 +126,14 @@ export default function Home() {
     if (MiniKit.isInstalled()) {
       try {
         const result = await MiniKit.walletAuth({
-          nonce: crypto.randomUUID().replace(/-/g, ""),
+          nonce: await walletNonce(),
           statement: "Sign in to FAVOUR",
           expirationTime: new Date(Date.now() + 3600_000),
         });
         if (result?.data?.address) {
           const addr = result.data.address;
 
-          setUserId(addr);
-          setVerificationLevel("wallet");
-          localStorage.setItem("relay_user_id", addr);
-          localStorage.setItem("relay_verification_level", "wallet");
-
-          await fetch("/api/verify-identity", {
+          const verified = await fetch("/api/verify-identity", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -186,6 +143,14 @@ export default function Home() {
               ref: localStorage.getItem("favour_ref") || undefined,
             }),
           });
+          const identity = await verified.json();
+          if (!verified.ok) throw new Error(identity.error || "Sign-in failed. Please try again.");
+          setUserId(addr);
+          const level = identity.verification_level === "orb" || identity.verification_level === "device" ? identity.verification_level : "wallet";
+          setVerificationLevel(level);
+          localStorage.setItem("relay_user_id", addr);
+          localStorage.setItem("relay_verification_level", level);
+
           localStorage.removeItem("favour_ref");
 
           MiniKit.getUserByAddress(addr).then(u => {
@@ -215,110 +180,21 @@ export default function Home() {
       }
     }
 
-    // Browser-only preview fallback. This branch is unreachable inside World
-    // App because MiniKit.isInstalled() is true there.
-    const devId = `dev_${crypto.randomUUID().slice(0, 8)}`;
-    setUserId(devId);
-    setVerificationLevel("dev");
-    localStorage.setItem("relay_user_id", devId);
-    localStorage.setItem("relay_verification_level", "dev");
-
-    await fetch("/api/verify-identity", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ address: devId }),
-    });
-
+    setAuthError("Open FAVOUR in World App to sign in with your wallet.");
     setIsVerifying(false);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    const response = await fetch("/api/session", { method: "DELETE" });
+    if (!response.ok) { setAuthError("We could not sign you out. Please try again."); return; }
     localStorage.removeItem("relay_user_id");
     localStorage.removeItem("relay_verification_level");
     setUserId(null);
     setVerificationLevel(null);
   };
 
-  if (!miniKitChecked) return null;
+  // Campaigns are public and must render before a wallet/session check finishes.
 
-  const completeOnboarding = () => {
-    localStorage.setItem("relay_onboarded", "true");
-    setOnboarded(true);
-  };
-
-  // Brand-new users (never onboarded) get the guided click-through. Its World
-  // ID step calls the same handleVerify used below, so the existing MiniKit
-  // auth path is preserved, not replaced. Stays mounted through sign-in until
-  // the user taps through the final screen, which sets the onboarded flag.
-  // THE PROJECT PICKER leads. No onboarding wall: a signed-out visitor sees every
-  // project, and the one-screen sign-in sheet opens at the first tap that needs a
-  // wallet (components/fv/SignInSheet.tsx).
-  if (!board) {
-    const auth = { userId, isInWorldApp, isVerifying, authError, onVerify: handleVerify };
-    return list ? <ProjectsHome auth={auth} /> : <CuratedHome />;
-  }
-
-  if (!onboarded) {
-    return (
-      <Onboarding
-        isInWorldApp={isInWorldApp}
-        isVerifying={isVerifying}
-        authed={!!userId}
-        verificationLevel={verificationLevel}
-        authError={authError}
-        onVerify={handleVerify}
-        onComplete={completeOnboarding}
-      />
-    );
-  }
-
-  if (!userId) {
-    return (
-      <div className="flex flex-col min-h-screen max-w-lg mx-auto w-full bg-white items-center justify-between px-6 py-16">
-        <div />
-
-        <div className="flex flex-col items-center gap-4 w-full max-w-sm">
-          <h1 className="text-[56px] font-bold tracking-tight text-gray-900 leading-none animate-[countUp_0.6s_ease-out]">
-            FAVOUR
-          </h1>
-          <p className="text-[15px] text-gray-400 text-center leading-relaxed max-w-[240px] animate-[fadeSlideIn_0.5s_ease-out_0.2s_both]">
-            Real tasks. Real people.<br />Verified on-chain.
-          </p>
-          <div className="flex items-center gap-3 mt-2 animate-[fadeSlideIn_0.5s_ease-out_0.4s_both]">
-            <span className="text-[11px] text-gray-300 uppercase tracking-widest">Tasks</span>
-            <span className="w-1 h-1 rounded-full bg-gray-200" />
-            <span className="text-[11px] text-gray-300 uppercase tracking-widest">Polls</span>
-            <span className="w-1 h-1 rounded-full bg-gray-200" />
-            <span className="text-[11px] text-gray-300 uppercase tracking-widest">Campaigns</span>
-          </div>
-        </div>
-
-        <div className="w-full max-w-sm space-y-3 animate-[fadeSlideIn_0.5s_ease-out_0.5s_both]">
-          <div aria-live="polite">
-            <LiveFeedback state={isVerifying ? "pending" : undefined}>
-              <Button
-                onClick={handleVerify}
-                disabled={isVerifying}
-                fullWidth
-                variant="primary"
-                size="lg"
-              >
-                {isInWorldApp ? "Sign in" : "Continue"}
-              </Button>
-            </LiveFeedback>
-          </div>
-          {authError && (
-            <p className="text-[13px] text-error-600 text-center" role="alert">
-              {authError}
-            </p>
-          )}
-          {!isInWorldApp && (
-            <WorldAppHandoff className="pt-1" />
-          )}
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="relative">
@@ -338,6 +214,7 @@ export default function Home() {
         </div>
       )}
 
+      {authError && <div className="max-w-lg mx-auto px-6 py-4"><p role="alert" className="text-[14px] text-gray-700">{authError}</p>{!isInWorldApp && <WorldAppHandoff className="mt-3" />}</div>}
       <Feed userId={userId} verificationLevel={verificationLevel} onLogout={handleLogout} onReauth={handleVerify} />
     </div>
   );

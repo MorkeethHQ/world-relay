@@ -1,3 +1,4 @@
+vi.mock("@/lib/proof-consent", () => ({ recordProofConsent: async () => true }));
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { createMemoryRedis } from "./helpers/memory-redis";
 
@@ -71,7 +72,7 @@ const DESCRIPTION = WELCOME_ORIGINAL_STEPS[0];
 function req(url: string, wallet: string | null, body?: unknown): NextRequest {
   const headers: Record<string, string> = { "content-type": "application/json" };
   if (wallet) headers.cookie = `${SESSION_COOKIE}=${issueSessionToken(wallet, Date.now())}`;
-  return new Request(`http://localhost${url}`, { method: body === undefined ? "GET" : "POST", headers, body: body === undefined ? undefined : JSON.stringify(body) }) as unknown as NextRequest;
+  return new Request(`http://localhost${url}`, { method: body === undefined ? "GET" : "POST", headers, body: body === undefined ? undefined : JSON.stringify({ proofConsent: true, ...body }) }) as unknown as NextRequest;
 }
 
 // The source row as production holds it: an original Welcome favour, 1000
@@ -421,7 +422,7 @@ describe("only a qualified reviewer is shown a flagged proof", () => {
     expect(body.cards).toEqual([]);
     expect(body.waiting).toBe(2);
     expect(body.yourRecord).toEqual({ judged: 0, correct: 0 });
-    const raw = JSON.stringify(body);
+    const raw = JSON.stringify({ proofConsent: true, ...body });
     expect(raw).not.toContain("private written answer");
     expect(raw).not.toContain("earlier proof");
     expect(raw).not.toContain(DESCRIPTION);

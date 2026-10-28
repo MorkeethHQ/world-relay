@@ -1,12 +1,9 @@
-"use client";
+import { notFound, permanentRedirect } from "next/navigation";
 
-import { use } from "react";
-import { ProjectView } from "@/components/fv/ProjectView";
-import { useFavourAuth } from "@/hooks/useFavourAuth";
-
-export default function ProjectPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params);
-  const auth = useFavourAuth();
-  if (!auth.checked) return null;
-  return <ProjectView id={id} userId={auth.userId} isInWorldApp={auth.isInWorldApp} isVerifying={auth.isVerifying} authError={auth.authError} onVerify={auth.signIn} />;
+export default async function ProjectPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  // Published company campaigns keep their old deep links. Obsolete app
+  // profiles have no campaign to open and must never appear as live projects.
+  if (id.startsWith("draft_")) permanentRedirect(`/?campaign=${encodeURIComponent(id)}`);
+  notFound();
 }

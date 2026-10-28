@@ -12,6 +12,6 @@ export function getRedis(): Redis | null {
     return null;
   }
 
-  redis = new Redis({ url, token });
+  redis = new Redis({ url, token, cache: "no-store" });
   return redis;
 }

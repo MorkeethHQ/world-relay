@@ -1,3 +1,4 @@
+import { walletNonce } from "@/lib/wallet-nonce";
 // SIGN IN AGAIN, FROM ANY PAGE (14 Oct 2026). The hard session gates answer
 // `reauth_required` when the cookie is missing or expired. The home feed could
 // recover (Feed onReauth); a favour opened by link (/task/<id>) or the Profile
@@ -26,7 +27,7 @@ export async function reauthWallet(address: string): Promise<boolean> {
 async function signAndExchange(address: string): Promise<boolean> {
   try {
     const result = await MiniKit.walletAuth({
-      nonce: crypto.randomUUID().replace(/-/g, ""),
+      nonce: await walletNonce(),
       statement: "Sign in to FAVOUR",
       expirationTime: new Date(Date.now() + 3600_000),
     });

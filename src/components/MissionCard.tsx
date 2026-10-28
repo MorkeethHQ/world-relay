@@ -24,6 +24,7 @@ export function DailyMissionCard({
   const needsPhoto = PHOTO_CATEGORIES.includes(task.category);
   return (
     <div className="mx-6 mt-4 rounded-3xl border border-gray-900 bg-white overflow-hidden animate-[fadeSlideIn_0.4s_ease-out]">
+      <img src="/favour-invitation.svg" alt="A small contribution, ready to make" className="favour-card-image" />
       <div className="px-5 pt-4 pb-3">
         <div className="flex items-center justify-between">
           <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-900">Today&apos;s mission</span>

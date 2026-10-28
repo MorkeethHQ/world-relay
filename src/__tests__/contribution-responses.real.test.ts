@@ -1,3 +1,4 @@
+vi.mock("@/lib/proof-consent", () => ({ recordProofConsent: async () => true }));
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 import { getRedis } from '@/lib/redis';
@@ -12,7 +13,7 @@ vi.mock('@/lib/track',()=>({trackEvent:async()=>{}}));
 const run=process.env.FAVOUR_RESPONSE_REAL_TEST==='1';
 const owner='0x1111111111111111111111111111111111111111',person='0x2222222222222222222222222222222222222222',other='0x3333333333333333333333333333333333333333';
 const id='draft_response_test';const params={params:Promise.resolve({id})};
-function req(wallet?:string,body?:unknown){return new NextRequest(`http://127.0.0.1/api/campaigns/company/${id}/contributions`,{method:body?'POST':'GET',headers:{'Content-Type':'application/json',...(wallet?{cookie:`favour_session=${issueSessionToken(wallet,Date.now())}`}:{})},...(body?{body:JSON.stringify(body)}:{})});}
+function req(wallet?:string,body?:unknown){return new NextRequest(`http://127.0.0.1/api/campaigns/company/${id}/contributions`,{method:body?'POST':'GET',headers:{'Content-Type':'application/json',...(wallet?{cookie:`favour_session=${issueSessionToken(wallet,Date.now())}`}:{})},...(body?{body:JSON.stringify({ proofConsent: true, ...body })}:{})});}
 describe.skipIf(!run)('contribution response API against isolated real Redis',()=>{
  afterEach(()=>vi.restoreAllMocks());
  beforeAll(async()=>{
@@ -78,7 +79,7 @@ describe.skipIf(!run)('contribution response API against isolated real Redis',()
    // its saved award before the status/duplicate/intake gates or another AI call.
    await r.set('task:'+taskId,JSON.stringify({...task,status:'completed',completionCount:5,claimant:other,proofNote:'ANOTHER PERSON PRIVATE PROOF'}));
    const retry=(wallet:string,as=wallet)=>VERIFY(new NextRequest('http://localhost/api/verify-proof',{method:'POST',headers:{'Content-Type':'application/json',cookie:`favour_session=${issueSessionToken(wallet,Date.now())}`,'x-forwarded-for':'198.51.100.77'},body:JSON.stringify({taskId,submitter:as,proofNote:'Original retained proof'})}));
-   for(let i=0;i<3;i++) {const response=await retry(person);expect(response.status).toBe(200);const body=await response.json();expect(body).toMatchObject({recovered:true,pointsAwarded:10,streakBonus:1});expect(JSON.stringify(body)).not.toContain('ANOTHER PERSON');}
+   for(let i=0;i<3;i++) {const response=await retry(person);expect(response.status).toBe(200);const body=await response.json();expect(body).toMatchObject({recovered:true,pointsAwarded:10,streakBonus:1});expect(JSON.stringify({ proofConsent: true, ...body })).not.toContain('ANOTHER PERSON');}
    expect((await retry(other,person)).status).toBe(403);
    expect((await retry(other)).status).not.toBe(200);
    expect(await r.get('pof:'+person)).toMatchObject({totalPoints:10,favoursCompleted:1});

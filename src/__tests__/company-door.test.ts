@@ -46,7 +46,7 @@ describe("the first screen leads with doing, not with planning", () => {
     // Since R19 (2026-10-05) the button sits on the campaign stage, the same
     // component on the board and on the signed-out first screen.
     const stage = readFileSync("src/components/CampaignFrontDoor.tsx", "utf8");
-    expect(stage).toMatch(/>\s*Explore campaign →\s*</);
+    expect(stage).toContain("onClick={() => onOpenCompany(c.campaign.id)}");
     expect(stage).toMatch(/<CompanyTrust c=\{c\.campaign\}/);
     expect(feed).toMatch(/<CampaignStageCards/);
     expect(onboarding).toMatch(/<CampaignStageCards/);
@@ -68,14 +68,10 @@ describe("the first screen leads with doing, not with planning", () => {
 
 describe("the board's order after the company door", () => {
   const feed = readFileSync("src/components/Feed.tsx", "utf8");
-  it("today's mission comes before the list of campaign cards", () => {
-    const mission = feed.indexOf("<DailyMissionCard");
-    const cards = feed.indexOf("campaignCards.lead.map");
-    // R19: the campaign stage leads, then today's mission, then other campaigns.
-    const earn = feed.indexOf("<CampaignStageCards");
-    expect(earn).toBeGreaterThan(0);
-    expect(mission).toBeGreaterThan(earn);
-    expect(cards).toBeGreaterThan(mission);
+  it("shows campaign cards without a raw daily mission", () => {
+    expect(feed).toContain("<CampaignStageCards");
+    expect(feed).toContain("[...campaignCards.lead, ...campaignCards.rest].map");
+    expect(feed).not.toContain("<DailyMissionCard");
   });
 });
 

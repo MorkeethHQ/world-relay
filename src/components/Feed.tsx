@@ -51,9 +51,8 @@ import {
   pickProofStrip,
 } from "@/lib/board-rank";
 import { JuryMode, type JuryCard } from "@/components/JuryMode";
-import { JuryGameCard } from "@/components/JuryGameCard";
-import { AppsToCheckDoor } from "@/components/AppsToCheck";
-import { juryGameOn, type JuryDayView } from "@/lib/jury-game";
+
+import type { JuryDayView } from "@/lib/jury-game";
 import { ForCompaniesView, CompanyTrust, ProductLine, CampaignDraftForm, CampaignDraftList, CompanyCampaignCard, CompanyCampaignView } from "@/components/CompanyCampaign";
 import { pickCampaignToDo, rankCampaignCards } from "@/lib/company-door";
 import type { CampaignDraft, PublicCompanyCampaign, PieceKind } from "@/lib/campaign-draft-shape";
@@ -64,15 +63,17 @@ import type { Contribution } from "@/lib/completions";
 import { PENDING_MISSION_KEY } from "@/components/Onboarding";
 import { trackFunnelEvent } from "@/lib/funnel-events";
 import { authorLabel } from "@/lib/authorship";
-import { CampaignStageCards, WelcomeCampaignView, DemoBrandView } from "@/components/CampaignFrontDoor";
+import { CampaignStageCards, WelcomeCampaignView, TokenLaunchPreviewView } from "@/components/CampaignFrontDoor";
 import { pickCampaignStage } from "@/lib/campaign-stage";
 import { isWelcomeSourceRow, WELCOME_CAMPAIGN_ID, type WelcomeStepView, type WelcomeView } from "@/lib/welcome-shape";
 import { reviewPathFor } from "@/lib/review-path";
 import { CHECK_UNAVAILABLE_ERROR, TRY_AGAIN_LINE, proofKeptLabel, proofKeptLine, readProofSaved, type ProofSaved } from "@/lib/check-unavailable";
 import { reviewEntryFor, type ReviewEntry } from "@/lib/review-entry";
 import { isCampaignRunning } from "@/lib/campaigns";
+import { ProjectReviewCampaign } from "@/components/ProjectReviewCampaign";
 import { PENDING_WELCOME_KEY } from "@/components/Onboarding";
 import { threadSpeaker } from "@/lib/thread";
+import { simplePaymentStep } from "@/lib/simple-payment";
 
 // Fire-and-forget telemetry. The event name must be in CLIENT_EVENTS in
 // /api/track, which is an allowlist because that route is public.
@@ -431,14 +432,62 @@ const RELAY_BOT_ADDRESS = "0x1101158041fd96f21cbcbb0e752a9a2303e6d70e";
 
 export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId: string | null; verificationLevel?: string | null; onLogout?: () => void; onReauth?: () => void }) {
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [view, setView] = useState<"board" | "post" | "proof" | "detail" | "campaign" | "jury" | "launch" | "drafts" | "company" | "companies" | "welcome" | "demo">("board");
+  const [view, setView] = useState<"board" | "post" | "proof" | "detail" | "campaign" | "jury" | "launch" | "drafts" | "company" | "companies" | "welcome" | "demo" | "project-reviews">("board");
   useEffect(() => {
     if (new URLSearchParams(window.location.search).get('companyPlan') === 'repeat') setView('launch');
   }, []);
   const [companyCampaignId, setCompanyCampaignId] = useState<string | null>(null);
+  useEffect(() => {
+    const sync = () => {
+      const query = new URLSearchParams(window.location.search);
+      if (query.get("campaign") === "project-reviews") setView("project-reviews");
+      else if (query.get("campaign") === "welcome") setView("welcome");
+      else if (query.get("campaign") === "token-plan") setView("demo");
+      else if (query.get("campaign")?.startsWith("draft_")) { setCompanyCampaignId(query.get("campaign")); setView("company"); }
+      else setView("board");
+    };
+    sync();window.addEventListener("popstate",sync);
+    return () => window.removeEventListener("popstate",sync);
+  }, []);
+
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [projectProofNote, setProjectProofNote] = useState("");
+  const [linkedTaskError, setLinkedTaskError] = useState<string | null>(null);
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("task");
+    if (!id) return;
+    let live = true;
+    fetch(`/api/tasks/${encodeURIComponent(id)}`, { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("unavailable");
+        return response.json();
+      })
+      .then((data) => {
+        if (!live) return;
+        if (!data.task) throw new Error("unavailable");
+        setSelectedTask(data.task as Task);
+        setView("detail");
+      })
+      .catch(() => { if (live) setLinkedTaskError("This favour is no longer available. Explore campaigns to find another one."); });
+    return () => { live = false; };
+  }, []);
   const [tab, setTab] = useState<Tab>("available");
   const [tabDirection, setTabDirection] = useState<"left" | "right">("right");
+  // Next keeps this component mounted when Discover targets the current route.
+  // Dismiss its internal proof/detail view as well as changing the URL.
+  useEffect(() => {
+    const discover = (event: Event) => {
+      if ((event as CustomEvent<string>).detail !== "/") return;
+      window.history.replaceState(null, "", "/");
+      setSelectedTask(null);
+      setCompanyCampaignId(null);
+      setTab("available");
+      setView("board");
+    };
+    window.addEventListener("favour:nav-reselect", discover);
+    return () => window.removeEventListener("favour:nav-reselect", discover);
+  }, []);
+
   // Direction-aware tab switch so content phases in from the correct side (World App style)
   const changeTab = (next: Tab) => {
     const order: Tab[] = ["available", "polls", "completed"];
@@ -786,17 +835,20 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
   // A step is done on a per-person instance (POST /api/welcome/start), so someone
   // else's flagged proof can never take it.
   const [welcome, setWelcome] = useState<WelcomeView | null>(null);
+  const [welcomeLoading, setWelcomeLoading] = useState(true);
   const [welcomeKey, setWelcomeKey] = useState(0);
   const [welcomeBusy, setWelcomeBusy] = useState<string | null>(null);
   const [welcomeError, setWelcomeError] = useState<string | null>(null);
   // Where the proof screen returns to: the Welcome list when it was opened there.
-  const [proofFrom, setProofFrom] = useState<"board" | "welcome">("board");
+  const [proofFrom, setProofFrom] = useState<"board" | "welcome" | "project-reviews">("board");
   useEffect(() => {
     let live = true;
+    setWelcomeLoading(true);
     fetch("/api/welcome", { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => { if (live) setWelcome(d?.welcome ?? null); })
-      .catch(() => {});
+      .catch(() => { if (live) setWelcome(null); })
+      .finally(() => { if (live) setWelcomeLoading(false); });
     return () => { live = false; };
   }, [userId, welcomeKey]);
   const campaignStage = useMemo(() => pickCampaignStage({ welcome, company: pieceToDo }), [welcome, pieceToDo]);
@@ -1074,11 +1126,16 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
         }
       }
 
-      const res = await fetch(`/api/tasks/${task.id}/claim`, {
+      const send = () => fetch(`/api/tasks/${task.id}/claim`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ claimant: userId, claimCode }),
       });
+      let res = await send();
+      if ((res.status === 401 || res.status === 403) && onReauth) {
+        const peek = await res.clone().json().catch(() => ({} as Record<string, unknown>));
+        if (peek.code === "reauth_required") { await onReauth(); res = await send(); }
+      }
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         if (err.requiresCode) {
@@ -1101,7 +1158,7 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
     } catch (err) {
       setClaimTxError({ message: err instanceof Error ? err.message : "Claim failed. Try again.", taskId: task.id, retry: () => {} });
     }
-  }, [userId, fetchTasks]);
+  }, [userId, fetchTasks, onReauth]);
 
   const campaigns = useMemo(() => getCampaigns(), []);
   const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
@@ -1174,6 +1231,11 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
       />
     );
   }
+  if (view === "project-reviews") {
+    return <ProjectReviewCampaign tasks={tasks} completedIds={completedIds} userId={userId} onReauth={onReauth}
+      onBack={() => { window.history.replaceState(null,"","/"); setView("board"); }}
+      onStart={(task,note) => { if (!userId) { onReauth?.(); return; } setProjectProofNote(note); setSelectedTask(task); setProofFrom("project-reviews"); setView("proof"); }} />;
+  }
   if (view === "welcome" && welcome) {
     return (
       <WelcomeCampaignView
@@ -1181,18 +1243,17 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
         signedIn={walletUser}
         busyId={welcomeBusy}
         error={welcomeError}
-        onStart={(step: WelcomeStepView) => startWelcomeStep(step.sourceTaskId)}
-        onBack={() => { setWelcomeError(null); setView("board"); }}
-        onDiscover={() => { setWelcomeError(null); setView("board"); }}
+        onStart={(step: WelcomeStepView) => { if (!walletUser) { localStorage.setItem(PENDING_WELCOME_KEY, "true"); onReauth?.(); } else startWelcomeStep(step.sourceTaskId); }}
+        onBack={() => { window.history.replaceState(null, "", "/"); setWelcomeError(null); setView("board"); }}
+        onDiscover={() => { window.history.replaceState(null, "", "/"); setWelcomeError(null); setView("board"); }}
       />
     );
   }
   if (view === "demo") {
     return (
-      <DemoBrandView
-        onBack={() => setView("board")}
-        onPlan={() => { hapticTap(); setView("launch"); }}
-        onWelcome={welcome && !campaignStage.welcome?.finished ? () => { hapticTap(); setView("welcome"); } : null}
+      <TokenLaunchPreviewView
+        onBack={() => { window.history.replaceState(null, "", "/"); setView("board"); }}
+        onWelcome={() => { hapticTap(); window.history.replaceState(null, "", "/?campaign=welcome"); setView("welcome"); }}
       />
     );
   }
@@ -1213,8 +1274,8 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
   }
 
   if (view === "proof" && selectedTask) {
-    const leaveProof = (to: "board" | "welcome") => { setView(to === "welcome" && welcome ? "welcome" : "board"); fetchTasks(); setContribRefresh((n) => n + 1); setWelcomeKey((n) => n + 1); };
-    return <SubmitProof task={selectedTask} userId={userId} onDone={() => leaveProof("board")} onCancel={() => leaveProof(proofFrom)} onWelcome={proofFrom === "welcome" ? () => leaveProof("welcome") : undefined} onCreateTask={() => { setPostCampaignId(null); setView("post"); }} onJudge={() => setView("jury")} onReauth={onReauth} />;
+    const leaveProof = (to: "board" | "welcome" | "project-reviews") => { setView(to === "project-reviews" ? "project-reviews" : to === "welcome" && welcome ? "welcome" : "board"); fetchTasks(); setContribRefresh((n) => n + 1); setWelcomeKey((n) => n + 1); };
+    return <div className={proofFrom === "welcome" || proofFrom === "project-reviews" ? "stories-proof" : undefined}>{proofFrom === "project-reviews" && <button type="button" className="project-proof-return" onClick={() => leaveProof("project-reviews")}>← Return to project campaign</button>}<SubmitProof task={selectedTask} userId={userId} initialNote={proofFrom === "project-reviews" ? projectProofNote : undefined} projectReviewReturn={proofFrom === "project-reviews"} onDone={() => leaveProof(proofFrom === "project-reviews" ? "project-reviews" : "board")} onCancel={() => leaveProof(proofFrom)} onWelcome={proofFrom === "welcome" ? () => leaveProof("welcome") : undefined} onCreateTask={() => { setPostCampaignId(null); setView("post"); }} onJudge={() => setView("jury")} onReauth={onReauth} /></div>;
   }
 
   if (view === "detail" && selectedTask) {
@@ -1222,8 +1283,10 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
       <TaskDetail
         task={selectedTask}
         userId={userId}
-        onBack={() => { setView("board"); fetchTasks(); }}
+        onBack={() => { window.history.replaceState(null, "", "/"); setView("board"); fetchTasks(); }}
+        onClaim={() => executeClaimTask(selectedTask)}
         onSubmitProof={() => setView("proof")}
+        onReauth={onReauth}
       />
     );
   }
@@ -1231,7 +1294,7 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
   return (
     <div
       ref={feedContainerRef}
-      className="flex flex-col gap-0 max-w-lg mx-auto w-full min-h-screen bg-gray-50"
+      className="campaign-home stories-shell flex flex-col gap-0 mx-auto w-full min-h-screen bg-gray-50"
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
@@ -1242,12 +1305,13 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
       <div className="sticky top-0 z-10 bg-white border-b border-gray-100">
         <div className="flex items-center justify-between px-6 py-3">
           <h1 className="text-[18px] font-bold tracking-tight text-gray-900">FAVOUR</h1>
+          {!userId && <button type="button" onClick={onReauth} className="min-h-[44px] text-[13px] font-semibold">Sign in</button>}
           {userId && (
             <button
-              onClick={() => { hapticTap(); setView("companies"); }}
+              onClick={() => { hapticTap(); setPostCampaignId(null); setView("post"); }}
               className="bg-gray-900 text-white text-[13px] font-semibold px-4 py-2 rounded-full active:scale-95 transition-transform min-h-[36px]"
             >
-              Create campaign
+              Request a favour
             </button>
           )}
         </div>
@@ -1259,268 +1323,38 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
         className="flex-1 flex flex-col"
       >
 
-      {/* THE JURY GAME LEADS when its switch is on (lib/jury-game.ts). Off in a
-          production build, so this card is absent there and the screen is as before.
-          With the switch on it REPLACES the Review favours entry below: the board
-          keeps one door to the deck (campaign-first.test.ts). */}
-      {juryGameOn() && tab === "available" && !loading && userId && (
-        <JuryGameCard day={juryDay} onPlay={() => { hapticTap(); setView("jury"); }} />
-      )}
-
-      {/* POSTED APPS (pivot, 17 Oct 2026): the quiet door to /apps, where people
-          say YES to apps others posted. Ten outside YES put an app live. */}
-      {tab === "available" && !loading && <AppsToCheckDoor />}
-
       {/* THE MAIN ACTION (T3, 2026-09-22): do a piece for a company and earn.
           The company path, the example and "Plan a campaign", is behind the
           quieter "For companies" link. Shown only while a piece is open. */}
       {/* R19 (2026-10-05): the campaign stage leads. Welcome, then a real company
           campaign that may lead (R16 unchanged), then a labelled demo brand. */}
-      {tab === "available" && !loading && (
+      {tab === "available" && (
+        linkedTaskError && <p role="alert" className="mx-6 mt-4 rounded-xl bg-gray-100 px-4 py-3 text-sm text-gray-700">{linkedTaskError}</p>
+      )}
+      {tab === "available" && (
         <CampaignStageCards
+          campaigns={campaigns}
+          onOpenCampaign={(campaign) => { hapticTap(); setSelectedCampaign(campaign); setView("campaign"); }}
           stage={campaignStage}
           welcome={welcome}
+          welcomeLoading={welcomeLoading}
           signedIn={walletUser}
-          onOpenWelcome={() => { hapticTap(); setWelcomeError(null); setView("welcome"); }}
-          onOpenCompany={(id) => { hapticTap(); setCompanyCampaignId(id); setView("company"); }}
+          onOpenProjectReviews={() => { hapticTap(); window.history.replaceState(null,"","/?campaign=project-reviews"); setView("project-reviews"); }}
+          onOpenWelcomeStep={(id) => { if (!welcome) return; hapticTap(); window.history.replaceState(null, "", `/?campaign=welcome&step=${encodeURIComponent(id)}`); setWelcomeError(null); setView("welcome"); }}
+          onOpenWelcome={() => { if (!welcome) return; hapticTap(); window.history.replaceState(null, "", "/?campaign=welcome"); setWelcomeError(null); setView("welcome"); }}
+          onOpenCompany={(id) => { hapticTap(); window.history.replaceState(null, "", `/?campaign=${encodeURIComponent(id)}`); setCompanyCampaignId(id); setView("company"); }}
           onForCompanies={() => { hapticTap(); setView("companies"); }}
-          onOpenDemo={() => { hapticTap(); setView("demo"); }}
+          onOpenDemo={() => { hapticTap(); window.history.replaceState(null, "", "/?campaign=token-plan"); setView("demo"); }}
         />
       )}
 
 
-      {/* THE DAILY MISSION leads the screen. Everything else on this tab is below
-          it, including creation, which is the small "+ New" in the header. */}
-      {tab === "available" && !loading && dailyMission && missionDone && (
-        <DailyMissionDoneCard
-          task={dailyMission}
-          points={missionDone.points}
-          proofImageUrl={missionDone.proofImageUrl}
-          at={missionDone.at}
-        />
-      )}
-      {tab === "available" && !loading && dailyMission && !missionDone && (
-        <DailyMissionCard
-          task={dailyMission}
-          proofs={missionProofs}
-          onStart={() => startFavour(dailyMission)}
-        />
-      )}
-
-      {tab === "available" && !loading && userId && (
-        <details className="mx-6 mt-4 rounded-2xl border border-gray-200 bg-white p-4">
-          <summary className="cursor-pointer text-[14px] font-semibold text-gray-900">Ask a one-off favour</summary>
-          <FeedComposer userId={userId} onReauth={onReauth} onPosted={() => fetchTasks()} onMore={() => { hapticTap(); setPostCampaignId(null); setView("post"); }} />
-        </details>
-      )}
-
-      {/* REVIEW FAVOURS, the ONE entry on the board (2026-10-05). There were two:
-          a "Review a proof" card and a REAL OR NOT banner, both opening the same
-          deck. Flagged proofs that need a human decision are reached from inside
-          it, so this is the only door. Illustrated from the REAL proof strip,
-          never from the deck: the deck is opaque and may hold AI-made decoys. */}
-      {!juryGameOn() && tab === "available" && !loading && userId && (
-        <ReviewEntryCard
-          entry={reviewEntryFor({ waiting: reviewWaiting, flaggedWaiting: reviewFlagged, record: reviewRecord, walletUser })}
-          proof={reviewDeck.length > 0 && reviewWaiting > 0 ? (pickProofStrip(tasks)[0] ?? null) : null}
-          waiting={reviewWaiting}
-          onReview={() => { hapticTap(); setView("jury"); }}
-        />
-      )}
-
-      {/* The live campaigns, each labelled with its company's trust. Below today's
-          mission and review, so the first screen is the earn card, then the
-          mission (T3, 2026-09-22: three cards used to push the mission down). */}
-      {/* The campaign already on the stage above is not printed a second time. */}
-      {tab === "available" && !loading && campaignCards.lead.map((c) => (
+      {tab === "available" && loading && <p role="status" className="px-6 py-8 text-gray-500">Loading campaigns…</p>}
+      {tab === "available" && fetchError && <p role="alert" className="px-6 py-4 text-gray-600">Campaigns could not load. Please refresh to try again.</p>}
+      {tab === "available" && !loading && [...campaignCards.lead, ...campaignCards.rest].map((c) => (
         c.id === campaignStage.company?.campaign.id ? null :
         <CompanyCampaignCard key={c.id} c={c} onOpen={() => { hapticTap(); setCompanyCampaignId(c.id); setView("company"); }} />
       ))}
-
-      {tab === "available" && !loading && showFirstRunCoach && starterFavour && (
-        <StarterFavourBanner
-          task={starterFavour}
-          onStart={() => startFavour(starterFavour)}
-          onDismiss={dismissFirstRunCoach}
-        />
-      )}
-
-      {/* The no-starter fallback must also stand down for the mission, or the screen
-          carries two "start here" cards again by a different route. Caught by
-          rendering the real board at 390 px rather than by reading the branch. */}
-      {tab === "available" && !loading && showFirstRunCoach && !starterFavour && !dailyMission && (
-        <div className="mx-6 mt-4 rounded-2xl border border-gray-200 bg-white px-4 py-4">
-          <p className="text-[13px] font-semibold text-gray-900">Pick any favour below</p>
-          <p className="text-[13px] text-gray-500 mt-1">Tap <span className="font-medium text-gray-700">Do it</span>, follow the steps, submit proof.</p>
-          <button type="button" onClick={dismissFirstRunCoach} className="mt-3 text-[12px] font-medium text-gray-400 hover:text-gray-700">Got it</button>
-        </div>
-      )}
-
-      {/* Animated hero - Tasks. The hook leads; the numbers support it. */}
-      {tab === "available" && !loading && (
-        <div className="px-6 pt-6 pb-2 animate-[fadeSlideIn_0.4s_ease-out]">
-          <p className="text-[19px] font-bold text-gray-900 tracking-tight leading-snug">
-            {showFirstRunCoach || dailyMission ? "Or browse more favours" : "Do a favour. Prove it. Get rewarded."}
-          </p>
-          {!showFirstRunCoach && (
-          <div className="flex items-center gap-4 mt-2">
-            <div className="flex items-baseline gap-1.5">
-              <span className="text-[15px] font-bold text-gray-900">{tasks.filter(t => t.status === "open").length}</span>
-              <span className="text-[12px] text-gray-400">open now</span>
-            </div>
-            <div className="w-1 h-1 rounded-full bg-gray-200" />
-            <div className="flex items-baseline gap-1.5">
-              <span className="text-[15px] font-bold text-gray-900">{tasks.filter(t => t.status === "completed").length}</span>
-              <span className="text-[12px] text-gray-400">verified</span>
-            </div>
-            <div className="w-1 h-1 rounded-full bg-gray-200" />
-            <div className="flex items-baseline gap-1.5">
-              <span className="text-[15px] font-bold text-gray-900">${tasks.filter(t => (t.onChainId != null || t.escrowTxHash) && t.settlementTx).reduce((s, t) => s + t.bountyUsdc, 0).toFixed(0)}</span>
-              <span className="text-[12px] text-gray-400">paid out</span>
-            </div>
-          </div>
-          )}
-        </div>
-      )}
-
-      {/* Liveness: real recent activity from logged events (renders nothing when
-          there's none). Keeps a thin board feeling alive without fake data. */}
-      {tab === "available" && !loading && (
-        <div className="px-6">
-          <LivenessStrip refreshKey={tasks.length} />
-        </div>
-      )}
-
-      {/* Returning-user freshness: activity while you were away. */}
-      {tab === "available" && !loading && freshReady && freshIds.size > 0 && (
-        <div className="px-6 pb-1 animate-[fadeSlideIn_0.4s_ease-out]">
-          <div className="inline-flex items-center gap-2 rounded-full bg-white border border-gray-200 pl-2.5 pr-3 py-1.5">
-            <span className="relative flex w-2 h-2">
-              <span className="absolute inline-flex w-full h-full rounded-full bg-green-400 opacity-70 animate-ping" />
-              <span className="relative inline-flex w-2 h-2 rounded-full bg-green-500" />
-            </span>
-            <span className="text-[12px] font-medium text-gray-700">
-              {freshIds.size} new since you were here
-            </span>
-          </div>
-        </div>
-      )}
-
-      {/* Pull-to-refresh indicator */}
-      <div
-        className="flex items-center justify-center overflow-hidden transition-all duration-200 ease-out"
-        style={{ height: pullDistance > 0 || isRefreshing ? `${Math.max(pullDistance, isRefreshing ? 40 : 0)}px` : "0px" }}
-        aria-live="polite"
-      >
-        {isRefreshing ? (
-          <svg className="w-5 h-5 text-gray-400 animate-spin" viewBox="0 0 24 24" fill="none">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-          </svg>
-        ) : pullDistance > 0 ? (
-          <div className="flex flex-col items-center gap-1">
-            <svg
-              className="w-4 h-4 text-gray-400 transition-transform duration-150"
-              style={{ transform: pullDistance >= 60 ? "rotate(180deg)" : "rotate(0deg)" }}
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <polyline points="6 9 12 15 18 9" />
-            </svg>
-            <span className="text-xs text-gray-500">
-              {pullDistance >= 60 ? "Release to refresh" : "Pull to refresh"}
-            </span>
-          </div>
-        ) : null}
-      </div>
-
-      {/* Scroll anchor for "new tasks" toast */}
-      <div ref={feedTopRef} />
-
-      {/* New tasks toast */}
-      {newTaskToast.visible && newTaskToast.count > 0 && (
-        <div className="px-6 pt-4">
-          <button
-            onClick={() => {
-              feedTopRef.current?.scrollIntoView({ behavior: "smooth" });
-              setNewTaskToast({ count: 0, visible: false });
-            }}
-            className="w-full bg-white border border-gray-200 rounded-xl px-5 py-3 flex items-center justify-center gap-2 active:scale-[0.98] transition-transform shadow-sm"
-          >
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-75" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500" />
-            </span>
-            <span className="text-sm font-medium text-gray-900">
-              {newTaskToast.count} new {newTaskToast.count === 1 ? "favour" : "favours"} available
-            </span>
-          </button>
-        </div>
-      )}
-
-      {/* Status change toast */}
-      {statusToast.visible && statusToast.message && (
-        <div className="px-6 pt-4">
-          <div className="w-full bg-gray-50 border border-gray-200 rounded-xl px-5 py-3 flex items-center gap-3">
-            <span className="relative flex h-2 w-2 shrink-0">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-warning-500 opacity-75" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-warning-600" />
-            </span>
-            <span className={`text-sm font-medium ${statusToast.color}`}>
-              {statusToast.message}
-            </span>
-          </div>
-        </div>
-      )}
-
-      {/* Campaigns (Oscar Jul 9: below REAL OR NOT, above favours). ONE hero
-          leads, a second live campaign stacks below it as a full-width secondary
-          banner, zero-task campaigns are invisible (no link graveyard). */}
-      {tab === "available" && !loading && campaigns.length > 0 && (() => {
-        const openCountFor = (c: Campaign) =>
-          tasks.filter((t) => t.campaignId === c.id && t.status === "open").length;
-        // R18/R19: a campaign past its end date is history, never a current
-        // banner, whatever is still marked open under it. Welcome is on the stage.
-        const live = campaigns
-          .filter((c) => c.id !== WELCOME_CAMPAIGN_ID && isCampaignRunning(c) && openCountFor(c) > 0)
-          .sort((a, b) => Number(b.featured) - Number(a.featured));
-        const hero = live[0];
-        const second = live[1];
-        return (
-          <div className="px-6 pt-4 flex flex-col gap-2.5">
-            {hero && (
-              <FeaturedCampaignBanner
-                campaign={hero}
-                taskCount={tasks.length}
-                completedCount={tasks.filter(t => t.status === "completed").length}
-                tasks={tasks}
-                onTap={() => { hapticTap(); setSelectedCampaign(hero); setView("campaign"); }}
-              />
-            )}
-            {second && (
-              <button
-                onClick={() => { hapticTap(); setSelectedCampaign(second); setView("campaign"); }}
-                className="relative h-[72px] rounded-xl overflow-hidden active:scale-[0.97] transition-transform text-left"
-              >
-                {second.heroImage && (
-                  <img src={second.heroImage} alt="" aria-hidden className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
-                )}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/85 to-black/35" />
-                <div className="relative h-full px-3.5 py-2.5 flex flex-col justify-end">
-                  <p className="text-[13px] font-bold text-white leading-tight line-clamp-1">{second.name}</p>
-                  <p className="text-[10px] text-white/60 mt-0.5">
-                    {second.unlock ? `$${second.unlock.unlockAmount} unlock` : `${openCountFor(second)} tasks`}
-                  </p>
-                </div>
-              </button>
-            )}
-          </div>
-        );
-      })()}
 
       {/* Polls tab */}
       {tab === "polls" && (
@@ -1530,7 +1364,7 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
       )}
 
       {/* Content */}
-      {tab !== "polls" && (
+      {["mine", "completed"].includes(tab) && (
       <div className="flex-1 px-6 py-4">
         {/* Section eyebrow — gives favours a little breathing room below the
             campaigns block and names the third section (Oscar Jul 9). */}
@@ -1679,7 +1513,7 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
                       setSelectedTask(task);
                       setView("detail");
                     }}
-                    onClaim={() => {}}
+                    onClaim={() => executeClaimTask(task)}
                     onSubmitProof={() => openProof(task)}
                   />
                 </div>
@@ -1959,6 +1793,7 @@ function TaskCard({
       onClick={onTap}
       className="rounded-2xl p-4 flex flex-col gap-3 cursor-pointer active:scale-[0.98] transition-all bg-white border border-gray-200"
     >
+      <img src="/favour-invitation.svg" alt="" className="favour-card-image rounded-xl" loading="lazy" />
       <div className="flex items-start gap-3">
         <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center text-gray-500 shrink-0 mt-0.5">
           <CategoryIcon category={task.category} size={18} />
@@ -2002,19 +1837,20 @@ function TaskCard({
 
       {task.status === "open" && userId && !isOwnTask && (
         <button
-          onClick={(e) => { e.stopPropagation(); onSubmitProof(); }}
+          onClick={(e) => { e.stopPropagation(); task.rewardType === "usdc-v2" ? onClaim() : onSubmitProof(); }}
           className="w-full bg-gray-900 text-white text-[13px] font-semibold py-3 rounded-xl active:scale-[0.98] transition-transform min-h-[44px]"
         >
-          Start favour
+          {task.rewardType === "usdc-v2" ? "Accept paid favour" : "Start favour"}
         </button>
       )}
 
       {task.status === "claimed" && isClaimant && (
         <button
-          onClick={(e) => { e.stopPropagation(); onSubmitProof(); }}
-          className="w-full border border-gray-200 text-gray-900 text-[13px] font-semibold py-3 rounded-xl active:scale-[0.98] transition-transform min-h-[44px]"
+          onClick={(e) => { e.stopPropagation(); if (task.rewardType !== "usdc-v2" || task.escrowTxHash) onSubmitProof(); }}
+          disabled={task.rewardType === "usdc-v2" && !task.escrowTxHash}
+          className="w-full border border-gray-200 text-gray-900 text-[13px] font-semibold py-3 rounded-xl active:scale-[0.98] transition-transform min-h-[44px] disabled:text-gray-400 disabled:bg-gray-50"
         >
-          Submit Proof
+          {task.rewardType === "usdc-v2" && !task.escrowTxHash ? "Waiting for payment" : "Submit proof"}
         </button>
       )}
 
@@ -2306,6 +2142,10 @@ function ReviewEntryCard({
   );
 }
 
+function pointsLabel(value: string): string {
+  return `${value} ${value === "1" ? "pt" : "pts"}`;
+}
+
 function QuickPost({
   userId,
   onDone,
@@ -2327,6 +2167,8 @@ function QuickPost({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [posted, setPosted] = useState(false);
+  const [postedId, setPostedId] = useState<string | null>(null);
+  const [shareMessage, setShareMessage] = useState<string | null>(null);
   const [paidOpen, setPaidOpen] = useState(false);
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
 
@@ -2391,6 +2233,8 @@ function QuickPost({
         return;
       }
       hapticSuccess();
+      const saved = await res.json().catch(() => null);
+      setPostedId(typeof saved?.task?.id === "string" ? saved.task.id : null);
       setPosted(true);
     } catch {
       hapticError();
@@ -2401,17 +2245,36 @@ function QuickPost({
   };
 
   if (posted) {
+    const link = postedId ? `/?task=${encodeURIComponent(postedId)}` : null;
+    const sharePosted = async () => {
+      if (!link) return;
+      const url = `${window.location.origin}${link}`;
+      try {
+        if (navigator.share) {
+          await navigator.share({ title: "FAVOUR", text: trimmed, url });
+          setShareMessage("Share sheet opened.");
+        } else if (navigator.clipboard) {
+          await navigator.clipboard.writeText(url);
+          setShareMessage("Link copied.");
+        } else {
+          setShareMessage("Open the favour and copy its link from the address bar.");
+        }
+      } catch { setShareMessage("Share cancelled. Your favour is still live."); }
+    };
     return (
       <div className="flex flex-col min-h-[calc(100vh-5rem)] max-w-lg mx-auto w-full bg-gray-50">
         <div className="flex-1 px-6 pt-16 flex flex-col gap-3">
           <p className="text-[10px] font-semibold text-amber-700 tracking-wide uppercase">Points favour &middot; live</p>
           <p className="text-[22px] font-bold text-gray-900 leading-[1.2] tracking-tight break-words">{trimmed}</p>
           <p className="text-[14px] text-gray-500">
-            Anyone can answer it now. The first accepted {photo ? "photo" : "answer"} earns {points} pts, paid by FAVOUR, not by you.
+            A person signed in with a World wallet can answer it now. The first accepted {photo ? "photo" : "answer"} earns {pointsLabel(points)}, paid by FAVOUR, not by you.
           </p>
+          {link && <p className="text-[14px] text-gray-500">Send this favour to someone who can help. Their answer and result stay with this request.</p>}
+          {shareMessage && <p role="status" className="text-[13px] text-gray-600">{shareMessage}</p>}
         </div>
         <div className="px-6" style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 24px)" }}>
-          <Button onClick={onDone} variant="primary" fullWidth size="lg">Back to favours</Button>
+          {link && <div className="mb-3 flex flex-col gap-2"><Button onClick={sharePosted} variant="primary" fullWidth size="lg">Share this favour</Button><a href={link} className="flex min-h-12 items-center justify-center rounded-full border border-gray-300 text-[14px] font-semibold text-gray-900">Open this favour</a></div>}
+          <Button onClick={onDone} variant={link ? "secondary" : "primary"} fullWidth size="lg">Back to campaigns</Button>
         </div>
       </div>
     );
@@ -2448,7 +2311,7 @@ function QuickPost({
                   type="button"
                   onClick={() => pickIdea(idea.text, idea.photo)}
                   className="text-left text-[14px] text-gray-700 rounded-xl min-h-[40px] active:scale-[0.98] transition-transform"
-                  style={{ padding: "8px 12px", border: "1px solid #e5e7eb", background: "#ffffff" }}
+                  style={{ padding: "8px 12px", border: "1px solid var(--favour-border)", background: "var(--favour-field)" }}
                 >
                   {idea.text}
                 </button>
@@ -2487,7 +2350,7 @@ function QuickPost({
                 style={quickChoice(points === amt, true)}
                 aria-pressed={points === amt}
               >
-                {amt} pts
+                {pointsLabel(amt)}
               </button>
             ))}
           </div>
@@ -2519,7 +2382,7 @@ function QuickPost({
         )}
         <LiveFeedback state={submitting ? "pending" : undefined}>
           <Button onClick={post} disabled={!canPost} variant="primary" fullWidth size="lg">
-            {submitting ? "Posting..." : `Post · ${points} pts`}
+            {submitting ? "Posting..." : `Post · ${pointsLabel(points)}`}
           </Button>
         </LiveFeedback>
         {paidOpen && (
@@ -3110,6 +2973,8 @@ function SubmitProof({
   onJudge,
   onReauth,
   onWelcome,
+  projectReviewReturn,
+  initialNote,
 }: {
   task: Task;
   userId: string | null;
@@ -3121,6 +2986,8 @@ function SubmitProof({
   onCancel: () => void;
   // Set when the proof was opened from the Welcome list: back to that list.
   onWelcome?: () => void;
+  projectReviewReturn?: boolean;
+  initialNote?: string;
   // Re-authentication, threaded down here on 2026-09-20 with the session gate.
   // verify-proof now refuses a submission whose session is gone, and the person
   // has ALREADY done the favour and taken the photo by the time we find out.
@@ -3139,15 +3006,16 @@ function SubmitProof({
   // paid favours, where the evidence decides whether real money moves.
   // Campaign tasks keep the full screen: their rules differ (no human appeal).
   const quick = task.rewardType === "points" && !isFunded(task) && !task.campaignId;
-  const [proofNote, setProofNote] = useState("");
+  const [proofNote, setProofNote] = useState(initialNote ?? "");
+  const [proofConsent, setProofConsent] = useState(false);
   const [noteRestored, setNoteRestored] = useState<string | null>(null);
   useEffect(() => {
-    if (!task.companyCampaignId || !userId) return;
-    try { setProofNote(localStorage.getItem(`favour:proof-draft:${userId}:${task.id}`) || ''); } catch {}
+    if (!userId) return;
+    try { setProofNote(initialNote || localStorage.getItem(`favour:proof-draft:${userId}:${task.id}`) || ''); } catch {}
     setNoteRestored(`${userId}:${task.id}`);
-  }, [task.id, task.companyCampaignId, userId]);
+  }, [task.id, task.companyCampaignId, userId, initialNote]);
   useEffect(() => {
-    if (!task.companyCampaignId || !userId || noteRestored !== `${userId}:${task.id}`) return;
+    if (!userId || noteRestored !== `${userId}:${task.id}`) return;
     try { if (proofNote) localStorage.setItem(`favour:proof-draft:${userId}:${task.id}`, proofNote); else localStorage.removeItem(`favour:proof-draft:${userId}:${task.id}`); } catch {}
   }, [proofNote, noteRestored, task.id, task.companyCampaignId, userId]);
 
@@ -3188,7 +3056,7 @@ function SubmitProof({
   }, []);
 
   useEffect(() => {
-    if (images.length > 0 && !hasAutoChecked.current && !result && !submitting) {
+    if (proofConsent && images.length > 0 && !hasAutoChecked.current && !result && !submitting) {
       hasAutoChecked.current = true;
       setPreChecking(true);
       setPreCheck(null);
@@ -3196,6 +3064,7 @@ function SubmitProof({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          proofConsent,
           imageBase64: images[0].base64,
           taskDescription: task.description,
         }),
@@ -3209,7 +3078,7 @@ function SubmitProof({
       hasAutoChecked.current = false;
       setPreCheck(null);
     }
-  }, [images, result, submitting, task.description]);
+  }, [images, result, submitting, task.description, proofConsent]);
 
   const extractVideoFrame = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -3277,7 +3146,7 @@ function SubmitProof({
   };
 
   const handleSubmit = async () => {
-    if (images.length === 0 && !proofNote.trim()) return;
+    if (!proofConsent || images.length === 0 && !proofNote.trim()) return;
     hapticMedium();
     setSubmitting(true);
 
@@ -3288,6 +3157,7 @@ function SubmitProof({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          proofConsent,
           taskId: task.id,
           submitter: userId || task.claimant,
           proofImageBase64: proofImages[0] || null,
@@ -3345,6 +3215,7 @@ function SubmitProof({
       }
 
       const data = await res.json();
+      if (data.verification?.verdict === "pass" && userId) { try { localStorage.removeItem(`favour:proof-draft:${userId}:${task.id}`); } catch {} }
       const v = data.verification || {};
       setResult({
         verdict: String(v.verdict || "fail"),
@@ -3485,7 +3356,7 @@ function SubmitProof({
                       onChange={(e) => setProofNote(e.target.value)}
                       rows={4}
                       className="w-full rounded-2xl focus:outline-none placeholder:text-gray-400"
-                      style={{ fontSize: 16, padding: "12px 16px", border: "1px solid #e5e7eb", background: "#ffffff", resize: "none" }}
+                      style={{ fontSize: 16, padding: "12px 16px", border: "1px solid var(--favour-border)", background: "var(--favour-field)", resize: "none" }}
                     />
                     {images.length > 0 ? (
                       <div className="flex gap-2 mt-2 overflow-x-auto pb-1">
@@ -3682,6 +3553,13 @@ function SubmitProof({
           );
         })()}
 
+        {!result && !submitting && <section className="proof-consent-panel" aria-label="Before you send">
+          <h2>Before you send</h2>
+          <p>Your photo and note will go to FAVOUR for an AI check and, when needed, human review. Submitted proofs can appear in task History. Remove private details and get permission from anyone shown.</p>
+          <label><input type="checkbox" checked={proofConsent} onChange={(e) => setProofConsent(e.target.checked)} /> I agree to send this proof for review.</label>
+          <a href="/privacy" target="_blank" rel="noopener noreferrer">How your proof is used</a>
+          <p>Your written draft stays on this device. Photos are sent only after you agree; select them again if you leave.</p>
+        </section>}
         {/* AI Pre-Check (auto-triggered) */}
         {!result && !submitting && (preChecking || preCheck) && (
           <div className="flex flex-col gap-2">
@@ -3828,7 +3706,7 @@ function SubmitProof({
                   // thing this release is closing. The advertised value is only a
                   // fallback for an older response with no pointsAwarded field.
                   <p className="font-semibold text-sm text-amber-600">
-                    +{result.pointsAwarded ?? Math.round(task.bountyUsdc)} pts earned
+                    {typeof result.pointsAwarded === "number" ? `+${result.pointsAwarded} points recorded` : "Accepted. Points confirmation pending."}
                     {result.streakBonus ? ` (${result.pointsAwarded! - result.streakBonus} for the favour, +${result.streakBonus} streak)` : ""}
                   </p>
                 ) : result.escrowReleaseTxHash ? (
@@ -3846,10 +3724,10 @@ function SubmitProof({
                 ) : task.escrowTxHash ? (
                   <p className="text-sm font-semibold text-warning-600 flex items-center gap-2">
                     <span className="w-3 h-3 border-2 border-warning-500 border-t-transparent rounded-full animate-spin" />
-                    Payment processing...
+                    Proof accepted. Waiting for the poster to release payment. No payment is confirmed yet.
                   </p>
                 ) : (
-                  <p className="font-semibold text-sm text-green-600">{rewardAmountLabel(task)}</p>
+                  <p className="font-semibold text-sm text-gray-700">Proof accepted. No payment is confirmed.</p>
                 )}
                 <div className="flex flex-col gap-2">
                   {/* Discover more favours is the main action on every sent proof
@@ -3860,6 +3738,7 @@ function SubmitProof({
                   >
                     Discover more favours
                   </button>
+                  {task.companyCampaignId && <a href={projectReviewReturn ? `/?campaign=project-reviews&project=${encodeURIComponent(task.companyCampaignId)}` : `/?campaign=${encodeURIComponent(task.companyCampaignId)}`} className="w-full min-h-[48px] flex items-center justify-center rounded-2xl border border-gray-300 bg-white text-[15px] text-gray-900 font-semibold">Return to campaign</a>}
                   {onWelcome && (
                     <button
                       onClick={() => { hapticTap(); onWelcome(); }}
@@ -4022,7 +3901,7 @@ function SubmitProof({
           {(() => {
             const needsPhoto = tierRequiresPhoto(task.category);
             const hasContent = images.length > 0 || proofNote.trim().length > 0;
-            const disabled = needsPhoto ? images.length === 0 : !hasContent;
+            const disabled = !proofConsent || (needsPhoto ? images.length === 0 : !hasContent);
             const label = quick
               ? "Submit"
               : needsPhoto
@@ -4044,7 +3923,7 @@ function TaskTimeline({ task }: { task: Task }) {
   const steps = [
     { label: "Posted", done: true },
     { label: "Accepted", done: !!task.claimant },
-    { label: "Proof", done: !!task.proofImageUrl },
+    { label: "Proof", done: !!(task.proofImageUrl || task.proofNote) },
     {
       label: task.verificationResult?.verdict === "pass" ? "Verified" :
              task.verificationResult?.verdict === "flag" ? "Flagged" :
@@ -4054,7 +3933,7 @@ function TaskTimeline({ task }: { task: Task }) {
     // "Paid" only where money moves. A points favour is credited, and calling it
     // paid reads as cash (review, 2026-09-21: company campaign pieces are points
     // with a proposed, unfunded pool, and must never read as payable USDC).
-    { label: task.rewardType === "points" ? "Credited" : "Paid", done: task.status === "completed" },
+    { label: task.rewardType === "points" ? "Credited" : "Paid", done: task.rewardType === "points" ? task.status === "completed" : !!task.settlementTx },
   ];
 
   const doneCount = steps.filter(s => s.done).length;
@@ -4090,12 +3969,16 @@ function TaskDetail({
   task,
   userId,
   onBack,
+  onClaim,
   onSubmitProof,
+  onReauth,
 }: {
   task: Task;
   userId: string | null;
   onBack: () => void;
+  onClaim: () => void;
   onSubmitProof: () => void;
+  onReauth?: () => void | Promise<void>;
 }) {
   const [messages, setMessages] = useState<ThreadMessage[]>([]);
   const [currentTask, setCurrentTask] = useState(task);
@@ -4105,6 +3988,7 @@ function TaskDetail({
   const [swapToken, setSwapToken] = useState<SwapToken>("USDC");
   const [swapping, setSwapping] = useState(false);
   const [reEvaluating, setReEvaluating] = useState(false);
+  const [followUpError, setFollowUpError] = useState<string | null>(null);
   const [disputing, setDisputing] = useState(false);
   // Cancel flow: two-tap confirm (native confirm() is suppressed in the World
   // App webview) + explicit error surfacing.
@@ -4113,11 +3997,14 @@ function TaskDetail({
   const [cancelError, setCancelError] = useState<string | null>(null);
   const [txSuccess, setTxSuccess] = useState<string | null>(null);
   const [funding, setFunding] = useState(false);
+  const [paymentBusy, setPaymentBusy] = useState<"fund" | "pay" | null>(null);
+  const [paymentNote, setPaymentNote] = useState<string | null>(null);
   const isClaimant = currentTask.claimant === userId;
   const isPoster = currentTask.poster === userId;
   const isParticipant = isClaimant || isPoster;
   const isFlagged = currentTask.verificationResult?.verdict === "flag" && currentTask.status === "claimed";
   const hasFollowUp = currentTask.aiFollowUp?.status === "pending";
+  const paymentStep = simplePaymentStep(currentTask, userId);
   const messagesEndRef = useCallback((node: HTMLDivElement | null) => {
     node?.scrollIntoView({ behavior: "smooth" });
   }, []);
@@ -4154,6 +4041,56 @@ function TaskDetail({
     setChatInput("");
     setSending(false);
     fetchMessages();
+  };
+
+  const movePayment = async (kind: "fund" | "pay") => {
+    if (!userId || paymentBusy) return;
+    const prepare = kind === "fund" ? "prepare-fund" : "prepare-release";
+    const verify = kind === "fund" ? "verify-funded" : "verify-released";
+    const doneKey = kind === "fund" ? "funded" : "released";
+    setPaymentBusy(kind);
+    setPaymentNote(null);
+    try {
+      const prep = await fetch("/api/escrow-v2", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: prepare, taskId: currentTask.id, poster: userId }),
+      });
+      const body = await prep.json().catch(() => ({}));
+      if (!prep.ok || !body.payload) {
+        setPaymentNote(typeof body.error === "string" ? body.error : "The payment could not be prepared.");
+        return;
+      }
+      if (!MiniKit.isInstalled()) {
+        setPaymentNote("Open FAVOUR inside World App to confirm this payment.");
+        return;
+      }
+      const signed = await MiniKit.sendTransaction(body.payload);
+      if (!signed) {
+        setPaymentNote("Not confirmed. Nothing moved.");
+        return;
+      }
+      setPaymentNote("Signed. Waiting for World Chain to confirm it.");
+      for (let i = 0; i < 12; i++) {
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+        const checked = await fetch("/api/escrow-v2", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: verify, taskId: currentTask.id }),
+        });
+        const result = await checked.json().catch(() => ({}));
+        if (checked.ok && result[doneKey]) {
+          setPaymentNote(kind === "fund" ? "Payment secured. The runner can start." : "Paid. This favour is done.");
+          await fetchTask();
+          return;
+        }
+      }
+      setPaymentNote("World Chain has not confirmed it yet. Check again in a minute.");
+    } catch {
+      setPaymentNote("The payment did not complete. Nothing is shown as paid until World Chain confirms it.");
+    } finally {
+      setPaymentBusy(null);
+    }
   };
 
   return (
@@ -4208,6 +4145,56 @@ function TaskDetail({
 
         {/* Lifecycle timeline */}
         <TaskTimeline task={currentTask} />
+
+        {currentTask.rewardType === "usdc-v2" && paymentStep && (
+          <section aria-label="Payment" className="bg-white border border-gray-200 rounded-2xl p-4 flex flex-col gap-3">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm font-semibold text-gray-900">Payment</p>
+              <span className="text-sm font-bold text-gray-900">${currentTask.bountyUsdc} USDC</span>
+            </div>
+            {paymentStep === "accept" && (
+              <>
+                <p className="text-xs text-gray-500">Accept first. The poster then secures the payment before you do the work.</p>
+                <button type="button" onClick={onClaim} className="w-full min-h-[48px] rounded-xl bg-gray-900 text-white text-sm font-semibold">Accept paid favour</button>
+              </>
+            )}
+            {paymentStep === "fund" && (
+              <>
+                <p className="text-xs text-gray-500">A person accepted. Secure their payment now so they can start.</p>
+                <button type="button" disabled={paymentBusy !== null} onClick={() => movePayment("fund")} className="w-full min-h-[48px] rounded-xl bg-gray-900 text-white text-sm font-semibold disabled:opacity-50">
+                  {paymentBusy === "fund" ? "Confirm in World App" : `Fund $${currentTask.bountyUsdc} USDC`}
+                </button>
+              </>
+            )}
+            {paymentStep === "prove" && (
+              <>
+                <p className="text-xs text-gray-500">Your payment is secured on World Chain. Do the favour, then send proof.</p>
+                <button type="button" onClick={onSubmitProof} className="w-full min-h-[48px] rounded-xl bg-gray-900 text-white text-sm font-semibold">Send proof</button>
+              </>
+            )}
+            {paymentStep === "pay" && (
+              <>
+                <p className="text-xs text-gray-500">The proof passed. One confirmation pays the runner and closes the favour.</p>
+                <button type="button" disabled={paymentBusy !== null} onClick={() => movePayment("pay")} className="w-full min-h-[48px] rounded-xl bg-gray-900 text-white text-sm font-semibold disabled:opacity-50">
+                  {paymentBusy === "pay" ? "Confirm in World App" : `Approve and pay $${currentTask.bountyUsdc}`}
+                </button>
+              </>
+            )}
+            {paymentStep === "wait" && (
+              <p className="text-xs text-gray-500">
+                {isClaimant && !currentTask.escrowTxHash
+                  ? "Accepted. Wait until the poster secures the payment before you start."
+                  : isClaimant && currentTask.pendingRelease
+                    ? "Proof accepted. Waiting for the poster to pay."
+                    : isPoster && currentTask.escrowTxHash
+                      ? "Payment secured. You pay only after the proof passes."
+                      : "Waiting for the next person in this favour."}
+              </p>
+            )}
+            {paymentStep === "done" && <p className="text-xs text-gray-500">Payment settled. This favour is done.</p>}
+            {paymentNote && <p role="status" className="text-xs text-gray-600">{paymentNote}</p>}
+          </section>
+        )}
 
         {/* Transaction success banner */}
         {txSuccess && (
@@ -4339,12 +4326,15 @@ function TaskDetail({
           )}
         </div>
 
-        {/* Proof image */}
-        {currentTask.proofImageUrl && (
-          <div>
-            <button
+        {/* The answer is the delivered favour for text requests. Show it even
+            when there is no photo; the checker reasoning is a separate result. */}
+        {(currentTask.proofNote || currentTask.proofImageUrl) && (
+          <div className="rounded-2xl border border-gray-200 bg-white p-4">
+            <p className="text-xs font-semibold text-gray-500">Submitted answer</p>
+            {currentTask.proofNote && <p className="mt-2 whitespace-pre-wrap break-words text-[15px] leading-6 text-gray-900">{currentTask.proofNote}</p>}
+            {currentTask.proofImageUrl && <button
               onClick={() => setShowProofImage(!showProofImage)}
-              className="flex items-center gap-2 text-xs text-gray-400 font-medium min-h-[44px]"
+              className="flex items-center gap-2 text-xs text-gray-600 font-medium min-h-[44px]"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
@@ -4352,15 +4342,10 @@ function TaskDetail({
                 <polyline points="21 15 16 10 5 21" />
               </svg>
               {showProofImage ? "Hide proof photo" : "View proof photo"}
-            </button>
-            {showProofImage && (
+            </button>}
+            {currentTask.proofImageUrl && showProofImage && (
               <div className="mt-2 rounded-2xl overflow-hidden border border-gray-200">
                 <img src={currentTask.proofImageUrl} alt="Proof" className="w-full max-h-80 object-cover" loading="lazy" />
-                {currentTask.proofNote && (
-                  <div className="bg-white px-4 py-2 border-t border-gray-200">
-                    <p className="text-xs text-gray-400 italic">&ldquo;{currentTask.proofNote}&rdquo;</p>
-                  </div>
-                )}
               </div>
             )}
           </div>
@@ -4500,7 +4485,7 @@ function TaskDetail({
         )}
 
         {/* Action buttons */}
-        {currentTask.status === "open" && userId && !isPoster && (
+        {currentTask.rewardType !== "usdc-v2" && currentTask.status === "open" && userId && !isPoster && (
           <button
             onClick={onSubmitProof}
             className="w-full bg-gray-900 hover:bg-gray-900 text-white font-semibold rounded-xl px-4 py-3 min-h-[44px] transition-colors active:scale-[0.98]"
@@ -4508,7 +4493,7 @@ function TaskDetail({
             {currentTask.escrowTxHash ? `Do it — earn $${currentTask.bountyUsdc} USDC` : "Do it"}
           </button>
         )}
-        {currentTask.status === "claimed" && isClaimant && !isFlagged && !hasFollowUp && (
+        {currentTask.rewardType !== "usdc-v2" && currentTask.status === "claimed" && isClaimant && !isFlagged && !hasFollowUp && (
           <button
             onClick={onSubmitProof}
             className="w-full bg-gray-900 hover:bg-gray-900 text-white font-medium rounded-xl px-4 py-3 min-h-[44px] transition-colors active:scale-[0.98]"
@@ -4530,15 +4515,19 @@ function TaskDetail({
             <button
               onClick={async () => {
                 setReEvaluating(true);
-                const res = await fetch(`/api/tasks/${currentTask.id}/followup`, {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({}),
-                });
-                const data = await res.json();
-                if (data.task) setCurrentTask(data.task);
-                fetchMessages();
-                setReEvaluating(false);
+                setFollowUpError(null);
+                try {
+                  const send = () => fetch(`/api/tasks/${currentTask.id}/followup`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({}),
+                  });
+                  const res = await retryAfterReauth(await send(), send, onReauth);
+                  const data = await res.json().catch(() => ({}));
+                  if (!res.ok) setFollowUpError(data.error || "Re-evaluation could not start. Try again.");
+                  else { if (data.task) setCurrentTask(data.task); fetchMessages(); }
+                } catch { setFollowUpError("Re-evaluation could not start. Try again."); }
+                finally { setReEvaluating(false); }
               }}
               disabled={reEvaluating}
               className="w-full min-h-[44px] bg-gray-900 hover:bg-gray-900 text-white py-2.5 rounded-xl text-sm font-semibold active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
@@ -4557,6 +4546,7 @@ function TaskDetail({
                 </>
               )}
             </button>
+            {followUpError && <p role="alert" className="mt-2 text-sm text-red-700">{followUpError}</p>}
           </div>
         )}
 

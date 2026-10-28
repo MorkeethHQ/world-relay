@@ -93,7 +93,7 @@ const TOOLS: Anthropic.Tool[] = [
   },
 ];
 
-const SYSTEM_PROMPT = `You are the RELAY FAVOURS assistant. You help people find, complete, and post real-world favours.
+const SYSTEM_PROMPT = `You are the FAVOUR assistant. You help people find, complete, and post real-world favours.
 
 CONTEXT: AI agents hit dead-ends in the physical world — stale data, failed deliveries, unverifiable states, ambiguous locations. They post favours for verified humans to close the loop. Humans verify, confirm, inspect, photograph — and earn USDC or points.
 

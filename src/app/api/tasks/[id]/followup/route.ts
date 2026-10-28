@@ -10,7 +10,7 @@ import { fireWebhook } from "@/lib/webhooks";
 import { releaseEscrow } from "@/lib/escrow";
 import { broadcastEvent } from "@/lib/sse";
 import { recordLatePassHistory } from "@/lib/completions";
-import { readerRefusal } from "@/lib/session";
+import { ownerRefusal } from "@/lib/session";
 
 export async function POST(
   req: NextRequest,
@@ -22,14 +22,11 @@ export async function POST(
   if (!task) {
     return NextResponse.json({ error: "Task not found" }, { status: 404 });
   }
-  // This route read no identity at all (route audit 2026-10-13): anyone with a
-  // task id could re-run the follow-up on another person's proof, and a pass
-  // ends in points, reputation and an escrow release. The follow-up belongs to
-  // the claimant (the poster may also read the thread), so it sits behind the
-  // read gate: 401 with no session, 403 for any other wallet, dark until
-  // SESSION_ENFORCE for the anonymous case.
-  const refusal = readerRefusal(req, [task.claimant, task.poster], Date.now());
-  if (refusal) return NextResponse.json({ error: refusal.error, code: refusal.code }, { status: refusal.status });
+  // A follow-up can credit reputation and release escrow. Only the signed
+  // claimant may request the re-evaluation, regardless of SESSION_ENFORCE.
+  // The poster may read the thread but cannot trigger this mutation.
+  const refusal = ownerRefusal(req, task.claimant, Date.now());
+  if (refusal) return NextResponse.json(refusal, { status: 403 });
 
   if (task.companyCampaignId) {
     return NextResponse.json({ error: "Company proofs use the campaign review rule. Follow the review in History, or submit revised proof for a new AI check." }, { status: 409 });

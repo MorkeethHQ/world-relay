@@ -1,3 +1,4 @@
+import { recordProofConsent } from "@/lib/proof-consent";
 import { createHash } from "node:crypto";
 import { campaignIntakePaused } from "@/lib/contribution-responses";
 import { ensureCompanyAppeal } from "@/lib/company-appeal";
@@ -131,6 +132,9 @@ export async function POST(req: NextRequest) {
     const refusal = ownerRefusal(req, submitter, Date.now());
     if (refusal) return NextResponse.json(refusal, { status: 403 });
   }
+
+  if (body.proofConsent !== true) return NextResponse.json({ error: "Please agree to share this proof for review before sending it.", code: "proof_consent_required" }, { status: 422 });
+  if (!await recordProofConsent(taskId, String(submitter))) return NextResponse.json({ error: "Proof storage is unavailable. Your proof was not sent.", code: "storage_unavailable" }, { status: 503 });
 
   // Prevent double-verification race condition
   const redis = getRedis();
@@ -666,7 +670,7 @@ export async function POST(req: NextRequest) {
       // Count this earn against the claimant's daily seeded-task cap.
       recordSeededEarn(task, task.claimant).catch(console.error);
       // Award attempt and completion points only on a passing verdict.
-      if (!companyCompletionCommitted) recordFavourAttempted(task.claimant).catch(console.error);
+      if (!companyCompletionCommitted) await recordFavourAttempted(task.claimant);
       // claimantLevel, NOT the stale task.claimantVerification: passing the stale
       // null left rep.verificationLevel at "wallet" for every Orb human (live: 0 of
       // 33 correct), so getTrustScore withheld the orb +0.3 and mis-sorted the
@@ -682,15 +686,15 @@ export async function POST(req: NextRequest) {
       // the chain shows Released. AI pass here = "proof verified, awaiting
       // poster release", tracked via markSettlementPending below.
       if (task.rewardType !== "usdc-v2" && !companyCompletionCommitted) {
-        recordCompletion(task.claimant, task.bountyUsdc, result.confidence, claimantLevel || undefined, taskIsRealMoney).catch(console.error);
+        await recordCompletion(task.claimant, task.bountyUsdc, result.confidence, claimantLevel || undefined, taskIsRealMoney);
         const claimantRep2 = await getReputation(task.claimant);
         // Honest pricing: a points task pays exactly its advertised bounty.
         const completion = completionPointsFor(task.rewardType, task.bountyUsdc);
-        recordFavourCompleted(task.claimant, claimantRep2.currentStreak, completion).catch(console.error);
+        await recordFavourCompleted(task.claimant, claimantRep2.currentStreak, completion);
         // Reported back so the pass screen can show the EXACT number written,
         // rather than re-deriving the advertised bounty and quietly dropping the
         // streak bonus. Same two pure functions the writer uses, same inputs, in
-        // the same request, so the screen and the ledger cannot disagree.
+        // the same request, so the screen and the stored record cannot disagree.
         pointsAwarded = completion + streakBonusFor(claimantRep2.currentStreak);
         streakBonusAwarded = streakBonusFor(claimantRep2.currentStreak);
       }
