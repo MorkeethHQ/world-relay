@@ -1232,9 +1232,11 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
     );
   }
   if (view === "project-reviews") {
+    // The proof step pushes the same address as a new entry: browser back from it
+    // returns to this project with the finding still filled in, not the previous one.
     return <ProjectReviewCampaign tasks={tasks} completedIds={completedIds} userId={userId} onReauth={onReauth}
-      onBack={() => { window.history.replaceState(null,"","/"); setView("board"); }}
-      onStart={(task,note) => { if (!userId) { onReauth?.(); return; } setProjectProofNote(note); setSelectedTask(task); setProofFrom("project-reviews"); setView("proof"); }} />;
+      onBack={() => { window.history.pushState(null,"","/"); setView("board"); }}
+      onStart={(task,note) => { if (!userId) { onReauth?.(); return; } window.history.pushState(null,"",window.location.pathname+window.location.search); setProjectProofNote(note); setSelectedTask(task); setProofFrom("project-reviews"); setView("proof"); }} />;
   }
   if (view === "welcome" && welcome) {
     return (
@@ -1339,7 +1341,7 @@ export function Feed({ userId, verificationLevel, onLogout, onReauth }: { userId
           welcome={welcome}
           welcomeLoading={welcomeLoading}
           signedIn={walletUser}
-          onOpenProjectReviews={() => { hapticTap(); window.history.replaceState(null,"","/?campaign=project-reviews"); setView("project-reviews"); }}
+          onOpenProjectReviews={() => { hapticTap(); window.history.pushState(null,"","/?campaign=project-reviews"); setView("project-reviews"); }}
           onOpenWelcomeStep={(id) => { if (!welcome) return; hapticTap(); window.history.replaceState(null, "", `/?campaign=welcome&step=${encodeURIComponent(id)}`); setWelcomeError(null); setView("welcome"); }}
           onOpenWelcome={() => { if (!welcome) return; hapticTap(); window.history.replaceState(null, "", "/?campaign=welcome"); setWelcomeError(null); setView("welcome"); }}
           onOpenCompany={(id) => { hapticTap(); window.history.replaceState(null, "", `/?campaign=${encodeURIComponent(id)}`); setCompanyCampaignId(id); setView("company"); }}

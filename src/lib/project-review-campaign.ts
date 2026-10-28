@@ -38,6 +38,29 @@ export function projectFindingNote(v:ProjectFinding,ab:{A:string;B:string}|null)
   const outcome=v.outcome?{works:"Worked for me",broke:"I hit a problem",would_return:"I would return"}[v.outcome]:"";
   return `What I tried: ${v.did.trim()}\nWhat happened: ${v.finding.trim()}\nMy assessment: ${outcome}`+(ab?`\nMy preference: ${v.preference}${v.preference==="A"||v.preference==="B"?` — ${ab[v.preference]}`:""}\nThis is my review preference, not a weekly ballot or a verified quality score.`:"");
 }
+// The project shown follows the address, so browser back/forward moves between
+// projects instead of leaving FAVOUR.
+export function projectFromSearch(search:string):string|null{const id=new URLSearchParams(search).get("project");return id&&id.trim()?id:null;}
+export function projectHref(id:string|null):string{return id?`/?campaign=project-reviews&project=${encodeURIComponent(id)}`:"/?campaign=project-reviews";}
+
+// An unsent finding is kept per account AND per campaign, so it survives a project
+// switch or a return from the proof screen but never appears for another wallet or
+// under another project. Signed out, nothing is written to the device.
+export const EMPTY_FINDING:ProjectFinding={did:"",finding:"",outcome:"",preference:""};
+type DraftStore=Pick<Storage,"getItem"|"setItem"|"removeItem">;
+export function findingDraftKey(userId:string|null,campaignId:string):string|null{return userId&&campaignId?`favour:project-finding:${userId}:${campaignId}`:null;}
+export function loadFindingDraft(store:DraftStore|null,userId:string|null,campaignId:string):ProjectFinding{
+  const key=findingDraftKey(userId,campaignId);if(!store||!key)return EMPTY_FINDING;
+  try{const v=JSON.parse(store.getItem(key)??"null");if(!v||typeof v!=="object")return EMPTY_FINDING;
+    const s=(x:unknown,max:number)=>typeof x==="string"?x.slice(0,max):"";
+    const outcome=["works","broke","would_return"].includes(v.outcome)?v.outcome:"";const preference=["A","B","neither"].includes(v.preference)?v.preference:"";
+    return {did:s(v.did,300),finding:s(v.finding,1000),outcome,preference};}catch{return EMPTY_FINDING;}
+}
+export function saveFindingDraft(store:DraftStore|null,userId:string|null,campaignId:string,v:ProjectFinding):void{
+  const key=findingDraftKey(userId,campaignId);if(!store||!key)return;
+  try{if(v.did.trim()||v.finding.trim()||v.outcome||v.preference)store.setItem(key,JSON.stringify(v));else store.removeItem(key);}catch{}
+}
+export function clearFindingDraft(store:DraftStore|null,userId:string|null,campaignId:string):void{const key=findingDraftKey(userId,campaignId);if(!store||!key)return;try{store.removeItem(key);}catch{}}
 export function reviewCampaigns(campaigns:PublicCompanyCampaign[]):PublicCompanyCampaign[]{return campaigns.filter(c=>c.status==="published"&&hasProduct(c)&&c.pieces.some(p=>p.kind==="review"&&p.count>0));}
 export function projectReviewAvailability(c:PublicCompanyCampaign,tasks:Task[],completed:Set<string>,paused:boolean,owner=false):{task:Task|null;left:number;state:string} {
   if(owner)return {task:null,left:0,state:"This is your campaign. Read the findings and respond to contributors."};
