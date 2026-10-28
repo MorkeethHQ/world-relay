@@ -52,6 +52,7 @@ export function isProjectProofEntry(state:unknown):boolean{return !!state&&typeo
 // switch or a return from the proof screen but never appears for another wallet or
 // under another project. Signed out, nothing is written to the device.
 export const EMPTY_FINDING:ProjectFinding={did:"",finding:"",outcome:"",preference:""};
+export function hasFindingDraft(v:ProjectFinding|undefined):boolean{return !!v&&!!(v.did.trim()||v.finding.trim()||v.outcome||v.preference);}
 type DraftStore=Pick<Storage,"getItem"|"setItem"|"removeItem">;
 export function findingDraftKey(userId:string|null,campaignId:string):string|null{return userId&&campaignId?`favour:project-finding:${userId}:${campaignId}`:null;}
 export function loadFindingDraft(store:DraftStore|null,userId:string|null,campaignId:string):ProjectFinding{
@@ -63,13 +64,13 @@ export function loadFindingDraft(store:DraftStore|null,userId:string|null,campai
 }
 export function saveFindingDraft(store:DraftStore|null,userId:string|null,campaignId:string,v:ProjectFinding):void{
   const key=findingDraftKey(userId,campaignId);if(!store||!key)return;
-  try{if(v.did.trim()||v.finding.trim()||v.outcome||v.preference)store.setItem(key,JSON.stringify(v));else store.removeItem(key);}catch{}
+  try{if(hasFindingDraft(v))store.setItem(key,JSON.stringify(v));else store.removeItem(key);}catch{}
 }
 // First sign-in on this tab: every project drafted while signed out moves into the
 // account, except where the account already has its own draft for that project.
 export function carrySignedOutDrafts(store:DraftStore|null,userId:string|null,drafts:Record<string,ProjectFinding>):string[]{
   if(!store||!userId)return [];const carried:string[]=[];
-  for(const [id,v] of Object.entries(drafts)){if(loadFindingDraft(store,userId,id)!==EMPTY_FINDING)continue;saveFindingDraft(store,userId,id,v);if(findingDraftKey(userId,id)&&store.getItem(findingDraftKey(userId,id)!))carried.push(id);}
+  for(const [id,v] of Object.entries(drafts)){try{if(hasFindingDraft(loadFindingDraft(store,userId,id))||!hasFindingDraft(v))continue;saveFindingDraft(store,userId,id,v);if(store.getItem(findingDraftKey(userId,id)!))carried.push(id);}catch{/* Blocked browser storage must not break sign-in. */}}
   return carried;
 }
 export function clearFindingDraft(store:DraftStore|null,userId:string|null,campaignId:string):void{const key=findingDraftKey(userId,campaignId);if(!store||!key)return;try{store.removeItem(key);}catch{}}

@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "fs";
 import { resolve } from "path";
-import { EMPTY_FINDING, PROJECT_PROOF_ENTRY, carrySignedOutDrafts, isProjectProofEntry, clearFindingDraft, findingDraftKey, loadFindingDraft, projectFromSearch, projectHref, saveFindingDraft, type ProjectFinding } from "@/lib/project-review-campaign";
+import { EMPTY_FINDING, hasFindingDraft, PROJECT_PROOF_ENTRY, carrySignedOutDrafts, isProjectProofEntry, clearFindingDraft, findingDraftKey, loadFindingDraft, projectFromSearch, projectHref, saveFindingDraft, type ProjectFinding } from "@/lib/project-review-campaign";
 
 // SYNTHETIC test data: wallets, campaign ids and finding text below are made up.
 const ALICE = "0x000000000000000000000000000000000000a11c";
@@ -104,5 +104,22 @@ describe("first sign-in carries every signed-out project draft", () => {
     expect(carrySignedOutDrafts(s, null, { draft_one: draft })).toEqual([]);
     expect(carrySignedOutDrafts(s, ALICE, { draft_one: EMPTY_FINDING })).toEqual([]);
     expect(s.keys()).toEqual([]);
+  });
+});
+
+
+describe("empty and blocked draft storage", () => {
+  it("treats fully erased unsigned text as absent before an account draft", () => {
+    expect(hasFindingDraft(undefined)).toBe(false);
+    expect(hasFindingDraft({...EMPTY_FINDING,did:"   ",finding:" \n"})).toBe(false);
+    expect(hasFindingDraft(draft)).toBe(true);
+    const s=memoryStore();saveFindingDraft(s,ALICE,"draft_one",draft);
+    expect(carrySignedOutDrafts(s,ALICE,{draft_one:EMPTY_FINDING})).toEqual([]);
+    expect(loadFindingDraft(s,ALICE,"draft_one")).toEqual(draft);
+  });
+  it("keeps sign-in working when browser storage methods throw", () => {
+    const blocked={getItem(){throw Error("blocked");},setItem(){throw Error("blocked");},removeItem(){throw Error("blocked");}};
+    expect(()=>carrySignedOutDrafts(blocked,ALICE,{draft_one:draft})).not.toThrow();
+    expect(carrySignedOutDrafts(blocked,ALICE,{draft_one:draft})).toEqual([]);
   });
 });

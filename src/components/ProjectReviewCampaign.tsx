@@ -5,7 +5,7 @@ import { WeeklyWalletBallot } from "./WeeklyWalletBallot";
 import { CampaignDraftList, CompanyCampaignView } from "@/components/CompanyCampaign";
 import type { CampaignDraft, PublicCompanyCampaign } from "@/lib/campaign-draft-shape";
 import type { Task } from "@/lib/types";
-import { EMPTY_FINDING, carrySignedOutDrafts, clearFindingDraft, loadFindingDraft, projectAlternatives, projectFindingError, projectFindingNote, projectFromSearch, projectHref, projectPlanBody, projectPlanError, projectReviewAvailability, reviewCampaigns, saveFindingDraft, type ProjectFinding, type ProjectReviewInput } from "@/lib/project-review-campaign";
+import { EMPTY_FINDING, hasFindingDraft, carrySignedOutDrafts, clearFindingDraft, loadFindingDraft, projectAlternatives, projectFindingError, projectFindingNote, projectFromSearch, projectHref, projectPlanBody, projectPlanError, projectReviewAvailability, reviewCampaigns, saveFindingDraft, type ProjectFinding, type ProjectReviewInput } from "@/lib/project-review-campaign";
 
 const deviceStore=()=>{try{return window.localStorage;}catch{return null;}};
 
@@ -50,7 +50,7 @@ export function ProjectReviewCampaign({tasks,completedIds,userId,onBack,onStart,
  // text the person is looking at when they sign in; other account drafts stay saved.
  const campaignId=campaign?.id??null;const draftFor=campaignId?`${userId??''}|${campaignId}`:null;
  const reviewTaskId=campaign?.pieceTaskIds?.review;const reviewDone=!!reviewTaskId&&completedIds.has(reviewTaskId);
- if(held.key!==draftFor){const stored=campaignId&&userId?loadFindingDraft(deviceStore(),userId,campaignId):EMPTY_FINDING;const carried=seenUser===null&&campaignId?signedOut[campaignId]:undefined;setHeld({key:draftFor,value:!campaignId||reviewDone?EMPTY_FINDING:carried??stored});setFindingError('');}
+ if(held.key!==draftFor){const stored=campaignId&&userId?loadFindingDraft(deviceStore(),userId,campaignId):EMPTY_FINDING;const carried=seenUser===null&&campaignId&&hasFindingDraft(signedOut[campaignId])?signedOut[campaignId]:undefined;setHeld({key:draftFor,value:!campaignId||reviewDone?EMPTY_FINDING:carried??stored});setFindingError('');}
  if(seenUser!==userId){setSeenUser(userId);setSignedOut({});}
  const finding=held.key===draftFor?held.value:EMPTY_FINDING;
  const setFinding=(next:(v:ProjectFinding)=>ProjectFinding)=>{const value=next(finding);setHeld({key:draftFor,value});if(!userId&&campaignId){setSignedOut(s=>({...s,[campaignId]:value}));signedOutPending.current={...signedOutPending.current,[campaignId]:value};}};
