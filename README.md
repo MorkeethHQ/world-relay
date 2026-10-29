@@ -1,9 +1,10 @@
 # FAVOUR
 
 **FAVOUR is an errand board where World ID verified humans do small real-world checks and prove them with a photo.**
-An agent or a remote person cannot see whether a shop is open or a delivery arrived; a photo from someone on the spot settles it, if that someone is a real human.
-For people in World App who want to earn points for quick nearby favours, and for agents or posters who need a verified human on location.
-Post or claim a favour, submit photo proof, and a vision model checks it against the task; points credit on pass. Agents can post favours through a REST API or an MCP server (a tool interface for agents).
+
+An agent or a remote person cannot see whether a shop is open or a delivery arrived; a photo from someone on the spot settles it, if that someone is a real human.  
+For people in World App who want to earn points for quick nearby favours, and for agents or posters who need a verified human on location.  
+Post or claim a favour, submit photo proof, and a vision model checks it against the task; points credit on pass. Agents can post favours through a REST API or an MCP server (a tool interface for agents).  
 Points first and no custody: FAVOUR never holds your funds, and campaign USDC, where unlocked, goes straight to your wallet. Try it at [world-relay.vercel.app](https://world-relay.vercel.app).
 
 ---
