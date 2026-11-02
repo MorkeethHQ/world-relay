@@ -28,7 +28,14 @@ contract Deploy is Script {
         require(admin != operator, "admin must differ from operator");
         require(admin != feeTo && operator != feeTo, "fee recipient must be Oscar's own wallet");
 
-        vm.startBroadcast(admin);
+        // Broadcast key comes from env DEPLOYER_PK (never argv, never logged); dry runs use --sender.
+        uint256 pk = vm.envOr("DEPLOYER_PK", uint256(0));
+        if (pk != 0) {
+            require(vm.addr(pk) == admin, "DEPLOYER_PK is not ADMIN");
+            vm.startBroadcast(pk);
+        } else {
+            vm.startBroadcast(admin);
+        }
         FavourPots fImpl = new FavourPots(IPermit2AllowanceTransfer(PERMIT2));
         FavourPots f = FavourPots(
             address(new ERC1967Proxy(address(fImpl), abi.encodeCall(FavourPots.initialize, (admin, operator, feeTo, FEE_BPS))))

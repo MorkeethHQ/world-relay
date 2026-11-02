@@ -1,0 +1,74 @@
+{
+ "chainId": 480,
+ "network": "World Chain mainnet",
+ "deployedAt": "2026-11-02",
+ "authorisedBy": "Oscar: chain-build-2nov KEEP + voice 'Deploy.' 11:27; fee address chain-fee-address-2nov KEEP 11:40",
+ "commit": "7c9e55ad1294872ad38eae37d5b17fb0d6f94593",
+ "FavourPots": {
+  "proxy": "0x26B4be6eC3Cf71CAA60a7272b9D54dca92D5FA8A",
+  "implementation": "0x5A6dB4f2B39D0ab21546c4e114499cCc155431F8",
+  "version": "favour-pots-3.0.0"
+ },
+ "PerfectRounds": {
+  "proxy": "0xfEfcf23856E437297Cd98efF7cA488e97539B2D9",
+  "implementation": "0x171Df235638992Cc6fA9A9f1bC0Fc79eE5582dBA",
+  "version": "perfect-rounds-1.0.0"
+ },
+ "roles": {
+  "admin": "0x4fD66BdA6d792bE89d1fAeaF9F287AcaCaDBDce6",
+  "operator": "0x1101158041Fd96f21CBcbb0E752a9A2303E6D70e",
+  "feeRecipient": "0x19c3348e2e2c2505a667875f0f63790b79fec925"
+ },
+ "settings": {
+  "feeBps": 250,
+  "maxFeeBps": 1000,
+  "upgradeDelaySeconds": 21600,
+  "usdc": "0x79A02482A880bCE3F13e09Da970dC34db4CD24d1",
+  "minAmount": 100000,
+  "maxAmount": 1000000000,
+  "minChallengeWindowSeconds": 3600,
+  "paused": false,
+  "permit2": "0x000000000022D473030F116dDEE9F6B43aC78BA3"
+ },
+ "explorer": "https://worldchain-mainnet.explorer.alchemy.com",
+ "sourceVerified": "Blockscout, all 4 (2 implementations, 2 proxies)",
+ "transactions": [
+  {
+   "hash": "0x9393d2f08efa93eca1d56a9c4587602f051ab5375b6f06346bcfd7a368fa28fb",
+   "block": 37140209,
+   "contract": "0x5a6db4f2b39d0ab21546c4e114499ccc155431f8",
+   "status": 1
+  },
+  {
+   "hash": "0x0f06ddaa08b7a8f45defe31d6d19241436545e4384c14219199a970bd11af7e9",
+   "block": 37140210,
+   "contract": "0x26b4be6ec3cf71caa60a7272b9d54dca92d5fa8a",
+   "status": 1
+  },
+  {
+   "hash": "0xadf967cfafc4b8070ac98333058c692a4276c24958b3c175cfc3c8ce7f120ca8",
+   "block": 37140211,
+   "contract": null,
+   "status": 1
+  },
+  {
+   "hash": "0x9a006b9abebb68ea41c7d11759ca71918228b67b03f1e73854cd7790a9243166",
+   "block": 37140212,
+   "contract": "0x171df235638992cc6fa9a9f1bc0fc79ee5582dba",
+   "status": 1
+  },
+  {
+   "hash": "0x75bff8fb3e47570808af5a65ce5c882fd49782ae307d3cf41840589f126de0ec",
+   "block": 37140213,
+   "contract": "0xfefcf23856e437297cd98eff7ca488e97539b2d9",
+   "status": 1
+  },
+  {
+   "hash": "0x0c8431087440fe9d9664be001e1d2eb67124e9aef2d9e1a0854cbb38fc8fef43",
+   "block": 37140214,
+   "contract": null,
+   "status": 1
+  }
+ ],
+ "totalFeeEth": 1.1332843306582e-05
+}
