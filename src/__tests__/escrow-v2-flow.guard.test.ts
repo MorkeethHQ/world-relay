@@ -206,6 +206,10 @@ function seedV2Task(over: Record<string, unknown> = {}) {
 beforeEach(() => {
   vi.unstubAllEnvs();
   vi.stubEnv("ESCROW_V2_ENABLED", "1");
+  // This file guards the V2_1 rail (version 3). Since 2 Nov 2026 new fundings default to
+  // FavourPots (version 4, see escrow-v4-flow.guard.test.ts); FAVOUR_RAIL=v2 keeps these
+  // unfunded fixtures on V2_1, which is also how every already-pinned V2_1 task behaves.
+  vi.stubEnv("FAVOUR_RAIL", "v2");
   tasks.clear();
   chain.record = null;
   chain.eventTx = null;

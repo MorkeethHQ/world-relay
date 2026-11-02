@@ -993,6 +993,8 @@ const AGENT_PERSONALITIES: Record<string, string> = {
 
 type EscrowV2ChainState = {
   disclosure?: string;
+  rail?: number; // 4 = FavourPots (helper chosen at release, fee at payout); absent/3 = V2_1
+  feeLine?: string;
   record: {
     funder: string;
     recipient: string;
@@ -1084,6 +1086,9 @@ function EscrowV2Panel({ task, onAction }: { task: Task; onAction: () => void })
   const refunded = !!task.escrowV2RefundTx;
   const refundable = !!chain?.record?.refundable;
   const disclosure = chain?.disclosure || "Released when you confirm completion. Auto-refundable to you after the deadline.";
+  const isPots = chain?.rail === 4;
+  // FavourPots can be funded before anyone accepts: the helper is chosen when you pay.
+  const canFund = isPots ? (task.status === "open" || task.status === "claimed") : task.status === "claimed";
 
   // Sign a prepared payload, then loop the matching verify action until the
   // server corroborates the chain (a few seconds of block time).
@@ -1175,12 +1180,15 @@ function EscrowV2Panel({ task, onAction }: { task: Task; onAction: () => void })
           : chip("Funds on accept", "amber")}
       </div>
 
-      {/* POSTER: fund step — appears the moment a claimant accepts. */}
-      {isPoster && task.status === "claimed" && !funded && (
+      {/* POSTER: fund step. V2_1: the moment a claimant accepts. FavourPots: any time while open. */}
+      {isPoster && canFund && !funded && (
         <>
           <p className="text-xs text-gray-500">
-            Someone accepted your favour. Lock ${task.bountyUsdc} USDC in the verified escrow so they can start — {disclosure.charAt(0).toLowerCase() + disclosure.slice(1)}
+            {isPots
+              ? `Put $${task.bountyUsdc} USDC behind this favour. ${disclosure}`
+              : <>Someone accepted your favour. Lock ${task.bountyUsdc} USDC in the verified escrow so they can start — {disclosure.charAt(0).toLowerCase() + disclosure.slice(1)}</>}
           </p>
+          {isPots && chain?.feeLine && <p className="text-xs font-medium text-gray-700">{chain.feeLine}</p>}
           <Button
             variant="primary"
             size="lg"
@@ -1197,16 +1205,21 @@ function EscrowV2Panel({ task, onAction }: { task: Task; onAction: () => void })
       {isPoster && funded && !released && !refunded && (
         <>
           <p className="text-xs text-gray-500">
-            {task.pendingRelease
-              ? "The proof passed verification. Confirm completion to pay the runner — the contract can only ever pay the wallet bound at funding."
-              : "When the favour is done, confirm to release the payment. The contract can only ever pay the wallet bound at funding."}
+            {isPots
+              ? task.claimant
+                ? "When the favour is done, confirm to pay the person who did it."
+                : "Your USDC is waiting on-chain. You can pay as soon as someone does the favour."
+              : task.pendingRelease
+                ? "The proof passed verification. Confirm completion to pay the runner — the contract can only ever pay the wallet bound at funding."
+                : "When the favour is done, confirm to release the payment. The contract can only ever pay the wallet bound at funding."}
           </p>
+          {isPots && chain?.feeLine && <p className="text-xs font-medium text-gray-700">{chain.feeLine}</p>}
           <Button
             variant="primary"
             size="lg"
             className="w-full min-h-[48px]"
             onClick={() => signAndVerify("prepare-release", "verify-released", "released")}
-            disabled={busy !== null}
+            disabled={busy !== null || (isPots && !task.claimant)}
           >
             {busy === "prepare-release" ? "Confirm in World App..." : `Confirm & release $${task.bountyUsdc}`}
           </Button>
@@ -1227,7 +1240,9 @@ function EscrowV2Panel({ task, onAction }: { task: Task; onAction: () => void })
       {/* CLAIMANT: honest status. */}
       {isClaimant && !released && !refunded && (
         <p className="text-xs text-gray-500">
-          {funded
+          {funded && isPots
+            ? `$${task.bountyUsdc} USDC is waiting on-chain. It is paid to you when the poster or FAVOUR's review confirms your work. ${chain?.feeLine ?? ""}`
+            : funded
             ? `$${task.bountyUsdc} USDC is locked on-chain for you. It releases when the poster confirms completion.`
             : "The poster hasn't funded the escrow yet. Wait for the \"funded\" notification before doing the work — proof can't be submitted until the money is locked."}
         </p>

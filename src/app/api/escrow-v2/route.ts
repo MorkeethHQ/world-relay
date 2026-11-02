@@ -37,6 +37,14 @@ import { notifyPaymentReleased } from "@/lib/notifications";
 import { addNotification } from "@/lib/notifications-store";
 import { trackEvent } from "@/lib/track";
 import type { Task } from "@/lib/types";
+import { handleV4, isV4Task, v4State } from "./v4";
+import {
+  FAVOUR_POTS_DISCLOSURE,
+  FAVOUR_POTS_VERSION,
+  currentFeeBps,
+  favourPotsAddress,
+  newFundingRailVersion,
+} from "@/lib/favour-pots";
 
 /**
  * FavourEscrowV2 intake surface — the demand-gated USDC flow.
@@ -59,6 +67,16 @@ import type { Task } from "@/lib/types";
 
 function dark() {
   return NextResponse.json({ error: "not found" }, { status: 404 });
+}
+
+/**
+ * Switch-over safety: an unpinned task whose V2_1 funding was signed before new fundings moved to
+ * FavourPots (record exists on V2_1, verify not yet stored) must finish on V2_1.
+ */
+async function fundedOnV2Before(task: Task): Promise<boolean> {
+  if (task.escrowV2Version != null) return false;
+  const rec = await getEscrowV2Record(task.id, escrowV2Address());
+  return !!rec && rec.status !== EscrowV2Status.None;
 }
 
 function pinnedAddress(task: Task): `0x${string}` {
@@ -93,6 +111,20 @@ export async function GET(req: NextRequest) {
     // client treats "404" as "USDC favours unavailable".
     const maxUsd = escrowV2MaxUsd();
     const maxConcurrent = escrowV2MaxConcurrent();
+    if (newFundingRailVersion() === FAVOUR_POTS_VERSION) {
+      // New fundings go to FavourPots; old V2_1 escrows still resolve by their pinned address.
+      return NextResponse.json({
+        enabled: true,
+        contract: favourPotsAddress(),
+        version: FAVOUR_POTS_VERSION,
+        rail: FAVOUR_POTS_VERSION,
+        feeBps: await currentFeeBps(),
+        minUsd: 0.1,
+        maxUsd: Number.isFinite(maxUsd) ? maxUsd : null,
+        maxConcurrent: Number.isFinite(maxConcurrent) ? maxConcurrent : null,
+        disclosure: FAVOUR_POTS_DISCLOSURE,
+      });
+    }
     return NextResponse.json({
       enabled: true,
       contract: escrowV2Address(),
@@ -103,6 +135,7 @@ export async function GET(req: NextRequest) {
     });
   }
   const task = await getTask(appTaskId);
+  if (task && isV4Task(task) && !(await fundedOnV2Before(task))) return v4State(req, task);
   const address = task ? pinnedAddress(task) : escrowV2Address();
   const record = await getEscrowV2Record(appTaskId, address);
   const nowS = BigInt(Math.floor(Date.now() / 1000));
@@ -136,6 +169,7 @@ export async function POST(req: NextRequest) {
     taskId?: string;
     poster?: string;
     txHash?: string;
+    secret?: string;
   };
   try {
     body = await req.json();
@@ -148,6 +182,10 @@ export async function POST(req: NextRequest) {
   }
 
   const task = await getTask(taskId);
+
+  // FavourPots (rail 4): pinned v4 tasks, and unfunded tasks while new fundings go to v4.
+  // Tasks pinned to V2_1 (version 3) never enter this branch.
+  if (task && isV4Task(task) && !(await fundedOnV2Before(task))) return handleV4(req, action, task, body);
 
   switch (action) {
     // -----------------------------------------------------------------------

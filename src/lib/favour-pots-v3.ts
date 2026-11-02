@@ -18,8 +18,8 @@ export const FAVOUR_POTS_SETTINGS = {
   usdc: "0x79A02482A880bCE3F13e09Da970dC34db4CD24d1",
   permit2: "0x000000000022D473030F116dDEE9F6B43aC78BA3",
   feeBps: 250,
-  minAmount: 100_000n, // 0.1 USDC
-  maxAmount: 1_000_000_000n, // 1000 USDC per favour
+  minAmount: BigInt(100_000), // 0.1 USDC
+  maxAmount: BigInt(1_000_000_000), // 1000 USDC per favour
   explorer: "https://worldchain-mainnet.explorer.alchemy.com/address/0x26B4be6eC3Cf71CAA60a7272b9D54dca92D5FA8A",
 } as const;
 

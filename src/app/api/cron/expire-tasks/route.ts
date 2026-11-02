@@ -5,6 +5,8 @@ import { broadcastEvent } from "@/lib/sse";
 import { notifyClaimReminder } from "@/lib/notifications";
 import { refundEscrow } from "@/lib/escrow";
 import { refundExpiredEscrowV2, ESCROW_V2_CONFIRM_GRACE_S } from "@/lib/escrow-v2";
+import { FAVOUR_POTS_VERSION } from "@/lib/favour-pots";
+import { refundExpiredV4 } from "@/app/api/escrow-v2/v4";
 import { addNotification } from "@/lib/notifications-store";
 import { postToThread } from "@/lib/xmtp";
 
@@ -44,9 +46,13 @@ export async function GET(req: NextRequest) {
       !task.escrowV2RefundTx &&
       now > new Date(task.deadline).getTime() + ESCROW_V2_CONFIRM_GRACE_S * 1000 + FOURTEEN_DAYS
     ) {
-      const swept = await refundExpiredEscrowV2(
-        task.id,
-        (task.escrowV2Address ?? undefined) as `0x${string}` | undefined
+      // Version 4 (FavourPots) tasks refund on their own contract; V2_1 tasks keep the V2_1 call.
+      const swept = await (task.escrowV2Version === FAVOUR_POTS_VERSION
+        ? refundExpiredV4(task)
+        : refundExpiredEscrowV2(
+            task.id,
+            (task.escrowV2Address ?? undefined) as `0x${string}` | undefined
+          )
       ).catch((err) => {
         console.error(`[Cron] escrow-v2 refund sweep failed for task ${task.id}:`, err);
         return null;

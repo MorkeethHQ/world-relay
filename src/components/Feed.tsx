@@ -2602,7 +2602,7 @@ function PostTask({
   };
 
   const isInWorld = isMiniKit();
-  const isValid = description && location && bounty && parseFloat(bounty) >= (rewardType === "points" ? 1 : 0.5)
+  const isValid = description && location && bounty && parseFloat(bounty) >= (rewardType === "points" ? 1 : 0.1)
     // Server enforces the same cap; mirroring it here just saves a round trip.
     && !(rewardType === "usdc-v2" && v2Rail?.maxUsd != null && parseFloat(bounty) > v2Rail.maxUsd)
     // A paid favour cannot post until the server has said the rail is open.
@@ -2814,7 +2814,7 @@ function PostTask({
                   <input
                     type="number"
                     placeholder="Other"
-                    min={rewardType === "points" ? "1" : "0.50"}
+                    min={rewardType === "points" ? "1" : "0.10"}
                     max={rewardType === "points" ? "10" : undefined}
                     step={rewardType === "points" ? "1" : "0.50"}
                     value={!presets.includes(bounty) ? bounty : ""}
