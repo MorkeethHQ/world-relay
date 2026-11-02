@@ -1169,6 +1169,7 @@ function EscrowV2Panel({ task, onAction }: { task: Task; onAction: () => void })
   const statusWord = released ? "Paid"
     : refunded ? "Refunded"
     : funded ? "Funded on World Chain"
+    : task.status === "expired" || task.status === "cancelled" ? `Not funded, favour ${task.status}`
     : isPots ? "Not funded yet"
     : task.status === "claimed" ? "Waiting for funding"
     : "Funded when someone accepts";
@@ -1900,7 +1901,7 @@ export default function TaskDetailPage() {
 
         {/* ===== TASK INFO CARD ===== */}
         <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm">
-          <p className="text-[26px] font-bold tracking-[-0.04em] leading-[1.1] text-gray-900 mb-5 break-words">{task.description}</p>
+          <p className="text-[26px] font-bold tracking-[-0.04em] leading-[1.1] text-gray-900 mb-6 pb-1 break-words">{task.description}</p>
 
           <div className="grid grid-cols-2 gap-y-3 gap-x-3 sm:gap-x-4">
             <div>
