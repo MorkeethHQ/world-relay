@@ -38,3 +38,12 @@ Left to Oscar, not invented here: the v3 admin address and the PERFECT fee addre
 | Stuck pot | Winner or fee address blocked by the token | Pull claims; the rest still settle |
 | Wrong winner | Server bug | Challenge window + creator cancel; after settle it is final (stated in the app) |
 | Accounting | Any bug | Invariant tested: token balance >= all pots + all open escrows (FAVOUR), >= all credits (PERFECT) |
+
+## Test plan (runs after the scope ruling)
+
+- Fork World Chain 480 at a pinned block via `vm.createSelectFork`, real USDC (6 dec) and WLD (0x2cFc…3003, 18 dec), real Permit2 (0x0000…8BA3, code present, read 2 Nov).
+- Unit: every function, every revert, 0.1 USDC amounts, both tokens, both pay paths.
+- Fuzz: amounts, caps, slots, deadlines, fee bps up to the max.
+- Invariant (handler-based): FAVOUR `balanceOf(this) >= Σ pots + Σ open escrows`, admin never moves user escrow; PERFECT `balanceOf(pot) >= Σ credits`, fee never above the stamped bps, refunds sum to deposits on cancel.
+- Second-model review: `codex exec` (headless, verified working 2 Nov) on both contracts; each finding answered in REVIEW-ANSWERS.md.
+- Setup note: this worktree's `contracts/lib/openzeppelin-contracts` is an empty submodule; copy it from the favour release worktree, no `forge install`.
