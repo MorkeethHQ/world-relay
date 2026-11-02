@@ -76,7 +76,7 @@ contract UpgradeTest is BaseTest {
         // every balance and record survives
         assertEq(f.getCampaign(id).balance, 20 * ONE);
         assertEq(f.contributed(id, admin), 20 * ONE);
-        assertEq(f.getFavour(keccak256("k")).amount, 3 * ONE);
+        assertEq(f.getFavour(f.favourId(alice, keccak256("k"))).amount, 3 * ONE);
         assertEq(f.owed(address(usdc)), 23 * ONE);
         assertEq(f.feeBps(), FEE);
         assertTrue(f.hasRole(f.OPERATOR_ROLE(), operator));

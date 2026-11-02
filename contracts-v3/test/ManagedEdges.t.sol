@@ -122,7 +122,7 @@ contract ManagedEdgesTest is BaseTest {
     function test_perfect_register_rejects_zero_player_and_hash() public {
         PerfectRounds r = _deployPerfect(address(usdc), address(permit2));
         vm.startPrank(operator);
-        uint256 id = r.openRound(address(usdc), ONE, uint64(block.timestamp + 1 hours), uint64(block.timestamp + 2 hours), 0);
+        uint256 id = r.openRound(address(usdc), ONE, uint64(block.timestamp + 1 hours), uint64(block.timestamp + 2 hours), 1 hours);
         vm.expectRevert(ManagedUpgradeable.ZeroAddress.selector);
         r.registerAttempt(id, address(0), keccak256("x"));
         vm.expectRevert(PerfectRounds.AttemptUnknown.selector);

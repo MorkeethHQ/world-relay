@@ -1,0 +1,47 @@
+F-01 | medium | src/FavourPots.sol:243–244
+Global favour keys can be permanently front-run.
+Scenario: Alice submits fundFavour(K, ...). Another account funds K first using the minimum amount, then releases its own escrow back to itself. Alice’s transaction reverts with FavourExists. Released and refunded records never become reusable, so K remains blocked permanently. The attacker needs no role and cannot steal Alice’s deposit, but can disrupt funding for predictable application task IDs.
+Suggested fix: namespace storage by funder and key, or derive the on-chain identifier from msg.sender and a user nonce. Bind the intended funder when identifying an escrow elsewhere.
+
+F-02 | medium | src/PerfectRounds.sol:127–130, 218–222
+The operator can eliminate the challenge window.
+Scenario: the operator opens a round with challengeWindow = 0, which passes validation. After users fund it and the round closes, the operator registers its own attempt, proposes it, settles, and claims in one transaction. The admin has no opportunity to cancel a wrong result. Winner attestation is explicitly trusted; bypassing the stated waiting safeguard is the issue.
+Suggested fix: enforce a meaningful minimum challenge window controlled by admin, and snapshot that setting when opening each round. Do not let the operator select a shorter window.
+
+F-03 | low | src/FavourPots.sol:157–159; src/PerfectRounds.sol:182–185
+Unchecked narrowing can separate recorded pots from deposited funds.
+Scenario: campaign deposits and round sponsorships accept uint256 amounts without an upper bound, then cast them to uint128. An amount of 2^128 + x credits the pot with only x, while contributed and owed increase by the full amount. Campaign refund denominators become incorrect; settling a PERFECT round leaves the truncated portion without a claim path, still reserved by owed and therefore unsweepable.
+This is not practically reachable with the intended bridged USDC supply; it is a latent bug in the configurable token support.
+Suggested fix: use SafeCast.toUint128(amount), or store aggregate pot amounts as uint256. Bound aggregate additions explicitly.
+
+F-04 | low | src/FavourPots.sol:217–220
+Campaign refund rounding permanently locks residual funds.
+Scenario: two accounts contribute 100,000 units each. After a payout, 100,001 units remain. Closing the campaign gives each contributor 50,000 units. The final unit remains in both the token balance and owed, but both claims are consumed. Neither another refund nor sweepExcess can recover it. This behavior is documented in the source; it is nevertheless permanent fund lock, accumulating across campaigns.
+Suggested fix: track remaining refundable contributions and remaining funds, and give the final contributor the residual. Alternatively, define a terminal dust disposition after all contributors have claimed.
+
+F-05 | info | src/ManagedUpgradeable.sol:175–193; src/FavourPots.sol:200–218; src/PerfectRounds.sol:232–250
+The upgrade delay does not give all depositors an independent exit.
+Scenario: an upgrade is scheduled while a campaign remains open or a PERFECT round has a distant result deadline. Campaign contributors cannot trigger closure; round contributors cannot cancel early. Their funds can remain committed beyond the six-hour upgrade delay. Single-favour funders can release to themselves, but these campaign and round contributors have no equivalent escape.
+Suggested fix: if “users can exit before an upgrade” is a required safeguard, implement an upgrade-aware exit mechanism or prevent execution until affected commitments can finish or refund. Otherwise, describe the delay as notice only. This is a safeguard gap under the stated trusted-admin model, not an unauthorized upgrade bypass.
+
+F-06 | info | src/FavourPots.sol:173–178
+The campaign cap bounds a supplied key, not the compromised operator’s total exposure.
+Scenario: a campaign contains 1,000 USDC with a 5-USDC cap. The operator can send 200 payouts to itself using distinct arbitrary favourKey values. The same key is also independently payable in different campaigns because paid is campaign-scoped. The contract has no independent evidence that these represent distinct real favours.
+Suggested fix: if the hot key must have a stronger spending boundary, require independently authorized favour IDs and payout budgets, or add an admin-controlled aggregate spending allowance. As implemented, the hot key’s maximum exposure is the entire balance of every unfrozen campaign.
+
+Checked and found fine:
+- Upgrade authorization requires DEFAULT_ADMIN, a scheduled implementation, and six elapsed hours; successful execution consumes the schedule.
+- Implementation initialization is disabled; proxy initialization is single-use.
+- All three ERC-7201 slot constants match their declared derivations and are distinct.
+- The immutable Permit2 address resides in implementation code without consuming proxy storage. Replacement implementations must preserve the intended address.
+- Permit2 pulls use msg.sender as owner and the proxy as recipient; there is no caller-selected victim.
+- Deposits verify the exact received amount; fee-on-transfer deposits are rejected.
+- Fees are capped at 1,000 bps and snapshotted per campaign, escrow, and round.
+- Normal payout accounting retains fees inside owed until withdrawal; sweeping excludes owed.
+- Pause and token delisting do not gate existing exit functions.
+- Operator status alone cannot release or refund an unexpired single-favour escrow. A funder may explicitly delegate release authority.
+- Transfer-bearing entry points use nonReentrant; claim state is consumed before transfers, and failed transfers revert those changes.
+- PERFECT settlement makes credits without transferring; one blocked recipient does not block other claims.
+- Cancellation refunds PERFECT contributions without fees; winner attestation and free winning attempts match the stated design.
+
+Verification was by source inspection and arithmetic checks; no execution tests were run in the read-only environment.

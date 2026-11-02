@@ -2,6 +2,7 @@
 pragma solidity 0.8.24;
 
 import {ManagedUpgradeable, IPermit2AllowanceTransfer} from "./ManagedUpgradeable.sol";
+import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 /// @title PerfectRounds: PERFECT prize rounds (World Chain).
 /// @notice Admin or operator opens a round (Oscar, 2 Nov 10:50: people do not create pots for now).
@@ -48,6 +49,7 @@ contract PerfectRounds is ManagedUpgradeable {
         mapping(uint256 => mapping(address => uint256)) contributed; // entries + sponsorship
         mapping(uint256 => mapping(bytes32 => address)) attemptPlayer;
         mapping(address => mapping(address => uint256)) credits; // token => account => claimable
+        uint32 minChallengeWindow; // admin-set floor; the operator cannot open a round below it
     }
 
     // keccak256(abi.encode(uint256(keccak256("morkeeth.perfectrounds")) - 1)) & ~bytes32(uint256(0xff))
@@ -62,6 +64,7 @@ contract PerfectRounds is ManagedUpgradeable {
     event RoundCancelled(uint256 indexed id, address by);
     event Refunded(uint256 indexed id, address indexed account, uint256 amount);
     event Claimed(address indexed token, address indexed account, uint256 amount);
+    event MinChallengeWindowSet(uint32 window);
 
     error UnknownRound();
     error WrongStatus();
@@ -78,6 +81,19 @@ contract PerfectRounds is ManagedUpgradeable {
 
     function initialize(address admin, address operator, address feeRecipient_, uint16 feeBps_) external initializer {
         __Managed_init(admin, operator, feeRecipient_, feeBps_);
+        _ps().minChallengeWindow = 1 hours;
+        emit MinChallengeWindowSet(1 hours);
+    }
+
+    function minChallengeWindow() external view returns (uint32) {
+        return _ps().minChallengeWindow;
+    }
+
+    /// @notice Admin sets the shortest waiting window before a result can be settled.
+    function setMinChallengeWindow(uint32 window) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (window > MAX_CHALLENGE_WINDOW) revert BadTimes();
+        _ps().minChallengeWindow = window;
+        emit MinChallengeWindowSet(window);
     }
 
     function version() external pure virtual override returns (string memory) {
@@ -127,6 +143,7 @@ contract PerfectRounds is ManagedUpgradeable {
         if (
             closeTime <= block.timestamp || resultDeadline <= closeTime
                 || resultDeadline > uint256(closeTime) + MAX_RESULT_WINDOW || challengeWindow > MAX_CHALLENGE_WINDOW
+                || challengeWindow < _ps().minChallengeWindow
         ) revert BadTimes();
         PerfectStorage storage $ = _ps();
         id = ++$.roundCount;
@@ -181,7 +198,7 @@ contract PerfectRounds is ManagedUpgradeable {
 
     function _credit(uint256 id, Round storage rd, uint256 amount, bool viaPermit2) private {
         _pullIn(rd.token, amount, viaPermit2);
-        rd.pot += uint128(amount);
+        rd.pot += SafeCast.toUint128(amount);
         _ps().contributed[id][msg.sender] += amount;
     }
 

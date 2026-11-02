@@ -119,9 +119,9 @@ contract FavourHandler is Test {
         bytes32 key = keccak256(abi.encode("fav", nonce++));
         address who = _user(seed);
         vm.prank(who);
-        try f.fundFavour(key, address(usdc), amount, seed % 2 == 0 ? operator : address(0), uint64(block.timestamp + days_ * 1 days)) {
+        try f.fundFavour(key, address(usdc), amount, seed % 2 == 0 ? operator : address(0), uint64(block.timestamp + days_ * 1 days)) returns (bytes32 id) {
             ghostIn += amount;
-            favourKeys.push(key);
+            favourKeys.push(id);
         } catch {}
     }
 

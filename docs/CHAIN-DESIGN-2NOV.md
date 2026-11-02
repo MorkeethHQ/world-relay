@@ -13,7 +13,7 @@ Not invented here: the admin Safe owners and the PERFECT fee address.
 
 | Role | Holder | Can |
 |---|---|---|
-| ADMIN | Oscar (Safe, see card) | upgrade (through the timelock), change settings within code caps, grant roles, and everything OPERATOR can do: pay out, stop or cancel payouts (Oscar 10:51) |
+| ADMIN | Oscar; agent wallet until > 1000 USDC deployed | upgrade (through the timelock), change settings within code caps, grant roles, and everything OPERATOR can do: pay out, stop or cancel payouts (Oscar 10:51) |
 | OPERATOR | agent / server key | open FAVOUR campaigns and PERFECT rounds, pay out within caps, register attempts, propose winners |
 | PAUSER | ADMIN and OPERATOR | pause new money in; never pauses refunds, claims or withdrawals |
 
@@ -26,11 +26,11 @@ Hard caps written in code: fee <= 10%, minimum >= 0.01 USDC. A round or campaign
 
 - OPERATOR opens a campaign; anyone funds it (plain approve or Permit2); OPERATOR pays a favour from it to a recipient chosen at payout, at most the cap, each favour once.
 - ADMIN closes a campaign and takes the unspent pot back to the funding wallet it came from.
-- A user funds a single favour (plain or Permit2); the user (or the review key the user named) releases it to a recipient chosen then; after the deadline anyone can trigger a refund, which only goes to the user.
+- A user funds a single favour (plain or Permit2); its id is keccak256(funder, key), so nobody can squat a key (Codex F-01); the user (or the review key the user named) releases it to a recipient chosen then; after the deadline anyone can trigger a refund, which only goes to the user.
 
 ## PERFECT: `PerfectRounds` (Oscar 10:50: admin opens rounds, everyone pays in and is paid out)
 
-- OPERATOR opens a round: token, entry price, bundle size, close time. Fee copied in.
+- OPERATOR opens a round: token, entry price, close time, challenge window (at least the admin-set floor, 1 h at start; Codex F-02). Fee copied in.
 - Anyone buys entries (plain or Permit2) or sponsors the pot.
 - Winner, said plainly: the game server registers finished attempts (free or paid) and proposes the winning attempt plus a board hash. After the challenge window anyone settles. The contract proves the winner is a registered attempt of that round and the timing; it does not prove the score.
 - No proposal by the deadline: anyone cancels, everyone gets their full money back, no fee.
@@ -42,8 +42,8 @@ An upgrade can rewrite any rule, including the hard caps. So the caps bind only 
 
 | Safeguard | Proposal | Card |
 |---|---|---|
-| Timelock on upgrades | 24 h delay on upgrades only; settings and pause stay instant. Users see the pending upgrade (event) and can exit first: refunds, claims and closes are never pausable | chain-design-timelock-2nov |
-| Multisig | ADMIN = a Safe on World Chain, 2 of 3 keys Oscar holds; the agent key is only OPERATOR | chain-design-multisig-2nov |
+| Timelock on upgrades | 6 h delay on upgrades only (Oscar, 2 Nov 10:54); settings and pause stay instant. It is public notice (UpgradeScheduled event), not a guaranteed exit: open campaign pots and running rounds cannot be forced shut by users (Codex F-05). Refunds, claims and closes are never pausable | chain-design-timelock-2nov (EDIT: 6 h) |
+| Multisig | Not now (Oscar, 2 Nov 10:54): agents hold ADMIN until more than 1000 USDC is deployed, then switch to a safer wallet (role handover tested) | chain-design-multisig-2nov (EDIT) |
 | Events | Every setting change, role change, pause and upgrade emits an event | always on, no card |
 | Fee cap in code | 10% hard cap, fee copied per round or campaign | chain-design-fee-2nov-v2 |
 
@@ -51,7 +51,7 @@ An upgrade can rewrite any rule, including the hard caps. So the caps bind only 
 
 | Threat | Answer |
 |---|---|
-| Admin key stolen | Safe 2 of 3 + 24 h upgrade delay; settings capped in code |
+| Admin key stolen | 6 h upgrade delay; settings capped in code; move admin to a safer wallet past 1000 USDC |
 | Operator (server) key stolen | Can pay out at most the cap per favour, from open pots only; never user escrows; ADMIN revokes the role |
 | Bad upgrade | OZ upgrade-safety check + storage-layout diff + fork test of the new version before the Safe signs |
 | Front-running a fee change | Fee copied into each round or campaign when it opens |

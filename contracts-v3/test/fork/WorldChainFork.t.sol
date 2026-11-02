@@ -80,7 +80,7 @@ contract WorldChainForkTest is Test {
         f.fundFavourWithPermit2(keccak256("fork-s"), USDC, 2e6, address(0), uint64(block.timestamp + 1 days));
         vm.warp(block.timestamp + 1 days + 1);
         uint256 b0 = IERC20(USDC).balanceOf(alice);
-        f.refundFavour(keccak256("fork-s"));
+        f.refundFavour(f.favourId(alice, keccak256("fork-s")));
         assertEq(IERC20(USDC).balanceOf(alice) - b0, 2e6);
     }
 
@@ -96,7 +96,7 @@ contract WorldChainForkTest is Test {
     function test_fork_perfect_round_permit2_settle_claim() public {
         uint64 close = uint64(block.timestamp + 1 hours);
         vm.prank(operator);
-        uint256 id = r.openRound(USDC, 1e6, close, close + 1 days, 10 minutes);
+        uint256 id = r.openRound(USDC, 1e6, close, close + 1 days, 1 hours);
         _permit2(alice, address(r), uint160(3e6));
         vm.prank(alice);
         r.buyEntriesWithPermit2(id, 3);
@@ -105,7 +105,7 @@ contract WorldChainForkTest is Test {
         vm.warp(close);
         vm.prank(operator);
         r.proposeWinner(id, keccak256("free-try"), keccak256("board"));
-        vm.warp(close + 10 minutes);
+        vm.warp(close + 1 hours);
         r.settle(id);
         vm.prank(worker);
         r.claim(USDC);

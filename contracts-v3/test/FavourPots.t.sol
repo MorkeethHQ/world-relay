@@ -34,6 +34,11 @@ contract FavourPotsTest is BaseTest {
         return (a * FEE) / 10_000;
     }
 
+    /// Same derivation as FavourPots.favourId, computed locally so vm.prank is not consumed.
+    function _id(address funder, bytes32 key) internal pure returns (bytes32) {
+        return keccak256(abi.encode(funder, key));
+    }
+
     // ---------- init ----------
     function test_init_roles_and_fee() public view {
         assertTrue(f.hasRole(f.DEFAULT_ADMIN_ROLE(), admin));
@@ -143,7 +148,7 @@ contract FavourPotsTest is BaseTest {
         vm.prank(alice);
         f.fundFavour(k, address(usdc), DIME, address(0), uint64(block.timestamp + 1 days));
         vm.prank(alice);
-        f.releaseFavour(k, carol);
+        f.releaseFavour(_id(alice, k), carol);
         assertEq(usdc.balanceOf(carol), DIME - _fee(DIME));
     }
 
@@ -283,9 +288,9 @@ contract FavourPotsTest is BaseTest {
         f.fundFavour(k, address(usdc), 3 * ONE, address(0), uint64(block.timestamp + 7 days));
         assertEq(f.owed(address(usdc)), 3 * ONE);
         vm.prank(alice);
-        f.releaseFavour(k, carol);
+        f.releaseFavour(_id(alice, k), carol);
         assertEq(usdc.balanceOf(carol), 3 * ONE - _fee(3 * ONE));
-        assertEq(uint8(f.getFavour(k).status), uint8(FavourPots.FavourStatus.Released));
+        assertEq(uint8(f.getFavour(_id(alice, k)).status), uint8(FavourPots.FavourStatus.Released));
     }
 
     function test_single_favour_release_by_named_releaser() public {
@@ -293,7 +298,7 @@ contract FavourPotsTest is BaseTest {
         vm.prank(alice);
         f.fundFavour(k, address(usdc), ONE, operator, uint64(block.timestamp + 7 days));
         vm.prank(operator);
-        f.releaseFavour(k, carol);
+        f.releaseFavour(_id(alice, k), carol);
         assertGt(usdc.balanceOf(carol), 0);
     }
 
@@ -303,19 +308,68 @@ contract FavourPotsTest is BaseTest {
         f.fundFavour(k, address(usdc), ONE, address(0), uint64(block.timestamp + 7 days));
         vm.prank(stranger);
         vm.expectRevert(FavourPots.NotFunderOrReleaser.selector);
-        f.releaseFavour(k, stranger);
+        f.releaseFavour(_id(alice, k), stranger);
         vm.prank(admin); // admin can refund to funder, never redirect user money
         vm.expectRevert(FavourPots.NotFunderOrReleaser.selector);
-        f.releaseFavour(k, admin);
+        f.releaseFavour(_id(alice, k), admin);
     }
 
-    function test_single_favour_duplicate_key_reverts() public {
+    function test_single_favour_duplicate_key_same_funder_reverts() public {
         bytes32 k = keccak256("s4");
         vm.prank(alice);
         f.fundFavour(k, address(usdc), ONE, address(0), uint64(block.timestamp + 7 days));
-        vm.prank(bob);
+        vm.prank(alice);
         vm.expectRevert(FavourPots.FavourExists.selector);
         f.fundFavour(k, address(usdc), ONE, address(0), uint64(block.timestamp + 7 days));
+    }
+
+    /// Codex F-01: someone funding the same app key first must not block the real funder.
+    function test_frontrun_same_key_by_other_account_does_not_block() public {
+        bytes32 k = keccak256("app-task-42");
+        vm.prank(bob); // attacker squats the key and releases to itself
+        bytes32 bobId = f.fundFavour(k, address(usdc), DIME, address(0), uint64(block.timestamp + 1 days));
+        vm.prank(bob);
+        f.releaseFavour(bobId, bob);
+        vm.prank(alice); // the real funder still goes through
+        bytes32 aliceId = f.fundFavour(k, address(usdc), 3 * ONE, address(0), uint64(block.timestamp + 1 days));
+        assertTrue(aliceId != bobId);
+        assertEq(aliceId, f.favourId(alice, k));
+        assertEq(f.getFavour(aliceId).amount, 3 * ONE);
+    }
+
+    /// Codex F-04: the last contributor receives the rounding remainder; no dust stays locked.
+    function test_refund_rounding_remainder_goes_to_last_claimer() public {
+        uint256 id = _open(ONE);
+        vm.prank(admin);
+        f.fundCampaign(id, 100_000);
+        vm.prank(alice);
+        f.fundCampaign(id, 100_000);
+        vm.prank(bob);
+        f.fundCampaign(id, 100_000);
+        vm.prank(operator);
+        f.payFromPot(id, keccak256("x"), carol, 199_999); // 100_001 left, not divisible by 3
+        vm.prank(admin);
+        f.closeCampaign(id);
+        vm.prank(admin);
+        f.claimCampaignRefund(id);
+        vm.prank(alice);
+        f.claimCampaignRefund(id);
+        vm.prank(bob);
+        uint256 last = f.claimCampaignRefund(id);
+        assertEq(last, 100_001 - 2 * 33_333);
+        f.withdrawFees(address(usdc));
+        assertEq(f.owed(address(usdc)), 0);
+        assertEq(usdc.balanceOf(address(f)), 0);
+    }
+
+    /// Codex F-03: amounts above uint128 revert instead of being silently truncated.
+    function test_huge_amount_reverts_not_truncates() public {
+        uint256 id = _open(ONE);
+        uint256 huge = uint256(type(uint128).max) + 2;
+        usdc.mint(alice, huge);
+        vm.prank(alice);
+        vm.expectRevert();
+        f.fundCampaign(id, huge);
     }
 
     function test_single_favour_bad_deadline_reverts() public {
@@ -333,11 +387,11 @@ contract FavourPotsTest is BaseTest {
         f.fundFavour(k, address(usdc), 2 * ONE, address(0), uint64(block.timestamp + 1 days));
         vm.prank(stranger);
         vm.expectRevert(FavourPots.NotExpired.selector);
-        f.refundFavour(k);
+        f.refundFavour(_id(alice, k));
         vm.warp(block.timestamp + 1 days + 1);
         uint256 b0 = usdc.balanceOf(alice);
         vm.prank(stranger);
-        f.refundFavour(k);
+        f.refundFavour(_id(alice, k));
         assertEq(usdc.balanceOf(alice) - b0, 2 * ONE); // no fee on refunds
         assertEq(f.owed(address(usdc)), 0);
     }
@@ -348,7 +402,7 @@ contract FavourPotsTest is BaseTest {
         f.fundFavour(k, address(usdc), 2 * ONE, address(0), uint64(block.timestamp + 10 days));
         uint256 b0 = usdc.balanceOf(alice);
         vm.prank(admin);
-        f.refundFavour(k);
+        f.refundFavour(_id(alice, k));
         assertEq(usdc.balanceOf(alice) - b0, 2 * ONE);
     }
 
@@ -365,7 +419,7 @@ contract FavourPotsTest is BaseTest {
         permit2.approve(address(usdc), address(f), uint160(ONE), 0);
         f.fundFavourWithPermit2(k, address(usdc), ONE, address(0), uint64(block.timestamp + 1 days));
         vm.stopPrank();
-        assertEq(f.getFavour(k).funder, bob);
+        assertEq(f.getFavour(f.favourId(bob, k)).funder, bob);
     }
 
     function test_double_release_and_release_after_refund_revert() public {
@@ -373,13 +427,13 @@ contract FavourPotsTest is BaseTest {
         vm.prank(alice);
         f.fundFavour(k, address(usdc), ONE, address(0), uint64(block.timestamp + 1 days));
         vm.prank(alice);
-        f.releaseFavour(k, carol);
+        f.releaseFavour(_id(alice, k), carol);
         vm.prank(alice);
         vm.expectRevert(FavourPots.FavourNotFunded.selector);
-        f.releaseFavour(k, carol);
+        f.releaseFavour(_id(alice, k), carol);
         vm.warp(block.timestamp + 2 days);
         vm.expectRevert(FavourPots.FavourNotFunded.selector);
-        f.refundFavour(k);
+        f.refundFavour(_id(alice, k));
     }
 
     // ---------- fees ----------
@@ -432,7 +486,7 @@ contract FavourPotsTest is BaseTest {
         vm.prank(operator);
         f.payFromPot(id, keccak256("x"), carol, ONE);
         vm.prank(alice);
-        f.releaseFavour(k, carol);
+        f.releaseFavour(_id(alice, k), carol);
         f.withdrawFees(address(usdc));
         vm.prank(admin);
         f.closeCampaign(id);
@@ -526,8 +580,7 @@ contract FavourPotsTest is BaseTest {
         f.claimCampaignRefund(id);
         uint256 got = usdc.balanceOf(admin) + usdc.balanceOf(alice) - before;
         uint256 remaining = aa + bb - s;
-        assertLe(got, remaining);
-        assertGe(got + 2, remaining); // at most 1 unit of rounding dust per contributor
+        assertEq(got, remaining); // last claimer takes the remainder
         assertGe(usdc.balanceOf(address(f)), f.owed(address(usdc)));
     }
 
@@ -542,9 +595,9 @@ contract FavourPotsTest is BaseTest {
             f.fundFavour(keccak256("fd"), address(usdc), ONE, address(0), deadline);
             vm.warp(deadline);
             vm.expectRevert(FavourPots.NotExpired.selector);
-            f.refundFavour(keccak256("fd"));
+            f.refundFavour(_id(alice, keccak256("fd")));
             vm.warp(uint256(deadline) + 1);
-            f.refundFavour(keccak256("fd"));
+            f.refundFavour(_id(alice, keccak256("fd")));
         }
     }
 }

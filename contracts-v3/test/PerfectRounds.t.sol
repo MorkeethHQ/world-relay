@@ -391,4 +391,29 @@ contract PerfectRoundsTest is BaseTest {
         assertEq(r.owed(address(usdc)), 0);
         assertEq(usdc.balanceOf(alice) + usdc.balanceOf(bob) + usdc.balanceOf(carol), 3000 * ONE);
     }
+
+    /// Codex F-02: the operator cannot open a round without a waiting window.
+    function test_operator_cannot_skip_challenge_window() public {
+        vm.prank(operator);
+        vm.expectRevert(PerfectRounds.BadTimes.selector);
+        r.openRound(address(usdc), ONE, closeT, deadlineT, 0);
+        vm.prank(operator);
+        vm.expectRevert(PerfectRounds.BadTimes.selector);
+        r.openRound(address(usdc), ONE, closeT, deadlineT, 1 hours - 1);
+        assertEq(r.minChallengeWindow(), 1 hours);
+    }
+
+    function test_only_admin_sets_min_challenge_window() public {
+        vm.prank(operator);
+        vm.expectRevert();
+        r.setMinChallengeWindow(0);
+        vm.startPrank(admin);
+        vm.expectRevert(PerfectRounds.BadTimes.selector);
+        r.setMinChallengeWindow(8 days);
+        r.setMinChallengeWindow(2 hours);
+        vm.stopPrank();
+        vm.prank(operator);
+        vm.expectRevert(PerfectRounds.BadTimes.selector);
+        r.openRound(address(usdc), ONE, closeT, deadlineT, 1 hours);
+    }
 }

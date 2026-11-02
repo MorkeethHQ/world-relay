@@ -48,7 +48,7 @@ contract PerfectHandler is Test {
     function openRound(uint256 price, uint256 len, uint256 window) external {
         price = bound(price, 100_000, 5e6);
         len = bound(len, 1 hours, 3 days);
-        window = bound(window, 0, 1 days);
+        window = bound(window, 1 hours, 1 days);
         uint64 close = uint64(block.timestamp + len);
         vm.prank(operator);
         try r.openRound(address(usdc), price, close, close + 2 days, uint32(window)) returns (uint256 id) {
