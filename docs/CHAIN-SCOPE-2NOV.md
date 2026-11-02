@@ -1,57 +1,57 @@
-# FAVOUR + PERFECT money scope, 2 Nov 2026
+# FAVOUR + PERFECT money scope, v2, 2 Nov 2026
 
-Why: Oscar, 2 Nov: "scope the full mechanism incl. future product features before any deploy so nothing needs redeploying."
-So IN means the contract supports it from day one, even if the app turns it on later. OUT means the contract will not have it.
-Source for every row: ~/.local/state/fleet/rulings.jsonl, by date. No Solidity is written until this is ruled.
+Oscar, 2 Nov 10:49, EDIT on v1: "we want to keep the contract flexible and upgradeable so we can manage it, its a consumer app so lets take it as we go".
+So: contracts are upgradeable. **NOW** = in the first version. **LATER** = added by an upgrade when the app needs it. **OUT** = never.
+Source for every ask: ~/.local/state/fleet/rulings.jsonl, by date. No Solidity until v2 is kept.
 
 ## Shared (both contracts)
 
-| # | Feature | Asked | Verdict |
+| # | Feature | Asked | v2 |
 |---|---|---|---|
-| S1 | Amounts as small as 0.1 USDC (100000 units) | 1 Nov, 2 Nov | **IN, must** |
-| S2 | USDC and WLD both accepted (token chosen per pot, from an allowlist) | 9 Oct, 27 Oct | **IN** |
-| S3 | World App pay path (Permit2, one tap) next to plain approve | 19 Oct | **IN** |
-| S4 | Immutable, no upgrade key | 28 Jul custody retirement | **IN** |
-| S5 | Admin key starts as the agent wallet, moves to a safer wallet later (two-step handover) | 8 Oct | **IN** |
-| S6 | Pause new money in; never blocks withdrawals or refunds | safety default | **IN** |
-| S7 | FAVOUR native token | 8 Oct, 9 Oct (undecided) | **OUT** (S2 allowlist can add it later, no redeploy) |
-| S8 | Chance or random payouts | 19 Oct (World rejects) | **OUT** |
+| S1 | Amounts as small as 0.1 USDC (a minimum the admin can change) | 1, 2 Nov | **NOW, must** |
+| S2 | Upgradeable behind a proxy, admin role Oscar controls | 2 Nov | **NOW** |
+| S3 | Settings the admin changes without an upgrade: fee bps (hard cap in code), minimum, cap per favour, allowed tokens | 2 Nov | **NOW** |
+| S4 | Pause new money in; never blocks withdrawals or refunds | 2 Nov | **NOW** |
+| S5 | World App one-tap pay (Permit2) next to plain approve | 19 Oct | **NOW** |
+| S6 | USDC at launch; WLD is one admin setting away (allowed tokens) | 9, 27 Oct | **NOW** (USDC), WLD by setting |
+| S7 | Every admin change and upgrade emits an event | safeguard | **NOW** |
+| S8 | FAVOUR native token | 8, 9 Oct (undecided) | **LATER** |
+| S9 | Chance or random payouts | 19 Oct (World rejects) | **OUT** |
 
-## FAVOUR v3 (campaign pots + single favours)
+## FAVOUR v3
 
-| # | Feature | Asked | Verdict |
+| # | Feature | Asked | v2 |
 |---|---|---|---|
-| F1 | Admin funds a campaign pot from a simple admin page | 8 Oct, 2 Nov | **IN** |
-| F2 | Makers (or their agents) open and fund their own campaign | 8 Oct, 10 Oct | **IN** |
-| F3 | Anyone tops up any campaign pot (sponsor 100 to 200 USDC) | 1 Nov | **IN** |
-| F4 | A user funds one single favour into escrow | 8 Oct, 2 Nov | **IN** |
-| F5 | Recipient chosen at release, not at fund time | 2 Nov order | **IN** |
-| F6 | Platform key (FAVOUR AI review) releases payouts; custody accepted | 8 Oct | **IN**, capped |
-| F7 | Cap per favour, and a slot count per campaign (pilot: 5 USDC x 10) | 20 Oct | **IN** |
-| F8 | Depositor claws back what was not paid out | 8 Oct | **IN** |
-| F9 | Fee: never on deposit, maybe small on payout; zero for the pilot | 8 Oct, 20 Oct | **IN as a setting, 0 at launch**, hard max 5% |
-| F10 | Micro favours: 0.1 USDC feedback | 1 Nov | **IN** (via S1) |
-| F11 | Campaign unlock micro-payments | 1 Nov | **OUT** (a plain payment, not escrow; unclear ask) |
-| F12 | Paid highlight / sponsored post for makers | 8 Oct, 10 Oct | **OUT** (plain transfer to treasury) |
-| F13 | Weekly project vote settlement | 28 Oct (no funds authorized) | **OUT** |
-| F14 | Staking on doing a favour | 19 Oct | **OUT** (nobody asked how; revisit) |
+| F1 | Admin opens and funds a campaign pot from a simple admin page | 8 Oct, 2 Nov | **NOW** |
+| F2 | Anyone tops up a campaign pot (sponsor) | 1 Nov | **NOW** |
+| F3 | A user funds one single favour into escrow | 2 Nov | **NOW** |
+| F4 | Recipient chosen at payout | 2 Nov | **NOW** |
+| F5 | FAVOUR review key pays out, capped per favour, each favour once | 8, 20 Oct | **NOW** |
+| F6 | Unpaid money goes back to who put it in (pot close, escrow refund after deadline) | 8 Oct | **NOW** |
+| F7 | Payout fee setting, starts at 0, never on deposit | 8, 20 Oct | **NOW** (setting) |
+| F8 | Makers or their agents open their own campaigns | 8, 10 Oct | **LATER** |
+| F9 | Slot count per campaign | 20 Oct | **LATER** (pot size and cap do the job) |
+| F10 | Unlock micro-payments, paid highlights, vote settlement, staking | 1 Nov, 8, 28, 19 Oct | **LATER** |
 
-## PERFECT (pot factory)
+## PERFECT
 
-| # | Feature | Asked | Verdict |
+| # | Feature | Asked | v2 |
 |---|---|---|---|
-| P1 | Anyone deploys a prize pot / round | 2 Nov | **IN** |
-| P2 | Paid replay bundle (3 tries for 1 USDC or 1 WLD); price set per round | 24, 27, 28 Oct | **IN** |
-| P3 | Free tries (3 per day) can still win | 28 Oct | **IN** (recorder registers them) |
-| P4 | Sponsors add to the pot without playing | 20 Oct | **IN** |
-| P5 | Winner gets the pot, fee in bps to Oscar, fixed per round | 2 Nov (supersedes 28 Oct "no deduction") | **IN**, hard max 10% |
-| P6 | Winner proof: game server attests, board hash committed, challenge window, timeout cancels with full refunds | gates doc 28 Oct | **IN** (trusted, not trustless) |
-| P7 | Refund of a late or unplayed purchase | 28 Oct | **IN** |
-| P8 | Split prize (2nd, 3rd place) | never asked | **OUT** |
-| P9 | Fee to the round creator | never asked | **OUT** |
-| P10 | Subscriptions, ads, spin tokens | 20 Oct (killed) | **OUT** |
+| P1 | Admin opens rounds; anyone pays in to activate more rounds and can be paid out | 2 Nov 10:50 deploy-card note | **NOW** |
+| P1b | Anyone opens their own pot | 2 Nov order, then 10:50 note "for now people dont need to be able to create pots" | **LATER** (new games by upgrade) |
+| P2 | Paid entry (bundle of tries), price set per round | 24, 27, 28 Oct | **NOW** |
+| P3 | Free tries can win (game server registers them) | 28 Oct | **NOW** |
+| P4 | Sponsors add to the pot | 20 Oct | **NOW** |
+| P5 | Winner paid, fee to Oscar, fee copied into the round when it opens | 2 Nov | **NOW** |
+| P6 | Winner attested by the game server, waiting window, timeout gives full refunds | 28 Oct gates | **NOW** |
+| P7 | Refund of a late or unplayed purchase | 28 Oct | **LATER** (timeout refund covers the stuck case) |
+| P8 | Split prizes, creator fee, subscriptions, ads, spin tokens | not asked or killed 20 Oct | **LATER** / OUT |
 
-## Conflict for Oscar to see
+## Changed from v1
 
-28 Oct: "the entire pot goes to the winner, no hidden deductions". 2 Nov: "a fee to me".
-This scope takes 2 Nov (newest) and shows the fee before anyone pays, so it is never hidden.
+- "Immutable, no upgrade key" flipped to upgradeable (S2).
+- 4 items moved from NOW to LATER: anyone opening a PERFECT pot (P1b, per Oscar's 10:50 note), makers opening campaigns (F8), slot counts (F9), late-purchase refunds (P7).
+- Oscar's 10:50 note ends mid-sentence at "Favour they need to". The FAVOUR half is unknown; F1 to F7 stay as they were until he finishes it.
+- Most v1 OUT items are now LATER (token, unlock payments, highlights, vote settlement, staking, split prizes). Only chance payouts stay OUT.
+- WLD is no longer a separate build: it is one admin setting (S6).
+- Fee conflict still stands: 28 Oct "whole pot to the winner" vs 2 Nov "fee to me". v2 follows 2 Nov.

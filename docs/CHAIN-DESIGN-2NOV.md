@@ -1,49 +1,71 @@
-# FAVOUR v3 + PERFECT factory, one page, 2 Nov 2026
+# FAVOUR v3 + PERFECT, one page, v2, 2 Nov 2026
 
-Spec = CHAIN-SCOPE-2NOV.md (IN rows only). Nothing deployed. Mainnet only after Oscar's GO, and he signs.
-Left to Oscar, not invented here: the v3 admin address and the PERFECT fee address (constructor parameters).
+Spec = CHAIN-SCOPE-2NOV.md v2 (NOW rows). Nothing deployed. Mainnet only after Oscar's GO, and he signs.
+Not invented here: the admin Safe owners and the PERFECT fee address.
 
-## FAVOUR v3: `FavourPots` (one immutable contract)
+## Proxy: UUPS, one proxy per app
 
-- **Campaign pot.** `openCampaign(token, capPerFavour, slots, releaser, deadline)`: anyone (admin, maker, maker's agent). The opener owns the pot.
-  `fundCampaign(id, amount)` (plain or Permit2): anyone tops up. Admin page = open + fund, two taps.
-- **Payout from a pot.** `payFromPot(id, favourKey, recipient, amount)`: by the campaign owner or its releaser (the FAVOUR AI review key).
-  amount <= capPerFavour, each favourKey paid once, at most `slots` payouts. Recipient is chosen here, at release.
-- **Single favour.** `fundFavour(favourKey, token, amount, releaser, deadline)` (plain or Permit2): one user escrow.
-  `releaseFavour(favourKey, recipient)` by funder or its named releaser. `refundFavour` after deadline, anyone triggers, money only goes to the funder.
-- **Clawback.** Campaign owner `closeCampaign(id)` takes back the unspent pot at any time (8 Oct: depositor can claw back).
-- **Fee.** `payoutFeeBps`, admin-set, starts 0, hard max 500 (5%), only on payouts, never on deposit, snapshotted per campaign at open.
-- **Tokens.** Admin allowlist (USDC, WLD). Minimum 0.1 USDC per payout, or the token's own minimum.
-- **Admin powers:** allowlist, fee for new campaigns, pause new deposits, two-step handover. Admin can never touch a pot it does not own or any user escrow.
+- **Which:** OpenZeppelin v5 `UUPSUpgradeable` behind an `ERC1967Proxy`. One for `FavourPots`, one for `PerfectRounds`.
+- **Why UUPS, not transparent:** one admin, so the transparent pattern's separate ProxyAdmin buys nothing; UUPS calls are cheaper; OZ v5 refuses an upgrade to a contract that is not itself upgradeable (bricking guard); the old Relay contract on World Chain already runs UUPS, so the tooling is known.
+- **Storage:** ERC-7201 namespaced storage, so later features add fields without shifting old ones. `forge inspect` storage-layout diff is a gate before every upgrade.
 
-## PERFECT: `PerfectPotFactory` + one `PerfectPot` per round
+## Roles (OZ AccessControl)
 
-- **Anyone deploys** `createPot(token, entryPrice, closeTime, recorder, challengeWindow, resultDeadline)`.
-  The factory stamps `feeBps` and `feeRecipient` into the pot as immutables. Owner can change them for future pots only. Hard max 1000 (10%).
-- **Money in.** `buyBundle()` (3 tries for entryPrice, plain or Permit2), `sponsor(amount)`.
-- **Winner proof (trusted, said plainly).** The recorder (game server) registers finished attempts (free or paid) with an attempt hash, then `proposeWinner(attemptHash, boardHash)`.
-  After `challengeWindow` anyone calls `settle()`. The contract proves only: the winner is a registered attempt of this round, and the timing. It does not prove the score.
-- **Escapes.** No proposal by `resultDeadline` → anyone `cancel()`s → every buyer and sponsor gets their full money back, no fee. The creator can cancel during the challenge window.
-- **Payout is pull, not push.** Settle credits winner and fee address; each `claim()`s. A blocked address cannot freeze anyone else.
+| Role | Holder | Can |
+|---|---|---|
+| ADMIN | Oscar (Safe, see card) | upgrade (through the timelock), change settings within code caps, grant roles |
+| OPERATOR | agent / server key | open FAVOUR campaigns and PERFECT rounds, pay out within caps, register attempts, propose winners |
+| PAUSER | ADMIN and OPERATOR | pause new money in; never pauses refunds, claims or withdrawals |
+
+## Settings (change instantly, by ADMIN, each emits an event)
+
+fee bps (FAVOUR starts 0, PERFECT per the fee card), minimum amount (0.1 USDC), cap per favour, allowed tokens (USDC now, WLD later), challenge window, timeouts.
+Hard caps written in code: fee <= 10%, minimum >= 0.01 USDC. A round or campaign copies its fee when it opens, so a fee change never hits money already in.
+
+## FAVOUR v3: `FavourPots`
+
+- OPERATOR opens a campaign; anyone funds it (plain approve or Permit2); OPERATOR pays a favour from it to a recipient chosen at payout, at most the cap, each favour once.
+- ADMIN closes a campaign and takes the unspent pot back to the funding wallet it came from.
+- A user funds a single favour (plain or Permit2); the user (or the review key the user named) releases it to a recipient chosen then; after the deadline anyone can trigger a refund, which only goes to the user.
+
+## PERFECT: `PerfectRounds` (Oscar 10:50: admin opens rounds, everyone pays in and is paid out)
+
+- OPERATOR opens a round: token, entry price, bundle size, close time. Fee copied in.
+- Anyone buys entries (plain or Permit2) or sponsors the pot.
+- Winner, said plainly: the game server registers finished attempts (free or paid) and proposes the winning attempt plus a board hash. After the challenge window anyone settles. The contract proves the winner is a registered attempt of that round and the timing; it does not prove the score.
+- No proposal by the deadline: anyone cancels, everyone gets their full money back, no fee.
+- Payout by claim: winner and fee address each pull their share; a blocked address cannot freeze others.
+
+## What upgradeability costs, and the safeguards
+
+An upgrade can rewrite any rule, including the hard caps. So the caps bind only between upgrades; the real guard is who can upgrade and how fast.
+
+| Safeguard | Proposal | Card |
+|---|---|---|
+| Timelock on upgrades | 24 h delay on upgrades only; settings and pause stay instant. Users see the pending upgrade (event) and can exit first: refunds, claims and closes are never pausable | chain-design-timelock-2nov |
+| Multisig | ADMIN = a Safe on World Chain, 2 of 3 keys Oscar holds; the agent key is only OPERATOR | chain-design-multisig-2nov |
+| Events | Every setting change, role change, pause and upgrade emits an event | always on, no card |
+| Fee cap in code | 10% hard cap, fee copied per round or campaign | chain-design-fee-2nov-v2 |
 
 ## Threats
 
-| Threat | Where | Answer |
-|---|---|---|
-| Who can drain | FAVOUR releaser key is a server hot key | Cap per favour x slots bounds the loss to one pot; owner closes the pot; never user escrows |
-| Who can drain | PERFECT recorder lies about the winner | Winner must be a registered attempt; challenge window; creator cancel; recorder is per round |
-| Front-running | Someone buys in after seeing results | Buys close at closeTime; proposal only after closeTime |
-| Front-running | Fee changed before a round opens | Fee is copied into each pot at deploy and never changes |
-| Stuck pot | Recorder disappears | Timeout cancel by anyone, full refunds |
-| Stuck pot | Winner or fee address blocked by the token | Pull claims; the rest still settle |
-| Wrong winner | Server bug | Challenge window + creator cancel; after settle it is final (stated in the app) |
-| Accounting | Any bug | Invariant tested: token balance >= all pots + all open escrows (FAVOUR), >= all credits (PERFECT) |
+| Threat | Answer |
+|---|---|
+| Admin key stolen | Safe 2 of 3 + 24 h upgrade delay; settings capped in code |
+| Operator (server) key stolen | Can pay out at most the cap per favour, from open pots only; never user escrows; ADMIN revokes the role |
+| Bad upgrade | OZ upgrade-safety check + storage-layout diff + fork test of the new version before the Safe signs |
+| Front-running a fee change | Fee copied into each round or campaign when it opens |
+| Recorder disappears | Timeout cancel by anyone, full refunds |
+| Wrong winner | Challenge window, OPERATOR or ADMIN can cancel before settle; final after |
+| Blocked address | Claims are pulled, one by one |
+| Accounting bug | Invariant: token balance >= all pots + open escrows (FAVOUR), >= all credits (PERFECT), checked again after a test upgrade |
 
 ## Test plan (runs after the scope ruling)
 
 - Fork World Chain 480 at a pinned block via `vm.createSelectFork`, real USDC (6 dec) and WLD (0x2cFc…3003, 18 dec), real Permit2 (0x0000…8BA3, code present, read 2 Nov).
 - Unit: every function, every revert, 0.1 USDC amounts, both tokens, both pay paths.
 - Fuzz: amounts, caps, slots, deadlines, fee bps up to the max.
+- Upgrade tests: deploy v1 behind the proxy, fund, upgrade to a v2 mock, check every balance and record survives; unauthorized upgrade reverts; timelock delay enforced.
 - Invariant (handler-based): FAVOUR `balanceOf(this) >= Σ pots + Σ open escrows`, admin never moves user escrow; PERFECT `balanceOf(pot) >= Σ credits`, fee never above the stamped bps, refunds sum to deposits on cancel.
 - Second-model review: `codex exec` (headless, verified working 2 Nov) on both contracts; each finding answered in REVIEW-ANSWERS.md.
 - Setup note: this worktree's `contracts/lib/openzeppelin-contracts` is an empty submodule; copy it from the favour release worktree, no `forge install`.
