@@ -26,9 +26,9 @@ Source for every ask: ~/.local/state/fleet/rulings.jsonl, by date. No Solidity u
 | F2 | Anyone tops up a campaign pot (sponsor) | 1 Nov | **NOW** |
 | F3 | A user funds one single favour into escrow | 2 Nov | **NOW** |
 | F4 | Recipient chosen at payout | 2 Nov | **NOW** |
-| F5 | FAVOUR review key pays out, capped per favour, each favour once | 8, 20 Oct | **NOW** |
+| F5 | FAVOUR review key pays out, capped per favour, each favour once; admin can also pay out, stop or cancel any payout from a pot | 8, 20 Oct; 2 Nov 10:51 "as an admin i also need to be able to control them" | **NOW** |
 | F6 | Unpaid money goes back to who put it in (pot close, escrow refund after deadline) | 8 Oct | **NOW** |
-| F7 | Payout fee setting, starts at 0, never on deposit | 8, 20 Oct | **NOW** (setting) |
+| F7 | Fee to Oscar on FAVOUR payouts too, never on deposit, same 10% hard cap | 8 Oct; 2 Nov 10:51 "and a fee here too" | **NOW** (2.5%, setting) |
 | F8 | Makers or their agents open their own campaigns | 8, 10 Oct | **LATER** |
 | F9 | Slot count per campaign | 20 Oct | **LATER** (pot size and cap do the job) |
 | F10 | Unlock micro-payments, paid highlights, vote settlement, staking | 1 Nov, 8, 28, 19 Oct | **LATER** |
@@ -48,6 +48,8 @@ Source for every ask: ~/.local/state/fleet/rulings.jsonl, by date. No Solidity u
 | P8 | Split prizes, creator fee, subscriptions, ads, spin tokens | not asked or killed 20 Oct | **LATER** / OUT |
 
 ## Changed from v1
+
+- Oscar's 10:50 to 10:51 KEEPs folded in: PERFECT fee 2.5% kept; FAVOUR pot gets a fee too (F7); admin controls payouts (F5).
 
 - "Immutable, no upgrade key" flipped to upgradeable (S2).
 - 4 items moved from NOW to LATER: anyone opening a PERFECT pot (P1b, per Oscar's 10:50 note), makers opening campaigns (F8), slot counts (F9), late-purchase refunds (P7).

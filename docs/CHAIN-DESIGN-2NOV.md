@@ -13,13 +13,13 @@ Not invented here: the admin Safe owners and the PERFECT fee address.
 
 | Role | Holder | Can |
 |---|---|---|
-| ADMIN | Oscar (Safe, see card) | upgrade (through the timelock), change settings within code caps, grant roles |
+| ADMIN | Oscar (Safe, see card) | upgrade (through the timelock), change settings within code caps, grant roles, and everything OPERATOR can do: pay out, stop or cancel payouts (Oscar 10:51) |
 | OPERATOR | agent / server key | open FAVOUR campaigns and PERFECT rounds, pay out within caps, register attempts, propose winners |
 | PAUSER | ADMIN and OPERATOR | pause new money in; never pauses refunds, claims or withdrawals |
 
 ## Settings (change instantly, by ADMIN, each emits an event)
 
-fee bps (FAVOUR starts 0, PERFECT per the fee card), minimum amount (0.1 USDC), cap per favour, allowed tokens (USDC now, WLD later), challenge window, timeouts.
+fee bps (2.5% on payouts in both apps, Oscar KEPT 10:50 to 10:51; never on deposit), minimum amount (0.1 USDC), cap per favour, allowed tokens (USDC now, WLD later), challenge window, timeouts.
 Hard caps written in code: fee <= 10%, minimum >= 0.01 USDC. A round or campaign copies its fee when it opens, so a fee change never hits money already in.
 
 ## FAVOUR v3: `FavourPots`
