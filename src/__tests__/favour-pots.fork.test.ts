@@ -5,7 +5,8 @@
  *
  * Run: anvil --fork-url https://worldchain-mainnet.g.alchemy.com/public --port 8547 --auto-impersonate
  *      FAVOUR_FORK_RPC=http://127.0.0.1:8547 npx vitest run src/__tests__/favour-pots.fork.test.ts
- * Skipped when FAVOUR_FORK_RPC is unset (normal CI).
+ * Skipped when FAVOUR_FORK_RPC is unset (normal CI). Use a FRESH anvil per run: the poster's real USDC
+ * balance is spent by each run.
  */
 import { describe, it, expect, beforeAll } from "vitest";
 import { createTestClient, createPublicClient, http, parseAbi, keccak256, toBytes, type Hex } from "viem";
@@ -18,7 +19,6 @@ const ADMIN = "0x4fD66BdA6d792bE89d1fAeaF9F287AcaCaDBDce6"; // contract admin (i
 const POSTER = "0x244eEE7101fEE95D5040452d235dEa5A5bAA786b"; // funding wallet, holds real USDC on mainnet
 const HELPER = "0x3648b7f52f8f1dff9c412c032271cf3f386b4443";
 const FEE_TO = "0x19c3348e2e2c2505a667875f0f63790b79fec925"; // Oscar's fee address on the contract
-const V2_1 = "0x61041dfC405D6CeA57653B8E8BCBDA209214682f";
 
 const erc20 = parseAbi([
   "function balanceOf(address) view returns (uint256)",
@@ -37,6 +37,7 @@ describe.skipIf(!RPC)("FavourPots on a World Chain fork (real USDC, Permit2, dep
   let USDC: Hex;
   let PERMIT2: Hex;
   let POTS: Hex;
+  let V2_1: Hex; // from the config source, never a literal (escrow-v2-address guard)
   const test = createTestClient({ chain: worldchain, mode: "anvil", transport: http(RPC) });
   const pub = createPublicClient({ chain: worldchain, transport: http(RPC) });
   const bal = (who: string) => pub.readContract({ address: USDC, abi: erc20, functionName: "balanceOf", args: [who as Hex] });
@@ -65,6 +66,7 @@ describe.skipIf(!RPC)("FavourPots on a World Chain fork (real USDC, Permit2, dep
     lib = await import("@/lib/favour-pots");
     USDC = (await import("@/lib/contracts")).USDC_ADDRESS as Hex;
     PERMIT2 = (await import("@/lib/escrow-v2")).PERMIT2_ADDRESS as Hex;
+    V2_1 = (await import("@/lib/escrow-v2")).escrowV2Address();
     POTS = lib.favourPotsAddress();
     expect(await pub.getChainId()).toBe(480);
     await test.setBalance({ address: ANVIL_ADDR0, value: BigInt(1e18) });
@@ -80,6 +82,7 @@ describe.skipIf(!RPC)("FavourPots on a World Chain fork (real USDC, Permit2, dep
     await signLikeWorldApp(POSTER, BigInt(2_000_000), lib.buildFundCampaignTx(campaignId, BigInt(2_000_000)));
     expect((await lib.getCampaignRecord(campaignId))!.balance).toBe(BigInt(2_000_000));
 
+    await lib.withdrawFeesBestEffort();
     const h0 = await bal(HELPER);
     const f0 = await bal(FEE_TO);
     await lib.serverPayFromPot(campaignId, keccak256(toBytes("favour:fork-1")), HELPER, BigInt(1_000_000));
@@ -102,6 +105,7 @@ describe.skipIf(!RPC)("FavourPots on a World Chain fork (real USDC, Permit2, dep
     expect(rec!.releaser).toBe(ANVIL_ADDR0);
     expect(await lib.findPotsEventTx(lib.EVENT_FAVOUR_FUNDED, id)).toMatch(/^0x[0-9a-f]{64}$/);
 
+    await lib.withdrawFeesBestEffort(); // clear fees from earlier steps so the delta is this payout's
     const h0 = await bal(HELPER);
     const f0 = await bal(FEE_TO);
     await lib.serverReleaseFavour(id, HELPER);
