@@ -1,0 +1,12 @@
+exec
+/bin/zsh -lc "sed -n '4054,4080p' /private/tmp/claude-501/-Users-morkeeth--local-state-fleet-evening-run-20261026-delivery/c8d6a8cb-3c50-4bcc-854c-0787d9f77590/scratchpad/codex-review.txt; rg -n 'function test|remainder|dust|SafeCast|Challenge|challenge|namespace|twice|Zero' test/FavourPots.t.sol test/PerfectRounds.t.sol; rg -n 'function _checkMin|function setToken' src/ManagedUpgradeable.sol" in /Users/morkeeth/CODE/.worktrees/favour-chain-v3-2nov/contracts-v3
+ succeeded in 0ms:
+F-01 OK — src/FavourPots.sol:265: ID includes msg.sender and key; another funder using the same key cannot squat Alice’s escrow.
+
+F-02 OK — src/PerfectRounds.sol:84,146: default one-hour floor, admin-only changes, window snapshotted per round. Operator cannot bypass it. Admin can explicitly set zero.
+
+F-03 OK — src/FavourPots.sol:167; src/PerfectRounds.sol:201: SafeCast rejects oversized deposits; checked additions reject aggregate overflow. Reverts roll back token transfers and accounting.
+
+F-04 OK — src/FavourPots.sol:171,229–239: zero contributions rejected; repeat funding counts once; funding after close rejected. Claims cannot repeat. Earlier rounded shares cannot exceed remaining funds; final claimant receives exactly the remainder. No underflow, double payment, or contributor miscount found.
+
+New bugs: none found in the fix diff. Static review; assumes fresh deployment, consistent with README.

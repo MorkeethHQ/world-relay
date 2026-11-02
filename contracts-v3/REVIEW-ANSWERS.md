@@ -14,3 +14,8 @@ Result: 6 findings (2 medium, 2 low, 2 info). 4 fixed with a regression test eac
 | F-06 | info | A leaked operator key can drain every unfrozen campaign pot, cap by cap, with made-up favour keys | **ACCEPTED, known.** Oscar accepted platform custody (ruling 8 Oct) and kept the release card (2 Nov 10:51). Bounds today: cap per payout, pot size, admin freeze and role revoke, events on every payout. User single-favour escrows are out of the operator's reach (invariant `invariant_admin_never_redirects_user_escrow`, unit tests). A per-campaign daily allowance is a LATER upgrade if pots grow | scope v2 F9/F10 LATER |
 
 Reviewer's "checked and found fine" list (not re-tested by Codex, all covered by our tests): upgrade authorisation and single-use schedule, disabled implementation initializer, ERC-7201 slots (`forge inspect` shows zero sequential slots), Permit2 pulls pinned to msg.sender, fee-on-transfer rejection, fee cap and snapshots, owed vs sweep, pause never gates exits, reentrancy guards, pull-based PERFECT credits, full refunds on cancel.
+
+## Fix re-review, 2 Nov 2026
+
+Codex re-reviewed the fix diff e813850..6ef1c55 (review/codex-2nov-fixes.txt): F-01, F-02, F-03, F-04 all OK; last-claimer accounting checked for underflow, double pay, repeat funding and funding after close; no new finding.
+Note from Codex: admin can still set the minimum challenge window to zero on purpose. Kept: that is an admin choice, emitted as MinChallengeWindowSet.
