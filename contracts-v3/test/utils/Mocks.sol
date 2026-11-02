@@ -23,7 +23,7 @@ contract MockUSDC is ERC20 {
         blocked[who] = b;
     }
 
-    function _update(address from, address to, uint256 value) internal override {
+    function _update(address from, address to, uint256 value) internal virtual override {
         require(!blocked[from] && !blocked[to], "blocked");
         super._update(from, to, value);
     }

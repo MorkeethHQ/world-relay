@@ -246,7 +246,7 @@ contract FavourPotsTest is BaseTest {
         assertEq(usdc.balanceOf(admin) - a0, 27 * ONE);
         assertEq(usdc.balanceOf(alice), 10_000 * ONE - 10 * ONE + 9 * ONE);
         vm.prank(alice);
-        vm.expectRevert(FavourPots.NothingToClaim.selector);
+        vm.expectRevert(ManagedUpgradeable.NothingToClaim.selector);
         f.claimCampaignRefund(id);
     }
 
