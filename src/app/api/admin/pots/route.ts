@@ -22,7 +22,8 @@ import { FAVOUR_POTS_SETTINGS } from "@/lib/favour-pots-v3";
 import { trackEvent } from "@/lib/track";
 
 /**
- * Admin campaign pots on FavourPots (rail 4), behind ADMIN_SECRET.
+ * Admin campaign pots on FavourPots (rail 4). open / pay / withdraw-fees need ADMIN_SECRET; status and
+ * prepare-fund are public (funding a pot is permissionless on-chain).
  *
  *   open           { capUsd }                          server key opens a USDC pot, returns its id
  *   status         { campaignId }                      pot balance, cap, fee, fees waiting
@@ -79,7 +80,12 @@ export async function POST(req: NextRequest) {
   const { ok } = await rateLimit(`admin-pots:${getClientIp(req)}`, 30, 60_000);
   if (!ok) return NextResponse.json({ error: "Too many requests" }, { status: 429 });
   const body = await req.json().catch(() => ({}));
-  if (!adminOk(body?.secret)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  // status and prepare-fund are public: anyone may fund a pot on-chain anyway, so Oscar's phone
+  // never needs the admin secret. Opening pots, paying and fee withdrawal stay behind it.
+  const PUBLIC = new Set(["status", "prepare-fund"]);
+  if (!PUBLIC.has(body?.action) && !adminOk(body?.secret)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
   try {
     switch (body.action) {

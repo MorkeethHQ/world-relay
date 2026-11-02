@@ -45,7 +45,8 @@ export default function AdminPotsPage() {
   useEffect(() => {
     try {
       setSecret(sessionStorage.getItem("favour_admin_secret") || "");
-      setPotId(localStorage.getItem("favour_admin_pot") || "");
+      const fromUrl = new URLSearchParams(window.location.search).get("pot");
+      setPotId(fromUrl || localStorage.getItem("favour_admin_pot") || "");
     } catch { /* storage blocked */ }
   }, []);
 
@@ -142,7 +143,7 @@ export default function AdminPotsPage() {
         <p className="text-sm font-semibold">Pot</p>
         <div className="flex gap-2">
           <input className={field} placeholder="Pot number" value={potId} onChange={(e) => { setPotId(e.target.value); remember(secret, e.target.value); }} />
-          <button className="rounded-xl border px-4 text-sm" disabled={!secret || !potId || !!busy} onClick={() => refresh()}>Load</button>
+          <button className="rounded-xl border px-4 text-sm" disabled={!potId || !!busy} onClick={() => refresh()}>Load</button>
         </div>
         {pot && (
           <p className="text-sm text-gray-700">
@@ -155,7 +156,7 @@ export default function AdminPotsPage() {
       <section className="flex flex-col gap-2 border-t pt-4">
         <p className="text-sm font-semibold">2. Fund the pot from World App</p>
         <input className={field} inputMode="decimal" value={fundAmount} onChange={(e) => setFundAmount(e.target.value)} />
-        <button className={btn} disabled={!secret || !potId || !!busy} onClick={fundPot}>{busy === "fund" ? "Waiting..." : `Fund ${fundAmount} USDC`}</button>
+        <button className={btn} disabled={!potId || !!busy} onClick={fundPot}>{busy === "fund" ? "Waiting..." : `Fund ${fundAmount} USDC`}</button>
       </section>
 
       <section className="flex flex-col gap-2 border-t pt-4">
