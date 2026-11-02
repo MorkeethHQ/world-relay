@@ -138,7 +138,7 @@ function CollapsibleSection({
         aria-label={`${open ? "Collapse" : "Expand"} ${title}`}
       >
         {icon && <span className="shrink-0">{icon}</span>}
-        <span className="text-xs text-gray-400 uppercase tracking-wider font-medium flex-1 text-left">
+        <span className="text-sm text-gray-500 font-medium flex-1 text-left">
           {title}
         </span>
         {badge && <span className="shrink-0">{badge}</span>}
@@ -995,6 +995,8 @@ type EscrowV2ChainState = {
   disclosure?: string;
   rail?: number; // 4 = FavourPots (helper chosen at release, fee at payout); absent/3 = V2_1
   feeLine?: string;
+  feeBps?: number;
+  netToHelper?: string; // USDC units, 6 decimals
   record: {
     funder: string;
     recipient: string;
@@ -1163,22 +1165,33 @@ function EscrowV2Panel({ task, onAction }: { task: Task; onAction: () => void })
     }
   };
 
-  const chip = (text: string, tone: "green" | "amber" | "gray") => (
-    <span className={`text-[10px] font-bold uppercase tracking-wide rounded px-1.5 py-0.5 ${
-      tone === "green" ? "text-success-700 bg-success-100" : tone === "amber" ? "text-warning-700 bg-warning-100" : "text-gray-500 bg-gray-100"
-    }`}>{text}</span>
-  );
+  // One plain status word: no coloured chips (v3 look, KEPT 2 Nov).
+  const statusWord = released ? "Paid"
+    : refunded ? "Refunded"
+    : funded ? "Funded on World Chain"
+    : isPots ? "Not funded yet"
+    : task.status === "claimed" ? "Waiting for funding"
+    : "Funded when someone accepts";
+  const usd = (n: number) => `$${n.toFixed(2)}`;
+  const net = chain?.netToHelper ? Number(chain.netToHelper) / 1_000_000 : null;
+  const feeUsd = net != null ? task.bountyUsdc - net : null;
 
   return (
-    <div className="bg-white border border-gray-200 rounded-2xl p-4 flex flex-col gap-3">
-      <div className="flex items-center justify-between">
-        <p className="text-sm font-semibold text-gray-900">USDC escrow</p>
-        {released ? chip("Paid", "green")
-          : refunded ? chip("Refunded", "gray")
-          : funded ? chip("Funded on-chain", "green")
-          : task.status === "claimed" ? chip("Awaiting funding", "amber")
-          : chip("Funds on accept", "amber")}
-      </div>
+    <div className="bg-white border border-gray-200 rounded-[22px] p-5 flex flex-col gap-4">
+      <p className="text-sm text-gray-500">{statusWord}</p>
+      <p className="text-[48px] font-bold tracking-[-0.05em] leading-none text-gray-900">
+        {usd(task.bountyUsdc)}<span className="text-lg font-medium tracking-normal text-gray-500 ml-1.5">USDC</span>
+      </p>
+      {isPots && net != null && feeUsd != null && chain?.feeBps != null && (
+        <dl className="grid grid-cols-[1fr_auto] gap-y-2 text-[15px]">
+          <dt className="text-gray-500">{released ? "Helper received" : "Helper receives"}</dt>
+          <dd className="text-right text-gray-900">${net.toFixed(net < 1 ? 4 : 3).replace(/0+$/, "").replace(/\.$/, "")}</dd>
+          <dt className="text-gray-500">FAVOUR fee {(chain.feeBps / 100).toFixed(1)}%, at payout</dt>
+          <dd className="text-right text-gray-900">${feeUsd.toFixed(4).replace(/0+$/, "").replace(/\.$/, "")}</dd>
+          <dt className="text-gray-500 border-t border-gray-200 pt-2.5 font-medium">You put in</dt>
+          <dd className="text-right text-gray-900 border-t border-gray-200 pt-2.5 font-medium">{usd(task.bountyUsdc)}</dd>
+        </dl>
+      )}
 
       {/* POSTER: fund step. V2_1: the moment a claimant accepts. FavourPots: any time while open. */}
       {isPoster && canFund && !funded && (
@@ -1188,7 +1201,7 @@ function EscrowV2Panel({ task, onAction }: { task: Task; onAction: () => void })
               ? `Put $${task.bountyUsdc} USDC behind this favour. ${disclosure}`
               : <>Someone accepted your favour. Lock ${task.bountyUsdc} USDC in the verified escrow so they can start — {disclosure.charAt(0).toLowerCase() + disclosure.slice(1)}</>}
           </p>
-          {isPots && chain?.feeLine && <p className="text-xs font-medium text-gray-700">{chain.feeLine}</p>}
+          {isPots && chain?.feeLine && net == null && <p className="text-xs font-medium text-gray-700">{chain.feeLine}</p>}
           <Button
             variant="primary"
             size="lg"
@@ -1196,7 +1209,7 @@ function EscrowV2Panel({ task, onAction }: { task: Task; onAction: () => void })
             onClick={() => signAndVerify("prepare-fund", "verify-funded", "funded")}
             disabled={busy !== null}
           >
-            {busy === "prepare-fund" ? "Confirm in World App..." : `Fund $${task.bountyUsdc} USDC`}
+            {busy === "prepare-fund" ? "Confirm in World App..." : `Fund ${usd(task.bountyUsdc)} USDC`}
           </Button>
         </>
       )}
@@ -1771,7 +1784,7 @@ export default function TaskDetailPage() {
     <div className="min-h-screen bg-gray-50 text-gray-900 max-w-lg mx-auto">
       {/* Sticky Header */}
       <TopBar
-        title={`${categoryIcon} Task Detail`}
+        title="Favour"
         startAdornment={
           <Link href="/" aria-label="Back to feed">
             <Button variant="tertiary" size="sm" className="min-h-[44px]" aria-label="Back to feed">
@@ -1845,7 +1858,6 @@ export default function TaskDetailPage() {
                 </span>
               )}
             </div>
-            <span className="text-xs text-gray-400 font-mono">{task.id.slice(0, 16)}</span>
           </div>
           {task.status === "completed" && task.verificationResult?.verdict === "pass" && (
             <Button
@@ -1888,20 +1900,16 @@ export default function TaskDetailPage() {
 
         {/* ===== TASK INFO CARD ===== */}
         <div className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm">
-          <p className="text-xs text-gray-400 uppercase tracking-wider font-medium mb-3">
-            Task Details
-          </p>
-
-          <p className="text-sm text-gray-900 leading-relaxed mb-4 break-words">{task.description}</p>
+          <p className="text-[26px] font-bold tracking-[-0.04em] leading-[1.1] text-gray-900 mb-5 break-words">{task.description}</p>
 
           <div className="grid grid-cols-2 gap-y-3 gap-x-3 sm:gap-x-4">
             <div>
-              <p className="text-xs text-gray-400 uppercase tracking-wider">Location</p>
+              <p className="text-xs text-gray-400">Location</p>
               <p className="text-xs text-gray-500 mt-0.5">{task.location}</p>
             </div>
             <div>
-              <p className="text-xs text-gray-400 uppercase tracking-wider">
-                {task.taskType === "double-or-nothing" ? "Double-or-Nothing" : "Bounty"}
+              <p className="text-xs text-gray-400">
+                {task.taskType === "double-or-nothing" ? "Double-or-nothing" : "Reward"}
               </p>
               {task.taskType === "double-or-nothing" ? (
                 <>
@@ -1913,28 +1921,28 @@ export default function TaskDetailPage() {
                   </p>
                 </>
               ) : (
-                <p className="text-sm text-green-400 font-bold mt-0.5">
+                <p className="text-sm text-gray-900 font-medium mt-0.5">
                   {rewardAmountLabel(task)}
                 </p>
               )}
             </div>
             <div>
-              <p className="text-xs text-gray-400 uppercase tracking-wider">Category</p>
+              <p className="text-xs text-gray-400">Category</p>
               <p className="text-xs text-gray-500 mt-0.5 capitalize">
-                {categoryIcon} {task.category}
+                {task.category}
               </p>
             </div>
             <div>
-              <p className="text-xs text-gray-400 uppercase tracking-wider">Deadline</p>
+              <p className="text-xs text-gray-400">Deadline</p>
               <p className="text-xs text-gray-500 mt-0.5">{formatDate(task.deadline)}</p>
             </div>
             <div>
-              <p className="text-xs text-gray-400 uppercase tracking-wider">Poster</p>
+              <p className="text-xs text-gray-400">Posted by</p>
               <p className="text-xs text-gray-500 mt-0.5 font-mono">{truncate(task.poster)}</p>
             </div>
             {task.claimant && (
               <div>
-                <p className="text-xs text-gray-400 uppercase tracking-wider">Runner</p>
+                <p className="text-xs text-gray-400">Helper</p>
                 <div className="flex items-center gap-1.5 mt-0.5">
                   <p className="text-xs text-gray-500 font-mono">
                     {truncate(task.claimant)}
@@ -1948,7 +1956,7 @@ export default function TaskDetailPage() {
 
         {/* ===== LIFECYCLE TIMELINE ===== */}
         <CollapsibleSection
-          title="Lifecycle Timeline"
+          title="Timeline"
           badge={
             <span className="text-xs text-gray-400 font-mono">
               {steps.filter((s) => s.done).length}/{steps.length}
@@ -2062,7 +2070,7 @@ export default function TaskDetailPage() {
 
         {/* ===== WORLD CHAT THREAD (collapsible) ===== */}
         <CollapsibleSection
-          title="XMTP Chat"
+          title="Chat"
           badge={
             messages.length > 0 ? (
               <span className="text-xs text-gray-400 font-mono">

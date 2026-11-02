@@ -2,6 +2,7 @@
 
 import { FavourPageHero } from "./FavourPageHero";
 import { useState } from "react";
+import { UsdcEntryCard } from "./UsdcEntryCard";
 import { WelcomeStories, StorySegments } from "@/components/WelcomeStories";
 import { storyArt } from "@/lib/welcome-stories";
 import { CAMPAIGNS, type Campaign } from "@/lib/campaigns";
@@ -54,6 +55,7 @@ export function CampaignStageCards({ stage, welcome, welcomeLoading, signedIn, o
           <button type="button" onClick={onOpenWelcome} disabled={!welcome} aria-disabled={!welcome}>{welcomeLoading ? "Loading campaign…" : !welcome ? "Campaign unavailable" : signedIn && done > 0 ? "Continue campaign" : "Explore campaign"} <span aria-hidden>↗</span></button>
         </div>
       </article>
+      <UsdcEntryCard />
       <div className="story-home-intro"><h2>Get a favour done by a verified human.</h2><p>Each campaign joins useful steps to one purpose. See the work, the proof and the progress.</p></div>
       {steps.length > 0 && <div className="story-tiles story-home-tiles" aria-label="Explore campaign favours">{steps.map((step) => { const art = storyArt(step.description); return <button key={step.sourceTaskId} type="button" onClick={() => onOpenWelcomeStep ? onOpenWelcomeStep(step.sourceTaskId) : onOpenWelcome()}>
         {/* eslint-disable-next-line @next/next/no-img-element */}<img src={art.image} alt="" /><span><strong>{art.title}</strong><small>{step.points} points</small></span></button>; })}</div>}
@@ -182,3 +184,4 @@ export function DemoBrandView({ onBack, onPlan, onWelcome }: { onBack: () => voi
     </div>
   );
 }
+
